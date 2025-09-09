@@ -1,4 +1,5 @@
-// src/reducers/workerReducers.js
+
+// ===== FILE: src/reducers/workerReducers.js =====
 import {
   WORKER_LIST_REQUEST,
   WORKER_LIST_SUCCESS,
@@ -8,30 +9,48 @@ import {
 
 const initialState = {
   loading: false,
-  workers: [], // 🔑 مقدار اولیه حتما باید یک آرایه خالی باشه
+  workers: [],
   error: null,
 };
 
 export const workerListReducer = (state = initialState, action) => {
   switch (action.type) {
     case WORKER_LIST_REQUEST:
-      return { ...state, loading: true, workers: [] }; // موقع لودینگ هم workers رو خالی کن
+      return { ...state, loading: true, workers: [] };
 
     case WORKER_LIST_SUCCESS:
       return { ...state, loading: false, workers: action.payload };
 
     case WORKER_LIST_FAIL:
-      return { ...state, loading: false, error: action.payload, workers: [] }; // 🔑 در صورت خطا هم workers رو آرایه خالی بزار
+      return { ...state, loading: false, error: action.payload, workers: [] };
 
-    case WORKER_LOCATION_UPDATE:
+    case WORKER_LOCATION_UPDATE: {
+      const payload = action.payload;
+      const workerId = payload.worker_id;
+
+      // اگر کارگر در لیست نیست، آن را اضافه کن (useful for late joins)
+      const exists = state.workers.some((w) => w.id === workerId);
+
+      if (!exists) {
+        const newWorker = {
+          id: payload.worker_id,
+          name: payload.name || `Worker ${payload.worker_id}`,
+          position: payload.position || '',
+          latitude: payload.latitude,
+          longitude: payload.longitude,
+        };
+        return { ...state, workers: [newWorker, ...state.workers] };
+      }
+
       return {
         ...state,
         workers: state.workers.map((worker) =>
-          worker.id === action.payload.worker_id
-            ? { ...worker, latitude: action.payload.latitude, longitude: action.payload.longitude }
+          worker.id === workerId
+            ? { ...worker, latitude: payload.latitude, longitude: payload.longitude }
             : worker
         ),
       };
+    }
 
     default:
       return state;

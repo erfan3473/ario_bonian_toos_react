@@ -1,6 +1,7 @@
 // src/store.js
 import { configureStore } from '@reduxjs/toolkit';
 import { userLoginReducer, userRegisterReducer } from './reducers/userReducers';
+import { workerListReducer } from './reducers/workerReducers';
 
 // Load user info from localStorage
 const userInfoFromStorage = localStorage.getItem('userInfo')
@@ -15,6 +16,7 @@ const store = configureStore({
   reducer: {
     userLogin: userLoginReducer,
     userRegister: userRegisterReducer,
+    workerList: workerListReducer
   },
   preloadedState,
 });
