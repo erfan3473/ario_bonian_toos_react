@@ -9,7 +9,6 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  // const [email, setEmail] = useState(''); // ❌ ایمیل حذف شد
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState(null);
@@ -37,7 +36,7 @@ export default function ProfileScreen() {
         setUsername(user.username);
         setFirstName(user.first_name || '');
         setLastName(user.last_name || '');
-        // setEmail(user.email || ''); // ❌ ایمیل حذف شد
+        
       }
     }
   }, [dispatch, navigate, userInfo, user, success]);
@@ -53,7 +52,7 @@ export default function ProfileScreen() {
         username,
         first_name: firstName,
         last_name: lastName,
-        // email, // ❌ ایمیل حذف شد
+        
         password
       }));
     }

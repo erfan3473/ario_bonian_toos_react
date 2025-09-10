@@ -43,6 +43,15 @@ const WorkerDashboardScreen = () => {
     dispatch(listWorkers());
   }, [dispatch]);
 
+  // هر ۶۰ ثانیه یکبار کارگرهای قدیمی رو حذف کن
+  useEffect(() => {
+  const interval = setInterval(() => {
+    dispatch(cleanupOldWorkers());
+  }, 60000);
+
+  return () => clearInterval(interval);
+}, [dispatch]);
+
   // 2) WebSocket connect / reconnect logic
   useEffect(() => {
     let alive = true;
