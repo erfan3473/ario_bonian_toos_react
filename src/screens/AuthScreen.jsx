@@ -8,8 +8,8 @@ export default function AuthScreen() {
   const [isRegister, setIsRegister] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
+  const [password2, setPassword2] = useState('') // state برای تکرار رمز عبور
+  const [message, setMessage] = useState(null)   // state برای پیام‌های سمت کلاینت
 
   const dispatch = useDispatch()
   const navigate = useNavigate()
@@ -22,55 +22,36 @@ export default function AuthScreen() {
 
   useEffect(() => {
     if (userInfo) {
-      // اگر ادمین است به صفحه‌ی لیست یوزرها ببر
       if (userInfo.isAdmin) navigate('/admin/users')
-      else navigate('/auth') // یا هر صفحه عمومی
+      else navigate('/') // بعد از ورود موفق به صفحه اصلی منتقل شود
     }
   }, [userInfo, navigate])
 
   const submitHandler = (e) => {
     e.preventDefault()
+    setMessage(null) // پاک کردن پیام قبلی
+
     if (isRegister) {
-      dispatch(register(username, password, firstName, lastName))
+      if (password !== password2) {
+        setMessage('رمزهای عبور یکسان نیستند')
+      } else {
+        dispatch(register(username, password, password2))
+      }
     } else {
       dispatch(login(username, password))
     }
   }
 
   return (
-    <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 items-center">
-      {/* left: visual */}
-      <div className="rounded-2xl p-8 bg-gradient-to-br from-black/40 via-purple-900/30 to-black/20 border border-gray-800 shadow-2xl">
-        <div className="space-y-6">
-          <h2 className="text-3xl font-extrabold">ورود / ثبت‌نام</h2>
-          <p className="text-sm text-gray-400">یک تجربهٔ تیره و سینمایی — حساب بساز یا وارد شو.</p>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-lg bg-gradient-to-br from-purple-800/30 to-black/30 border border-purple-700/20">
-              <h3 className="text-sm font-semibold">امنیت</h3>
-              <p className="text-xs text-gray-400 mt-1">توکن JWT در localStorage ذخیره می‌شود.</p>
-            </div>
-            <div className="p-4 rounded-lg bg-gradient-to-br from-indigo-800/20 to-black/20 border border-indigo-700/10">
-              <h3 className="text-sm font-semibold">طراحی</h3>
-              <p className="text-xs text-gray-400 mt-1">UI تیره، انیمیشن‌های کوچک، فونت مدرن.</p>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300'><rect rx='18' width='100%' height='100%' fill='%230b0b0f'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%23b6a7ff' font-size='34'>Dark UI • Awakened</text></svg>" alt="decor" className="rounded-lg w-full shadow-inner" />
-          </div>
-        </div>
-      </div>
-
-      {/* right: form */}
+    <div className="max-w-md mx-auto mt-10 p-4 sm:p-0">
       <div className="rounded-2xl p-8 bg-gradient-to-br from-black/50 to-gray-900/30 border border-gray-800 shadow-lg">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold">{isRegister ? 'ثبت‌نام' : 'ورود'}</h3>
+          <h3 className="text-xl font-bold">{isRegister ? 'ثبت‌نام کاربر جدید' : 'ورود به حساب کاربری'}</h3>
           <button
             onClick={() => setIsRegister(prev => !prev)}
-            className="text-sm px-3 py-1 rounded-md bg-transparent border border-gray-700 hover:bg-gray-800"
+            className="text-sm px-3 py-1 rounded-md bg-transparent border border-gray-700 hover:bg-gray-800 transition-colors"
           >
-            {isRegister ? 'رفتن به ورود' : 'رفتن به ثبت‌نام'}
+            {isRegister ? 'فرم ورود' : 'فرم ثبت‌نام'}
           </button>
         </div>
 
@@ -78,7 +59,7 @@ export default function AuthScreen() {
           <div>
             <label className="text-sm text-gray-200">نام کاربری</label>
             <input
-              className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800 focus:outline-none"
+              className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="مثال: arman666"
@@ -90,7 +71,7 @@ export default function AuthScreen() {
             <label className="text-sm text-gray-200">رمز عبور</label>
             <input
               type="password"
-              className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800 focus:outline-none"
+              className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -99,61 +80,52 @@ export default function AuthScreen() {
           </div>
 
           {isRegister && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm text-gray-200">نام</label>
-                  <input
-                    className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="نام"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-gray-200">نام خانوادگی</label>
-                  <input
-                    className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="خانوادگی"
-                  />
-                </div>
-              </div>
-            </>
+            <div>
+              <label className="text-sm text-gray-200">تکرار رمز عبور</label>
+              <input
+                type="password"
+                className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
           )}
 
           <div>
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 font-semibold shadow-md hover:scale-[1.01] transition"
+              className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 font-semibold shadow-md hover:scale-[1.01] transition-transform"
             >
               {isRegister ? (loadingRegister ? 'در حال ثبت...' : 'ثبت‌نام') : (loadingLogin ? 'در حال ورود...' : 'ورود')}
             </button>
           </div>
 
-          {(errorLogin || errorRegister) && (
-            <div className="text-sm text-red-400 bg-red-900/20 p-3 rounded-md">
-              {errorRegister || errorLogin}
+          {message && (
+            <div className="text-sm text-yellow-300 bg-yellow-900/30 p-3 rounded-md text-center">
+              {message}
             </div>
           )}
 
-          <div className="text-xs text-gray-400">
-            با ورود یا ثبت‌نام، قوانین را می‌پذیرید. (بدون ایمیل — فقط username/password)
-          </div>
+          {(errorLogin || errorRegister) && (
+            <div className="text-sm text-red-400 bg-red-900/30 p-3 rounded-md text-center">
+              {errorRegister || errorLogin}
+            </div>
+          )}
         </form>
 
-        <div className="mt-6">
-          <div className="text-sm text-gray-300">تست سریع</div>
-          <div className="flex gap-3 mt-3">
+        <div className="mt-8 border-t border-gray-800 pt-6">
+          <div className="text-sm text-gray-300 text-center mb-3">تست سریع با کاربران پیش‌فرض</div>
+          <div className="flex justify-center gap-3">
             <button
               onClick={() => { setUsername('admin'); setPassword('adminpass'); }}
-              className="px-3 py-2 rounded-md bg-gray-800/60"
-            >پر کردن برای ادمین</button>
+              className="px-3 py-2 text-xs rounded-md bg-gray-800/60 hover:bg-gray-700/80 transition-colors"
+            >پر کردن ادمین</button>
             <button
               onClick={() => { setUsername('user1'); setPassword('userpass'); }}
-              className="px-3 py-2 rounded-md bg-gray-800/60"
-            >پر کردن برای کاربر</button>
+              className="px-3 py-2 text-xs rounded-md bg-gray-800/60 hover:bg-gray-700/80 transition-colors"
+            >پر کردن کاربر</button>
           </div>
         </div>
       </div>

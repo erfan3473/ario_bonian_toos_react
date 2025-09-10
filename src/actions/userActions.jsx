@@ -1,6 +1,4 @@
-
-      
-    // مسیر: src/actions/userActions.js
+// مسیر: src/actions/userActions.js
 import axios from 'axios'
 import {
   USER_LOGIN_REQUEST, USER_LOGIN_SUCCESS, USER_LOGIN_FAIL, USER_LOGOUT,
@@ -39,12 +37,13 @@ export const logout = () => (dispatch) => {
   dispatch({ type: USER_LIST_RESET })
 }
 
-// register
-export const register = (username, password, first_name = '', last_name = '') => async (dispatch) => {
+// register (تغییر یافته)
+export const register = (username, password, password2) => async (dispatch) => {
   try {
     dispatch({ type: USER_REGISTER_REQUEST })
     const config = { headers: { 'Content-Type': 'application/json' } }
-    const { data } = await axios.post(`${API_BASE}register/`, { username, password, first_name, last_name }, config)
+    // ارسال نام کاربری، رمز عبور و تکرار آن
+    const { data } = await axios.post(`${API_BASE}register/`, { username, password, password2 }, config)
     dispatch({ type: USER_REGISTER_SUCCESS, payload: data })
     // log user in after register
     dispatch({ type: USER_LOGIN_SUCCESS, payload: data })
