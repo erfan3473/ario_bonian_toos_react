@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { login, register } from '../actions/userActions';
+import { login, register } from '../actions/userActions'; // مطمئن شوید که آدرس ایمپورت صحیح است
 import { FaSpinner } from 'react-icons/fa';
 
-// A generic message component
+// کامپوننت نمایش پیام (بدون تغییر)
 const Message = ({ variant, children }) => {
   const baseClasses = 'p-4 rounded-md text-center my-2';
   const variantClasses = {
@@ -14,65 +14,64 @@ const Message = ({ variant, children }) => {
   return <div className={`${baseClasses} ${variantClasses[variant]}`}>{children}</div>;
 };
 
-// --- Login Component ---
+// کامپوننت ورود (بدون تغییر)
 const LoginComponent = ({ toggleForm }) => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const userLogin = useSelector((state) => state.userLogin);
-  const { loading, error, userInfo } = userLogin;
-
+  const { loading, error, userInfo } = useSelector((state) => state.userLogin);
   const redirect = location.search ? location.search.split('=')[1] : '/';
 
   useEffect(() => {
     if (userInfo) {
       navigate(redirect);
     }
-  }, [navigate, userInfo, redirect]);
+  }, [userInfo, navigate, redirect]);
+// in AuthScreen.js -> RegisterComponent
 
-  const submitHandler = (e) => {
+const submitHandler = (e) => {
     e.preventDefault();
-    dispatch(login(email, password));
-  };
+
+    // اضافه کردن این بخش برای جلوگیری از ارسال فرم خالی
+    if (username.trim() === '' || password.trim() === '') {
+        setMessage('نام کاربری و رمز عبور نمی‌توانند خالی باشند');
+        return; // اجرای تابع متوقف می‌شود
+    }
+
+    if (password !== confirmPassword) {
+        setMessage('رمزهای عبور یکسان نیستند');
+    } else {
+        setMessage('');
+        dispatch(register(username, password)); 
+    }
+};
 
   return (
     <div className="w-full">
       <h2 className="text-3xl font-bold text-center text-white mb-6">ورود</h2>
       {error && <Message variant="danger">{error}</Message>}
-      <form onSubmit={submitHandler}>
-        <div className="mb-4">
-          <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor="email">
-            ایمیل
-          </label>
-          <input
-            className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
-            id="email"
-            type="email"
-            placeholder="ایمیل خود را وارد کنید"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="mb-6">
-          <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor="password">
-            رمز عبور
-          </label>
-          <input
-            className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
-            id="password"
-            type="password"
-            placeholder="رمز عبور"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+      <form onSubmit={submitHandler} className="space-y-4">
+        <input
+          type="text"
+          placeholder="نام کاربری"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
+        />
+        <input
+          type="password"
+          placeholder="رمز عبور"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
+        />
         <button
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 flex items-center justify-center disabled:opacity-50"
           type="submit"
           disabled={loading}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center disabled:opacity-50"
         >
           {loading ? <FaSpinner className="animate-spin" /> : 'ورود'}
         </button>
@@ -87,104 +86,70 @@ const LoginComponent = ({ toggleForm }) => {
   );
 };
 
-// --- Register Component ---
+// کامپوننت ثبت‌نام (اصلاح شده)
 const RegisterComponent = ({ toggleForm }) => {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [message, setMessage] = useState('');
+  // const [name, setName] = useState(''); // <<<< حذف شد
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const location = useLocation();
-  
-    const userRegister = useSelector((state) => state.userRegister);
-    const { loading, error } = userRegister;
+  const { loading, error } = useSelector((state) => state.userRegister);
+  const { userInfo } = useSelector((state) => state.userLogin); // برای لاگین خودکار
+  const redirect = location.search ? location.search.split('=')[1] : '/';
 
-    const userLogin = useSelector((state) => state.userLogin);
-    const { userInfo } = userLogin;
+  useEffect(() => {
+    if (userInfo) {
+      navigate(redirect);
+    }
+  }, [userInfo, navigate, redirect]);
 
-    const redirect = location.search ? location.search.split('=')[1] : '/';
-  
-    useEffect(() => {
-      if (userInfo) {
-        navigate(redirect);
-      }
-    }, [navigate, userInfo, redirect]);
-  
-    const submitHandler = (e) => {
-      e.preventDefault();
-      if (password !== confirmPassword) {
-        setMessage('رمزهای عبور یکسان نیستند');
-      } else {
-        setMessage('');
-        dispatch(register(name, email, password));
-      }
-    };
+  const submitHandler = (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      setMessage('رمزهای عبور یکسان نیستند');
+    } else {
+      setMessage('');
+      // <<<< 'name' از اینجا حذف شد
+      dispatch(register(username, password)); 
+    }
+  };
 
   return (
     <div className="w-full">
       <h2 className="text-3xl font-bold text-center text-white mb-6">ثبت نام</h2>
       {message && <Message variant="danger">{message}</Message>}
       {error && <Message variant="danger">{error}</Message>}
-      <form onSubmit={submitHandler}>
-        <div className="mb-4">
-          <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor="name">
-            نام
-          </label>
-          <input
-            className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
-            id="name"
-            type="text"
-            placeholder="نام خود را وارد کنید"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor="email-register">
-            ایمیل
-          </label>
-          <input
-            className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
-            id="email-register"
-            type="email"
-            placeholder="ایمیل"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor="password-register">
-            رمز عبور
-          </label>
-          <input
-            className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
-            id="password-register"
-            type="password"
-            placeholder="رمز عبور"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-        <div className="mb-6">
-          <label className="block text-gray-300 text-sm font-bold mb-2" htmlFor="confirmPassword">
-            تکرار رمز عبور
-          </label>
-          <input
-            className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-indigo-500"
-            id="confirmPassword"
-            type="password"
-            placeholder="تکرار رمز عبور"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
-        </div>
+      <form onSubmit={submitHandler} className="space-y-4">
+        {/* <<<< فیلد ورودی 'نام' به طور کامل حذف شد >>>> */}
+        <input
+          type="text"
+          placeholder="نام کاربری"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-teal-500"
+        />
+        <input
+          type="password"
+          placeholder="رمز عبور"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-teal-500"
+        />
+        <input
+          type="password"
+          placeholder="تکرار رمز عبور"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white focus:outline-none focus:border-teal-500"
+        />
         <button
-          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 flex items-center justify-center disabled:opacity-50"
           type="submit"
           disabled={loading}
+          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center disabled:opacity-50"
         >
           {loading ? <FaSpinner className="animate-spin" /> : 'ثبت نام'}
         </button>
@@ -199,22 +164,15 @@ const RegisterComponent = ({ toggleForm }) => {
   );
 };
 
-// --- Main Auth Screen ---
+// کامپوننت اصلی صفحه (بدون تغییر)
 const AuthScreen = () => {
   const [showLogin, setShowLogin] = useState(true);
-
-  const toggleForm = () => {
-    setShowLogin(!showLogin);
-  };
+  const toggleForm = () => setShowLogin(!showLogin);
 
   return (
-    <div className="flex items-center justify-center w-full">
+    <div className="flex items-center justify-center w-full min-h-screen bg-gray-900">
       <div className="w-full max-w-md bg-gray-800 rounded-xl shadow-lg p-8 space-y-8">
-        {showLogin ? (
-          <LoginComponent toggleForm={toggleForm} />
-        ) : (
-          <RegisterComponent toggleForm={toggleForm} />
-        )}
+        {showLogin ? <LoginComponent toggleForm={toggleForm} /> : <RegisterComponent toggleForm={toggleForm} />}
       </div>
     </div>
   );
