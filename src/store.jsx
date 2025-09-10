@@ -1,10 +1,11 @@
-// src/store.js
 import { configureStore } from '@reduxjs/toolkit';
 import {
   userLoginReducer,
   userRegisterReducer,
   userListReducer,
   userDeleteReducer,
+  userDetailsReducer,        // ✅ ردیوسر جدید اضافه شد
+  userUpdateProfileReducer,  // ✅ ردیوسر جدید اضافه شد
 } from './reducers/userReducers';
 import { workerListReducer } from './reducers/workerReducers';
 
@@ -24,9 +25,10 @@ const store = configureStore({
     workerList: workerListReducer,
     userList: userListReducer,
     userDelete: userDeleteReducer,
+    userDetails: userDetailsReducer,            // ✅ ردیوسر جدید به استور اضافه شد
+    userUpdateProfile: userUpdateProfileReducer,  // ✅ ردیوسر جدید به استور اضافه شد
   },
   preloadedState,
-  // middleware: (getDefaultMiddleware) => getDefaultMiddleware(), // thunk هست پیش‌فرض
 });
 
 export default store;

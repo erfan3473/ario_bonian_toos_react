@@ -7,6 +7,7 @@ import HomeScreen from './screens/HomeScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
 import AuthScreen from './screens/AuthScreen';
 import UserListScreen from './screens/UserListScreen'; // ✅ اضافه شد
+import ProfileScreen from './screens/ProfileScreen';
 
 function App() {
   return (
@@ -19,7 +20,7 @@ function App() {
           <Route path="/" element={<HomeScreen />} />
           <Route path="/auth" element={<AuthScreen />} />
           <Route path="/dashboard" element={<WorkerDashboardScreen />} />
-        
+          <Route path="/profile" element={<ProfileScreen />} />
           <Route path="/admin/users" element={<UserListScreen />} /> {/* ✅ مسیر جدید */}
         </Routes>
       </main>
