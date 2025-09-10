@@ -1,6 +1,11 @@
 // src/store.js
 import { configureStore } from '@reduxjs/toolkit';
-import { userLoginReducer, userRegisterReducer } from './reducers/userReducers';
+import {
+  userLoginReducer,
+  userRegisterReducer,
+  userListReducer,
+  userDeleteReducer,
+} from './reducers/userReducers';
 import { workerListReducer } from './reducers/workerReducers';
 
 // Load user info from localStorage
@@ -16,9 +21,12 @@ const store = configureStore({
   reducer: {
     userLogin: userLoginReducer,
     userRegister: userRegisterReducer,
-    workerList: workerListReducer
+    workerList: workerListReducer,
+    userList: userListReducer,
+    userDelete: userDeleteReducer,
   },
   preloadedState,
+  // middleware: (getDefaultMiddleware) => getDefaultMiddleware(), // thunk هست پیش‌فرض
 });
 
 export default store;
