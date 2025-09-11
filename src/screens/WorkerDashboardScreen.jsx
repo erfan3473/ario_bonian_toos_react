@@ -3,7 +3,8 @@
 // ===== FILE: src/screens/WorkerDashboardScreen.jsx =====
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { listWorkers, updateWorkerLocation } from '../actions/workerActions';
+import { listWorkers, updateWorkerLocation, cleanupOldWorkers } from '../actions/workerActions';
+
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 import WorkerCard from '../components/WorkerCard';
