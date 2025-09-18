@@ -1,4 +1,3 @@
-// ===== FILE: src/actions/workerActions.js =====
 import axios from 'axios';
 import {
   WORKER_LIST_REQUEST,
@@ -8,24 +7,19 @@ import {
   WORKER_CLEANUP_OLD,
 } from '../constants/workerConstants';
 
-// اکشن برای دریافت لیست اولیه کارگران
+// گرفتن لیست اولیه کارگرها از API REST
 export const listWorkers = () => async (dispatch) => {
   try {
     dispatch({ type: WORKER_LIST_REQUEST });
-
-    const { data } = await axios.get('http://127.0.0.1:8000/api/workers/');
-
-    dispatch({
-      type: WORKER_LIST_SUCCESS,
-      payload: data,
-    });
+    const { data } = await axios.get('http://127.0.0.1:8000/api/workers/'); // حتماً endpointتون workers/ باشه
+    dispatch({ type: WORKER_LIST_SUCCESS, payload: data });
   } catch (error) {
     dispatch({
       type: WORKER_LIST_FAIL,
-      payload: {
-        message:
-          error.response?.data?.detail || error.message || 'Error fetching workers',
-      },
+      payload:
+        error.response && error.response.data.detail
+          ? error.response.data.detail
+          : error.message,
     });
   }
 };

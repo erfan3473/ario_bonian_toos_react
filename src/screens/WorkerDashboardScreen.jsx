@@ -1,5 +1,3 @@
-
-
 // ===== FILE: src/screens/WorkerDashboardScreen.jsx =====
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -9,8 +7,7 @@ import Loader from '../components/Loader';
 import Message from '../components/Message';
 import WorkerCard from '../components/WorkerCard';
 
-// یک صفحه مانیتور کامل و حرفه‌ای ولی ساده — نیازی به کتابخانه نقشه نیست
-const WS_URL = 'ws://127.0.0.1:8000/ws/worker/updates/'; // 🔌 از این آدرس استفاده کن
+const WS_URL = 'ws://127.0.0.1:8000/ws/worker/updates/';
 
 const formatTimeAgo = (ts) => {
   if (!ts) return '—';
@@ -30,37 +27,34 @@ const WorkerDashboardScreen = () => {
   const socketRef = useRef(null);
   const reconnectRef = useRef({ attempts: 0, timeoutId: null });
   const lastSeenRef = useRef(new Map()); // workerId -> timestamp
-  const [, setTick] = useState(0); // برای رندر کردن وقتی lastSeen تغییر می‌کند
+  const [, setTick] = useState(0);
 
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('name'); // name | recent
+  const [sortBy, setSortBy] = useState('name');
   const [highlightId, setHighlightId] = useState(null);
   const [selectedWorker, setSelectedWorker] = useState(null);
 
-  // 1) بارگیری اولیه لیست
+  // بارگیری اولیه
   useEffect(() => {
     dispatch(listWorkers());
   }, [dispatch]);
 
-  // هر ۶۰ ثانیه یکبار کارگرهای قدیمی رو حذف کن
+  // پاکسازی دوره‌ای
   useEffect(() => {
-  const interval = setInterval(() => {
-    dispatch(cleanupOldWorkers());
-  }, 60000);
+    const interval = setInterval(() => {
+      dispatch(cleanupOldWorkers());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
 
-  return () => clearInterval(interval);
-}, [dispatch]);
-
-  // 2) WebSocket connect / reconnect logic
+  // WebSocket connection
   useEffect(() => {
     let alive = true;
 
     const connect = () => {
       if (!alive) return;
-
-      // اگر paused هستیم اتصال برقرار نکن
       if (paused) return;
 
       setConnected(false);
@@ -79,17 +73,13 @@ const WorkerDashboardScreen = () => {
           const payload = data.payload || data;
 
           if (payload && payload.worker_id) {
-            // update last seen
             lastSeenRef.current.set(payload.worker_id, Date.now());
-            // force a re-render to show "last seen"
             setTick((t) => t + 1);
 
-            // در صورت عدم pause، اکشن آپدیت را dispatch کن
             if (!paused) {
               dispatch(updateWorkerLocation(payload));
             }
 
-            // highlight visual
             setHighlightId(payload.worker_id);
             setTimeout(() => setHighlightId(null), 1800);
           } else if (payload && payload.message) {
@@ -105,7 +95,6 @@ const WorkerDashboardScreen = () => {
         console.log('[WS] closed', e);
 
         if (alive && !paused) {
-          // exponential backoff
           const attempts = reconnectRef.current.attempts + 1;
           reconnectRef.current.attempts = attempts;
           const timeout = Math.min(30000, 1000 * 2 ** attempts);
@@ -132,12 +121,7 @@ const WorkerDashboardScreen = () => {
   const togglePause = () => {
     setPaused((p) => {
       const newP = !p;
-      if (newP) {
-        // pause -> close socket
-        if (socketRef.current) socketRef.current.close();
-      } else {
-        // resume -> effect will reconnect
-      }
+      if (newP && socketRef.current) socketRef.current.close();
       return newP;
     });
   };
@@ -168,7 +152,6 @@ const WorkerDashboardScreen = () => {
   }, [workers, search, sortBy]);
 
   const handleRefresh = () => dispatch(listWorkers());
-
   const openDetails = (worker) => setSelectedWorker(worker);
   const closeDetails = () => setSelectedWorker(null);
 
@@ -201,10 +184,7 @@ const WorkerDashboardScreen = () => {
             <span className="text-sm text-gray-400">{connected ? 'Live' : paused ? 'Paused' : 'Disconnected'}</span>
           </div>
 
-          <button
-            onClick={togglePause}
-            className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm"
-          >
+          <button onClick={togglePause} className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm">
             {paused ? 'Resume' : 'Pause'}
           </button>
 
@@ -287,7 +267,6 @@ const WorkerDashboardScreen = () => {
         </div>
       )}
 
-      {/* details modal */}
       {selectedWorker && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeDetails}>
           <div className="bg-gray-900 p-6 rounded-lg w-11/12 max-w-lg" onClick={(e) => e.stopPropagation()}>
