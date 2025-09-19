@@ -59,35 +59,41 @@ export const workerListReducer = (state = initialState, action) => {
       return { ...state, loading: false, error: action.payload };
 
     case WORKER_LOCATION_UPDATE: {
-      const updated = action.payload;
-      const workerId = updated.id;
+  const u = action.payload;
+  const workerId = u.id;
 
-      const newAllWorkers = { ...state.allWorkers };
-      const newOnlineSet = new Set(state.onlineWorkerIds);
+  const lastUpdate = u.last_location
+    ? new Date(u.last_location.timestamp).getTime()
+    : u.timestamp ? new Date(u.timestamp).getTime() : Date.now();
 
-      newAllWorkers[workerId] = {
-        ...(newAllWorkers[workerId] || {}),
-        id: updated.id,
-        name: updated.name,
-        age: updated.age,
-        position: updated.position,
-        latitude: updated.last_location?.latitude ?? null,
-        longitude: updated.last_location?.longitude ?? null,
-        accuracy: updated.last_location?.accuracy ?? null,
-        speed: updated.last_location?.speed ?? null,
-        lastUpdate: updated.last_location
-          ? new Date(updated.last_location.timestamp).getTime()
-          : Date.now(),
-      };
+  const latitude = u.last_location?.latitude ?? u.latitude ?? null;
+  const longitude = u.last_location?.longitude ?? u.longitude ?? null;
 
-      newOnlineSet.add(workerId);
+  const newAllWorkers = { ...state.allWorkers };
+  const newOnlineSet = new Set(state.onlineWorkerIds);
 
-      return {
-        ...state,
-        allWorkers: newAllWorkers,
-        onlineWorkerIds: Array.from(newOnlineSet), // ✅ ذخیره به صورت آرایه
-      };
-    }
+  newAllWorkers[workerId] = {
+    ...(newAllWorkers[workerId] || {}),
+    id: u.id,
+    name: u.name,
+    age: u.age,
+    position: u.position,
+    latitude,
+    longitude,
+    accuracy: u.last_location?.accuracy ?? u.accuracy ?? null,
+    speed: u.last_location?.speed ?? u.speed ?? null,
+    lastUpdate,
+  };
+
+  newOnlineSet.add(workerId);
+
+  return {
+    ...state,
+    allWorkers: newAllWorkers,
+    onlineWorkerIds: Array.from(newOnlineSet),
+  };
+}
+
 
     case WORKER_CLEANUP_OLD: {
       const cutoff = action.payload - MAX_IDLE_MS;
