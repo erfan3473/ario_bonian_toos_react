@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// ===== FILE: src/components/WorkerMap.jsx =====
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import axios from 'axios';
 import L from 'leaflet';
@@ -20,15 +21,17 @@ const RecenterMap = ({ workers, selectedWorkerId }) => {
 
   useEffect(() => {
     if (selectedWorkerId) {
-      const worker = workers.find(w => w.id === selectedWorkerId && w.latitude && w.longitude);
+      const worker = workers.find(
+        (w) => w.id === selectedWorkerId && w.latitude && w.longitude
+      );
       if (worker) {
         map.setView([worker.latitude, worker.longitude], 15);
       }
     } else if (workers.length > 0) {
       const bounds = L.latLngBounds(
         workers
-          .filter(w => w.latitude && w.longitude)
-          .map(w => [w.latitude, w.longitude])
+          .filter((w) => w.latitude && w.longitude)
+          .map((w) => [w.latitude, w.longitude])
       );
       if (bounds.isValid()) {
         map.fitBounds(bounds, { padding: [50, 50] });
@@ -41,6 +44,7 @@ const RecenterMap = ({ workers, selectedWorkerId }) => {
 
 const WorkerMap = ({ workers, selectedWorkerId }) => {
   const [history, setHistory] = useState([]);
+  const markerRefs = useRef({}); // برای نگه‌داشتن ref هر مارکر
 
   useEffect(() => {
     if (!selectedWorkerId) {
@@ -50,11 +54,13 @@ const WorkerMap = ({ workers, selectedWorkerId }) => {
 
     const fetchHistory = async () => {
       try {
-        const { data } = await axios.get(`/api/workers/${selectedWorkerId}/history/?days=1`);
-        const path = data.map(loc => [loc.latitude, loc.longitude]);
+        const { data } = await axios.get(
+          `/api/workers/${selectedWorkerId}/history/?days=1`
+        );
+        const path = data.map((loc) => [loc.latitude, loc.longitude]);
         setHistory(path);
       } catch (error) {
-        console.error("Failed to fetch worker history", error);
+        console.error('Failed to fetch worker history', error);
         setHistory([]);
       }
     };
@@ -62,23 +68,43 @@ const WorkerMap = ({ workers, selectedWorkerId }) => {
     fetchHistory();
   }, [selectedWorkerId]);
 
+  // وقتی worker انتخاب شد، popup مارکر هم باز بشه
+  useEffect(() => {
+    if (selectedWorkerId && markerRefs.current[selectedWorkerId]) {
+      markerRefs.current[selectedWorkerId].openPopup();
+    }
+  }, [selectedWorkerId]);
+
   return (
-    <MapContainer center={[35.6892, 51.3890]} zoom={13} style={{ height: '500px', width: '100%' }}>
+    <MapContainer
+      center={[35.6892, 51.389]}
+      zoom={13}
+      style={{ height: '500px', width: '100%' }}
+    >
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; OpenStreetMap contributors'
+        attribution="&copy; OpenStreetMap contributors"
       />
 
-      {workers.map(worker => (
-        worker.latitude && worker.longitude && (
-          <Marker key={worker.id} position={[worker.latitude, worker.longitude]}>
-            <Popup>
-              <b>{worker.name}</b><br />
-              {worker.position}
-            </Popup>
-          </Marker>
-        )
-      ))}
+      {workers.map(
+        (worker) =>
+          worker.latitude &&
+          worker.longitude && (
+            <Marker
+              key={worker.id}
+              position={[worker.latitude, worker.longitude]}
+              ref={(ref) => {
+                markerRefs.current[worker.id] = ref;
+              }}
+            >
+              <Popup>
+                <b>{worker.name}</b>
+                <br />
+                {worker.position}
+              </Popup>
+            </Marker>
+          )
+      )}
 
       {history.length > 0 && (
         <Polyline pathOptions={{ color: 'blue' }} positions={history} />

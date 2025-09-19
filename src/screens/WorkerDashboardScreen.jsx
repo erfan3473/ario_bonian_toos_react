@@ -1,4 +1,4 @@
-// src/screens/WorkerDashboardScreen.jsx
+// ===== FILE: src/screens/WorkerDashboardScreen.jsx =====
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { listWorkers, updateWorkerLocation, cleanupOldWorkers } from '../actions/workerActions';
@@ -28,15 +28,12 @@ const WorkerDashboardScreen = () => {
   const lastSeenRef = useRef(new Map());
   const [, setTick] = useState(0);
 
-  // local map of latest location updates received via WS (so UI can show instantly)
   const [workerLocations, setWorkerLocations] = useState({});
-
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [highlightId, setHighlightId] = useState(null);
-  const [selectedWorker, setSelectedWorker] = useState(null);
   const [mapSelectedWorkerId, setMapSelectedWorkerId] = useState(null);
 
   useEffect(() => {
@@ -68,15 +65,12 @@ const WorkerDashboardScreen = () => {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          // normalize worker id key (some servers use id, some worker_id)
           if (data && (data.id || data.worker_id)) {
             const workerId = data.id || data.worker_id;
             const now = Date.now();
 
-            // record last seen locally (for "recently updated" list)
             lastSeenRef.current.set(workerId, now);
 
-            // update local immediate location cache so UI shows lat/lng immediately
             setWorkerLocations((prev) => ({
               ...prev,
               [workerId]: {
@@ -86,10 +80,8 @@ const WorkerDashboardScreen = () => {
               },
             }));
 
-            // tick to force some rerenders where refs aren't used directly
             setTick((t) => t + 1);
 
-            // also dispatch to redux so global state stays consistent (server-of-truth)
             if (!paused) {
               dispatch(updateWorkerLocation(data));
             }
@@ -120,7 +112,7 @@ const WorkerDashboardScreen = () => {
         console.error('[WS] error', err);
         try {
           socket.close();
-        } catch (e) {
+        } catch {
           // ignore
         }
       };
@@ -140,40 +132,30 @@ const WorkerDashboardScreen = () => {
       const newP = !p;
       if (newP && socketRef.current) socketRef.current.close();
       else if (!newP) {
-        // when resuming, rebuild connection attempts counter so connect effect will try again
         reconnectRef.current.attempts = 0;
       }
       return newP;
     });
   };
 
-  // compute visibleWorkers by merging server allWorkers + local workerLocations and dedupe ids
   const visibleWorkers = useMemo(() => {
-    // handle different shapes of onlineWorkerIds: Set, array, object
     let ids = [];
     if (!onlineWorkerIds) ids = [];
     else if (typeof onlineWorkerIds.forEach === 'function' && typeof onlineWorkerIds.size === 'number') {
-      // likely a Set
       ids = Array.from(onlineWorkerIds);
     } else if (Array.isArray(onlineWorkerIds)) {
       ids = onlineWorkerIds;
     } else if (typeof onlineWorkerIds === 'object') {
-      // maybe an object like { id: true, ... }
       ids = Object.keys(onlineWorkerIds).map((k) => (isNaN(k) ? k : Number(k)));
-    } else {
-      ids = [];
     }
 
-    // dedupe just in case the upstream reducer put duplicates
     const uniqueIds = [...new Set(ids)];
-
     const q = (search || '').trim().toLowerCase();
 
     let list = uniqueIds
       .map((id) => {
         const server = (allWorkers && allWorkers[id]) || {};
         const local = workerLocations[id] || {};
-        // merge: prefer local most-recent location fields if present
         const merged = {
           id,
           name: server.name ?? local.name ?? `#${id}`,
@@ -181,8 +163,8 @@ const WorkerDashboardScreen = () => {
           latitude: (local.latitude ?? server.latitude) ?? null,
           longitude: (local.longitude ?? server.longitude) ?? null,
           lastUpdate: Math.max(server.lastUpdate || 0, local.lastUpdate || 0),
-          ...server, // include any other server fields
-          ...local,  // override with local if available
+          ...server,
+          ...local,
         };
         return merged;
       })
@@ -207,13 +189,6 @@ const WorkerDashboardScreen = () => {
 
   const handleRefresh = () => dispatch(listWorkers());
 
-  const openDetails = (worker) => {
-    setSelectedWorker(worker);
-    setMapSelectedWorkerId(worker.id);
-  };
-
-  const closeDetails = () => setSelectedWorker(null);
-
   const downloadCSV = () => {
     const arr = visibleWorkers.map((w) => ({
       id: w.id,
@@ -233,7 +208,6 @@ const WorkerDashboardScreen = () => {
     URL.revokeObjectURL(url);
   };
 
-  // robust online count display (Set or array)
   const onlineCount = useMemo(() => {
     if (!onlineWorkerIds) return 0;
     if (typeof onlineWorkerIds.size === 'number') return onlineWorkerIds.size;
@@ -299,7 +273,7 @@ const WorkerDashboardScreen = () => {
                     key={w.id}
                     worker={w}
                     highlight={highlightId === w.id}
-                    onClick={() => openDetails(w)}
+                    onClick={() => setMapSelectedWorkerId(w.id)} // ✅ فقط روی نقشه فوکوس کن
                     lastSeen={formatTimeAgo(lastSeenRef.current.get(w.id))}
                   />
                 ))
@@ -309,9 +283,9 @@ const WorkerDashboardScreen = () => {
 
           <aside className="bg-gray-800 p-4 rounded-lg">
             <h3 className="text-white font-semibold mb-2">Quick stats</h3>
-            <p className="text-gray-300">Total workers: {allWorkers ? Object.keys(allWorkers).length : 0}</p>
-            <p className="text-gray-300">Online: {onlineCount}</p>
-            <p className="text-gray-300">Visible: {visibleWorkers.length}</p>
+            <p className="text-gray-300">تعداد نیروی : {allWorkers ? Object.keys(allWorkers).length : 0}</p>
+            <p className="text-gray-300">در شیفت: {onlineCount}</p>
+            <p className="text-gray-300">قابل مشاهده ها: {visibleWorkers.length}</p>
             <p className="text-gray-300">Live socket: {connected ? 'connected' : 'not connected'}</p>
 
             <div className="mt-4">
@@ -333,33 +307,6 @@ const WorkerDashboardScreen = () => {
               <code className="block mt-1 text-xs text-gray-300">{WS_URL}</code>
             </div>
           </aside>
-        </div>
-      )}
-
-      {selectedWorker && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={closeDetails}>
-          <div className="bg-gray-900 p-6 rounded-lg w-11/12 max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-bold">{selectedWorker.name}</h2>
-                <p className="text-sm text-gray-400">{selectedWorker.position}</p>
-              </div>
-              <button onClick={closeDetails} className="text-gray-400">Close</button>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-xs text-gray-400">Latitude</p>
-                <p className="text-sm">{selectedWorker.latitude ?? 'N/A'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400">Longitude</p>
-                <p className="text-sm">{selectedWorker.longitude ?? 'N/A'}</p>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button className="px-3 py-1 bg-red-600 rounded text-white">Remove (TODO)</button>
-            </div>
-          </div>
         </div>
       )}
     </div>
