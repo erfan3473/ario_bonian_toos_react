@@ -22,7 +22,7 @@ const formatTimeAgo = (ts) => {
 const WorkerDashboardScreen = () => {
   const dispatch = useDispatch();
   const { loading, error, allWorkers, onlineWorkerIds } = useSelector((state) => state.workerList || {});
-
+  const [showOfflineWorkers, setShowOfflineWorkers] = useState(false);
   const socketRef = useRef(null);
   const reconnectRef = useRef({ attempts: 0, timeoutId: null });
   const lastSeenRef = useRef(new Map());
@@ -138,54 +138,52 @@ const WorkerDashboardScreen = () => {
     });
   };
 
-  const visibleWorkers = useMemo(() => {
-    let ids = [];
-    if (!onlineWorkerIds) ids = [];
-    else if (typeof onlineWorkerIds.forEach === 'function' && typeof onlineWorkerIds.size === 'number') {
-      ids = Array.from(onlineWorkerIds);
-    } else if (Array.isArray(onlineWorkerIds)) {
-      ids = onlineWorkerIds;
-    } else if (typeof onlineWorkerIds === 'object') {
-      ids = Object.keys(onlineWorkerIds).map((k) => (isNaN(k) ? k : Number(k)));
-    }
+  // WorkerDashboardScreen.jsx - تغییر بخش visibleWorkers
+const visibleWorkers = useMemo(() => {
+  // استفاده از همه کارگرها به جای فقط آنلاین‌ها
+  const allWorkerIds = allWorkers ? Object.keys(allWorkers) : [];
+  const q = (search || '').trim().toLowerCase();
 
-    const uniqueIds = [...new Set(ids)];
-    const q = (search || '').trim().toLowerCase();
+  let list = allWorkerIds
+    .map((id) => {
+      const server = allWorkers[id] || {};
+      const local = workerLocations[id] || {};
+      const merged = {
+        id: parseInt(id),
+        name: server.name ?? local.name ?? `#${id}`,
+        position: server.position ?? local.position ?? '',
+        latitude: (local.latitude ?? server.latitude) ?? null,
+        longitude: (local.longitude ?? server.longitude) ?? null,
+        lastUpdate: Math.max(server.lastUpdate || 0, local.lastUpdate || 0),
+        stale: server.stale, // استفاده از وضعیت stale از reducer
+        ...server,
+        ...local,
+      };
+      return merged;
+    })
+    .filter(Boolean);
 
-    let list = uniqueIds
-      .map((id) => {
-        const server = (allWorkers && allWorkers[id]) || {};
-        const local = workerLocations[id] || {};
-        const merged = {
-          id,
-          name: server.name ?? local.name ?? `#${id}`,
-          position: server.position ?? local.position ?? '',
-          latitude: (local.latitude ?? server.latitude) ?? null,
-          longitude: (local.longitude ?? server.longitude) ?? null,
-          lastUpdate: Math.max(server.lastUpdate || 0, local.lastUpdate || 0),
-          ...server,
-          ...local,
-        };
-        return merged;
-      })
-      .filter(Boolean);
+  if (q) {
+    list = list.filter((w) => {
+      const name = (w.name || '').toLowerCase();
+      const pos = (w.position || '').toLowerCase();
+      return name.includes(q) || pos.includes(q) || String(w.id) === q;
+    });
+  }
 
-    if (q) {
-      list = list.filter((w) => {
-        const name = (w.name || '').toLowerCase();
-        const pos = (w.position || '').toLowerCase();
-        return name.includes(q) || pos.includes(q) || String(w.id) === q;
-      });
-    }
+  // فیلتر کردن بر اساس وضعیت آنلاین/آفلاین
+  if (!showOfflineWorkers) {
+    list = list.filter(w => !w.stale);
+  }
 
-    if (sortBy === 'recent') {
-      list.sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
-    } else {
-      list.sort((a, b) => ('' + (a.name || '')).localeCompare(b.name || ''));
-    }
+  if (sortBy === 'recent') {
+    list.sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
+  } else {
+    list.sort((a, b) => ('' + (a.name || '')).localeCompare(b.name || ''));
+  }
 
-    return list;
-  }, [allWorkers, onlineWorkerIds, workerLocations, search, sortBy]);
+  return list;
+}, [allWorkers, workerLocations, search, sortBy, showOfflineWorkers]);
 
   const handleRefresh = () => dispatch(listWorkers());
 
@@ -240,22 +238,32 @@ const WorkerDashboardScreen = () => {
         </div>
       </div>
 
-      <div className="mb-4 flex gap-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, position or id"
-          className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
-        />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
-        >
-          <option value="name">Sort: Name</option>
-          <option value="recent">Sort: Most recent</option>
-        </select>
-      </div>
+      // در بخش UI اضافه کنید:
+<div className="mb-4 flex gap-3 items-center">
+  <input
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    placeholder="Search by name, position or id"
+    className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
+  />
+  <select
+    value={sortBy}
+    onChange={(e) => setSortBy(e.target.value)}
+    className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
+  >
+    <option value="name">Sort: Name</option>
+    <option value="recent">Sort: Most recent</option>
+  </select>
+  <label className="flex items-center gap-2 text-sm text-gray-300">
+    <input
+      type="checkbox"
+      checked={showOfflineWorkers}
+      onChange={(e) => setShowOfflineWorkers(e.target.checked)}
+      className="rounded"
+    />
+    Show offline
+  </label>
+</div>
 
       {loading ? (
         <Loader />
@@ -266,14 +274,14 @@ const WorkerDashboardScreen = () => {
           <div className="md:col-span-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {visibleWorkers.length === 0 ? (
-                <p className="text-gray-400">No workers found.</p>
+                <p className="text-gray-400">هیچ نیرونی پیدا نشد</p>
               ) : (
                 visibleWorkers.map((w) => (
                   <WorkerCard
                     key={w.id}
                     worker={w}
                     highlight={highlightId === w.id}
-                    onClick={() => setMapSelectedWorkerId(w.id)} // ✅ فقط روی نقشه فوکوس کن
+                    onClick={() => setMapSelectedWorkerId(w.id === mapSelectedWorkerId ? null : w.id)}// ✅ فقط روی نقشه فوکوس کن
                     lastSeen={formatTimeAgo(lastSeenRef.current.get(w.id))}
                   />
                 ))

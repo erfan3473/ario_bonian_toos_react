@@ -11,8 +11,16 @@ import {
 export const listWorkers = () => async (dispatch) => {
   try {
     dispatch({ type: WORKER_LIST_REQUEST });
-    const { data } = await axios.get('http://127.0.0.1:8000/api/workers/'); // حتماً endpointتون workers/ باشه
-    dispatch({ type: WORKER_LIST_SUCCESS, payload: data });
+    const { data } = await axios.get('http://127.0.0.1:8000/api/workers/');
+    
+    // اضافه کردن وضعیت آنلاین برای هر کارگر
+    const workersWithOnlineStatus = data.map(worker => ({
+      ...worker,
+      isOnline: worker.last_location && 
+                (Date.now() - new Date(worker.last_location.timestamp).getTime() < 5 * 60 * 1000)
+    }));
+    
+    dispatch({ type: WORKER_LIST_SUCCESS, payload: workersWithOnlineStatus });
   } catch (error) {
     dispatch({
       type: WORKER_LIST_FAIL,
