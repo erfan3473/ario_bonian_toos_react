@@ -8,6 +8,8 @@ import {
   userUpdateProfileReducer,  // ✅ ردیوسر جدید اضافه شد
 } from './reducers/userReducers';
 import { workerListReducer } from './reducers/workerReducers';
+import dailyReportReducer from './features/dailyReports/dailyReportSlice';
+import projectSliceReducer from './features/projects/projectSlice';
 
 // Load user info from localStorage
 const userInfoFromStorage = localStorage.getItem('userInfo')
@@ -27,6 +29,8 @@ const store = configureStore({
     userDelete: userDeleteReducer,
     userDetails: userDetailsReducer,            // ✅ ردیوسر جدید به استور اضافه شد
     userUpdateProfile: userUpdateProfileReducer,  // ✅ ردیوسر جدید به استور اضافه شد
+    dailyReports: dailyReportReducer,
+    projects: projectSliceReducer,
   },
   preloadedState,
 });

@@ -43,29 +43,49 @@ const RecenterMap = ({ workers, selectedWorkerId }) => {
 };
 
 const WorkerMap = ({ workers, selectedWorkerId }) => {
-  const [history, setHistory] = useState([]);
-  const markerRefs = useRef({}); // برای نگه‌داشتن ref هر مارکر
+  const [workerHistory, setWorkerHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const markerRefs = useRef({});
+
+  const fetchHistory = async (workerId) => {
+    try {
+      setLoadingHistory(true);
+      const response = await axios.get(`http://127.0.0.1:8000/api/workers/${workerId}/history/`);
+      
+      console.log('Full API response:', response);
+      
+      if (response.data && Array.isArray(response.data)) {
+        setWorkerHistory(response.data);
+      } else if (response.data && typeof response.data === 'object') {
+        const data = response.data;
+        
+        if (data.results && Array.isArray(data.results)) {
+          setWorkerHistory(data.results);
+        } else if (data.data && Array.isArray(data.data)) {
+          setWorkerHistory(data.data);
+        } else if (data.history && Array.isArray(data.history)) {
+          setWorkerHistory(data.history);
+        } else {
+          setWorkerHistory([data]);
+        }
+      } else {
+        setWorkerHistory([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch worker history:', error);
+      setWorkerHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedWorkerId) {
-      setHistory([]);
+      setWorkerHistory([]);
       return;
     }
 
-    const fetchHistory = async () => {
-      try {
-        const { data } = await axios.get(
-          `/api/workers/${selectedWorkerId}/history/?days=1`
-        );
-        const path = data.map((loc) => [loc.latitude, loc.longitude]);
-        setHistory(path);
-      } catch (error) {
-        console.error('Failed to fetch worker history', error);
-        setHistory([]);
-      }
-    };
-
-    fetchHistory();
+    fetchHistory(selectedWorkerId);
   }, [selectedWorkerId]);
 
   // وقتی worker انتخاب شد، popup مارکر هم باز بشه
@@ -74,6 +94,11 @@ const WorkerMap = ({ workers, selectedWorkerId }) => {
       markerRefs.current[selectedWorkerId].openPopup();
     }
   }, [selectedWorkerId]);
+
+  // تبدیل تاریخچه به فرمت مورد نیاز برای Polyline
+  const historyPositions = workerHistory
+    .filter(loc => loc.latitude && loc.longitude)
+    .map(loc => [loc.latitude, loc.longitude]);
 
   return (
     <MapContainer
@@ -101,13 +126,32 @@ const WorkerMap = ({ workers, selectedWorkerId }) => {
                 <b>{worker.name}</b>
                 <br />
                 {worker.position}
+                <br />
+                {worker.latitude.toFixed(4)}, {worker.longitude.toFixed(4)}
               </Popup>
             </Marker>
           )
       )}
 
-      {history.length > 0 && (
-        <Polyline pathOptions={{ color: 'blue' }} positions={history} />
+      {historyPositions.length > 0 && (
+        <Polyline 
+          pathOptions={{ color: 'blue', weight: 3 }} 
+          positions={historyPositions} 
+        />
+      )}
+
+      {loadingHistory && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          left: '10px',
+          zIndex: 1000,
+          background: 'white',
+          padding: '5px 10px',
+          borderRadius: '4px'
+        }}>
+          Loading history...
+        </div>
       )}
 
       <RecenterMap workers={workers} selectedWorkerId={selectedWorkerId} />

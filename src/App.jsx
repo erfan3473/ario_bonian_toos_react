@@ -8,6 +8,9 @@ import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
 import AuthScreen from './screens/AuthScreen';
 import UserListScreen from './screens/UserListScreen'; // ✅ اضافه شد
 import ProfileScreen from './screens/ProfileScreen';
+import DailyReportListScreen from './screens/DailyReportListScreen';
+import ProjectListScreen from './screens/ProjectListScreen';
+import ReportDetailScreen from './screens/ReportDetailScreen';
 
 function App() {
   return (
@@ -16,12 +19,18 @@ function App() {
 
       <main className="flex-grow container mx-auto p-4">
         <Routes>
-          
           <Route path="/" element={<HomeScreen />} />
           <Route path="/auth" element={<AuthScreen />} />
           <Route path="/dashboard" element={<WorkerDashboardScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
-          <Route path="/admin/users" element={<UserListScreen />} /> {/* ✅ مسیر جدید */}
+          <Route path="/admin/users" element={<UserListScreen />} />
+          
+          {/* مسیرهای پروژه و گزارش */}
+          <Route path="/projects" element={<ProjectListScreen />} />
+          <Route path="/projects/:projectId/reports" element={<DailyReportListScreen />} />
+          
+          {/* ✅ مسیر جزئیات گزارش را به این شکل تغییر دهید */}
+          <Route path="/reports/:reportId" element={<ReportDetailScreen />} />
         </Routes>
       </main>
 

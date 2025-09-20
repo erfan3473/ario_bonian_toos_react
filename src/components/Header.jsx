@@ -36,10 +36,22 @@ const Header = () => {
             خانه
           </Link>
           <Link
+            to="/projects"
+            className="hover:text-indigo-400 transition duration-300"
+          >
+            پروژه ها
+          </Link>
+           <Link
             to="/dashboard"
             className="hover:text-indigo-400 transition duration-300"
           >
-            داشبورد
+            مانیتور پروژه
+          </Link>
+          <Link
+            to="/projects/:projectId/reports"
+            className="hover:text-indigo-400 transition duration-300"
+          >
+            گزارش کار روزانه
           </Link>
           {userInfo && userInfo.isAdmin && (
             <Link
