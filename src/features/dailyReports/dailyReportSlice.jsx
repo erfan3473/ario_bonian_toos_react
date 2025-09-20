@@ -6,9 +6,9 @@ import axios from 'axios';
 // Thunk برای گرفتن لیست گزارش‌های یک پروژه
 export const fetchDailyReports = createAsyncThunk(
   'dailyReports/fetchDailyReports',
-  async (projectId, { getState }) => {
+  async (id, { getState }) => {
     try {
-      const { data } = await axios.get(`http://127.0.0.1:8000/api/projects/${projectId}/reports/`);
+      const { data } = await axios.get(`http://127.0.0.1:8000/api/projects/${id}/reports/`);
       return data;
     } catch (error) {
       throw error.response && error.response.data.detail

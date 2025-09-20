@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../actions/userActions';
-import { FaUser, FaSignOutAlt, FaSignInAlt } from 'react-icons/fa';
+import { FaUser, FaSignOutAlt, FaSignInAlt, FaChevronDown } from 'react-icons/fa';
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -11,6 +11,7 @@ const Header = () => {
   const { userInfo } = useSelector((state) => state.userLogin);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reportMenuOpen, setReportMenuOpen] = useState(false);
 
   const logoutHandler = () => {
     dispatch(logout());
@@ -28,31 +29,54 @@ const Header = () => {
           مدیریت کارگران
         </Link>
 
-        <nav className="flex items-center space-x-6 text-gray-300">
-          <Link
-            to="/"
-            className="hover:text-indigo-400 transition duration-300"
-          >
-            خانه
-          </Link>
+        <nav className="flex items-center gap-x-8 text-gray-300">
           <Link
             to="/projects"
             className="hover:text-indigo-400 transition duration-300"
           >
             پروژه ها
           </Link>
-           <Link
+          <Link
             to="/dashboard"
             className="hover:text-indigo-400 transition duration-300"
           >
             مانیتور پروژه
           </Link>
           <Link
-            to="/projects/:projectId/reports"
+            to="/"
             className="hover:text-indigo-400 transition duration-300"
           >
-            گزارش کار روزانه
+            خانه
           </Link>
+
+          {/* 🔽 منوی کشویی ثبت گزارش */}
+          <div className="relative">
+            <button
+              onClick={() => setReportMenuOpen(!reportMenuOpen)}
+              className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition duration-300"
+            >
+              <span>ثبت گزارش کار روزانه</span>
+              <FaChevronDown className={`transition-transform ${reportMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {reportMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-gray-700 rounded-md shadow-xl py-1">
+                <button className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600">
+                  گزارش پروژه (مسعود)
+                </button>
+                <button className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600">
+                  گزارش تاسیسات (ابراهیمی)
+                </button>
+                <button className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600">
+                  گزارش نگهبانی (ابراهیمی)
+                </button>
+                <button className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-600">
+                  گزارش حضور غیاب نیرو
+                </button>
+              </div>
+            )}
+          </div>
+
           {userInfo && userInfo.isAdmin && (
             <Link
               to="/admin/users"

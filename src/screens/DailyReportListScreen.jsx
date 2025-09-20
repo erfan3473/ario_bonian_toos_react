@@ -8,16 +8,16 @@ import Loader from '../components/Loader'; // کامپوننت لودر خودت
 import Message from '../components/Message'; // کامپوننت پیام خودتان
 
 function DailyReportListScreen() {
-  const { projectId } = useParams(); // گرفتن آیدی پروژه از URL
+  const { id } = useParams(); // گرفتن آیدی پروژه از URL
   const dispatch = useDispatch();
 
   const { reports, loading, error } = useSelector((state) => state.dailyReports);
 
   useEffect(() => {
-    if (projectId) {
-      dispatch(fetchDailyReports(projectId));
+    if (id) {
+      dispatch(fetchDailyReports(id));
     }
-  }, [dispatch, projectId]);
+  }, [dispatch, id]);
 
   return (
     <div className="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">

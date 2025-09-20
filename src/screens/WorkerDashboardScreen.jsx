@@ -238,7 +238,7 @@ const visibleWorkers = useMemo(() => {
         </div>
       </div>
 
-      // در بخش UI اضافه کنید:
+      
 <div className="mb-4 flex gap-3 items-center">
   <input
     value={search}

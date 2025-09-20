@@ -27,7 +27,9 @@ function App() {
           
           {/* مسیرهای پروژه و گزارش */}
           <Route path="/projects" element={<ProjectListScreen />} />
-          <Route path="/projects/:projectId/reports" element={<DailyReportListScreen />} />
+
+
+          <Route path="/projects/:id/reports" element={<DailyReportListScreen />} />
           
           {/* ✅ مسیر جزئیات گزارش را به این شکل تغییر دهید */}
           <Route path="/reports/:reportId" element={<ReportDetailScreen />} />
