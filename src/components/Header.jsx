@@ -16,7 +16,8 @@ const Header = () => {
   const navigate = useNavigate();
 
   const { userInfo } = useSelector((state) => state.userLogin);
-  const { projectDetails } = useSelector((state) => state.projectDetails || {});
+  const { projects } = useSelector((state) => state.projects || {});
+  const projectId = projects.length > 0 ? projects[0].id : null;
   const { todayReport } = useSelector((state) => state.dailyReports || {});
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -28,7 +29,7 @@ const Header = () => {
     navigate("/auth");
   };
 
-  const projectId = projectDetails?.id;
+
 
   // 📌 هر وقت projectId تغییر کنه، گزارش امروز رو میاریم
   useEffect(() => {
