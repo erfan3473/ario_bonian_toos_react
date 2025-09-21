@@ -1,17 +1,19 @@
+// src/store.js
 import { configureStore } from '@reduxjs/toolkit';
 import {
   userLoginReducer,
   userRegisterReducer,
   userListReducer,
   userDeleteReducer,
-  userDetailsReducer,        // ✅ ردیوسر جدید اضافه شد
-  userUpdateProfileReducer,  // ✅ ردیوسر جدید اضافه شد
+  userDetailsReducer,
+  userUpdateProfileReducer,
 } from './reducers/userReducers';
 import { workerListReducer } from './reducers/workerReducers';
+import reportFormsReducer from './features/dailyReports/reportFormsSlice';
+import projectReducer from './features/projects/projectSlice';
 import dailyReportReducer from './features/dailyReports/dailyReportSlice';
-import projectSliceReducer from './features/projects/projectSlice';
 
-// Load user info from localStorage
+// load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
   : null;
@@ -24,13 +26,15 @@ const store = configureStore({
   reducer: {
     userLogin: userLoginReducer,
     userRegister: userRegisterReducer,
-    workerList: workerListReducer,
     userList: userListReducer,
     userDelete: userDeleteReducer,
-    userDetails: userDetailsReducer,            // ✅ ردیوسر جدید به استور اضافه شد
-    userUpdateProfile: userUpdateProfileReducer,  // ✅ ردیوسر جدید به استور اضافه شد
+    userDetails: userDetailsReducer,
+    userUpdateProfile: userUpdateProfileReducer,
+    workerList: workerListReducer,
+    projects: projectReducer,
     dailyReports: dailyReportReducer,
-    projects: projectSliceReducer,
+    reportForms: reportFormsReducer,
+    
   },
   preloadedState,
 });

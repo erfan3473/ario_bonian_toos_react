@@ -1,16 +1,18 @@
-// src/App.jsx
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-
 import Header from './components/Header';
 import HomeScreen from './screens/HomeScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
 import AuthScreen from './screens/AuthScreen';
-import UserListScreen from './screens/UserListScreen'; // ✅ اضافه شد
+import UserListScreen from './screens/UserListScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import DailyReportListScreen from './screens/DailyReportListScreen';
 import ProjectListScreen from './screens/ProjectListScreen';
 import ReportDetailScreen from './screens/ReportDetailScreen';
+import ReportCreateScreen from './screens/ReportCreateScreen';
+import ManagerReportScreen from './screens/ManagerReportScreen';
+import FacilitiesReportScreen from './screens/FacilitiesReportScreen';
+import SecurityReportScreen from './screens/SecurityReportScreen';
 
 function App() {
   return (
@@ -24,15 +26,17 @@ function App() {
           <Route path="/dashboard" element={<WorkerDashboardScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
           <Route path="/admin/users" element={<UserListScreen />} />
-          
-          {/* مسیرهای پروژه و گزارش */}
+
           <Route path="/projects" element={<ProjectListScreen />} />
-
-
           <Route path="/projects/:id/reports" element={<DailyReportListScreen />} />
-          
-          {/* ✅ مسیر جزئیات گزارش را به این شکل تغییر دهید */}
           <Route path="/reports/:reportId" element={<ReportDetailScreen />} />
+
+          {/* مسیر ایجاد گزارش */}
+          <Route path="/projects/:id/reports/create" element={<ReportCreateScreen />} />
+
+          <Route path="/reports/:reportId/manager" element={<ManagerReportScreen />} />
+          <Route path="/reports/:reportId/facilities" element={<FacilitiesReportScreen />} />
+          <Route path="/reports/:reportId/security" element={<SecurityReportScreen />} /> 
         </Routes>
       </main>
 

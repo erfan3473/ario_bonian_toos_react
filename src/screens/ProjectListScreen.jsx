@@ -1,4 +1,4 @@
-// src/screens/ProjectListScreen.js
+// src/screens/ProjectListScreen.jsx
 
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -15,17 +15,24 @@ function ProjectCard({ project }) {
         <p className="text-gray-600 mt-2">{project.location_text}</p>
         <p className="text-sm text-gray-500 mt-1">مدیر پروژه: {project.project_manager_name}</p>
       </div>
-      <Link
-        // ✅ اصلاح این خط
-        to={`/projects/${project.id}/reports`} // لینک به صفحه گزارش‌های این پروژه
-        className="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold mt-4 text-center py-2 px-4 rounded-md transition-colors"
-      >
-        مشاهده گزارش‌ها
-      </Link>
+
+      <div className="flex flex-col gap-2 mt-4">
+        <Link
+          to={`/projects/${project.id}/reports`}
+          className="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold text-center py-2 px-4 rounded-md transition-colors"
+        >
+          مشاهده گزارش‌ها
+        </Link>
+        <Link
+          to={`/projects/${project.id}/reports/create`}
+          className="text-white bg-green-600 hover:bg-green-700 font-semibold text-center py-2 px-4 rounded-md transition-colors"
+        >
+          ثبت گزارش جدید
+        </Link>
+      </div>
     </div>
   );
 }
-
 
 function ProjectListScreen() {
   const dispatch = useDispatch();

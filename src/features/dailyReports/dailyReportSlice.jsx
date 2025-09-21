@@ -1,82 +1,171 @@
 // src/features/dailyReports/dailyReportSlice.js
-
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../../actions/axios';
 
-// Thunk برای گرفتن لیست گزارش‌های یک پروژه
+// ================== Thunks ==================
+
+// 🟢 گرفتن لیست گزارش‌های یک پروژه
 export const fetchDailyReports = createAsyncThunk(
   'dailyReports/fetchDailyReports',
-  async (id, { getState }) => {
+  async (projectId, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`http://127.0.0.1:8000/api/projects/${id}/reports/`);
+      const { data } = await api.get(`projects/${projectId}/reports/`);
       return data;
     } catch (error) {
-      throw error.response && error.response.data.detail
-        ? error.response.data.detail
-        : error.message;
+      return rejectWithValue(error.response?.data?.detail || error.message);
     }
   }
 );
 
-// Thunk جدید برای گرفتن جزئیات یک گزارش خاص
+// 🟢 گرفتن جزئیات یک گزارش
 export const fetchReportDetails = createAsyncThunk(
   'dailyReports/fetchReportDetails',
-  async (reportId, { getState }) => {
+  async (reportId, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`http://127.0.0.1:8000/api/projects/reports/${reportId}/`);
+      const { data } = await api.get(`projects/reports/${reportId}/`);
       return data;
     } catch (error) {
-      throw error.response && error.response.data.detail
-        ? error.response.data.detail
-        : error.message;
+      return rejectWithValue(error.response?.data?.detail || error.message);
     }
   }
 );
+
+// 🟢 ایجاد گزارش جدید (با آپلود فایل)
+export const createReport = createAsyncThunk(
+  'dailyReports/createReport',
+  async ({ projectId, reportData }, { rejectWithValue }) => {
+    if (!projectId) return rejectWithValue("شناسه پروژه نامشخص است!");
+    try {
+      const formData = new FormData();
+      Object.keys(reportData).forEach((key) => {
+        if (key === 'files') {
+          reportData[key].forEach((file) => formData.append('files', file));
+        } else {
+          formData.append(key, reportData[key]);
+        }
+      });
+
+      const { data } = await api.post(
+        `projects/${projectId}/reports/create/`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message);
+    }
+  }
+);
+
+// 🟢 گرفتن گزارش امروز یک پروژه
+export const fetchTodayReport = createAsyncThunk(
+  'dailyReports/fetchTodayReport',
+  async (projectId, { rejectWithValue }) => {
+    try {
+      const { data } = await api.get(`projects/${projectId}/today-report/`);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message);
+    }
+  }
+);
+
+// ================== Slice ==================
 
 const dailyReportSlice = createSlice({
   name: 'dailyReports',
   initialState: {
-    reports: [],         // برای لیست گزارش‌ها
-    selectedReport: null, // برای نگهداری جزئیات گزارش انتخاب شده
-    loading: false,
+    reports: [],
+    selectedReport: null,
+    todayReport: null,
+
+    loadingReports: false,
+    loadingDetails: false,
+    loadingCreate: false,
+    loadingToday: false,
+
     error: null,
+    success: false,
   },
   reducers: {
-      // برای پاک کردن جزئیات گزارش قبلی وقتی از صفحه خارج می‌شیم
-      resetReportDetails: (state) => {
-          state.selectedReport = null;
-      }
+    resetReportDetails: (state) => {
+      state.selectedReport = null;
+      state.error = null;
+    },
+    resetCreateState: (state) => {
+      state.success = false;
+      state.error = null;
+    },
+    resetTodayReport: (state) => {
+      state.todayReport = null;
+      state.loadingToday = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
-      // Reducers برای لیست گزارش‌ها
+      // 📌 لیست گزارش‌ها
       .addCase(fetchDailyReports.pending, (state) => {
-        state.loading = true;
+        state.loadingReports = true;
         state.error = null;
       })
       .addCase(fetchDailyReports.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loadingReports = false;
         state.reports = action.payload;
       })
       .addCase(fetchDailyReports.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
+        state.loadingReports = false;
+        state.error = action.payload;
       })
-      // Reducers جدید برای جزئیات گزارش
+
+      // 📌 جزئیات یک گزارش
       .addCase(fetchReportDetails.pending, (state) => {
-        state.loading = true;
+        state.loadingDetails = true;
         state.error = null;
       })
       .addCase(fetchReportDetails.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loadingDetails = false;
         state.selectedReport = action.payload;
       })
       .addCase(fetchReportDetails.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
+        state.loadingDetails = false;
+        state.error = action.payload;
+      })
+
+      // 📌 ایجاد گزارش جدید
+      .addCase(createReport.pending, (state) => {
+        state.loadingCreate = true;
+        state.error = null;
+        state.success = false;
+      })
+      .addCase(createReport.fulfilled, (state, action) => {
+        state.loadingCreate = false;
+        state.success = true;
+        state.reports.push(action.payload);
+      })
+      .addCase(createReport.rejected, (state, action) => {
+        state.loadingCreate = false;
+        state.error = action.payload;
+      })
+
+      // 📌 گزارش امروز
+      .addCase(fetchTodayReport.pending, (state) => {
+        state.loadingToday = true;
+        state.error = null;
+      })
+      .addCase(fetchTodayReport.fulfilled, (state, action) => {
+        state.loadingToday = false;
+        state.todayReport = action.payload;
+      })
+      .addCase(fetchTodayReport.rejected, (state, action) => {
+        state.loadingToday = false;
+        state.todayReport = null;
+        state.error = action.payload;
       });
   },
 });
 
-export const { resetReportDetails } = dailyReportSlice.actions;
+export const { resetReportDetails, resetCreateState, resetTodayReport } =
+  dailyReportSlice.actions;
+
 export default dailyReportSlice.reducer;
