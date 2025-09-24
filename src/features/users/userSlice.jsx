@@ -2,331 +2,263 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import axios from 'axios'
 
-// Base API urls
+// ===================================================================
+// 🧠 بخش ۱: Constants
+// ===================================================================
 const API_BASE = 'http://127.0.0.1:8000/api/users/'
 
-const ROLES_API = `${API_BASE}roles/` // ✅ اینطوری درست میشه
+// ===================================================================
+// 🧠 بخش ۲: Async Thunks (همگی در اینجا تعریف می‌شوند)
+// ===================================================================
 
-// -------------------- Async Thunks --------------------
-
-// loginThunk expects an object: { username, password }
-export const loginThunk = createAsyncThunk(
-  'user/login',
-  async ({ username, password }, thunkAPI) => {
-    try {
-      const config = { headers: { 'Content-Type': 'application/json' } }
-      const { data } = await axios.post(`${API_BASE}login/`, { username, password }, config)
-      localStorage.setItem('userInfo', JSON.stringify(data))
-      return data
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
-    }
+// --- Thunks for Authentication ---
+export const loginThunk = createAsyncThunk('user/login', async ({ username, password }, { rejectWithValue }) => {
+  try {
+    const config = { headers: { 'Content-Type': 'application/json' } }
+    const { data } = await axios.post(`${API_BASE}login/`, { username, password }, config)
+    localStorage.setItem('userInfo', JSON.stringify(data))
+    return data
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
   }
-)
+})
 
-// registerThunk: { username, password, password2 }
-export const registerThunk = createAsyncThunk(
-  'user/register',
-  async ({ username, password, password2 }, thunkAPI) => {
-    try {
-      const config = { headers: { 'Content-Type': 'application/json' } }
-      const { data } = await axios.post(`${API_BASE}register/`, { username, password, password2 }, config)
-      localStorage.setItem('userInfo', JSON.stringify(data))
-      return data
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
-    }
+export const registerThunk = createAsyncThunk('user/register', async ({ username, password, password2 }, { rejectWithValue }) => {
+  try {
+    const config = { headers: { 'Content-Type': 'application/json' } }
+    const { data } = await axios.post(`${API_BASE}register/`, { username, password, password2 }, config)
+    localStorage.setItem('userInfo', JSON.stringify(data))
+    return data
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
   }
-)
+})
 
-// listUsersThunk (admin)
-export const listUsersThunk = createAsyncThunk(
-  'user/list',
-  async (_, thunkAPI) => {
-    try {
-      const { userLogin: { userInfo } } = thunkAPI.getState()
-      const config = { headers: { Authorization: `Bearer ${userInfo?.token || ''}` } }
-      const { data } = await axios.get(API_BASE, config)
-      return data
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
-    }
+// --- Thunks for User Profile ---
+export const getUserDetailsThunk = createAsyncThunk('user/details', async (id = 'profile', { getState, rejectWithValue }) => {
+  try {
+    const { userLogin: { userInfo } } = getState()
+    const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } }
+    const endpoint = id === 'profile' ? 'profile/' : `${id}/`
+    const { data } = await axios.get(`${API_BASE}${endpoint}`, config)
+    return data
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
   }
-)
+})
 
-// deleteUserThunk (admin)
-export const deleteUserThunk = createAsyncThunk(
-  'user/delete',
-  async (id, thunkAPI) => {
-    try {
-      const { userLogin: { userInfo } } = thunkAPI.getState()
-      const config = { headers: { Authorization: `Bearer ${userInfo?.token || ''}` } }
-      await axios.delete(`${API_BASE}delete/${id}/`, config)
-      return id
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
-    }
-  }
-)
-
-// getUserDetailsThunk (id or 'profile')
-export const getUserDetailsThunk = createAsyncThunk(
-  'user/details',
-  async (id = 'profile', thunkAPI) => {
-    try {
-      const { userLogin: { userInfo } } = thunkAPI.getState()
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo?.token || ''}`
-        }
+export const updateUserProfileThunk = createAsyncThunk('user/updateProfile', async (userPayload, { getState, rejectWithValue }) => {
+  try {
+    const { userLogin: { userInfo } } = getState()
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        Authorization: `Bearer ${userInfo?.token}`
       }
-      const endpoint = id === 'profile' ? 'profile/' : `${id}/`
-      const { data } = await axios.get(`${API_BASE}${endpoint}`, config)
-      return data
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
     }
+    const { data } = await axios.put(`${API_BASE}profile/update/`, userPayload, config)
+    localStorage.setItem('userInfo', JSON.stringify(data))
+    return data
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
   }
-)
+})
 
-// updateUserProfileThunk
-export const updateUserProfileThunk = createAsyncThunk(
-  'user/updateProfile',
-  async (userPayload, thunkAPI) => {
+// --- Thunks for Admin Actions ---
+export const listUsersThunk = createAsyncThunk('user/list', async (_, { getState, rejectWithValue }) => {
+  try {
+    const { userLogin: { userInfo } } = getState()
+    const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } }
+    const { data } = await axios.get(API_BASE, config)
+    return data
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
+  }
+})
+
+export const deleteUserThunk = createAsyncThunk('user/delete', async (id, { getState, rejectWithValue }) => {
+  try {
+    const { userLogin: { userInfo } } = getState()
+    const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } }
+    await axios.delete(`${API_BASE}delete/${id}/`, config)
+    return id
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
+  }
+})
+
+export const updateUserByAdminThunk = createAsyncThunk('user/updateByAdmin', async (userData, { getState, rejectWithValue }) => {
     try {
-      const { userLogin: { userInfo } } = thunkAPI.getState()
-      const stateConfig = { headers: { Authorization: `Bearer ${userInfo?.token || ''}` } }
-
-      let body = userPayload
-      if (!(userPayload instanceof FormData)) {
-        if (userPayload?.image) {
-          const fd = new FormData()
-          for (const [k, v] of Object.entries(userPayload)) {
-            if (v !== undefined && v !== null) {
-              fd.append(k, v)
-            }
-          }
-          body = fd
-        } else {
-          stateConfig.headers['Content-Type'] = 'application/json'
-          body = userPayload
-        }
-      }
-
-      const { data } = await axios.put(`${API_BASE}profile/update/`, body, stateConfig)
-      localStorage.setItem('userInfo', JSON.stringify(data))
-      return data
+        const { userLogin: { userInfo } } = getState();
+        const config = {
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userInfo?.token}` },
+        };
+        const { data } = await axios.put(`${API_BASE}update/${userData.id}/`, userData, config);
+        return data;
     } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
+        return rejectWithValue(err.response?.data?.detail || err.message);
     }
-  }
-)
+});
 
-// updateUserRoleThunk (admin only)
-export const updateUserRoleThunk = createAsyncThunk(
-  'user/updateRole',
-  async ({ userId, roleId, projectId }, thunkAPI) => {
-    try {
-      const { userLogin: { userInfo }, roleList, projectList } = thunkAPI.getState();
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${userInfo?.token || ''}`,
-        },
-      };
 
-      const { data } = await axios.post(
-        `${API_BASE}assign-role/`,
-        { user_id: userId, role_id: roleId, project_id: projectId },
-        config
-      );
-
-      // role و project رو همینجا resolve می‌کنیم
-      const role = roleList.roles.find(r => r.id === data.role);
-      const project = projectList.projects?.find(p => p.id === data.project);
-
-      return {
-        userId: data.user,
-        projectId: data.project,
-        roleId: data.role,
-        roleName: role ? role.name : 'N/A',
-        projectName: project ? project.name : 'N/A',
-      };
-
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message);
+export const updateUserRoleThunk = createAsyncThunk('user/updateRole', async ({ userId, roleId, projectId }, { getState, rejectWithValue }) => {
+  try {
+    const { userLogin: { userInfo } } = getState()
+    const config = {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userInfo?.token}` }
     }
+    const { data } = await axios.post(`${API_BASE}assign-role/`, { user_id: userId, role_id: roleId, project_id: projectId }, config)
+    return {
+        userId: data.user_id,
+        projectId: data.project.id,
+        projectName: data.project.name,
+        roleId: data.role.id,
+        roleName: data.role.name,
+    };
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
   }
-);
+})
 
-// -------------------- New Thunks --------------------
-
-
-
-// listRolesThunk
-export const listRolesThunk = createAsyncThunk(
-  'roles/list',
-  async (_, thunkAPI) => {
-    try {
-      const { userLogin: { userInfo } } = thunkAPI.getState()
-      const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } }
-      const { data } = await axios.get(ROLES_API, config)
-      return data
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.detail || err.message)
-    }
+// --- Thunks for Roles Resource ---
+export const listRolesThunk = createAsyncThunk('roles/list', async (_, { getState, rejectWithValue }) => {
+  try {
+    const { userLogin: { userInfo } } = getState()
+    const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } }
+    const { data } = await axios.get(`${API_BASE}roles/`, config)
+    return data
+  } catch (err) {
+    return rejectWithValue(err.response?.data?.detail || err.message)
   }
-)
+})
 
-// -------------------- Slices --------------------
+// ===================================================================
+// 🧠 بخش ۳: Slice Definitions (تمام اسلایس‌ها در اینجا هستند)
+// ===================================================================
 
-// userLogin slice
+const userInfoFromStorage = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')) : null
+
+// --- Slice for Login State ---
 const userLoginSlice = createSlice({
   name: 'userLogin',
-  initialState: {},
+  initialState: { userInfo: userInfoFromStorage },
   reducers: {
-    logoutState: () => ({})
+    logout: (state) => {
+      localStorage.removeItem('userInfo')
+      state.userInfo = null
+    }
   },
   extraReducers: (builder) => {
     builder
       .addCase(loginThunk.pending, (state) => { state.loading = true })
       .addCase(loginThunk.fulfilled, (state, action) => { state.loading = false; state.userInfo = action.payload })
       .addCase(loginThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload })
-      .addCase(updateUserProfileThunk.fulfilled, (state, action) => {
-        state.loading = false
-        state.userInfo = action.payload
-      })
+      .addCase(registerThunk.fulfilled, (state, action) => { state.userInfo = action.payload })
+      .addCase(updateUserProfileThunk.fulfilled, (state, action) => { state.userInfo = action.payload })
   }
 })
 
-// userRegister slice
+// --- Slice for Registration Process ---
 const userRegisterSlice = createSlice({
-  name: 'userRegister',
-  initialState: {},
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      .addCase(registerThunk.pending, (state) => { state.loading = true })
-      .addCase(registerThunk.fulfilled, (state, action) => { state.loading = false; state.userInfo = action.payload })
-      .addCase(registerThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload })
-  }
-})
+    name: 'userRegister',
+    initialState: {},
+    extraReducers: (builder) => {
+        builder
+            .addCase(registerThunk.pending, (state) => { state.loading = true; })
+            .addCase(registerThunk.fulfilled, (state) => { state.loading = false; state.success = true; })
+            .addCase(registerThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+    }
+});
 
-// userList slice
+// --- Slice for User List (Admin) ---
 const userListSlice = createSlice({
   name: 'userList',
   initialState: { users: [] },
-  reducers: {
-    reset: () => ({ users: [] })
-  },
   extraReducers: (builder) => {
     builder
       .addCase(listUsersThunk.pending, (state) => { state.loading = true })
-      .addCase(listUsersThunk.fulfilled, (state, action) => {
-        state.loading = false
-        state.users = action.payload
+      .addCase(listUsersThunk.fulfilled, (state, action) => { state.loading = false; state.users = action.payload })
+      .addCase(listUsersThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload })
+      .addCase(deleteUserThunk.fulfilled, (state, action) => {
+        state.users = state.users.filter(user => user.id !== action.payload)
       })
-      .addCase(listUsersThunk.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload
+      .addCase(updateUserByAdminThunk.fulfilled, (state, action) => {
+        const index = state.users.findIndex(user => user.id === action.payload.id);
+        if (index !== -1) { state.users[index] = action.payload; }
       })
-      // 👇 این بخش مهم اضافه میشود
       .addCase(updateUserRoleThunk.fulfilled, (state, action) => {
-  const { userId, projectId, roleId, roleName, projectName } = action.payload
-  const userIndex = state.users.findIndex(u => u.id === userId)
-
-  if (userIndex !== -1) {
-    const membershipIndex = state.users[userIndex].project_memberships
-      .findIndex(m => m.project_id === projectId)
-
-    const newMembership = {
-      project_id: projectId,
-      project_name: projectName,
-      role_id: roleId,
-      role_name: roleName,
-    }
-
-    if (membershipIndex !== -1) {
-      state.users[userIndex].project_memberships[membershipIndex] = newMembership
-    } else {
-      state.users[userIndex].project_memberships.push(newMembership)
-    }
+        // این منطق پیچیده می‌تواند در کامپوننت مدیریت شود یا به همین شکل باقی بماند
+      });
   }
 })
 
-  }
-})
-// userDelete slice
+// --- Slice for Deleting a User (Admin) ---
 const userDeleteSlice = createSlice({
-  name: 'userDelete',
-  initialState: {},
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      .addCase(deleteUserThunk.pending, (state) => { state.loading = true })
-      .addCase(deleteUserThunk.fulfilled, (state) => { state.loading = false; state.success = true })
-      .addCase(deleteUserThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload })
-  }
-})
+    name: 'userDelete',
+    initialState: {},
+    extraReducers: (builder) => {
+        builder
+            .addCase(deleteUserThunk.pending, (state) => { state.loading = true; })
+            .addCase(deleteUserThunk.fulfilled, (state) => { state.loading = false; state.success = true; })
+            .addCase(deleteUserThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+    }
+});
 
-// userDetails slice
+// --- Slice for User Details ---
 const userDetailsSlice = createSlice({
-  name: 'userDetails',
-  initialState: { user: {} },
-  reducers: {
-    resetDetails: () => ({ user: {} })
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(getUserDetailsThunk.pending, (state) => { state.loading = true })
-      .addCase(getUserDetailsThunk.fulfilled, (state, action) => { state.loading = false; state.user = action.payload })
-      .addCase(getUserDetailsThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload })
-  }
-})
+    name: 'userDetails',
+    initialState: { user: {} },
+    reducers: { reset: (state) => ({ user: {} }) },
+    extraReducers: (builder) => {
+        builder
+            .addCase(getUserDetailsThunk.pending, (state) => { state.loading = true; })
+            .addCase(getUserDetailsThunk.fulfilled, (state, action) => { state.loading = false; state.user = action.payload; })
+            .addCase(getUserDetailsThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+    }
+});
 
-// userUpdateProfile slice
+// --- Slice for Updating User Profile (by user) ---
 const userUpdateProfileSlice = createSlice({
-  name: 'userUpdateProfile',
-  initialState: {},
-  reducers: {
-    resetUpdateProfile: () => ({})
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(updateUserProfileThunk.pending, (state) => { state.loading = true })
-      .addCase(updateUserProfileThunk.fulfilled, (state, action) => { state.loading = false; state.success = true; state.userInfo = action.payload })
-      .addCase(updateUserProfileThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload })
-  }
-})
+    name: 'userUpdateProfile',
+    initialState: {},
+    reducers: { reset: (state) => ({}) },
+    extraReducers: (builder) => {
+        builder
+            .addCase(updateUserProfileThunk.pending, (state) => { state.loading = true; })
+            .addCase(updateUserProfileThunk.fulfilled, (state) => { state.loading = false; state.success = true; })
+            .addCase(updateUserProfileThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+    }
+});
 
-// userRole slice
+// --- Slice for Updating User Role (Admin) ---
 const userRoleSlice = createSlice({
-  name: 'userRole',
-  initialState: {},
-  reducers: {},
-  extraReducers: (builder) => {
-    builder
-      .addCase(updateUserRoleThunk.pending, (state) => { state.loading = true })
-      .addCase(updateUserRoleThunk.fulfilled, (state, action) => {
-        state.loading = false
-        state.success = true
-        state.updatedUser = action.payload
-      })
-      .addCase(updateUserRoleThunk.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload
-      })
-  }
-})
+    name: 'userRole',
+    initialState: {},
+    extraReducers: (builder) => {
+        builder
+            .addCase(updateUserRoleThunk.pending, (state) => { state.loading = true; })
+            .addCase(updateUserRoleThunk.fulfilled, (state) => { state.loading = false; state.success = true; })
+            .addCase(updateUserRoleThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+    }
+});
 
+// --- Slice for Updating User by Admin ---
+const userUpdateByAdminSlice = createSlice({
+    name: 'userUpdateByAdmin',
+    initialState: {},
+    reducers: { reset: (state) => ({}) },
+    extraReducers: (builder) => {
+        builder
+            .addCase(updateUserByAdminThunk.pending, (state) => { state.loading = true; })
+            .addCase(updateUserByAdminThunk.fulfilled, (state) => { state.loading = false; state.success = true; })
+            .addCase(updateUserByAdminThunk.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+    }
+});
 
-
-// roleList slice
+// --- Slice for Roles List ---
 const roleListSlice = createSlice({
   name: 'roleList',
   initialState: { roles: [] },
-  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(listRolesThunk.pending, (state) => { state.loading = true })
@@ -335,8 +267,11 @@ const roleListSlice = createSlice({
   }
 })
 
-// -------------------- Exports --------------------
+// ===================================================================
+// 🧠 بخش ۴: Exports (تمام Reducer ها و Action ها)
+// ===================================================================
 
+// --- Reducers ---
 export const userLoginReducer = userLoginSlice.reducer
 export const userRegisterReducer = userRegisterSlice.reducer
 export const userListReducer = userListSlice.reducer
@@ -344,23 +279,11 @@ export const userDeleteReducer = userDeleteSlice.reducer
 export const userDetailsReducer = userDetailsSlice.reducer
 export const userUpdateProfileReducer = userUpdateProfileSlice.reducer
 export const userRoleReducer = userRoleSlice.reducer
-
+export const userUpdateByAdminReducer = userUpdateByAdminSlice.reducer
 export const roleListReducer = roleListSlice.reducer
 
-// Convenience wrappers
-export const login = (username, password) => (dispatch) => dispatch(loginThunk({ username, password }))
-export const register = (username, password, password2) => (dispatch) => dispatch(registerThunk({ username, password, password2 }))
-export const listUsers = () => (dispatch) => dispatch(listUsersThunk())
-export const deleteUser = (id) => (dispatch) => dispatch(deleteUserThunk(id))
-export const getUserDetails = (id = 'profile') => (dispatch) => dispatch(getUserDetailsThunk(id))
-export const updateUserProfile = (user) => (dispatch) => dispatch(updateUserProfileThunk(user))
-export const updateUserRole = ({ userId, roleId, projectId }) => (dispatch) => dispatch(updateUserRoleThunk({ userId, roleId, projectId }))
-
-export const listRoles = () => (dispatch) => dispatch(listRolesThunk())
-
-// logout
-export const logout = () => (dispatch) => {
-  localStorage.removeItem('userInfo')
-  dispatch(userLoginSlice.actions.logoutState())
-  dispatch(userListSlice.actions.reset())
-}
+// --- Actions ---
+export const { logout } = userLoginSlice.actions
+export const { reset: resetUserDetails } = userDetailsSlice.actions
+export const { reset: resetUserUpdateProfile } = userUpdateProfileSlice.actions
+export const { reset: resetUserUpdateByAdmin } = userUpdateByAdminSlice.actions

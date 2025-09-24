@@ -1,15 +1,16 @@
-// مسیر: src/screens/AuthScreen.jsx
+// src/screens/AuthScreen.jsx
 import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { login, register } from '../features/users/userSlice'
+import { loginThunk, registerThunk } from '../features/users/userSlice'
 import { useNavigate } from 'react-router-dom'
 
 export default function AuthScreen() {
   const [isRegister, setIsRegister] = useState(false)
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('') // optional
   const [password, setPassword] = useState('')
-  const [password2, setPassword2] = useState('') // state برای تکرار رمز عبور
-  const [message, setMessage] = useState(null)   // state برای پیام‌های سمت کلاینت
+  const [password2, setPassword2] = useState('')
+  const [message, setMessage] = useState(null)
 
   const dispatch = useDispatch()
   const navigate = useNavigate()
@@ -23,22 +24,41 @@ export default function AuthScreen() {
   useEffect(() => {
     if (userInfo) {
       if (userInfo.isAdmin) navigate('/admin/users')
-      else navigate('/') // بعد از ورود موفق به صفحه اصلی منتقل شود
+      else navigate('/')
     }
   }, [userInfo, navigate])
 
   const submitHandler = (e) => {
     e.preventDefault()
-    setMessage(null) // پاک کردن پیام قبلی
+    setMessage(null)
 
     if (isRegister) {
       if (password !== password2) {
         setMessage('رمزهای عبور یکسان نیستند')
-      } else {
-        dispatch(register(username, password, password2))
+        return
       }
+
+      // ✅ dispatch as object (matches createAsyncThunk signature)
+      dispatch(registerThunk({ username, email, password, password2 }))
+        .unwrap()
+        .catch(err => {
+          // unwrap() اجازه میده خطاهای rejected رو اینجا بگیریم
+          console.error('register error (unwrapped):', err)
+          // اگر backend پیام خطای detail فرستاده باشه بعضاً شکلش { detail: "..." } یا { field: [...] }
+          if (err?.detail) setMessage(err.detail)
+          else if (typeof err === 'string') setMessage(err)
+          else setMessage('ثبت‌نام با خطا مواجه شد')
+        })
+
     } else {
-      dispatch(login(username, password))
+      dispatch(loginThunk({ username, password }))
+        .unwrap()
+        .catch(err => {
+          console.error('login error (unwrapped):', err)
+          if (err?.detail) setMessage(err.detail)
+          else if (typeof err === 'string') setMessage(err)
+          else setMessage('ورود با خطا مواجه شد')
+        })
     }
   }
 
@@ -48,14 +68,14 @@ export default function AuthScreen() {
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-bold">{isRegister ? 'ثبت‌نام کاربر جدید' : 'ورود به حساب کاربری'}</h3>
           <button
-            onClick={() => setIsRegister(prev => !prev)}
+            onClick={() => { setIsRegister(prev => !prev); setMessage(null) }}
             className="text-sm px-3 py-1 rounded-md bg-transparent border border-gray-700 hover:bg-gray-800 transition-colors"
           >
             {isRegister ? 'فرم ورود' : 'فرم ثبت‌نام'}
           </button>
         </div>
 
-        <form onSubmit={submitHandler} className="space-y-4">
+        <form onSubmit={submitHandler} className="space-y-4" noValidate>
           <div>
             <label className="text-sm text-gray-200">نام کاربری</label>
             <input
@@ -66,6 +86,19 @@ export default function AuthScreen() {
               required
             />
           </div>
+
+          {isRegister && (
+            <div>
+              <label className="text-sm text-gray-200">ایمیل (اختیاری)</label>
+              <input
+                type="email"
+                className="w-full mt-2 p-3 rounded-lg bg-gray-900 border border-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@mail.com"
+              />
+            </div>
+          )}
 
           <div>
             <label className="text-sm text-gray-200">رمز عبور</label>
@@ -119,10 +152,12 @@ export default function AuthScreen() {
           <div className="text-sm text-gray-300 text-center mb-3">تست سریع با کاربران پیش‌فرض</div>
           <div className="flex justify-center gap-3">
             <button
+              type="button"
               onClick={() => { setUsername('admin'); setPassword('adminpass'); }}
               className="px-3 py-2 text-xs rounded-md bg-gray-800/60 hover:bg-gray-700/80 transition-colors"
             >پر کردن ادمین</button>
             <button
+              type="button"
               onClick={() => { setUsername('user1'); setPassword('userpass'); }}
               className="px-3 py-2 text-xs rounded-md bg-gray-800/60 hover:bg-gray-700/80 transition-colors"
             >پر کردن کاربر</button>

@@ -10,19 +10,19 @@ import {
   FaSignOutAlt,
   FaSignInAlt,
   FaChevronDown,
-  FaBars, // 👇 آیکن همبرگری را اضافه کن
+  FaBars,
 } from "react-icons/fa";
 
-// 👇 prop جدید toggleSidebar را اینجا دریافت می‌کنیم
 const Header = ({ toggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { userInfo } = useSelector((state) => state.userLogin);
-  // 👇 برای جلوگیری از خطا، اگر state.projects وجود نداشت، یک آبجکت خالی در نظر می‌گیریم
-  const { projects } = useSelector((state) => state.projects || { projects: [] }); 
-  const projectId = projects && projects.length > 0 ? projects[0].id : null;
-  const { todayReport } = useSelector((state) => state.dailyReports || {});
+  // 🔹 اصلاح useSelector ها
+  const userInfo = useSelector((state) => state.userLogin?.userInfo);
+  const projects = useSelector((state) => state.projects?.projects || []);
+  const todayReport = useSelector((state) => state.dailyReports?.todayReport);
+
+  const projectId = projects.length > 0 ? projects[0].id : null;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportMenuOpen, setReportMenuOpen] = useState(false);
@@ -47,18 +47,16 @@ const Header = ({ toggleSidebar }) => {
     <header className="bg-gray-800 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center py-4 px-6">
         <div className="flex items-center gap-x-4">
-            {/* 👇 دکمه منوی همبرگری برای باز کردن سایدبار */}
-            {/* این دکمه فقط در صفحات کوچک (تا md) نمایش داده می‌شود */}
-            <button onClick={toggleSidebar} className="text-white text-2xl md:hidden">
-              <FaBars />
-            </button>
-            <Link to="/" className="text-2xl font-bold text-indigo-400 hover:text-indigo-300">
-             آریو بنیان توس
-            </Link>
+          {/* دکمه منوی همبرگری */}
+          <button onClick={toggleSidebar} className="text-white text-2xl md:hidden">
+            <FaBars />
+          </button>
+          <Link to="/" className="text-2xl font-bold text-indigo-400 hover:text-indigo-300">
+            آریو بنیان توس
+          </Link>
         </div>
 
-
-        {/* 👇 کل این nav در صفحات کوچک مخفی می‌شود و در صفحات بزرگ نمایش داده می‌شود */}
+        {/* منو */}
         <nav className="hidden md:flex items-center gap-x-8 text-gray-300">
           <Link to="/projects" className="hover:text-indigo-400 transition duration-300">
             پروژه ها
@@ -66,9 +64,13 @@ const Header = ({ toggleSidebar }) => {
           <Link to="/dashboard" className="hover:text-indigo-400 transition duration-300">
             مانیتور پروژه
           </Link>
-          <Link to="/admin/users" className="hover:text-indigo-400 transition duration-300">
-             ادمین
-          </Link>
+
+          {/* 🔹 فقط اگر ادمین بود */}
+          {userInfo?.isAdmin && (
+            <Link to="/admin/users" className="hover:text-indigo-400 transition duration-300">
+              ادمین
+            </Link>
+          )}
 
           {/* منوی کشویی ثبت گزارش */}
           <div className="relative">

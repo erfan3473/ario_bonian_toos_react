@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { NavLink } from 'react-router-dom';
 import ProfileCard from './ProfileCard';
 import { FaTimes, FaTachometerAlt, FaFolder } from 'react-icons/fa';
-import { getUserDetails } from '../features/users/userSlice'; // مسیر فرضی برای slice
+import { getUserDetailsThunk } from '../features/users/userSlice'; // مسیر فرضی برای slice
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
   const dispatch = useDispatch();
@@ -13,7 +13,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
 
   useEffect(() => {
     if (userInfo && !user?.username) {
-      dispatch(getUserDetails('profile'));
+      dispatch(getUserDetailsThunk('profile'));
     }
   }, [dispatch, userInfo, user]);
 

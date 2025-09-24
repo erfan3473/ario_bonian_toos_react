@@ -9,6 +9,7 @@ import {
   userUpdateProfileReducer,
   userRoleReducer,
   roleListReducer ,
+  userUpdateByAdminReducer
   
 } from './features/users/userSlice'; // <- نقطه تغییر: از slices/userSlice وارد کن
 import { workerListReducer } from './reducers/workerReducers';
@@ -39,7 +40,7 @@ const store = configureStore({
     dailyReports: dailyReportReducer,
     reportForms: reportFormsReducer,
     userRole: userRoleReducer,
-    
+    userUpdateByAdmin: userUpdateByAdminReducer, 
     roleList: roleListReducer,
   },
   preloadedState,

@@ -1,156 +1,132 @@
 // src/screens/UserListScreen.jsx
-import React, { useEffect, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { listUsersThunk, deleteUserThunk, updateUserRoleThunk, listRolesThunk } from '../features/users/userSlice'
-import { listProjectsThunk } from '../features/projects/projectSlice'
-import Loader from '../components/Loader'
-import Message from '../components/Message'
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { listUsersThunk, deleteUserThunk, updateUserByAdminThunk, updateUserRoleThunk, listRolesThunk, resetUserUpdateByAdmin } from '../features/users/userSlice';
+import { listProjectsThunk } from '../features/projects/projectSlice';
+import Loader from '../components/Loader';
+import Message from '../components/Message';
+import UserEditModal from '../components/UserEditModal'; // ✅ ایمپورت مودال
 
 function UserListScreen() {
-  const dispatch = useDispatch()
+    const dispatch = useDispatch();
 
-  // --- Local State for Managing Selections ---
-  const [selections, setSelections] = useState({}) // e.g., { userId: { projectId, roleId } }
+    // --- Local State for Modal ---
+    const [editingUser, setEditingUser] = useState(null); // کاربری که در حال ویرایش است
 
-  // --- Redux State Selectors ---
-  const { loading, error, users } = useSelector((state) => state.userList)
-  const { projects, loading: projectsLoading } = useSelector((state) => state.projectList)
-  const { roles, loading: rolesLoading } = useSelector((state) => state.roleList)
-  const { success: successDelete } = useSelector((state) => state.userDelete)
-  const { loading: roleLoading, success: roleSuccess, error: roleError } = useSelector((state) => state.userRole)
+    // --- Redux State Selectors ---
+    const { loading, error, users } = useSelector((state) => state.userList);
+    const { projects, loading: projectsLoading } = useSelector((state) => state.projectList);
+    const { roles, loading: rolesLoading } = useSelector((state) => state.roleList);
+    const { success: successDelete } = useSelector((state) => state.userDelete);
+    
+    // ✅ سلکتورهای مربوط به آپدیت
+    const { loading: loadingUpdate, error: errorUpdate, success: successUpdate } = useSelector((state) => state.userUpdateByAdmin);
+    
+    // --- Effects ---
+    useEffect(() => {
+        dispatch(listUsersThunk());
+        dispatch(listProjectsThunk());
+        dispatch(listRolesThunk());
 
-  // --- Effects ---
-  useEffect(() => {
-    // Fetch initial data
-    dispatch(listUsersThunk())
-    dispatch(listProjectsThunk())
-    dispatch(listRolesThunk())
-  }, [dispatch, successDelete, roleSuccess])
-
-  useEffect(() => {
-    // Initialize local selections state when users data is loaded
-    if (users.length > 0) {
-      const initialSelections = {}
-      users.forEach(user => {
-        // For simplicity, we manage the first membership. UI can be extended for multiple memberships.
-        const membership = user.project_memberships?.[0]
-        initialSelections[user.id] = {
-          projectId: membership?.project_id || '',
-          roleId: membership?.role_id || '',
+        if (successUpdate) {
+            // وقتی آپدیت موفق بود، مودال را ببند و وضعیت را ریست کن
+            setEditingUser(null);
+            dispatch(resetUserUpdateByAdmin());
         }
-      })
-      setSelections(initialSelections)
-    }
-  }, [users])
+    }, [dispatch, successDelete, successUpdate]);
 
-  // --- Handlers ---
-  const deleteHandler = (id) => {
-    if (window.confirm('آیا از حذف این کاربر مطمئن هستید؟')) {
-      dispatch(deleteUserThunk(id))
-    }
-  }
+    // --- Handlers ---
+    const deleteHandler = (id) => {
+        if (window.confirm('آیا از حذف این کاربر مطمئن هستید؟')) {
+            dispatch(deleteUserThunk(id));
+        }
+    };
 
-  const handleSelectionChange = (userId, field, value) => {
-    setSelections(prev => ({
-      ...prev,
-      [userId]: {
-        ...prev[userId],
-        [field]: value,
-      },
-    }))
-  }
+    const handleEditClick = (user) => {
+        setEditingUser(user); // کاربر را برای ویرایش در state قرار بده تا مودال باز شود
+    };
 
-  const handleSaveMembership = (userId) => {
-    const { projectId, roleId } = selections[userId]
-    if (projectId && roleId) {
-      dispatch(updateUserRoleThunk({ userId, projectId: parseInt(projectId), roleId: parseInt(roleId) }))
-    } else {
-      alert('لطفاً هم پروژه و هم نقش را انتخاب کنید.')
-    }
-  }
+    const handleModalClose = () => {
+        setEditingUser(null); // بستن مودال
+    };
 
-  // --- Render Logic ---
-  const isLoading = loading || projectsLoading || rolesLoading
+    const handleSaveUser = (coreUserData, roleData) => {
+        // آپدیت اطلاعات اصلی کاربر
+        dispatch(updateUserByAdminThunk(coreUserData));
 
-  return (
-    <div>
-      <h1>مدیریت کاربران</h1>
-      {roleLoading && <Loader />}
-      {roleError && <Message variant="danger">{roleError}</Message>}
-      {successDelete && <Message variant="success">کاربر با موفقیت حذف شد.</Message>}
+        // اگر پروژه و نقش انتخاب شده بود، آن را هم آپدیت کن
+        if (roleData.projectId && roleData.roleId) {
+            dispatch(updateUserRoleThunk(roleData));
+        }
+    };
 
-      {isLoading ? (
-        <Loader />
-      ) : error ? (
-        <Message variant="danger">{error}</Message>
-      ) : (
-        <table className="table table-striped table-bordered table-hover">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>نام کاربری</th>
-              <th>پروژه</th>
-              <th>نقش</th>
-              <th>عملیات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => {
-                const userSelection = selections[user.id] || { projectId: '', roleId: '' };
-                const originalMembership = user.project_memberships?.[0];
-                const hasChanged = originalMembership?.project_id !== parseInt(userSelection.projectId) || originalMembership?.role_id !== parseInt(userSelection.roleId);
+    // --- Render Logic ---
+    const isLoading = loading || projectsLoading || rolesLoading;
 
-                return (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.username}</td>
-                    <td>
-                      <select
-                        className="form-control"
-                        value={userSelection.projectId}
-                        onChange={(e) => handleSelectionChange(user.id, 'projectId', e.target.value)}
-                      >
-                        <option value="">انتخاب پروژه</option>
-                        {projects.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+    return (
+        <div>
+            <h1>مدیریت کاربران</h1>
+            {loadingUpdate && <Loader />}
+            {errorUpdate && <Message variant="danger">{errorUpdate}</Message>}
+            {successUpdate && <Message variant="success">کاربر با موفقیت به‌روزرسانی شد.</Message>}
+            {successDelete && <Message variant="success">کاربر با موفقیت حذف شد.</Message>}
+
+            {isLoading ? (
+                <Loader />
+            ) : error ? (
+                <Message variant="danger">{error}</Message>
+            ) : (
+                <table className="table table-striped table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>نام کاربری</th>
+                            <th>نام</th>
+                            <th>ادمین</th>
+                            <th>نقش اصلی</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map((user) => (
+                            <tr key={user.id}>
+                                <td>{user.id}</td>
+                                <td>{user.username}</td>
+                                <td>{user.first_name} {user.last_name}</td>
+                                <td>{user.is_staff ? '✔️' : '❌'}</td>
+                                <td>{user.project_memberships?.[0]?.role_name || 'تعیین نشده'}</td>
+                                <td>
+                                    <button
+                                        className="btn btn-primary btn-sm"
+                                        onClick={() => handleEditClick(user)}
+                                    >
+                                        ویرایش
+                                    </button>
+                                    <button
+                                        className="btn btn-danger btn-sm mx-1"
+                                        onClick={() => deleteHandler(user.id)}
+                                    >
+                                        حذف
+                                    </button>
+                                </td>
+                            </tr>
                         ))}
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        className="form-control"
-                        value={userSelection.roleId}
-                        onChange={(e) => handleSelectionChange(user.id, 'roleId', e.target.value)}
-                      >
-                        <option value="">انتخاب نقش</option>
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>{r.name}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() => handleSaveMembership(user.id)}
-                        disabled={!hasChanged || roleLoading}
-                      >
-                        ذخیره
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm mx-1"
-                        onClick={() => deleteHandler(user.id)}
-                      >
-                        حذف
-                      </button>
-                    </td>
-                  </tr>
-                )
-            })}
-          </tbody>
-        </table>
-      )}
-    </div>
-  )
+                    </tbody>
+                </table>
+            )}
+
+            {/* ✅ رندر کردن مودال */}
+            {editingUser && (
+                <UserEditModal
+                    user={editingUser}
+                    onClose={handleModalClose}
+                    onSave={handleSaveUser}
+                    projects={projects}
+                    roles={roles}
+                />
+            )}
+        </div>
+    );
 }
 
-export default UserListScreen
+export default UserListScreen;

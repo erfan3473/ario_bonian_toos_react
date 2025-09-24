@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { getUserDetails, updateUserProfile } from '../features/users/userSlice';
+import { getUserDetailsThunk, updateUserProfileThunk } from '../features/users/userSlice';
 import { USER_UPDATE_PROFILE_RESET } from '../constants/userConstants';
 const API_BASE = 'http://127.0.0.1:8000';
 // helper: build full url for image if needed
@@ -45,7 +45,7 @@ export default function ProfileScreen() {
       if (!user || !user.username || success) {
         // reset update profile state (keeps compatibility with your previous constant)
         dispatch({ type: USER_UPDATE_PROFILE_RESET });
-        dispatch(getUserDetails('profile'));
+        dispatch(getUserDetailsThunk('profile'));
       } else {
         setUsername(user.username);
         setFirstName(user.first_name || '');
@@ -96,7 +96,7 @@ export default function ProfileScreen() {
       dispatch(updateUserProfile(fd));
     } else {
       // send JSON object (updateUserProfile thunk will handle)
-      dispatch(updateUserProfile({
+      dispatch(updateUserProfileThunk({
         id: user.id,
         username,
         first_name: firstName,
