@@ -7,11 +7,15 @@ import {
   userDeleteReducer,
   userDetailsReducer,
   userUpdateProfileReducer,
-} from './reducers/userReducers';
+  userRoleReducer,
+  roleListReducer ,
+  
+} from './features/users/userSlice'; // <- نقطه تغییر: از slices/userSlice وارد کن
 import { workerListReducer } from './reducers/workerReducers';
 import reportFormsReducer from './features/dailyReports/reportFormsSlice';
-import projectReducer from './features/projects/projectSlice';
+import  { projectListReducer } from './features/projects/projectSlice';
 import dailyReportReducer from './features/dailyReports/dailyReportSlice';
+
 
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
@@ -31,10 +35,12 @@ const store = configureStore({
     userDetails: userDetailsReducer,
     userUpdateProfile: userUpdateProfileReducer,
     workerList: workerListReducer,
-    projects: projectReducer,
+    projectList : projectListReducer,
     dailyReports: dailyReportReducer,
     reportForms: reportFormsReducer,
+    userRole: userRoleReducer,
     
+    roleList: roleListReducer,
   },
   preloadedState,
 });

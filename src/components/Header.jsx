@@ -2,22 +2,26 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
-import { logout } from "../actions/userActions";
+
+import { logout } from "../features/users/userSlice"; 
 import { fetchTodayReport } from "../features/dailyReports/dailyReportSlice";
 import {
   FaUser,
   FaSignOutAlt,
   FaSignInAlt,
   FaChevronDown,
+  FaBars, // 👇 آیکن همبرگری را اضافه کن
 } from "react-icons/fa";
 
-const Header = () => {
+// 👇 prop جدید toggleSidebar را اینجا دریافت می‌کنیم
+const Header = ({ toggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const { userInfo } = useSelector((state) => state.userLogin);
-  const { projects } = useSelector((state) => state.projects || {});
-  const projectId = projects.length > 0 ? projects[0].id : null;
+  // 👇 برای جلوگیری از خطا، اگر state.projects وجود نداشت، یک آبجکت خالی در نظر می‌گیریم
+  const { projects } = useSelector((state) => state.projects || { projects: [] }); 
+  const projectId = projects && projects.length > 0 ? projects[0].id : null;
   const { todayReport } = useSelector((state) => state.dailyReports || {});
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -29,54 +33,41 @@ const Header = () => {
     navigate("/auth");
   };
 
-
-
-  // 📌 هر وقت projectId تغییر کنه، گزارش امروز رو میاریم
   useEffect(() => {
     if (projectId) {
       dispatch(fetchTodayReport(projectId));
     }
   }, [dispatch, projectId]);
 
-  // 📌 مسیرها
-  const managerPath = todayReport?.id
-    ? `/reports/${todayReport.id}/manager`
-    : "/reports";
-  const facilitiesPath = todayReport?.id
-    ? `/reports/${todayReport.id}/facilities`
-    : "/reports";
-  const securityPath = todayReport?.id
-    ? `/reports/${todayReport.id}/security`
-    : "/reports";
+  const managerPath = todayReport?.id ? `/reports/${todayReport.id}/manager` : "/reports";
+  const facilitiesPath = todayReport?.id ? `/reports/${todayReport.id}/facilities` : "/reports";
+  const securityPath = todayReport?.id ? `/reports/${todayReport.id}/security` : "/reports";
 
   return (
     <header className="bg-gray-800 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center py-4 px-6">
-        <Link
-          to="/"
-          className="text-2xl font-bold text-indigo-400 hover:text-indigo-300"
-        >
-          مدیریت کارگران
-        </Link>
+        <div className="flex items-center gap-x-4">
+            {/* 👇 دکمه منوی همبرگری برای باز کردن سایدبار */}
+            {/* این دکمه فقط در صفحات کوچک (تا md) نمایش داده می‌شود */}
+            <button onClick={toggleSidebar} className="text-white text-2xl md:hidden">
+              <FaBars />
+            </button>
+            <Link to="/" className="text-2xl font-bold text-indigo-400 hover:text-indigo-300">
+             آریو بنیان توس
+            </Link>
+        </div>
 
-        <nav className="flex items-center gap-x-8 text-gray-300">
-          <Link
-            to="/projects"
-            className="hover:text-indigo-400 transition duration-300"
-          >
+
+        {/* 👇 کل این nav در صفحات کوچک مخفی می‌شود و در صفحات بزرگ نمایش داده می‌شود */}
+        <nav className="hidden md:flex items-center gap-x-8 text-gray-300">
+          <Link to="/projects" className="hover:text-indigo-400 transition duration-300">
             پروژه ها
           </Link>
-          <Link
-            to="/dashboard"
-            className="hover:text-indigo-400 transition duration-300"
-          >
+          <Link to="/dashboard" className="hover:text-indigo-400 transition duration-300">
             مانیتور پروژه
           </Link>
-          <Link
-            to="/"
-            className="hover:text-indigo-400 transition duration-300"
-          >
-            خانه
+          <Link to="/admin/users" className="hover:text-indigo-400 transition duration-300">
+             ادمین
           </Link>
 
           {/* منوی کشویی ثبت گزارش */}
@@ -85,16 +76,12 @@ const Header = () => {
               onClick={() => setReportMenuOpen(!reportMenuOpen)}
               className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition duration-300"
             >
-              <span>ثبت گزارش کار روزانه</span>
-              <FaChevronDown
-                className={`transition-transform ${
-                  reportMenuOpen ? "rotate-180" : ""
-                }`}
-              />
+              <span>ثبت گزارش</span>
+              <FaChevronDown className={`transition-transform ${reportMenuOpen ? "rotate-180" : ""}`} />
             </button>
 
             {reportMenuOpen && (
-              <div className="absolute right-0 mt-2 w-72 bg-gray-700 rounded-md shadow-xl py-1 z-50">
+              <div className="absolute left-0 mt-2 w-72 bg-gray-700 rounded-md shadow-xl py-1 z-50">
                 <Link
                   to={managerPath}
                   onClick={() => setReportMenuOpen(false)}
@@ -116,26 +103,11 @@ const Header = () => {
                 >
                   گزارش نگهبانی
                 </Link>
-                <Link
-                  to=""
-                  onClick={() => setReportMenuOpen(false)}
-                  className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                >
-                  گزارش حضور و غیاب نیرو
-                </Link>
               </div>
             )}
           </div>
 
-          {userInfo && userInfo.isAdmin && (
-            <Link
-              to="/admin/users"
-              className="hover:text-indigo-400 transition duration-300"
-            >
-              کاربران
-            </Link>
-          )}
-
+          {/* منوی کاربر */}
           {userInfo ? (
             <div className="relative">
               <button
@@ -143,11 +115,11 @@ const Header = () => {
                 className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-full transition duration-300"
               >
                 <FaUser />
-                <span>{userInfo.first_name || userInfo.email}</span>
+                <span>{userInfo.first_name || userInfo.username}</span>
               </button>
 
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-700 rounded-md shadow-xl py-1">
+                <div className="absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-xl py-1">
                   <Link
                     to="/profile"
                     className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
@@ -157,7 +129,7 @@ const Header = () => {
                   </Link>
                   <button
                     onClick={logoutHandler}
-                    className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center space-x-2"
+                    className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center space-x-2"
                   >
                     <FaSignOutAlt /> <span>خروج</span>
                   </button>

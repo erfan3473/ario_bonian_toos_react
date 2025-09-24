@@ -1,68 +1,156 @@
-// مسیر: src/screens/UserListScreen.jsx
-import React, { useEffect } from 'react'
+// src/screens/UserListScreen.jsx
+import React, { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { listUsers, deleteUser } from '../actions/userActions'
-import { Link } from 'react-router-dom'
+import { listUsersThunk, deleteUserThunk, updateUserRoleThunk, listRolesThunk } from '../features/users/userSlice'
+import { listProjectsThunk } from '../features/projects/projectSlice'
+import Loader from '../components/Loader'
+import Message from '../components/Message'
 
-export default function UserListScreen() {
+function UserListScreen() {
   const dispatch = useDispatch()
 
-  const userList = useSelector(state => state.userList)
-  const { loading, error, users } = userList
+  // --- Local State for Managing Selections ---
+  const [selections, setSelections] = useState({}) // e.g., { userId: { projectId, roleId } }
 
-  const userDelete = useSelector(state => state.userDelete)
-  const { loading: loadingDelete, error: errorDelete } = userDelete
+  // --- Redux State Selectors ---
+  const { loading, error, users } = useSelector((state) => state.userList)
+  const { projects, loading: projectsLoading } = useSelector((state) => state.projectList)
+  const { roles, loading: rolesLoading } = useSelector((state) => state.roleList)
+  const { success: successDelete } = useSelector((state) => state.userDelete)
+  const { loading: roleLoading, success: roleSuccess, error: roleError } = useSelector((state) => state.userRole)
+
+  // --- Effects ---
+  useEffect(() => {
+    // Fetch initial data
+    dispatch(listUsersThunk())
+    dispatch(listProjectsThunk())
+    dispatch(listRolesThunk())
+  }, [dispatch, successDelete, roleSuccess])
 
   useEffect(() => {
-    dispatch(listUsers())
-  }, [dispatch])
+    // Initialize local selections state when users data is loaded
+    if (users.length > 0) {
+      const initialSelections = {}
+      users.forEach(user => {
+        // For simplicity, we manage the first membership. UI can be extended for multiple memberships.
+        const membership = user.project_memberships?.[0]
+        initialSelections[user.id] = {
+          projectId: membership?.project_id || '',
+          roleId: membership?.role_id || '',
+        }
+      })
+      setSelections(initialSelections)
+    }
+  }, [users])
 
-  const handleDelete = (id) => {
-    if (window.confirm('آیا از حذف کاربر مطمئن هستید؟')) {
-      dispatch(deleteUser(id))
+  // --- Handlers ---
+  const deleteHandler = (id) => {
+    if (window.confirm('آیا از حذف این کاربر مطمئن هستید؟')) {
+      dispatch(deleteUserThunk(id))
     }
   }
 
-  return (
-    <div className="p-6 rounded-2xl bg-gradient-to-br from-black/30 to-gray-900/10 border border-gray-800 shadow-xl">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-extrabold">لیست کاربران</h2>
-        <div className="text-sm text-gray-400">مدیریت کاربران — فقط ادمین</div>
-      </div>
+  const handleSelectionChange = (userId, field, value) => {
+    setSelections(prev => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        [field]: value,
+      },
+    }))
+  }
 
-      {loading || loadingDelete ? (
-        <div className="text-center py-10">Loading...</div>
-      ) : error || errorDelete ? (
-        <div className="text-red-400 p-3 rounded-md bg-red-900/10">{error || errorDelete}</div>
+  const handleSaveMembership = (userId) => {
+    const { projectId, roleId } = selections[userId]
+    if (projectId && roleId) {
+      dispatch(updateUserRoleThunk({ userId, projectId: parseInt(projectId), roleId: parseInt(roleId) }))
+    } else {
+      alert('لطفاً هم پروژه و هم نقش را انتخاب کنید.')
+    }
+  }
+
+  // --- Render Logic ---
+  const isLoading = loading || projectsLoading || rolesLoading
+
+  return (
+    <div>
+      <h1>مدیریت کاربران</h1>
+      {roleLoading && <Loader />}
+      {roleError && <Message variant="danger">{roleError}</Message>}
+      {successDelete && <Message variant="success">کاربر با موفقیت حذف شد.</Message>}
+
+      {isLoading ? (
+        <Loader />
+      ) : error ? (
+        <Message variant="danger">{error}</Message>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-transparent">
-            <thead>
-              <tr className="text-left text-gray-400 text-sm border-b border-gray-800">
-                <th className="py-3 px-4">ID</th>
-                <th className="py-3 px-4">نام کاربری</th>
-                <th className="py-3 px-4">نام</th>
-                <th className="py-3 px-4">ادمین</th>
-                <th className="py-3 px-4">عملیات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users && users.map(user => (
-                <tr key={user.id} className="border-b border-gray-800/40 hover:bg-gray-900/20">
-                  <td className="py-3 px-4 text-sm">{user.id}</td>
-                  <td className="py-3 px-4 text-sm font-medium">{user.username}</td>
-                  <td className="py-3 px-4 text-sm">{user.first_name} {user.last_name}</td>
-                  <td className="py-3 px-4 text-sm">{user.isAdmin ? 'بله' : 'خیر'}</td>
-                  <td className="py-3 px-4 text-sm flex gap-2">
-                    <Link to={`/admin/users/edit/${user.id}`} className="px-3 py-1 rounded-md bg-blue-600/60">ویرایش</Link>
-                    <button onClick={() => handleDelete(user.id)} className="px-3 py-1 rounded-md bg-red-600/60">حذف</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <table className="table table-striped table-bordered table-hover">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>نام کاربری</th>
+              <th>پروژه</th>
+              <th>نقش</th>
+              <th>عملیات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((user) => {
+                const userSelection = selections[user.id] || { projectId: '', roleId: '' };
+                const originalMembership = user.project_memberships?.[0];
+                const hasChanged = originalMembership?.project_id !== parseInt(userSelection.projectId) || originalMembership?.role_id !== parseInt(userSelection.roleId);
+
+                return (
+                  <tr key={user.id}>
+                    <td>{user.id}</td>
+                    <td>{user.username}</td>
+                    <td>
+                      <select
+                        className="form-control"
+                        value={userSelection.projectId}
+                        onChange={(e) => handleSelectionChange(user.id, 'projectId', e.target.value)}
+                      >
+                        <option value="">انتخاب پروژه</option>
+                        {projects.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        className="form-control"
+                        value={userSelection.roleId}
+                        onChange={(e) => handleSelectionChange(user.id, 'roleId', e.target.value)}
+                      >
+                        <option value="">انتخاب نقش</option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleSaveMembership(user.id)}
+                        disabled={!hasChanged || roleLoading}
+                      >
+                        ذخیره
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm mx-1"
+                        onClick={() => deleteHandler(user.id)}
+                      >
+                        حذف
+                      </button>
+                    </td>
+                  </tr>
+                )
+            })}
+          </tbody>
+        </table>
       )}
     </div>
   )
 }
+
+export default UserListScreen

@@ -1,7 +1,7 @@
 // مسیر: src/screens/AuthScreen.jsx
 import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { login, register } from '../actions/userActions'
+import { login, register } from '../features/users/userSlice'
 import { useNavigate } from 'react-router-dom'
 
 export default function AuthScreen() {

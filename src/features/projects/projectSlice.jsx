@@ -1,23 +1,26 @@
 // src/features/projects/projectSlice.jsx
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../actions/axios';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import axios from 'axios'
 
-export const fetchProjects = createAsyncThunk(
-  'projects/fetchProjects',
-  async (_, { rejectWithValue }) => {
+const PROJECTS_API = 'http://127.0.0.1:8000/api/projects/'
+
+// Thunk to fetch projects list
+export const listProjectsThunk = createAsyncThunk(
+  'projects/list',
+  async (_, { getState, rejectWithValue }) => {
     try {
-      const { data } = await api.get('projects/');
-      return data;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.detail || error.message
-      );
+      const { userLogin: { userInfo } } = getState()
+      const config = { headers: { Authorization: `Bearer ${userInfo?.token}` } }
+      const { data } = await axios.get(PROJECTS_API, config)
+      return data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.detail || err.message)
     }
   }
-);
+)
 
-const projectSlice = createSlice({
-  name: 'projects',
+const projectListSlice = createSlice({
+  name: 'projectList',
   initialState: {
     projects: [],
     loading: false,
@@ -26,19 +29,18 @@ const projectSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(fetchProjects.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      .addCase(listProjectsThunk.pending, (state) => {
+        state.loading = true
       })
-      .addCase(fetchProjects.fulfilled, (state, action) => {
-        state.loading = false;
-        state.projects = action.payload;
+      .addCase(listProjectsThunk.fulfilled, (state, action) => {
+        state.loading = false
+        state.projects = action.payload
       })
-      .addCase(fetchProjects.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
+      .addCase(listProjectsThunk.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
   },
-});
+})
 
-export default projectSlice.reducer;
+export const projectListReducer = projectListSlice.reducer

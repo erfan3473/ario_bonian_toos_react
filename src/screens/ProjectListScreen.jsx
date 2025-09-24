@@ -3,17 +3,20 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { fetchProjects } from '../features/projects/projectSlice';
+// 👈 تغییر ۱: ایمپورت کردن thunk صحیح
+import { listProjectsThunk } from '../features/projects/projectSlice';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 
 function ProjectCard({ project }) {
+  // این کامپوننت بدون تغییر باقی می‌ماند
   return (
     <div className="bg-white shadow-md rounded-lg p-6 hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between">
       <div>
         <h3 className="text-xl font-bold text-gray-800">{project.name}</h3>
         <p className="text-gray-600 mt-2">{project.location_text}</p>
-        <p className="text-sm text-gray-500 mt-1">مدیر پروژه: {project.project_manager_name}</p>
+        {/* نکته: مطمئن شوید که project_manager_name در دیتای API شما وجود دارد */}
+        <p className="text-sm text-gray-500 mt-1">مدیر پروژه: {project.project_manager?.username || 'تعیین نشده'}</p>
       </div>
 
       <div className="flex flex-col gap-2 mt-4">
@@ -36,10 +39,12 @@ function ProjectCard({ project }) {
 
 function ProjectListScreen() {
   const dispatch = useDispatch();
-  const { projects, loading, error } = useSelector((state) => state.projects);
+  // 👈 تغییر ۲: خواندن استیت از state.projectList
+  const { projects, loading, error } = useSelector((state) => state.projectList);
 
   useEffect(() => {
-    dispatch(fetchProjects());
+    // 👈 تغییر ۳: دیسپچ کردن thunk صحیح
+    dispatch(listProjectsThunk());
   }, [dispatch]);
 
   return (
