@@ -1,10 +1,10 @@
-// src/features/projects/projectSlice.jsx
+// src/features/projects/projectListSlice.jsx
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import axios from 'axios'
 
 const PROJECTS_API = 'http://127.0.0.1:8000/api/projects/'
 
-// Thunk to fetch projects list
+// 🟢 Thunk: گرفتن لیست پروژه‌ها
 export const listProjectsThunk = createAsyncThunk(
   'projects/list',
   async (_, { getState, rejectWithValue }) => {

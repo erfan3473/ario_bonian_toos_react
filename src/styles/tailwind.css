@@ -1,0 +1,9 @@
+/* 1. ابتدا فایل‌های سفارشی خود را ایمپورت کنید */
+@import './base.css';
+@import './components.css';
+@import './utilities.css';
+
+/* 2. سپس دستورات اصلی تیل‌ویند را قرار دهید */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

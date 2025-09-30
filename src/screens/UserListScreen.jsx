@@ -1,27 +1,31 @@
 // src/screens/UserListScreen.jsx
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { listUsersThunk, deleteUserThunk, updateUserByAdminThunk, updateUserRoleThunk, listRolesThunk, resetUserUpdateByAdmin } from '../features/users/userSlice';
-import { listProjectsThunk } from '../features/projects/projectSlice';
+import { listUsersThunk, deleteUserThunk, updateUserByAdminThunk, updateUserRoleThunk, resetUserUpdateByAdmin } from '../features/users/userSlice';
+import { listRolesThunk } from '../features/roles/roleSlice';
+import { listProjectsThunk } from '../features/projects/projectListSlice';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 import UserEditModal from '../components/UserEditModal'; // ✅ ایمپورت مودال
 
 function UserListScreen() {
     const dispatch = useDispatch();
+    const navigate = useNavigate(); // 👈 اینو اضافه کن
 
     // --- Local State for Modal ---
     const [editingUser, setEditingUser] = useState(null); // کاربری که در حال ویرایش است
 
     // --- Redux State Selectors ---
     const { loading, error, users } = useSelector((state) => state.userList);
-    const { projects, loading: projectsLoading } = useSelector((state) => state.projectList);
+    const { projects, loading: projectsLoading, error: projectsError } =     useSelector((state) => state.projectList);
+                                     
     const { roles, loading: rolesLoading } = useSelector((state) => state.roleList);
     const { success: successDelete } = useSelector((state) => state.userDelete);
     
     // ✅ سلکتورهای مربوط به آپدیت
     const { loading: loadingUpdate, error: errorUpdate, success: successUpdate } = useSelector((state) => state.userUpdateByAdmin);
-    
+
     // --- Effects ---
     useEffect(() => {
         dispatch(listUsersThunk());
@@ -66,6 +70,33 @@ function UserListScreen() {
     return (
         <div>
             <h1>مدیریت کاربران</h1>
+            <hr></hr>
+            <h2>لیست پروژه‌ها</h2>
+{projectsLoading ? (
+  <Loader />
+) : projectsError ? (
+  <Message variant="danger">{projectsError}</Message>
+) : (
+  <ul className="list-group mb-3">
+    {projects.map((project) => (
+      <li key={project.id} className="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{project.name}</strong> – {project.location_text || '---'} - {project.start_date}  _ {project.end_date}
+        </div>
+        <span className="badge bg-primary rounded-pill">
+          {project.member_count} عضو
+        </span>
+      </li>
+    ))}
+  </ul>
+)}
+
+            <button
+                className="btn btn-success my-3"
+                onClick={() => navigate('/admin/project/create')}
+                >
+                ➕ افزودن پروژه
+            </button>
             {loadingUpdate && <Loader />}
             {errorUpdate && <Message variant="danger">{errorUpdate}</Message>}
             {successUpdate && <Message variant="success">کاربر با موفقیت به‌روزرسانی شد.</Message>}
@@ -76,7 +107,9 @@ function UserListScreen() {
             ) : error ? (
                 <Message variant="danger">{error}</Message>
             ) : (
+                
                 <table className="table table-striped table-bordered table-hover">
+                    
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -93,7 +126,7 @@ function UserListScreen() {
                                 <td>{user.id}</td>
                                 <td>{user.username}</td>
                                 <td>{user.first_name} {user.last_name}</td>
-                                <td>{user.is_staff ? '✔️' : '❌'}</td>
+                                <td>{user.isAdmin ? '✔️' : '❌'}</td>
                                 <td>{user.project_memberships?.[0]?.role_name || 'تعیین نشده'}</td>
                                 <td>
                                     <button

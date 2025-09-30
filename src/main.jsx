@@ -6,7 +6,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import store from './store';
 import App from './App';
-import './index.css';
+import './styles/tailwind.css'   // به جای index.css قدیمی
 import 'leaflet/dist/leaflet.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(

@@ -21,7 +21,7 @@ function DailyReportListScreen() {
 
   return (
     <div className="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-b-2 pb-2">
+      <h1>
         لیست گزارش‌های روزانه پروژه
       </h1>
 

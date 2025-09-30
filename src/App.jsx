@@ -5,7 +5,6 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import HomeScreen from './screens/HomeScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
-// ... بقیه ایمپورت‌های شما
 import AuthScreen from './screens/AuthScreen';
 import UserListScreen from './screens/UserListScreen';
 import ProfileScreen from './screens/ProfileScreen';
@@ -16,33 +15,34 @@ import ReportCreateScreen from './screens/ReportCreateScreen';
 import ManagerReportScreen from './screens/ManagerReportScreen';
 import FacilitiesReportScreen from './screens/FacilitiesReportScreen';
 import SecurityReportScreen from './screens/SecurityReportScreen';
-
+import ProjectCreateScreen from './screens/ProjectCreateScreen';
+import RoleListScreen from './screens/RoleListScreen';
+import EmploymentTypeListScreen from './screens/EmploymentTypeListScreen'
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   return (
     <div className="bg-gray-900 text-white min-h-screen flex font-sans" style={{ direction: 'rtl' }}>
-      {/* سایدبار همیشه رندر می‌شود */}
+      {/* سایدبار */}
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      
-      {/* 👇 تغییر اصلی اینجاست 👇 */}
-      {/* این div محتوای اصلی (هدر، بدنه، فوتر) را در بر می‌گیرد */}
-      {/* کلاس md:mr-64 باعث می‌شود در صفحات بزرگ، محتوا به اندازه عرض سایدبار (w-64) به سمت چپ هل داده شود */}
-      <div className="flex flex-col flex-grow md:mr-64">
+
+      {/* محتوای اصلی */}
+      <div className="flex flex-col flex-grow w-full md:mr-72 transition-all duration-300">
         <Header toggleSidebar={toggleSidebar} />
 
         <main className="flex-grow container mx-auto p-4">
           <Routes>
             <Route path="/" element={<HomeScreen />} />
             <Route path="/auth" element={<AuthScreen />} />
+            <Route path="/admin/project/create" element={<ProjectCreateScreen />} />
+
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
             <Route path="/admin/users" element={<UserListScreen />} />
+            <Route path="/admin/roles" element={<RoleListScreen />} />
             <Route path="/projects" element={<ProjectListScreen />} />
             <Route path="/projects/:id/reports" element={<DailyReportListScreen />} />
             <Route path="/reports/:reportId" element={<ReportDetailScreen />} />
@@ -50,6 +50,7 @@ function App() {
             <Route path="/reports/:reportId/manager" element={<ManagerReportScreen />} />
             <Route path="/reports/:reportId/facilities" element={<FacilitiesReportScreen />} />
             <Route path="/reports/:reportId/security" element={<SecurityReportScreen />} />
+            <Route path="/admin/payroll/employment-types" element={<EmploymentTypeListScreen />} />
           </Routes>
         </main>
 

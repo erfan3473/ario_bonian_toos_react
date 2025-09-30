@@ -8,15 +8,15 @@ import {
   userDetailsReducer,
   userUpdateProfileReducer,
   userRoleReducer,
-  roleListReducer ,
   userUpdateByAdminReducer
-  
-} from './features/users/userSlice'; // <- نقطه تغییر: از slices/userSlice وارد کن
+} from './features/users/userSlice';
 import { workerListReducer } from './reducers/workerReducers';
 import reportFormsReducer from './features/dailyReports/reportFormsSlice';
-import  { projectListReducer } from './features/projects/projectSlice';
+import { projectListReducer } from './features/projects/projectListSlice';
+import { projectCreateReducer } from './features/projects/projectCreateSlice';
 import dailyReportReducer from './features/dailyReports/dailyReportSlice';
-
+import { roleReducer , rolePermissionReducer } from './features/roles/roleSlice' 
+import { employmentTypeReducer } from './features/payroll/employmentTypeSlice'
 
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
@@ -36,12 +36,15 @@ const store = configureStore({
     userDetails: userDetailsReducer,
     userUpdateProfile: userUpdateProfileReducer,
     workerList: workerListReducer,
-    projectList : projectListReducer,
+    projectList: projectListReducer,     // 📌 فقط لیست پروژه‌ها
+    projectCreate: projectCreateReducer, // 📌 فقط ایجاد پروژه
     dailyReports: dailyReportReducer,
     reportForms: reportFormsReducer,
     userRole: userRoleReducer,
-    userUpdateByAdmin: userUpdateByAdminReducer, 
-    roleList: roleListReducer,
+    userUpdateByAdmin: userUpdateByAdminReducer,
+    roleList: roleReducer,
+    rolePermissions: rolePermissionReducer,
+    employmentTypes: employmentTypeReducer,
   },
   preloadedState,
 });
