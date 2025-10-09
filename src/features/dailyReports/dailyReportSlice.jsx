@@ -1,4 +1,4 @@
-// src/features/dailyReports/dailyReportSlice.js
+// src/features/dailyReports/dailyReportSlice.jsx
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../actions/axios';
 

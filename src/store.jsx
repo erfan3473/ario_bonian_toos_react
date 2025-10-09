@@ -16,7 +16,18 @@ import { projectListReducer } from './features/projects/projectListSlice';
 import { projectCreateReducer } from './features/projects/projectCreateSlice';
 import dailyReportReducer from './features/dailyReports/dailyReportSlice';
 import { roleReducer , rolePermissionReducer } from './features/roles/roleSlice' 
-import { employmentTypeReducer } from './features/payroll/employmentTypeSlice'
+//payroll
+import payrollPeriodReducer from './features/payroll/slices/payrollPeriodSlice'
+
+import leaveRequestReducer from './features/payroll/slices/leaveRequestSlice';
+import payrollReportReducer from './features/payroll/slices/payrollReportSlice';
+import salaryComponentReducer from './features/payroll/slices/salaryComponentSlice';
+import employeeReducer from './features/hr/employeeSlice';
+import positionReducer from './features/hr/positionSlice';
+import paygradeReducer from './features/hr/paygradeSlice';
+
+import payslipReducer from './features/payroll/slices/payslipSlice';
+
 
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
@@ -44,7 +55,16 @@ const store = configureStore({
     userUpdateByAdmin: userUpdateByAdminReducer,
     roleList: roleReducer,
     rolePermissions: rolePermissionReducer,
-    employmentTypes: employmentTypeReducer,
+    payrollPeriod: payrollPeriodReducer,
+    payslip: payslipReducer,
+    salaryComponent: salaryComponentReducer,
+    leaveRequest: leaveRequestReducer,
+    payrollReport: payrollReportReducer,
+    employees: employeeReducer,
+    positions: positionReducer,
+    paygrades: paygradeReducer,
+   
+   
   },
   preloadedState,
 });

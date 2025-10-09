@@ -1,4 +1,14 @@
-// src/App.js
+// Payroll Module React Pages
+
+import PayrollModule from './screens/PayrollModule'
+import { PayslipListPage } from './screens/PayslipListPage';
+import { PayslipDetailPage } from './screens/PayslipDetailPage';
+import { SalaryComponentListPage } from './screens/SalaryComponentListPage';
+import { LeaveRequestListPage } from './screens/LeaveRequestListPage';
+import { PayrollReportPage } from './screens/PayrollReportPage';
+
+
+// src/App.js integration
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
@@ -17,7 +27,9 @@ import FacilitiesReportScreen from './screens/FacilitiesReportScreen';
 import SecurityReportScreen from './screens/SecurityReportScreen';
 import ProjectCreateScreen from './screens/ProjectCreateScreen';
 import RoleListScreen from './screens/RoleListScreen';
-import EmploymentTypeListScreen from './screens/EmploymentTypeListScreen'
+// import EmploymentTypeListScreen from './screens/EmploymentTypeListScreen';
+
+
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,10 +38,8 @@ function App() {
 
   return (
     <div className="bg-gray-900 text-white min-h-screen flex font-sans" style={{ direction: 'rtl' }}>
-      {/* سایدبار */}
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
-      {/* محتوای اصلی */}
       <div className="flex flex-col flex-grow w-full md:mr-72 transition-all duration-300">
         <Header toggleSidebar={toggleSidebar} />
 
@@ -50,7 +60,17 @@ function App() {
             <Route path="/reports/:reportId/manager" element={<ManagerReportScreen />} />
             <Route path="/reports/:reportId/facilities" element={<FacilitiesReportScreen />} />
             <Route path="/reports/:reportId/security" element={<SecurityReportScreen />} />
-            <Route path="/admin/payroll/employment-types" element={<EmploymentTypeListScreen />} />
+            {/* <Route path="/admin/payroll/employment-types" element={<EmploymentTypeListScreen />} /> */}
+
+            {/* Payroll Module */}
+            
+            <Route path="/admin/payroll" element={<PayrollModule />} />
+            <Route path="/admin/payroll/payslips" element={<PayslipListPage />} />
+            <Route path="/admin/payroll/payslips/:id" element={<PayslipDetailPage />} />
+            <Route path="/admin/payroll/leaves" element={<LeaveRequestListPage />} />
+            <Route path="/admin/payroll/components" element={<SalaryComponentListPage />} />
+            <Route path="/admin/payroll/reports" element={<PayrollReportPage />} />
+
           </Routes>
         </main>
 

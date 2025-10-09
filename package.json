@@ -1,5 +1,6 @@
 {
   "name": "frontend-react",
+  "proxy": "http://127.0.0.1:8000",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,6 +15,7 @@
     "@reduxjs/toolkit": "^2.9.0",
     "axios": "^1.11.0",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.23.22",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "react": "^19.1.1",
