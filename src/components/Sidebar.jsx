@@ -9,6 +9,7 @@ import {
   FaFolder,
   FaLeaf,
   FaBuilding,
+  FaUsers, // ← اینو اضافه کردم
 } from "react-icons/fa";
 import { getUserDetailsThunk } from "../features/users/userSlice";
 
@@ -86,6 +87,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <FaFolder size="1.2em" className="text-green-300" />
             <span>لیست پروژه‌ها</span>
           </NavLink>
+
+          {/* لینک جدید برای ادمین */}
+          {userInfo?.isAdmin && (
+            <NavLink
+              to="/admin/attendance"
+              className={({ isActive }) =>
+                `${linkBaseClass} ${isActive ? activeLinkClass : defaultLinkClass}`
+              }
+            >
+              <FaUsers size="1.2em" className="text-green-300" /> {/* از FaUsers استفاده کردم */}
+              <span>حضور و غیاب</span>
+            </NavLink>
+          )}
         </nav>
 
         {/* فوتر کوچک */}

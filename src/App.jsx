@@ -27,6 +27,7 @@ import FacilitiesReportScreen from './screens/FacilitiesReportScreen';
 import SecurityReportScreen from './screens/SecurityReportScreen';
 import ProjectCreateScreen from './screens/ProjectCreateScreen';
 import RoleListScreen from './screens/RoleListScreen';
+import AdminAttendanceScreen from './screens/AdminAttendanceScreen';
 // import EmploymentTypeListScreen from './screens/EmploymentTypeListScreen';
 
 
@@ -70,6 +71,8 @@ function App() {
             <Route path="/admin/payroll/leaves" element={<LeaveRequestListPage />} />
             <Route path="/admin/payroll/components" element={<SalaryComponentListPage />} />
             <Route path="/admin/payroll/reports" element={<PayrollReportPage />} />
+         
+            <Route path="/admin/attendance" element={<AdminAttendanceScreen />} />
 
           </Routes>
         </main>

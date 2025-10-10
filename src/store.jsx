@@ -28,7 +28,7 @@ import paygradeReducer from './features/hr/paygradeSlice';
 
 import payslipReducer from './features/payroll/slices/payslipSlice';
 
-
+import adminAttendanceReducer from './features/attendance/adminAttendanceSlice'; // ← جدید
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -63,7 +63,7 @@ const store = configureStore({
     employees: employeeReducer,
     positions: positionReducer,
     paygrades: paygradeReducer,
-   
+    adminAttendance: adminAttendanceReducer,
    
   },
   preloadedState,
