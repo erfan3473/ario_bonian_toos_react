@@ -220,7 +220,7 @@ const visibleWorkers = useMemo(() => {
         <WorkerMap workers={visibleWorkers} selectedWorkerId={mapSelectedWorkerId} />
       </div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Workers Live Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-200">رصد زنده نیرو های کار</h1>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${connected ? 'bg-green-400' : 'bg-red-500'}`}></div>
