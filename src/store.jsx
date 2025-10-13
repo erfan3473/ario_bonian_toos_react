@@ -10,7 +10,7 @@ import {
   userRoleReducer,
   userUpdateByAdminReducer
 } from './features/users/userSlice';
-import { workerListReducer } from './reducers/workerReducers';
+import workerReducer from './features/workers/workerSlice';
 import reportFormsReducer from './features/dailyReports/reportFormsSlice';
 import { projectListReducer } from './features/projects/projectListSlice';
 import { projectCreateReducer } from './features/projects/projectCreateSlice';
@@ -27,6 +27,7 @@ import positionReducer from './features/hr/positionSlice';
 import paygradeReducer from './features/hr/paygradeSlice';
 
 import payslipReducer from './features/payroll/slices/payslipSlice';
+import workerSlice from './features/workers/workerSlice';
 
 import adminAttendanceReducer from './features/attendance/adminAttendanceSlice'; // ← جدید
 // load user info from storage
@@ -46,7 +47,7 @@ const store = configureStore({
     userDelete: userDeleteReducer,
     userDetails: userDetailsReducer,
     userUpdateProfile: userUpdateProfileReducer,
-    workerList: workerListReducer,
+       workers: workerReducer, 
     projectList: projectListReducer,     // 📌 فقط لیست پروژه‌ها
     projectCreate: projectCreateReducer, // 📌 فقط ایجاد پروژه
     dailyReports: dailyReportReducer,

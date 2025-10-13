@@ -1,7 +1,6 @@
-// ===== FILE: src/screens/WorkerDashboardScreen.jsx =====
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { listWorkers, updateWorkerLocation, cleanupOldWorkers } from '../actions/workerActions';
+import { fetchWorkers, updateWorkerLocation, cleanupOldWorkers } from '../features/workers/workerSlice';
 import WorkerMap from '../components/WorkerMap';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
@@ -21,25 +20,35 @@ const formatTimeAgo = (ts) => {
 
 const WorkerDashboardScreen = () => {
   const dispatch = useDispatch();
-  const { loading, error, allWorkers, onlineWorkerIds } = useSelector((state) => state.workerList || {});
+  const { 
+    status: workerStatus, 
+    error, 
+    allWorkers 
+  } = useSelector((state) => state.workers);
+  
+  const { 
+    status: historyStatus, 
+    data: historyData 
+  } = useSelector((state) => state.workers.history);
+
   const [showOfflineWorkers, setShowOfflineWorkers] = useState(false);
   const socketRef = useRef(null);
   const reconnectRef = useRef({ attempts: 0, timeoutId: null });
   const lastSeenRef = useRef(new Map());
-  const [, setTick] = useState(0);
-
-  const [workerLocations, setWorkerLocations] = useState({});
+  
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [highlightId, setHighlightId] = useState(null);
   const [mapSelectedWorkerId, setMapSelectedWorkerId] = useState(null);
-
+  
   useEffect(() => {
-    dispatch(listWorkers());
-  }, [dispatch]);
-
+    if (workerStatus === 'idle') {
+      dispatch(fetchWorkers());
+    }
+  }, [workerStatus, dispatch]);
+  
   useEffect(() => {
     const interval = setInterval(() => {
       dispatch(cleanupOldWorkers());
@@ -70,17 +79,6 @@ const WorkerDashboardScreen = () => {
             const now = Date.now();
 
             lastSeenRef.current.set(workerId, now);
-
-            setWorkerLocations((prev) => ({
-              ...prev,
-              [workerId]: {
-                ...(prev[workerId] || {}),
-                ...data,
-                lastUpdate: now,
-              },
-            }));
-
-            setTick((t) => t + 1);
 
             if (!paused) {
               dispatch(updateWorkerLocation(data));
@@ -138,86 +136,82 @@ const WorkerDashboardScreen = () => {
     });
   };
 
-  // WorkerDashboardScreen.jsx - تغییر بخش visibleWorkers
-const visibleWorkers = useMemo(() => {
-  // استفاده از همه کارگرها به جای فقط آنلاین‌ها
-  const allWorkerIds = allWorkers ? Object.keys(allWorkers) : [];
-  const q = (search || '').trim().toLowerCase();
+  const visibleWorkers = useMemo(() => {
+    const workersList = Object.values(allWorkers);
+    const q = (search || '').trim().toLowerCase();
+    let list = workersList;
 
-  let list = allWorkerIds
-    .map((id) => {
-      const server = allWorkers[id] || {};
-      const local = workerLocations[id] || {};
-      const merged = {
-        id: parseInt(id),
-        name: server.name ?? local.name ?? `#${id}`,
-        position: server.position ?? local.position ?? '',
-        latitude: (local.latitude ?? server.latitude) ?? null,
-        longitude: (local.longitude ?? server.longitude) ?? null,
-        lastUpdate: Math.max(server.lastUpdate || 0, local.lastUpdate || 0),
-        stale: server.stale, // استفاده از وضعیت stale از reducer
-        ...server,
-        ...local,
-      };
-      return merged;
-    })
-    .filter(Boolean);
+    if (q) {
+      list = list.filter((w) => {
+        const name = (w.name || '').toLowerCase();
+        const pos = (w.position || '').toLowerCase();
+        return name.includes(q) || pos.includes(q) || String(w.id) === q;
+      });
+    }
 
-  if (q) {
-    list = list.filter((w) => {
-      const name = (w.name || '').toLowerCase();
-      const pos = (w.position || '').toLowerCase();
-      return name.includes(q) || pos.includes(q) || String(w.id) === q;
-    });
-  }
+    if (!showOfflineWorkers) {
+      list = list.filter(w => !w.stale);
+    }
 
-  // فیلتر کردن بر اساس وضعیت آنلاین/آفلاین
-  if (!showOfflineWorkers) {
-    list = list.filter(w => !w.stale);
-  }
+    if (sortBy === 'recent') {
+      list.sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
+    } else {
+      list.sort((a, b) => ('' + (a.name || '')).localeCompare(b.name || ''));
+    }
 
-  if (sortBy === 'recent') {
-    list.sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
-  } else {
-    list.sort((a, b) => ('' + (a.name || '')).localeCompare(b.name || ''));
-  }
+    return list;
+  }, [allWorkers, search, sortBy, showOfflineWorkers]);
 
-  return list;
-}, [allWorkers, workerLocations, search, sortBy, showOfflineWorkers]);
-
-  const handleRefresh = () => dispatch(listWorkers());
+  const handleRefresh = () => dispatch(fetchWorkers());
 
   const downloadCSV = () => {
-    const arr = visibleWorkers.map((w) => ({
-      id: w.id,
-      name: w.name,
-      position: w.position,
-      latitude: w.latitude,
-      longitude: w.longitude,
-    }));
-    if (arr.length === 0) return;
-    const csv = [Object.keys(arr[0] || {}).join(','), ...arr.map((r) => Object.values(r).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'workers.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    if (visibleWorkers.length === 0) {
+      alert("No worker data to export.");
+      return;
+    }
+
+    const headers = ['ID', 'Name', 'Position', 'Latitude', 'Longitude', 'Last Update (UTC)'];
+    
+    const rows = visibleWorkers.map(w => [
+      w.id,
+      w.name || '',
+      w.position || '',
+      w.latitude ?? 'N/A',
+      w.longitude ?? 'N/A',
+      w.lastUpdate ? new Date(w.lastUpdate).toISOString() : 'N/A'
+    ]);
+
+    let csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    
+    const fileName = `workers-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.setAttribute("download", fileName);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const onlineCount = useMemo(() => {
-    if (!onlineWorkerIds) return 0;
-    if (typeof onlineWorkerIds.size === 'number') return onlineWorkerIds.size;
-    if (Array.isArray(onlineWorkerIds)) return [...new Set(onlineWorkerIds)].length;
-    if (typeof onlineWorkerIds === 'object') return Object.keys(onlineWorkerIds).length;
-    return 0;
-  }, [onlineWorkerIds]);
+    return Object.values(allWorkers).filter(w => !w.stale).length;
+  }, [allWorkers]);
+
+  const selectedWorkerHistory = historyData[mapSelectedWorkerId] || [];
 
   return (
     <div className="p-6 container mx-auto">
       <div className="mb-6 rounded-lg overflow-hidden shadow-lg">
-        <WorkerMap workers={visibleWorkers} selectedWorkerId={mapSelectedWorkerId} />
+        <WorkerMap
+          workers={visibleWorkers}
+          selectedWorkerId={mapSelectedWorkerId}
+          workerHistory={selectedWorkerHistory}
+          loadingHistory={historyStatus === 'loading'}
+        />
       </div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-200">رصد زنده نیرو های کار</h1>
@@ -238,36 +232,35 @@ const visibleWorkers = useMemo(() => {
         </div>
       </div>
 
-      
-<div className="mb-4 flex gap-3 items-center">
-  <input
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-    placeholder="Search by name, position or id"
-    className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
-  />
-  <select
-    value={sortBy}
-    onChange={(e) => setSortBy(e.target.value)}
-    className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
-  >
-    <option value="name">Sort: Name</option>
-    <option value="recent">Sort: Most recent</option>
-  </select>
-  <label className="flex items-center gap-2 text-sm text-gray-300">
-    <input
-      type="checkbox"
-      checked={showOfflineWorkers}
-      onChange={(e) => setShowOfflineWorkers(e.target.checked)}
-      className="rounded"
-    />
-    Show offline
-  </label>
-</div>
+      <div className="mb-4 flex gap-3 items-center">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name, position or id"
+          className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700"
+        >
+          <option value="name">Sort: Name</option>
+          <option value="recent">Sort: Most recent</option>
+        </select>
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            checked={showOfflineWorkers}
+            onChange={(e) => setShowOfflineWorkers(e.target.checked)}
+            className="rounded"
+          />
+          Show offline
+        </label>
+      </div>
 
-      {loading ? (
+      {workerStatus === 'loading' ? (
         <Loader />
-      ) : error ? (
+      ) : workerStatus === 'failed' ? (
         <Message variant="danger">{error}</Message>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -281,7 +274,7 @@ const visibleWorkers = useMemo(() => {
                     key={w.id}
                     worker={w}
                     highlight={highlightId === w.id}
-                    onClick={() => setMapSelectedWorkerId(w.id === mapSelectedWorkerId ? null : w.id)}// ✅ فقط روی نقشه فوکوس کن
+                    onClick={() => setMapSelectedWorkerId(w.id === mapSelectedWorkerId ? null : w.id)}
                     lastSeen={formatTimeAgo(lastSeenRef.current.get(w.id))}
                   />
                 ))

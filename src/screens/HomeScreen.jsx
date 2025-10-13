@@ -1,9 +1,10 @@
 // src/screens/HomeScreen.jsx
-
+import projectImage from '../assets/project.jpeg';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import CountUp from 'react-countup';
 import { useInView } from 'react-intersection-observer';
+import HeroAnimation from '../components/HeroAnimation'; 
 
 // کامپوننت‌های آیکون (بدون تغییر)
 const IconScale = () => (
@@ -27,30 +28,22 @@ const IconTrust = () => (
   </svg>
 );
 
-
-// بخش‌های مختلف صفحه اصلی
-
 const HeroSection = () => (
-  <section className="h-screen w-full flex flex-col justify-center items-center relative text-white text-center bg-gray-900 overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-b from-gray-900 via-gray-900 to-black opacity-80 z-10"></div>
-    <div className="absolute inset-0 z-0">
-        <div className="w-full h-full border-2 border-dashed border-gray-700 flex justify-center items-center">
-            {/* ✅ اصلاح ۱: رنگ متن Placeholder به خاکستری روشن تغییر کرد */}
-            <p className="text-gray-500 text-lg">[ Placeholder for Rive Animation ]</p>
-        </div>
-    </div>
-    
-    <div className="z-20 p-4">
-      {/* ✅ اصلاح ۲: کل تگ h1 به رنگ سفید درمی‌آید و فقط span داخلی آبی می‌ماند */}
-      <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight mb-4 text-white">
+  <section className="relative w-full flex flex-col justify-center items-center text-white text-center overflow-hidden pt-6">
+    {/* 👇 ویدیو / انیمیشن با گوشه گرد و فاصله */}
+    <HeroAnimation />
+
+    {/* 👇 متن روی ویدیو نیست، زیرشه */}
+    <div className="z-20 p-4 max-w-3xl mt-4">
+      <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4 drop-shadow-lg text-blue-100">
         آریوبنیان توس: <span className="text-blue-500">مجری مگاپروژه‌های زیرساختی</span>
       </h1>
-      <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8">
+      <p className="text-base md:text-lg text-gray-200 mb-6">
         تلفیق دانش مهندسی، تکنولوژی روز و تعهد برای ساختن فردای ایران
       </p>
       <a
         href="#featured-projects"
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition-transform transform hover:scale-105"
+        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-base transition-transform transform hover:scale-105 shadow-lg"
       >
         مشاهده پروژه‌های شاخص
       </a>
@@ -96,10 +89,14 @@ const FeaturedProjectSection = () => (
         <h2 className="text-3xl font-bold text-white">پروژه شاخص: آبیاری مکانیزه کوه‌های خلج</h2>
         <p className="text-gray-400 mt-2">بزرگترین پروژه آبیاری فضای سبز ایران، نمادی از توانمندی ما</p>
       </div>
-      {/* ✅ اصلاح ۳: گوشه‌ها گردتر شد (rounded-xl) */}
       <div className="bg-gray-900 rounded-xl shadow-2xl overflow-hidden md:flex">
-        <div className="md:w-1/2 bg-gray-800 min-h-[300px] flex items-center justify-center">
-            <p className="text-gray-500">Image of Khalaj Project</p>
+        {/* ✅ اصلاح: جایگزینی placeholder با عکس واقعی */}
+        <div className="md:w-1/2 bg-gray-800 min-h-[300px] flex items-center justify-center overflow-hidden">
+          <img 
+            src={projectImage} 
+            alt="پروژه آبیاری مکانیزه کوه‌های خلج"
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="p-8 md:w-1/2 flex flex-col justify-center">
           <h3 className="text-2xl font-bold text-white mb-4">مشخصات کلیدی پروژه</h3>

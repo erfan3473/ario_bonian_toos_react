@@ -13,6 +13,7 @@
   "dependencies": {
     "@redux-devtools/extension": "^3.3.0",
     "@reduxjs/toolkit": "^2.9.0",
+    "@rive-app/react-canvas": "^4.23.4",
     "axios": "^1.11.0",
     "clsx": "^2.1.1",
     "date-fns-jalali": "^4.1.0-0",
