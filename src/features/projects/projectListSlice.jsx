@@ -18,15 +18,32 @@ export const listProjectsThunk = createAsyncThunk(
     }
   }
 )
+export const listPublicProjectsThunk = createAsyncThunk(
+  'projects/listPublic', // یک نام منحصر به فرد
+  async (_, { rejectWithValue }) => {
+    try {
+      // به URL جدید و عمومی درخواست می‌فرستیم
+      const { data } = await axios.get(`${PROJECTS_API}public/`)
+      return data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.detail || err.message)
+    }
+  }
+)
 
 const projectListSlice = createSlice({
   name: 'projectList',
   initialState: {
     projects: [],
+    selectedProject: null, // 🟡 پروژه انتخاب‌شده
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    setSelectedProject: (state, action) => {
+      state.selectedProject = action.payload
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(listProjectsThunk.pending, (state) => {
@@ -41,6 +58,35 @@ const projectListSlice = createSlice({
         state.error = action.payload
       })
   },
+  extraReducers: (builder) => {
+    builder
+      // Reducers for listProjectsThunk (private)
+      .addCase(listProjectsThunk.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(listProjectsThunk.fulfilled, (state, action) => {
+        state.loading = false
+        state.projects = action.payload
+      })
+      .addCase(listProjectsThunk.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+      // 🟢 Reducers for listPublicProjectsThunk (public)
+      .addCase(listPublicProjectsThunk.pending, (state) => {
+        state.loading = true
+      })
+      .addCase(listPublicProjectsThunk.fulfilled, (state, action) => {
+        state.loading = false
+        state.projects = action.payload
+        state.error = null // ریست کردن خطا در صورت موفقیت
+      })
+      .addCase(listPublicProjectsThunk.rejected, (state, action) => {
+        state.loading = false
+        state.error = action.payload
+      })
+  },
 })
 
+export const { setSelectedProject } = projectListSlice.actions
 export const projectListReducer = projectListSlice.reducer

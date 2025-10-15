@@ -39,25 +39,25 @@ export default function ProfileScreen() {
   const { success } = userUpdateProfile;
 
   useEffect(() => {
-    if (!userInfo) {
-      navigate('/auth');
-    } else {
-      if (!user || !user.username || success) {
-        // reset update profile state (keeps compatibility with your previous constant)
-        dispatch({ type: USER_UPDATE_PROFILE_RESET });
-        dispatch(getUserDetailsThunk('profile'));
+      if (!userInfo) {
+          navigate('/auth');
       } else {
-        setUsername(user.username);
-        setFirstName(user.first_name || '');
-        setLastName(user.last_name || '');
-        // read profile image from nested user.profile.image
-        const img = (user.profile && user.profile.image) ? buildImageUrl(user.profile.image) : null;
-        setCurrentImageUrl(img);
+          // این شرط وقتی اجرا می‌شود که:
+          // 1. هنوز اطلاعات user لود نشده (`!user.username`).
+          // 2. یا یک آپدیت موفقیت‌آمیز داشتیم (`success`).
+          if (!user || !user.username || success) {
+              dispatch({ type: USER_UPDATE_PROFILE_RESET });
+              dispatch(getUserDetailsThunk('profile'));
+          } else {
+              setUsername(user.username);
+              setFirstName(user.first_name || '');
+              setLastName(user.last_name || '');
+              const img = (user.profile && user.profile.image) ? buildImageUrl(user.profile.image) : null;
+              setCurrentImageUrl(img);
+          }
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, navigate, userInfo, user, success]);
-
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, navigate, userInfo, success]); // ⛔️ user از اینجا حذف شد
   useEffect(() => {
     // cleanup preview URL when component unmounts or when new file chosen
     return () => {
