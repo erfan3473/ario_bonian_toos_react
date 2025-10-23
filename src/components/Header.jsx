@@ -1,17 +1,20 @@
-// src/components/Header.jsx
-import React, { useState, useEffect, useRef, useMemo } from "react";
+// src/components/Header.jsx (نسخه کامل و اصلاح شده با تم آبی)
+import logo from "../assets/ario.png";
+import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../features/users/userSlice";
 import { fetchTodayReport } from "../features/dailyReports/dailyReportSlice";
-import { listProjectsThunk, setSelectedProject } from "../features/projects/projectListSlice";
+import {
+  listProjectsThunk,
+  setSelectedProject,
+} from "../features/projects/projectListSlice";
 import {
   FaUser,
   FaSignOutAlt,
   FaSignInAlt,
   FaChevronDown,
   FaBars,
-  FaLeaf,
 } from "react-icons/fa";
 
 const Header = ({ toggleSidebar }) => {
@@ -32,12 +35,12 @@ const Header = ({ toggleSidebar }) => {
   const payrollRef = useRef();
   const userMenuRef = useRef();
 
-  // 🔹 گرفتن پروژه‌ها پس از ورود کاربر
+  // 📦 گرفتن پروژه‌ها بعد از ورود کاربر
   useEffect(() => {
     if (userInfo) dispatch(listProjectsThunk());
   }, [dispatch, userInfo]);
 
-  // 🔹 وقتی پروژه انتخاب شد → گزارش امروز را بگیر
+  // 📅 وقتی پروژه انتخاب شد → گزارش امروز را بگیر
   useEffect(() => {
     if (selectedProject?.id) {
       dispatch(fetchTodayReport(selectedProject.id));
@@ -67,7 +70,7 @@ const Header = ({ toggleSidebar }) => {
     navigate("/auth");
   };
 
-  // 🔹 بستن منوها با کلیک بیرون
+  // 🔸 بستن منوها با کلیک بیرون
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (reportRef.current && !reportRef.current.contains(e.target))
@@ -82,7 +85,7 @@ const Header = ({ toggleSidebar }) => {
   }, []);
 
   return (
-    <header className="bg-gradient-to-r from-green-800 via-gray-800 to-green-900 shadow-lg sticky top-0 z-40 w-full">
+    <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-40 w-full">
       <div className="flex justify-between items-center py-4 px-6">
         {/* 🔹 سمت راست */}
         <div className="flex items-center gap-x-4">
@@ -97,18 +100,22 @@ const Header = ({ toggleSidebar }) => {
 
           <Link
             to="/"
-            className="text-2xl font-bold text-green-300 hover:text-green-200 flex items-center gap-2"
+            className="flex items-center gap-2 hover:opacity-90 transition"
           >
-            <FaLeaf className="text-green-400" /> آریو بنیان توس
+            <img
+              src={logo}
+              alt="Ariobonyan Toos"
+              className="h-20 w-auto object-contain"
+            />
           </Link>
         </div>
 
         {/* 🔹 ناوبری */}
         <nav className="hidden md:flex items-center gap-x-8 text-gray-200">
-          <Link to="/portfolio" className="hover:text-green-300 transition">
+          <Link to="/portfolio" className="hover:text-sky-300 transition">
             پروژه‌ها
           </Link>
-          <Link to="/dashboard" className="hover:text-green-300 transition">
+          <Link to="/dashboard" className="hover:text-sky-300 transition">
             مانیتور پروژه
           </Link>
 
@@ -121,7 +128,7 @@ const Header = ({ toggleSidebar }) => {
                 <select
                   onChange={handleSelectProject}
                   value={selectedProject?.id || ""}
-                  className="bg-gray-800 text-white text-sm px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="bg-gray-800 text-white text-sm px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">انتخاب پروژه</option>
                   {projects.map((p) => (
@@ -134,12 +141,12 @@ const Header = ({ toggleSidebar }) => {
             </div>
           )}
 
-          {/* 🧾 مدیریت حقوق */}
+          {/* 💰 مدیریت حقوق */}
           {userInfo?.isAdmin && (
             <div className="relative" ref={payrollRef}>
               <button
                 onClick={() => setPayrollMenuOpen(!payrollMenuOpen)}
-                className="hover:text-green-300 transition flex items-center gap-1"
+                className="hover:text-sky-300 transition flex items-center gap-1"
               >
                 مدیریت حقوق و دستمزد
                 <FaChevronDown
@@ -180,12 +187,12 @@ const Header = ({ toggleSidebar }) => {
             </div>
           )}
 
-          {/* 🧱 گزارش‌ها */}
+          {/* 📋 گزارش‌ها */}
           {userInfo && selectedProject && (
             <div className="relative" ref={reportRef}>
               <button
                 onClick={() => setReportMenuOpen(!reportMenuOpen)}
-                className="flex items-center space-x-2 bg-green-700 hover:bg-green-600 px-4 py-2 rounded-lg transition"
+                className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded-lg transition"
               >
                 <span>ثبت گزارش</span>
                 <FaChevronDown
@@ -219,7 +226,7 @@ const Header = ({ toggleSidebar }) => {
             </div>
           )}
 
-          {/* 👤 منوی کاربر / ورود */}
+          {/* 👤 منوی کاربر */}
           {userInfo ? (
             <div className="relative" ref={userMenuRef}>
               <button
@@ -250,7 +257,7 @@ const Header = ({ toggleSidebar }) => {
           ) : (
             <Link
               to="/auth"
-              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition"
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
             >
               <FaSignInAlt /> <span>ورود / ثبت‌نام</span>
             </Link>

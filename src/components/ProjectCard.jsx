@@ -1,6 +1,6 @@
 import React from 'react';
 import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/solid';
-
+import { Link } from 'react-router-dom';
 const defaultImage =
   'https://images.unsplash.com/photo-1542621334-a254cf47763b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80';
 
@@ -16,10 +16,15 @@ const ProjectCard = ({ project }) => {
   return (
     <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-300 ease-in-out group">
       <img
-        src={project.image || defaultImage}
+        src={
+          project.portfolio_image
+            ? `http://127.0.0.1:8000${project.portfolio_image}`
+            : defaultImage
+        }
         alt={project.name}
         className="w-full h-48 object-cover"
       />
+
       <div className="p-6">
         <h3 className="text-2xl font-bold text-teal-400 mb-2 group-hover:text-teal-300 transition-colors">
           {project.name}
@@ -48,12 +53,12 @@ const ProjectCard = ({ project }) => {
           >
             {project.is_active ? 'فعال' : 'خاتمه یافته'}
           </span>
-          <a
-            href="#"
-            className="text-teal-400 hover:text-teal-200 font-semibold transition-colors"
-          >
-            جزئیات بیشتر &rarr;
-          </a>
+          <Link
+  to={`/projects/${project.id}`}
+  className="text-teal-400 hover:text-teal-200 font-semibold transition-colors"
+>
+  جزئیات بیشتر &rarr;
+</Link>
         </div>
       </div>
     </div>

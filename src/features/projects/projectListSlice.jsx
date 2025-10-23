@@ -4,7 +4,7 @@ import axios from 'axios'
 
 const PROJECTS_API = 'http://127.0.0.1:8000/api/projects/'
 
-// 🟢 Thunk: گرفتن لیست پروژه‌ها
+// 🟢 Thunk: گرفتن لیست پروژه‌ها (خصوصی)
 export const listProjectsThunk = createAsyncThunk(
   'projects/list',
   async (_, { getState, rejectWithValue }) => {
@@ -18,11 +18,12 @@ export const listProjectsThunk = createAsyncThunk(
     }
   }
 )
+
+// 🟢 Thunk: گرفتن لیست پروژه‌های عمومی
 export const listPublicProjectsThunk = createAsyncThunk(
   'projects/listPublic', // یک نام منحصر به فرد
   async (_, { rejectWithValue }) => {
     try {
-      // به URL جدید و عمومی درخواست می‌فرستیم
       const { data } = await axios.get(`${PROJECTS_API}public/`)
       return data
     } catch (err) {
@@ -44,20 +45,7 @@ const projectListSlice = createSlice({
       state.selectedProject = action.payload
     },
   },
-  extraReducers: (builder) => {
-    builder
-      .addCase(listProjectsThunk.pending, (state) => {
-        state.loading = true
-      })
-      .addCase(listProjectsThunk.fulfilled, (state, action) => {
-        state.loading = false
-        state.projects = action.payload
-      })
-      .addCase(listProjectsThunk.rejected, (state, action) => {
-        state.loading = false
-        state.error = action.payload
-      })
-  },
+  // ✅ تمام extraReducers در یک بلاک ترکیب شدند
   extraReducers: (builder) => {
     builder
       // Reducers for listProjectsThunk (private)
@@ -72,7 +60,7 @@ const projectListSlice = createSlice({
         state.loading = false
         state.error = action.payload
       })
-      // 🟢 Reducers for listPublicProjectsThunk (public)
+      // Reducers for listPublicProjectsThunk (public)
       .addCase(listPublicProjectsThunk.pending, (state) => {
         state.loading = true
       })

@@ -27,7 +27,10 @@ import { PayslipDetailPage } from './screens/PayslipDetailPage';
 import { SalaryComponentListPage } from './screens/SalaryComponentListPage';
 import { LeaveRequestListPage } from './screens/LeaveRequestListPage';
 import { PayrollReportPage } from './screens/PayrollReportPage';
+import ProjectDetailScreen from './screens/ProjectDetailScreen';
 
+
+import VoiceAssistantScreen from "./screens/VoiceAssistantScreen";
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { userInfo } = useSelector((state) => state.userLogin);
@@ -61,6 +64,7 @@ function App() {
             <Route path="/portfolio" element={<PortfolioScreen />} />
             {/* صفحات پروژه و گزارش */}
             <Route path="/admin/project/create" element={<ProjectCreateScreen />} />
+            <Route path="/projects/:id" element={<ProjectDetailScreen />} />
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
             <Route path="/admin/users" element={<UserListScreen />} />
@@ -82,6 +86,7 @@ function App() {
             <Route path="/admin/payroll/reports" element={<PayrollReportPage />} />
             <Route path="/daily-report/:projectId" element={<DailyReportPage />} />
             <Route path="/admin/attendance" element={<AdminAttendanceScreen />} />
+            <Route path="/assistant" element={<VoiceAssistantScreen />} />
           </Routes>
         </main>
 
