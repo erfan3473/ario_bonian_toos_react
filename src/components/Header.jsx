@@ -1,68 +1,20 @@
-// src/components/Header.jsx (نسخه کامل و اصلاح شده با تم آبی)
+// src/components/Header.jsx
 import logo from "../assets/ario.png";
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../features/users/userSlice";
-import { fetchTodayReport } from "../features/dailyReports/dailyReportSlice";
-import {
-  listProjectsThunk,
-  setSelectedProject,
-} from "../features/projects/projectListSlice";
-import {
-  FaUser,
-  FaSignOutAlt,
-  FaSignInAlt,
-  FaChevronDown,
-  FaBars,
-} from "react-icons/fa";
+
+import { FaUser, FaSignOutAlt, FaSignInAlt, FaBars } from "react-icons/fa";
 
 const Header = ({ toggleSidebar }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const { userInfo } = useSelector((state) => state.userLogin);
-  const { projects, selectedProject, loading } = useSelector(
-    (state) => state.projectList
-  );
-  const { todayReport } = useSelector((state) => state.dailyReports);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [reportMenuOpen, setReportMenuOpen] = useState(false);
-  const [payrollMenuOpen, setPayrollMenuOpen] = useState(false);
-
-  const reportRef = useRef();
-  const payrollRef = useRef();
-  const userMenuRef = useRef();
-
-  // 📦 گرفتن پروژه‌ها بعد از ورود کاربر
-  useEffect(() => {
-    if (userInfo) dispatch(listProjectsThunk());
-  }, [dispatch, userInfo]);
-
-  // 📅 وقتی پروژه انتخاب شد → گزارش امروز را بگیر
-  useEffect(() => {
-    if (selectedProject?.id) {
-      dispatch(fetchTodayReport(selectedProject.id));
-    }
-  }, [dispatch, selectedProject]);
-
-  const managerPath = todayReport?.id
-    ? `/reports/${todayReport.id}/manager`
-    : "/reports";
-  const facilitiesPath = todayReport?.id
-    ? `/reports/${todayReport.id}/facilities`
-    : "/reports";
-  const securityPath = todayReport?.id
-    ? `/reports/${todayReport.id}/security`
-    : "/reports";
-
-  // 🔹 انتخاب پروژه از Dropdown
-  const handleSelectProject = (e) => {
-    const projectId = e.target.value;
-    const project = projects.find((p) => p.id === parseInt(projectId));
-    dispatch(setSelectedProject(project));
-  };
+  const userMenuRef = useRef(null);
 
   const logoutHandler = () => {
     dispatch(logout());
@@ -70,15 +22,12 @@ const Header = ({ toggleSidebar }) => {
     navigate("/auth");
   };
 
-  // 🔸 بستن منوها با کلیک بیرون
+  // بستن منوی کاربر وقتی بیرون کلیک می‌کنی
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (reportRef.current && !reportRef.current.contains(e.target))
-        setReportMenuOpen(false);
-      if (payrollRef.current && !payrollRef.current.contains(e.target))
-        setPayrollMenuOpen(false);
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target))
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setMenuOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -87,7 +36,7 @@ const Header = ({ toggleSidebar }) => {
   return (
     <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-40 w-full">
       <div className="flex justify-between items-center py-4 px-6">
-        {/* 🔹 سمت راست */}
+        {/* 🔹 سمت راست: منوی موبایل + لوگو */}
         <div className="flex items-center gap-x-4">
           {userInfo && (
             <button
@@ -105,137 +54,42 @@ const Header = ({ toggleSidebar }) => {
             <img
               src={logo}
               alt="Ariobonyan Toos"
-              className="h-20 w-auto object-contain"
+              className="h-16 w-auto object-contain"
             />
           </Link>
         </div>
 
-        {/* 🔹 ناوبری */}
+        {/* 🔹 ناوبری اصلی */}
         <nav className="hidden md:flex items-center gap-x-8 text-gray-200">
-          <Link to="/portfolio" className="hover:text-sky-300 transition">
-            پروژه‌ها
-          </Link>
-          <Link to="/dashboard" className="hover:text-sky-300 transition">
-            مانیتور پروژه
+          <Link to="/" className="hover:text-sky-300 transition text-sm">
+            صفحه اصلی
           </Link>
 
-          {/* 🔸 Dropdown انتخاب پروژه */}
-          {userInfo && (
-            <div>
-              {loading ? (
-                <span className="text-sm text-gray-400">در حال بارگذاری...</span>
-              ) : (
-                <select
-                  onChange={handleSelectProject}
-                  value={selectedProject?.id || ""}
-                  className="bg-gray-800 text-white text-sm px-3 py-2 rounded-md border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">انتخاب پروژه</option>
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
+          <Link
+            to="/dashboard"
+            className="hover:text-sky-300 transition text-sm"
+          >
+            مانیتور نیروها
+          </Link>
 
-          {/* 💰 مدیریت حقوق */}
-          {userInfo?.isAdmin && (
-            <div className="relative" ref={payrollRef}>
-              <button
-                onClick={() => setPayrollMenuOpen(!payrollMenuOpen)}
-                className="hover:text-sky-300 transition flex items-center gap-1"
-              >
-                مدیریت حقوق و دستمزد
-                <FaChevronDown
-                  className={`text-xs transition-transform ${
-                    payrollMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
+          <Link
+            to="/assistant"
+            className="hover:text-sky-300 transition text-sm"
+          >
+            دستیار صوتی
+          </Link>
 
-              {payrollMenuOpen && (
-                <div className="absolute left-0 mt-2 w-56 bg-gray-700 rounded-md shadow-xl py-1 text-sm text-gray-200 z-50">
-                  <Link
-                    to="/admin/payroll/payslips"
-                    className="block px-4 py-2 hover:bg-gray-600"
-                  >
-                    فیش‌های حقوقی
-                  </Link>
-                  <Link
-                    to="/admin/payroll/leaves"
-                    className="block px-4 py-2 hover:bg-gray-600"
-                  >
-                    مرخصی‌ها
-                  </Link>
-                  <Link
-                    to="/admin/payroll/components"
-                    className="block px-4 py-2 hover:bg-gray-600"
-                  >
-                    اجزای حقوق
-                  </Link>
-                  <Link
-                    to="/admin/payroll/reports"
-                    className="block px-4 py-2 hover:bg-gray-600"
-                  >
-                    گزارش‌های حقوق و دستمزد
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 📋 گزارش‌ها */}
-          {userInfo && selectedProject && (
-            <div className="relative" ref={reportRef}>
-              <button
-                onClick={() => setReportMenuOpen(!reportMenuOpen)}
-                className="flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 px-4 py-2 rounded-lg transition"
-              >
-                <span>ثبت گزارش</span>
-                <FaChevronDown
-                  className={`transition-transform ${
-                    reportMenuOpen ? "rotate-180" : ""
-                  }`}
-                />
-              </button>
-              {reportMenuOpen && (
-                <div className="absolute left-0 mt-2 w-72 bg-gray-700 rounded-md shadow-xl py-1 z-50">
-                  <Link
-                    to={managerPath}
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                  >
-                    گزارش پروژه (مدیر)
-                  </Link>
-                  <Link
-                    to={facilitiesPath}
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                  >
-                    گزارش تاسیسات
-                  </Link>
-                  <Link
-                    to={securityPath}
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                  >
-                    گزارش نگهبانی
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 👤 منوی کاربر */}
+          {/* 👤 منوی کاربر / دکمه ورود */}
           {userInfo ? (
             <div className="relative" ref={userMenuRef}>
               <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-full transition"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-full transition text-sm"
               >
                 <FaUser />
                 <span>{userInfo.first_name || userInfo.username}</span>
               </button>
+
               {menuOpen && (
                 <div className="absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-xl py-1 z-50">
                   <Link
@@ -247,9 +101,10 @@ const Header = ({ toggleSidebar }) => {
                   </Link>
                   <button
                     onClick={logoutHandler}
-                    className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center space-x-2"
+                    className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center gap-2"
                   >
-                    <FaSignOutAlt /> <span>خروج</span>
+                    <FaSignOutAlt />
+                    <span>خروج</span>
                   </button>
                 </div>
               )}
@@ -257,7 +112,7 @@ const Header = ({ toggleSidebar }) => {
           ) : (
             <Link
               to="/auth"
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition text-sm"
             >
               <FaSignInAlt /> <span>ورود / ثبت‌نام</span>
             </Link>

@@ -11,16 +11,16 @@ import {
   userUpdateByAdminReducer
 } from './features/users/userSlice';
 import workerReducer from './features/workers/workerSlice';
-import reportFormsReducer from './features/dailyReports/reportFormsSlice';
+
 import { projectListReducer } from './features/projects/projectListSlice';
 import { projectCreateReducer } from './features/projects/projectCreateSlice';
-import dailyReportReducer from './features/dailyReports/dailyReportSlice';
+
 import { roleReducer , rolePermissionReducer } from './features/roles/roleSlice' 
 //payroll
 import payrollPeriodReducer from './features/payroll/slices/payrollPeriodSlice'
 
 import leaveRequestReducer from './features/payroll/slices/leaveRequestSlice';
-import payrollReportReducer from './features/payroll/slices/payrollReportSlice';
+
 import salaryComponentReducer from './features/payroll/slices/salaryComponentSlice';
 import employeeReducer from './features/hr/employeeSlice';
 import positionReducer from './features/hr/positionSlice';
@@ -47,11 +47,10 @@ const store = configureStore({
     userDelete: userDeleteReducer,
     userDetails: userDetailsReducer,
     userUpdateProfile: userUpdateProfileReducer,
-       workers: workerReducer, 
+    workers: workerReducer, 
     projectList: projectListReducer,     // 📌 فقط لیست پروژه‌ها
     projectCreate: projectCreateReducer, // 📌 فقط ایجاد پروژه
-    dailyReports: dailyReportReducer,
-    reportForms: reportFormsReducer,
+
     userRole: userRoleReducer,
     userUpdateByAdmin: userUpdateByAdminReducer,
     roleList: roleReducer,
@@ -60,7 +59,7 @@ const store = configureStore({
     payslip: payslipReducer,
     salaryComponent: salaryComponentReducer,
     leaveRequest: leaveRequestReducer,
-    payrollReport: payrollReportReducer,
+
     employees: employeeReducer,
     positions: positionReducer,
     paygrades: paygradeReducer,

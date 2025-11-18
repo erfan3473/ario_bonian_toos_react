@@ -1,205 +1,180 @@
 // src/screens/ProfileScreen.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { getUserDetailsThunk, updateUserProfileThunk } from '../features/users/userSlice';
-import { USER_UPDATE_PROFILE_RESET } from '../constants/userConstants';
-const API_BASE = 'http://127.0.0.1:8000';
-// helper: build full url for image if needed
-const buildImageUrl = (imgPath) => {
-  if (!imgPath) return null;
-  if (imgPath.startsWith('http')) return imgPath;
-  return `${API_BASE}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
-};
+import axiosInstance from '../api/axiosInstance';
+import Loader from '../components/Loader';
+import Message from '../components/Message';
 
+const ProfileScreen = () => {
+  const navigate = useNavigate();
+  const { userInfo } = useSelector((state) => state.userLogin);
 
-export default function ProfileScreen() {
-  const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
-  // profile image states
-  const [currentImageUrl, setCurrentImageUrl] = useState(null); // server url
-  const [selectedImageFile, setSelectedImageFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null); // { type: 'success' | 'error', text: '' }
 
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-
-  const userDetails = useSelector((state) => state.userDetails);
-  const { loading, error, user } = userDetails;
-
-  const userLogin = useSelector((state) => state.userLogin);
-  const { userInfo } = userLogin;
-
-  const userUpdateProfile = useSelector((state) => state.userUpdateProfile);
-  const { success } = userUpdateProfile;
-
+  // اگر لاگین نیست، بفرستش به صفحه auth
   useEffect(() => {
-      if (!userInfo) {
-          navigate('/auth');
-      } else {
-          // این شرط وقتی اجرا می‌شود که:
-          // 1. هنوز اطلاعات user لود نشده (`!user.username`).
-          // 2. یا یک آپدیت موفقیت‌آمیز داشتیم (`success`).
-          if (!user || !user.username || success) {
-              dispatch({ type: USER_UPDATE_PROFILE_RESET });
-              dispatch(getUserDetailsThunk('profile'));
-          } else {
-              setUsername(user.username);
-              setFirstName(user.first_name || '');
-              setLastName(user.last_name || '');
-              const img = (user.profile && user.profile.image) ? buildImageUrl(user.profile.image) : null;
-              setCurrentImageUrl(img);
-          }
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, navigate, userInfo, success]); // ⛔️ user از اینجا حذف شد
-  useEffect(() => {
-    // cleanup preview URL when component unmounts or when new file chosen
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    }
-  }, [previewUrl]);
-
-  const onFileChange = (e) => {
-    const file = e.target.files && e.target.files[0];
-    setSelectedImageFile(file);
-    if (file) {
-      const p = URL.createObjectURL(file);
-      setPreviewUrl(p);
-    } else {
-      setPreviewUrl(null);
-    }
-  };
-
-  const submitHandler = (e) => {
-    e.preventDefault();
-    setMessage(null);
-    if (password !== confirmPassword) {
-      setMessage('رمز عبور با تکرارش یکسان نیست');
+    if (!userInfo) {
+      navigate('/auth');
       return;
     }
 
-    // prepare payload: if image chosen, send FormData; otherwise send object
-    if (selectedImageFile) {
-      const fd = new FormData();
-      fd.append('username', username);
-      fd.append('first_name', firstName);
-      fd.append('last_name', lastName);
-      if (password) fd.append('password', password);
-      fd.append('image', selectedImageFile);
-      // dispatch wrapper
-      dispatch(updateUserProfile(fd));
-    } else {
-      // send JSON object (updateUserProfile thunk will handle)
-      dispatch(updateUserProfileThunk({
-        id: user.id,
-        username,
-        first_name: firstName,
-        last_name: lastName,
-        password: password || undefined
-      }));
+    // مقداردهی اولیه از userInfo
+    setFirstName(userInfo.first_name || '');
+    setLastName(userInfo.last_name || '');
+    setUsername(userInfo.username || '');
+    setPhoneNumber(userInfo.profile?.phone_number || '');
+  }, [userInfo, navigate]);
+
+  const submitHandler = async (e) => {
+    e.preventDefault();
+    if (!userInfo) return;
+
+    setLoading(true);
+    setMessage(null);
+
+    
+    try {
+      const formData = new FormData();
+      formData.append('first_name', firstName);
+      formData.append('last_name', lastName);
+      formData.append('username', username);
+      if (phoneNumber) formData.append('phone_number', phoneNumber);
+      if (password) formData.append('password', password);
+      if (imageFile) formData.append('image', imageFile);
+
+      const { data } = await axiosInstance.put('/users/profile/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      // قبلی رو از localStorage بخونیم
+      const prev = JSON.parse(localStorage.getItem('userInfo') || '{}');
+
+      // توکن‌های قبلی رو نگه می‌داریم، دیتاهای جدید یوزر رو می‌ریزیم روش
+      const merged = {
+        ...prev,   // access, refresh, هرچی قبلاً بوده
+        ...data,   // first_name, last_name, username, profile, ...
+      };
+
+      // و اینو ذخیره می‌کنیم
+      localStorage.setItem('userInfo', JSON.stringify(merged));
+
+      setMessage({ type: 'success', text: 'پروفایل با موفقیت به‌روزرسانی شد.' });
+
+      // اگه دوست داری همچنان رفرش کنی:
+      setTimeout(() => {
+        window.location.reload();
+      }, 800);
+    } catch (error) {
+      const errMsg =
+        error.response?.data?.detail ||
+        error.response?.data?.username ||
+        error.response?.data?.phone_number ||
+        error.message;
+      setMessage({ type: 'error', text: String(errMsg) });
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (!userInfo) return null;
+
   return (
-    <div className="max-w-lg mx-auto mt-10 p-6 rounded-2xl bg-gradient-to-br from-black/30 to-gray-900/10 border border-gray-800 shadow-xl">
-      <h2 className="text-2xl font-extrabold mb-6">پروفایل کاربری</h2>
+    <div className="max-w-xl mx-auto bg-gray-800 p-6 rounded-lg shadow">
+      <h1 className="text-xl font-bold mb-4 text-gray-100">پروفایل من</h1>
 
-      {/* profile image area */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-800/40 flex items-center justify-center border border-gray-700">
-          {previewUrl ? (
-            <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
-          ) : currentImageUrl ? (
-            <img src={currentImageUrl} alt="profile" className="w-full h-full object-cover" />
-          ) : (
-            <div className="text-gray-400 text-sm">بدون تصویر</div>
-          )}
-        </div>
-
-        <div className="flex-1">
-          <label className="block text-sm text-gray-300">آپلود عکس پروفایل</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={onFileChange}
-            className="mt-2 text-sm text-gray-300"
-          />
-          <p className="text-xs text-gray-500 mt-1">حداکثر حجم مناسب را در بک‌اند مشخص کنید (مثلاً 2MB).</p>
-        </div>
-      </div>
-
-      {message && <div className="text-sm text-yellow-300 bg-yellow-900/30 p-3 rounded-md text-center mb-4">{message}</div>}
-      {error && <div className="text-sm text-red-400 bg-red-900/30 p-3 rounded-md text-center mb-4">{error}</div>}
-      {success && <div className="text-sm text-green-400 bg-green-900/30 p-3 rounded-md text-center mb-4">پروفایل با موفقیت بروزرسانی شد ✅</div>}
-      {loading && <div className="text-center text-gray-400">در حال بارگذاری...</div>}
+      {loading && <Loader />}
+      {message && (
+        <Message variant={message.type === 'success' ? 'success' : 'danger'}>
+          {message.text}
+        </Message>
+      )}
 
       <form onSubmit={submitHandler} className="space-y-4">
         <div>
-          <label className="block mb-1 text-sm text-gray-300">نام کاربری</label>
+          <label className="block text-sm text-gray-300 mb-1">نام</label>
           <input
             type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-3 py-2 rounded bg-gray-800/40 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm text-white"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="نام"
           />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">نام</label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-gray-800/40 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">نام خانوادگی</label>
-            <input
-              type="text"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-gray-800/40 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
         </div>
 
-        <div className="border-t border-gray-700/50 pt-4">
-          <p className="text-sm text-gray-400 mb-2">برای تغییر رمز عبور، فیلدهای زیر را پر کنید:</p>
-          <div>
-            <label className="block mb-1 text-sm text-gray-300">رمز عبور جدید</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-gray-800/40 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-        </div>
         <div>
-          <label className="block mb-1 text-sm text-gray-300">تکرار رمز عبور جدید</label>
+          <label className="block text-sm text-gray-300 mb-1">نام خانوادگی</label>
           <input
-            type="password"
-            placeholder="••••••••"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-3 py-2 rounded bg-gray-800/40 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            type="text"
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm text-white"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="نام خانوادگی"
           />
         </div>
+
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">نام کاربری</label>
+          <input
+            type="text"
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm text-white"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="نام کاربری"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">شماره موبایل</label>
+          <input
+            type="tel"
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm text-white"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            placeholder="09xxxxxxxxx"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">رمز عبور جدید (اختیاری)</label>
+          <input
+            type="password"
+            className="w-full px-3 py-2 rounded bg-gray-900 border border-gray-700 text-sm text-white"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="اگر نمی‌خوای عوض کنی، خالی بذار"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-300 mb-1">تصویر پروفایل</label>
+          <input
+            type="file"
+            accept="image/*"
+            className="w-full text-sm text-gray-300"
+            onChange={(e) => setImageFile(e.target.files[0] || null)}
+          />
+        </div>
+
         <button
           type="submit"
-          className="w-full py-3 mt-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold shadow-md hover:scale-[1.01] transition-transform"
+          disabled={loading}
+          className="w-full py-2 rounded bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white mt-2 disabled:opacity-50"
         >
-          بروزرسانی پروفایل
+          ذخیره تغییرات
         </button>
       </form>
     </div>
   );
-}
+};
+
+export default ProfileScreen;

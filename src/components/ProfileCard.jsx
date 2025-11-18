@@ -1,3 +1,4 @@
+// src/components/ProfileCard.jsx
 import React from 'react';
 import Avatar from 'react-avatar';
 import { FaCalendarAlt } from 'react-icons/fa';
