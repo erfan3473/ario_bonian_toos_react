@@ -1,71 +1,79 @@
-// src/screens/ProjectListScreen.jsx
-
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-// 👈 تغییر ۱: ایمپورت کردن thunk صحیح
-import { listProjectsThunk } from '../features/projects/projectListSlice';
+import { fetchProjects } from '../features/workers/workerSlice';
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 
-function ProjectCard({ project }) {
-  // این کامپوننت بدون تغییر باقی می‌ماند
-  return (
-    <div className="bg-white shadow-md rounded-lg p-6 hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800">{project.name}</h3>
-        <p className="text-gray-600 mt-2">{project.location_text}</p>
-        {/* نکته: مطمئن شوید که project_manager_name در دیتای API شما وجود دارد */}
-        <p className="text-sm text-gray-500 mt-1">مدیر پروژه: {project.project_manager?.username || 'تعیین نشده'}</p>
-      </div>
-
-      <div className="flex flex-col gap-2 mt-4">
-        <Link
-          to={`/projects/${project.id}/reports`}
-          className="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold text-center py-2 px-4 rounded-md transition-colors"
-        >
-          مشاهده گزارش‌ها
-        </Link>
-        <Link
-          to={`/projects/${project.id}/reports/create`}
-          className="text-white bg-green-600 hover:bg-green-700 font-semibold text-center py-2 px-4 rounded-md transition-colors"
-        >
-          ثبت گزارش جدید
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function ProjectListScreen() {
+const ProjectListScreen = () => {
   const dispatch = useDispatch();
-  // 👈 تغییر ۲: خواندن استیت از state.projectList
-  const { projects, loading, error } = useSelector((state) => state.projectList);
+  
+  const { 
+    list: projects, 
+    status, 
+    error 
+  } = useSelector((state) => state.workers.projects);
 
   useEffect(() => {
-    // 👈 تغییر ۳: دیسپچ کردن thunk صحیح
-    dispatch(listProjectsThunk());
+    dispatch(fetchProjects());
   }, [dispatch]);
 
   return (
-    <div className="container mx-auto p-4 md:p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 border-b-2 pb-2">
-        لیست پروژه‌ها
-      </h1>
+    <div className="container mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-white">مدیریت پروژه‌ها</h1>
+        <Link 
+          to="/admin/project/create" 
+          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm"
+        >
+          + تعریف پروژه جدید
+        </Link>
+      </div>
 
-      {loading ? (
+      {status === 'loading' ? (
         <Loader />
-      ) : error ? (
+      ) : status === 'failed' ? (
         <Message variant="danger">{error}</Message>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
+            <div key={project.id} className="bg-gray-800 rounded-xl border border-gray-700 p-5 hover:shadow-lg transition">
+              <div className="flex justify-between items-start">
+                <h3 className="text-lg font-bold text-white">{project.name}</h3>
+                <span className={`px-2 py-1 rounded text-xs ${project.is_active ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
+                  {project.is_active ? 'فعال' : 'غیرفعال'}
+                </span>
+              </div>
+              
+              <p className="text-gray-400 text-sm mt-2 h-10 overflow-hidden text-ellipsis">
+                 {project.location_text || 'موقعیت ثبت نشده'}
+              </p>
+
+              <div className="mt-6 flex gap-2">
+                <Link
+                  to={`/admin/projects/${project.id}/geofence`}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-center py-2 rounded-lg text-sm border border-gray-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75v.75h-.75v-.75zm0 3h.75v.75h-.75v-.75zm0 3h.75v.75h-.75v-.75zm0 3h.75v.75h-.75v-.75z" />
+                  </svg>
+                  فنس‌کشی (Map)
+                </Link>
+                
+                <button className="px-3 py-2 bg-blue-600/20 text-blue-400 rounded-lg hover:bg-blue-600/30 border border-blue-500/30">
+                   ویرایش
+                </button>
+              </div>
+            </div>
           ))}
+          
+          {projects.length === 0 && (
+            <p className="text-gray-500 col-span-full text-center py-10">هیچ پروژه‌ای یافت نشد.</p>
+          )}
         </div>
       )}
     </div>
   );
-}
+};
 
 export default ProjectListScreen;

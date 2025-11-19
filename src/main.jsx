@@ -1,4 +1,3 @@
-// src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';
@@ -6,15 +5,14 @@ import { BrowserRouter } from 'react-router-dom';
 
 import store from './store';
 import App from './App';
-import './styles/tailwind.css'   // به جای index.css قدیمی
-import 'leaflet/dist/leaflet.css';
+import './styles/tailwind.css';
+import 'leaflet/dist/leaflet.css'; // استایل‌های نقشه
 
+// نکته مهم: React.StrictMode حذف شد تا لگ‌های نقشه در حالت Draw رفع شود
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <Provider store={store}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </Provider>
-  </React.StrictMode>
+  <Provider store={store}>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </Provider>
 );

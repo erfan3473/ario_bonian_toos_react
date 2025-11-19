@@ -1,11 +1,10 @@
-// src/components/Header.jsx
 import logo from "../assets/ario.png";
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../features/users/userSlice";
 
-import { FaUser, FaSignOutAlt, FaSignInAlt, FaBars } from "react-icons/fa";
+import { FaUser, FaSignOutAlt, FaSignInAlt, FaBars, FaBuilding } from "react-icons/fa";
 
 const Header = ({ toggleSidebar }) => {
   const dispatch = useDispatch();
@@ -22,7 +21,6 @@ const Header = ({ toggleSidebar }) => {
     navigate("/auth");
   };
 
-  // بستن منوی کاربر وقتی بیرون کلیک می‌کنی
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -70,6 +68,14 @@ const Header = ({ toggleSidebar }) => {
             className="hover:text-sky-300 transition text-sm"
           >
             مانیتور نیروها
+          </Link>
+
+          {/* ✅ لینک جدید: مدیریت پروژه‌ها */}
+          <Link
+            to="/projects"
+            className="hover:text-sky-300 transition text-sm flex items-center gap-1"
+          >
+             مدیریت پروژه‌ها
           </Link>
 
           <Link
