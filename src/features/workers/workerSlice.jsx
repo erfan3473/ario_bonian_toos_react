@@ -1,7 +1,8 @@
+// src/features/workers/workerSlice.js
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
-const MAX_IDLE_MS = 5 * 60 * 1000; 
+const MAX_IDLE_MS = 5 * 60 * 1000; // 5 دقیقه
 
 // ==================================================================
 // 1) Async Thunks
@@ -25,7 +26,9 @@ export const fetchWorkerHistory = createAsyncThunk(
     try {
       const end = new Date();
       const ranges = {
-        '1h': 3600000, '24h': 86400000, '7d': 604800000
+        '1h': 3600000,
+        '24h': 86400000,
+        '7d': 604800000,
       };
       const start = new Date(end.getTime() - (ranges[timeRange] || ranges['24h']));
 
@@ -44,7 +47,7 @@ export const fetchProjects = createAsyncThunk(
   'workers/fetchProjects',
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get('/projects/'); 
+      const { data } = await axiosInstance.get('/projects/');
       return data;
     } catch (error) {
       if (error.response?.status === 404) return [];
@@ -53,7 +56,7 @@ export const fetchProjects = createAsyncThunk(
   }
 );
 
-// ✅ جدید: دریافت اطلاعات کامل پروژه (شامل فنس)
+// ✅ دریافت اطلاعات کامل پروژه (شامل فنس)
 export const fetchProjectDetails = createAsyncThunk(
   'workers/fetchProjectDetails',
   async (projectId, { rejectWithValue }) => {
@@ -66,13 +69,13 @@ export const fetchProjectDetails = createAsyncThunk(
   }
 );
 
-// ✅ جدید: ذخیره فنس جدید
+// ✅ ذخیره فنس جدید
 export const updateProjectGeofence = createAsyncThunk(
-  'workers/updateGeofence',
+  'workers/updateProjectGeofence',
   async ({ projectId, coordinates }, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.patch(`/projects/${projectId}/geofence/`, {
-        boundary_coordinates: coordinates
+        boundary_coordinates: coordinates,
       });
       return data;
     } catch (error) {
@@ -87,20 +90,19 @@ export const updateProjectGeofence = createAsyncThunk(
 const initialState = {
   status: 'idle',
   error: null,
-  
-  allWorkers: {}, 
-  
+
+  allWorkers: {},
+
   projects: {
     status: 'idle',
     list: [],
-    selectedProjectId: null, 
+    selectedProjectId: null,
   },
 
-  // ✅ استیت جدید برای صفحه ویرایش فنس
   currentProject: {
     status: 'idle',
     error: null,
-    data: null, // آبجکت پروژه + مختصات فنس
+    data: null,
   },
 
   history: {
@@ -127,15 +129,29 @@ const workersSlice = createSlice({
       }
 
       const worker = state.allWorkers[workerId];
+
+      // اطلاعات پروفایل / شغلی
       worker.name = u.name ?? worker.name;
       worker.position = u.position ?? worker.position;
-      if (u.current_project_id !== undefined) worker.current_project_id = u.current_project_id;
-      
+
+      // هماهنگ با backend + موبایل
+      if (u.current_project_id !== undefined) {
+        worker.current_project_id = u.current_project_id;
+      }
+      if (u.current_project_name !== undefined) {
+        worker.current_project_name = u.current_project_name;
+      }
+      if (u.today_attendance_status !== undefined) {
+        worker.today_attendance_status = u.today_attendance_status;
+      }
+
+      // لوکیشن
       worker.latitude = u.latitude ?? worker.latitude;
       worker.longitude = u.longitude ?? worker.longitude;
       worker.accuracy = u.accuracy ?? worker.accuracy;
       worker.speed = u.speed ?? worker.speed;
-      
+
+      // وضعیت آنلاین/آفلاین
       worker.lastUpdate = lastUpdate;
       worker.stale = u.status === 'offline';
     },
@@ -152,13 +168,12 @@ const workersSlice = createSlice({
     setSelectedProject: (state, action) => {
       state.projects.selectedProjectId = action.payload;
     },
-    
-    // ✅ اکشن جدید برای پاک کردن دیتای صفحه ویرایش هنگام خروج
+
     clearCurrentProject: (state) => {
       state.currentProject.data = null;
       state.currentProject.status = 'idle';
       state.currentProject.error = null;
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -170,7 +185,9 @@ const workersSlice = createSlice({
         state.status = 'succeeded';
         const workersMap = {};
         action.payload.forEach((w) => {
-          const lastUpdate = w.last_location ? new Date(w.last_location.timestamp).getTime() : null;
+          const lastUpdate = w.last_location
+            ? new Date(w.last_location.timestamp).getTime()
+            : null;
           const isStale = !(lastUpdate && Date.now() - lastUpdate < MAX_IDLE_MS);
 
           workersMap[w.id] = {
@@ -179,7 +196,8 @@ const workersSlice = createSlice({
             longitude: w.last_location?.longitude ?? null,
             lastUpdate,
             stale: isStale,
-            current_project_id: w.current_project_id || null, 
+            current_project_id: w.current_project_id || null,
+            current_project_name: w.current_project_name || null,
           };
         });
         state.allWorkers = { ...state.allWorkers, ...workersMap };
@@ -190,19 +208,34 @@ const workersSlice = createSlice({
       })
 
       // fetchWorkerHistory
+      .addCase(fetchWorkerHistory.pending, (state) => {
+        state.history.status = 'loading';
+        state.history.error = null;
+      })
       .addCase(fetchWorkerHistory.fulfilled, (state, action) => {
         const { workerId, history } = action.payload;
         state.history.data[workerId] = history;
         state.history.status = 'succeeded';
       })
+      .addCase(fetchWorkerHistory.rejected, (state, action) => {
+        state.history.status = 'failed';
+        state.history.error = action.payload;
+      })
 
       // fetchProjects
+      .addCase(fetchProjects.pending, (state) => {
+        state.projects.status = 'loading';
+      })
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.projects.status = 'succeeded';
         state.projects.list = action.payload;
       })
-      
-      // ✅ هندل کردن دریافت جزئیات پروژه (فنس)
+      .addCase(fetchProjects.rejected, (state, action) => {
+        state.projects.status = 'failed';
+        state.projects.error = action.payload;
+      })
+
+      // جزئیات پروژه (فنس)
       .addCase(fetchProjectDetails.pending, (state) => {
         state.currentProject.status = 'loading';
         state.currentProject.error = null;
@@ -216,7 +249,7 @@ const workersSlice = createSlice({
         state.currentProject.error = action.payload;
       })
 
-      // ✅ هندل کردن آپدیت فنس
+      // آپدیت فنس
       .addCase(updateProjectGeofence.fulfilled, (state, action) => {
         state.currentProject.data = action.payload;
       });
@@ -237,15 +270,16 @@ export const selectProjectDashboardStats = createSelector(
     const workers = Object.values(workersObj);
 
     const dashboard = {
-      projects: {}, 
+      projects: {},
       globalStats: {
         totalProjectsActive: 0,
         totalWorkers: workers.length,
-        activeWorkers: 0, 
-      }
+        activeWorkers: 0,
+      },
     };
 
-    projectsList.forEach(p => {
+    // همه پروژه‌ها + یک گروه "بدون پروژه"
+    projectsList.forEach((p) => {
       dashboard.projects[p.id] = {
         id: p.id,
         name: p.name,
@@ -254,13 +288,22 @@ export const selectProjectDashboardStats = createSelector(
       };
     });
     dashboard.projects['uncategorized'] = {
-        id: 'uncategorized', name: 'بدون پروژه', totalWorkers: 0, activeWorkers: 0
+      id: 'uncategorized',
+      name: 'بدون پروژه',
+      totalWorkers: 0,
+      activeWorkers: 0,
     };
 
-    workers.forEach(w => {
+    workers.forEach((w) => {
       const pid = w.current_project_id || 'uncategorized';
+
       if (!dashboard.projects[pid] && pid !== 'uncategorized') {
-         dashboard.projects[pid] = { id: pid, name: 'Unknown Project', totalWorkers: 0, activeWorkers: 0 };
+        dashboard.projects[pid] = {
+          id: pid,
+          name: 'Unknown Project',
+          totalWorkers: 0,
+          activeWorkers: 0,
+        };
       }
 
       dashboard.projects[pid].totalWorkers++;
@@ -279,16 +322,16 @@ export const selectVisibleWorkers = createSelector(
   [selectAllWorkersObj, selectSelectedProjectId],
   (workersObj, selectedPid) => {
     const workers = Object.values(workersObj);
-    if (!selectedPid) return workers; 
-    return workers.filter(w => w.current_project_id === selectedPid);
+    if (!selectedPid) return workers;
+    return workers.filter((w) => w.current_project_id === selectedPid);
   }
 );
 
-export const { 
-  updateWorkerLocation, 
-  cleanupOldWorkers, 
+export const {
+  updateWorkerLocation,
+  cleanupOldWorkers,
   setSelectedProject,
-  clearCurrentProject // اکسپورت کردن اکشن جدید
+  clearCurrentProject,
 } = workersSlice.actions;
 
 export default workersSlice.reducer;
