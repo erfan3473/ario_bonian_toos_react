@@ -8,10 +8,10 @@ import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
 import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import VoiceAssistantScreen from "./screens/VoiceAssistantScreen";
-
-// ✅ ایمپورت‌های جدید
 import ProjectListScreen from './screens/ProjectListScreen';
-import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen'; // فایلی که در مرحله قبل دادم
+import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
+// ✅ ایمپورت جدید
+import ProjectReportsScreen from './screens/ProjectReportsScreen';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,18 +36,16 @@ function App() {
 
         <main className="flex-grow container mx-auto p-4">
           <Routes>
-            {/* صفحات عمومی */}
             <Route path="/" element={<HomeScreen />} />
             <Route path="/auth" element={<AuthScreen />} />
-            
-            {/* داشبورد کارگران */}
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
             <Route path="/assistant" element={<VoiceAssistantScreen />} />
-
-            {/* ✅ مدیریت پروژه‌ها (مسیرهای جدید) */}
             <Route path="/projects" element={<ProjectListScreen />} />
             <Route path="/admin/projects/:id/geofence" element={<ProjectGeofenceScreen />} />
+            
+            {/* ✅ مسیر جدید گزارشات */}
+            <Route path="/admin/reports" element={<ProjectReportsScreen />} />
             
           </Routes>
         </main>

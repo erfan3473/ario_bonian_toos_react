@@ -1,4 +1,3 @@
-// src/store.js
 import { configureStore } from '@reduxjs/toolkit';
 import {
   userLoginReducer,
@@ -11,12 +10,7 @@ import {
   userUpdateByAdminReducer
 } from './features/users/userSlice';
 import workerReducer from './features/workers/workerSlice';
-
-
-
-
-
-
+import reportReducer from './features/reports/reportSlice'; // ✅ ایمپورت جدید
 
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
@@ -36,16 +30,11 @@ const store = configureStore({
     userDetails: userDetailsReducer,
     userUpdateProfile: userUpdateProfileReducer,
 
-
-    workers: workerReducer, 
+    workers: workerReducer,
+    reports: reportReducer, // ✅ اضافه شد
     
     userRole: userRoleReducer,
     userUpdateByAdmin: userUpdateByAdminReducer,
-    
-
-   
-  
-   
   },
   preloadedState,
 });
