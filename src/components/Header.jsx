@@ -76,6 +76,12 @@ const Header = ({ toggleSidebar }) => {
           >
              گزارش روزانه
           </Link>
+          <Link
+            to="/admin/statements"
+            className="hover:text-sky-300 transition text-sm"
+          >
+             صورت وضعیت ماهانه 
+          </Link>
 
           {/* ✅ لینک جدید: مدیریت پروژه‌ها */}
           <Link

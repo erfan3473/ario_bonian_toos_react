@@ -83,7 +83,20 @@ export const updateProjectGeofence = createAsyncThunk(
     }
   }
 );
-
+export const fetchDailyAttendance = createAsyncThunk(
+  'workers/fetchDailyAttendance',
+  async ({ projectId, date }, { rejectWithValue }) => {
+    try {
+      const config = {
+        params: { project_id: projectId, date: date },
+      };
+      const { data } = await axiosInstance.get('/workers/attendance/list/', config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت لیست حضور و غیاب');
+    }
+  }
+);
 // ==================================================================
 // 2) Initial State
 // ==================================================================
@@ -110,6 +123,12 @@ const initialState = {
     error: null,
     data: {},
   },
+  // ✅ استیت جدید برای لیست حضور غیاب
+    dailyAttendance: {
+        list: [],
+        loading: false,
+        error: null
+    }
 };
 
 // ==================================================================
@@ -177,6 +196,18 @@ const workersSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+    .addCase(fetchDailyAttendance.pending, (state) => {
+        state.dailyAttendance.loading = true;
+        state.dailyAttendance.error = null;
+      })
+      .addCase(fetchDailyAttendance.fulfilled, (state, action) => {
+        state.dailyAttendance.loading = false;
+        state.dailyAttendance.list = action.payload;
+      })
+      .addCase(fetchDailyAttendance.rejected, (state, action) => {
+        state.dailyAttendance.loading = false;
+        state.dailyAttendance.error = action.payload;
+      })
       // fetchWorkers
       .addCase(fetchWorkers.pending, (state) => {
         state.status = 'loading';

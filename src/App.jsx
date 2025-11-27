@@ -10,9 +10,9 @@ import ProfileScreen from './screens/ProfileScreen';
 import VoiceAssistantScreen from "./screens/VoiceAssistantScreen";
 import ProjectListScreen from './screens/ProjectListScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
-// ✅ ایمپورت جدید
+import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import ProjectReportsScreen from './screens/ProjectReportsScreen';
-
+import MonthlyStatementsScreen from './screens/MonthlyStatementsScreen';
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { userInfo } = useSelector((state) => state.userLogin);
@@ -46,6 +46,8 @@ function App() {
             
             {/* ✅ مسیر جدید گزارشات */}
             <Route path="/admin/reports" element={<ProjectReportsScreen />} />
+            <Route path="/admin/statements" element={<MonthlyStatementsScreen />} />
+            <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
             
           </Routes>
         </main>

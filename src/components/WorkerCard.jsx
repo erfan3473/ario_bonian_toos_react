@@ -3,16 +3,19 @@ import React from 'react';
 
 const statusMap = {
   NOT_STARTED: {
-    label: 'بدون شیفت امروز',
-    className: 'bg-gray-700 text-gray-300 border-gray-600',
+    label: 'بدون شیفت',
+    className: 'bg-gray-700 text-gray-400 border-gray-600',
+    dotColor: 'bg-gray-500'
   },
   WORKING: {
     label: 'درحال کار',
-    className: 'bg-green-900/40 text-green-300 border-green-500/50',
+    className: 'bg-green-900/30 text-green-300 border-green-500/40',
+    dotColor: 'bg-green-500 animate-pulse'
   },
   FINISHED: {
-    label: 'شیفت امروز تمام شده',
-    className: 'bg-blue-900/30 text-blue-200 border-blue-500/50',
+    label: 'پایان کار',
+    className: 'bg-blue-900/30 text-blue-300 border-blue-500/40',
+    dotColor: 'bg-blue-500'
   },
 };
 
@@ -23,96 +26,94 @@ const WorkerCard = ({ worker, highlight, onClick, lastSeen }) => {
 
   const statusKey = worker.today_attendance_status || 'NOT_STARTED';
   const statusConf = statusMap[statusKey] || statusMap.NOT_STARTED;
-
   const displayName = worker.name || 'ناشناس';
 
   return (
     <div
       onClick={handleClick}
-      className={`p-4 rounded-xl transition-all duration-200 border cursor-pointer relative overflow-hidden
-        ${highlight ? 'ring-2 ring-blue-500 shadow-lg bg-gray-800' : 'hover:bg-gray-800 bg-gray-900'}
-        ${worker.stale ? 'border-red-900/50' : 'border-gray-700'} 
+      className={`p-4 rounded-xl transition-all duration-200 border cursor-pointer relative overflow-hidden group
+        ${highlight ? 'ring-2 ring-blue-500 shadow-lg bg-gray-800 scale-[1.02]' : 'hover:bg-gray-800 bg-gray-900'}
+        ${worker.stale ? 'border-red-900/30' : 'border-gray-700'} 
       `}
     >
-      {/* نوار وضعیت کنار کارت */}
-      <div
-        className={`absolute right-0 top-0 bottom-0 w-1 ${
-          worker.stale ? 'bg-red-500/50' : 'bg-green-500'
-        }`}
-      ></div>
+      {/* نوار وضعیت رنگی کنار کارت */}
+      <div className={`absolute right-0 top-0 bottom-0 w-1 transition-colors ${worker.stale ? 'bg-red-500/50' : statusConf.dotColor}`}></div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         {/* آواتار */}
-        <div className="relative">
-          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-700 bg-gray-800 flex-shrink-0">
+        <div className="relative mt-1">
+          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-gray-700 bg-gray-800 shadow-inner">
             {worker.profile_image ? (
-              <img
-                src={worker.profile_image}
-                alt={displayName}
-                className="w-full h-full object-cover"
-              />
+              <img src={worker.profile_image} alt={displayName} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                {/* آیکون پیش‌فرض */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-8 h-8"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+              <div className="w-full h-full flex items-center justify-center text-gray-500 text-2xl font-bold bg-gray-800">
+                 {displayName.charAt(0)}
               </div>
             )}
           </div>
-          {/* آنلاین / آفلاین */}
-          <span
-            className={`absolute bottom-0 left-0 w-3.5 h-3.5 border-2 border-gray-900 rounded-full ${
-              worker.stale ? 'bg-gray-500' : 'bg-green-500 animate-pulse'
-            }`}
-          ></span>
+          {/* نشانگر آنلاین/آفلاین */}
+          <span className={`absolute bottom-0 left-0 w-3.5 h-3.5 border-2 border-gray-900 rounded-full ${worker.stale ? 'bg-gray-500' : 'bg-green-500 animate-pulse'}`}></span>
         </div>
 
-        {/* متن‌ها */}
+        {/* محتوا */}
         <div className="flex-1 min-w-0">
-          {/* سر تیتر: نام کارگر */}
-          <h3 className="text-white font-bold text-lg truncate">
-            {displayName}
-          </h3>
-
-          {/* سمت شغلی */}
-          <p className="text-sm text-blue-400 truncate">
-            {worker.position || 'بدون سمت'}
-          </p>
-
-          {/* پروژه فعلی */}
-          <p className="text-xs text-gray-400 mt-1 truncate">
-            پروژه فعلی:{' '}
-            <span className="text-indigo-300 font-medium">
-              {worker.current_project_name || 'بدون پروژه'}
-            </span>
-          </p>
-
-          {/* پایین کارت: فقط آنلاین/آخرین بازدید + وضعیت امروز (خط نام تکراری حذف شد) */}
-          <div className="flex justify-end items-end mt-3 gap-2">
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-1 text-xs">
-                <span
-                  className={worker.stale ? 'text-red-400' : 'text-green-400'}
-                >
-                  {worker.stale ? 'آخرین بازدید:' : 'آنلاین:'}
-                </span>
-                <span className="text-gray-300 font-medium">{lastSeen}</span>
-              </div>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] border ${statusConf.className}`}
-              >
+          <div className="flex justify-between items-start">
+            <div>
+                <h3 className="text-white font-bold text-lg truncate leading-tight">{displayName}</h3>
+                <p className="text-xs text-blue-400 mt-1">{worker.position || 'نیروی ساده'}</p>
+            </div>
+            {/* بج وضعیت */}
+            <span className={`px-2 py-0.5 rounded text-[10px] border font-bold ${statusConf.className}`}>
                 {statusConf.label}
-              </span>
+            </span>
+          </div>
+
+          {/* پروژه */}
+          <p className="text-xs text-gray-400 mt-2 truncate flex items-center gap-1">
+            <span className="opacity-50">📍</span>
+            <span className="text-gray-300">{worker.current_project_name || '---'}</span>
+          </p>
+
+          {/* خط جداکننده */}
+          <div className="h-px bg-gray-700/50 my-3"></div>
+
+          {/* ⏱ بخش زمان‌بندی (جدید) */}
+          <div className="flex justify-between items-end">
+            
+            {/* زمان‌های شیفت */}
+            <div className="flex gap-3 text-xs">
+                {/* ساعت شروع */}
+                <div className="flex flex-col">
+                    <span className="text-gray-500 text-[10px]">شروع</span>
+                    {worker.shift_start ? (
+                        <span className="text-white font-mono font-bold tracking-wider">{worker.shift_start}</span>
+                    ) : (
+                        <span className="text-gray-600">--:--</span>
+                    )}
+                </div>
+
+                {/* فلش بین ساعت‌ها */}
+                <div className="self-center text-gray-600">➝</div>
+
+                {/* ساعت پایان */}
+                <div className="flex flex-col">
+                    <span className="text-gray-500 text-[10px]">پایان</span>
+                    {worker.shift_end ? (
+                        <span className="text-white font-mono font-bold tracking-wider">{worker.shift_end}</span>
+                    ) : (
+                        statusKey === 'WORKING' ? (
+                            <span className="text-green-400/70 animate-pulse text-[10px] pt-0.5">در حال کار...</span>
+                        ) : (
+                            <span className="text-gray-600">--:--</span>
+                        )
+                    )}
+                </div>
+            </div>
+
+            {/* آخرین بازدید */}
+            <div className="text-[10px] text-gray-500 flex items-center gap-1 bg-gray-800/50 px-2 py-1 rounded">
+               <span className={worker.stale ? 'text-red-400' : 'text-green-400'}>●</span>
+               {lastSeen}
             </div>
           </div>
         </div>
