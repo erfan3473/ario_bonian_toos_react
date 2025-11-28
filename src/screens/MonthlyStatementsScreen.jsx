@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchProjects } from '../features/workers/workerSlice';
 import { fetchStatements } from '../features/statements/statementSlice';
+import { useNavigate } from 'react-router-dom';
 
 const MonthlyStatementsScreen = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [selectedYear, setSelectedYear] = useState('1403'); // پیش‌فرض سال جاری
@@ -116,9 +118,10 @@ const MonthlyStatementsScreen = () => {
                 <tbody className="divide-y divide-gray-700">
                   {statements.map((stmt) => (
                     <tr key={stmt.id} className="hover:bg-gray-800/50 transition duration-150">
-                      <td className="px-6 py-4 font-bold text-white">
-                          {stmt.project_name}
-                      </td>
+                     <td className="px-6 py-4 font-bold text-white cursor-pointer hover:text-blue-400" 
+    onClick={() => navigate(`/admin/statements/${stmt.id}`)}>
+    {stmt.project_name}
+</td>
                       <td className="px-6 py-4 text-gray-300">
                           {stmt.year} / <span className="text-yellow-400 font-bold">{getMonthName(stmt.month)}</span>
                       </td>

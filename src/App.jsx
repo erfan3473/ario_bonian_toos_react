@@ -13,6 +13,7 @@ import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import ProjectReportsScreen from './screens/ProjectReportsScreen';
 import MonthlyStatementsScreen from './screens/MonthlyStatementsScreen';
+import StatementDetailScreen from './screens/StatementDetailScreen';
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { userInfo } = useSelector((state) => state.userLogin);
@@ -48,7 +49,7 @@ function App() {
             <Route path="/admin/reports" element={<ProjectReportsScreen />} />
             <Route path="/admin/statements" element={<MonthlyStatementsScreen />} />
             <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
-            
+            <Route path="/admin/statements/:id" element={<StatementDetailScreen />} />
           </Routes>
         </main>
 

@@ -17,13 +17,24 @@ export const fetchStatements = createAsyncThunk(
     }
   }
 );
-
+export const fetchStatementDetails = createAsyncThunk(
+  'statements/fetchDetails',
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get(`/statements/${id}/`);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت جزئیات');
+    }
+  }
+);
 const statementSlice = createSlice({
   name: 'statements',
   initialState: {
     loading: false,
     list: [],
     error: null,
+    currentStatement: { data: null, loading: false, error: null } // ✅ اضافه شد
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -39,6 +50,18 @@ const statementSlice = createSlice({
       .addCase(fetchStatements.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(fetchStatementDetails.pending, (state) => {
+        state.currentStatement.loading = true;
+        state.currentStatement.error = null;
+      })
+      .addCase(fetchStatementDetails.fulfilled, (state, action) => {
+        state.currentStatement.loading = false;
+        state.currentStatement.data = action.payload;
+      })
+      .addCase(fetchStatementDetails.rejected, (state, action) => {
+        state.currentStatement.loading = false;
+        state.currentStatement.error = action.payload;
       });
   },
 });

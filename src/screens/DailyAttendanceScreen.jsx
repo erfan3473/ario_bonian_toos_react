@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchDailyAttendance } from '../features/workers/workerSlice';
 
 const DailyAttendanceScreen = () => {
-  const { projectId, date } = useParams(); // دریافت پارامترها از URL
+  const { projectId, date } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -12,7 +12,6 @@ const DailyAttendanceScreen = () => {
     (state) => state.workers.dailyAttendance
   );
 
-  // برای پیدا کردن نام پروژه (اختیاری برای نمایش در هدر)
   const { list: projects } = useSelector((state) => state.workers.projects);
   const projectName = projects.find(p => p.id === Number(projectId))?.name || "پروژه";
 
@@ -28,9 +27,14 @@ const DailyAttendanceScreen = () => {
     });
   };
 
-  // محاسبه خلاصه آمار
+  const formatCurrency = (amount) => {
+      return Number(amount).toLocaleString('fa-IR');
+  };
+
+  // ✅ محاسبه خلاصه آمار (اضافه شدن درآمد)
   const totalWorkers = attendanceList.length;
   const totalHours = attendanceList.reduce((acc, curr) => acc + (curr.total_hours_decimal || 0), 0);
+  const totalEarned = attendanceList.reduce((acc, curr) => acc + (curr.earned_amount || 0), 0);
 
   return (
     <div className="container mx-auto px-4 py-6 rtl font-vazir">
@@ -42,7 +46,7 @@ const DailyAttendanceScreen = () => {
         ➡️ بازگشت به گزارشات
       </button>
 
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-gray-700 pb-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 border-b border-gray-700 pb-4 gap-4">
         <div>
             <h1 className="text-3xl font-bold text-white mb-2">
                 📋 لیست حضور و غیاب
@@ -52,15 +56,20 @@ const DailyAttendanceScreen = () => {
             </p>
         </div>
         
-        {/* کارت‌های خلاصه آمار */}
-        <div className="flex gap-4 mt-4 md:mt-0">
-            <div className="bg-gray-800 p-3 rounded-lg border border-gray-600 text-center min-w-[100px]">
+        {/* ✅ کارت‌های خلاصه آمار (آپدیت شده) */}
+        <div className="flex flex-wrap gap-4 w-full xl:w-auto">
+            <div className="bg-gray-800 p-3 rounded-lg border border-gray-600 text-center flex-grow xl:flex-grow-0 min-w-[100px]">
                 <div className="text-2xl font-bold text-blue-400">{totalWorkers}</div>
                 <div className="text-xs text-gray-400">نفر حاضر</div>
             </div>
-            <div className="bg-gray-800 p-3 rounded-lg border border-gray-600 text-center min-w-[100px]">
+            <div className="bg-gray-800 p-3 rounded-lg border border-gray-600 text-center flex-grow xl:flex-grow-0 min-w-[100px]">
                 <div className="text-2xl font-bold text-green-400 font-mono">{totalHours.toFixed(1)}</div>
                 <div className="text-xs text-gray-400">مجموع ساعت</div>
+            </div>
+            {/* کارت جدید درآمد کل */}
+            <div className="bg-gray-800 p-3 rounded-lg border border-gray-600 text-center flex-grow xl:flex-grow-0 min-w-[140px]">
+                <div className="text-2xl font-bold text-yellow-400 font-mono">{formatCurrency(totalEarned)}</div>
+                <div className="text-xs text-gray-400">مجموع درآمد (تومان)</div>
             </div>
         </div>
       </div>
@@ -79,26 +88,38 @@ const DailyAttendanceScreen = () => {
             <table className="w-full text-right text-sm">
               <thead className="bg-gray-800 text-gray-400 uppercase text-xs font-bold">
                 <tr>
-                  <th className="px-6 py-4">نام کارگر</th>
+                  <th className="px-6 py-4">مشخصات کارگر</th>
                   <th className="px-6 py-4 text-center">ورود</th>
                   <th className="px-6 py-4 text-center">خروج</th>
                   <th className="px-6 py-4 text-center">مدت (ساعت)</th>
+                  <th className="px-6 py-4 text-center text-yellow-500">درآمد (تومان)</th>
                   <th className="px-6 py-4 text-center">وضعیت</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700 text-gray-300">
                 {attendanceList.map((att) => (
                   <tr key={att.id} className="hover:bg-gray-800/50 transition">
-                    <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs text-gray-400">
-                            👤
+                    
+                    {/* ✅ ستون نام: شامل نام، سمت و تلفن */}
+                    <td className="px-6 py-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-700 flex-shrink-0 flex items-center justify-center text-lg mt-1">
+                                👤
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-white font-bold text-base">{att.worker_name}</span>
+                                <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                                    <span className="bg-gray-800 px-1.5 py-0.5 rounded border border-gray-600">{att.worker_position}</span>
+                                    <span>📞 {att.worker_phone}</span>
+                                </div>
+                            </div>
                         </div>
-                        {att.worker_name}
                     </td>
-                    <td className="px-6 py-4 text-center font-mono dir-ltr text-green-300">
+
+                    <td className="px-6 py-4 text-center font-mono dir-ltr text-green-300 text-base">
                         {att.time_in_display || '---'}
                     </td>
-                    <td className="px-6 py-4 text-center font-mono dir-ltr text-red-300">
+                    <td className="px-6 py-4 text-center font-mono dir-ltr text-red-300 text-base">
                         {att.time_out_display || '---'}
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -106,6 +127,18 @@ const DailyAttendanceScreen = () => {
                             {att.total_hours_hhmmss || '00:00'}
                         </span>
                     </td>
+
+                    {/* ✅ ستون درآمد */}
+                    <td className="px-6 py-4 text-center">
+                        {att.earned_amount > 0 ? (
+                            <span className="text-yellow-400 font-mono font-bold text-lg">
+                                {formatCurrency(att.earned_amount)}
+                            </span>
+                        ) : (
+                            <span className="text-gray-600 text-xs">محاسبه نشده</span>
+                        )}
+                    </td>
+
                     <td className="px-6 py-4 text-center">
                         {att.status === 'PRESENT' ? (
                             <span className="bg-green-900/30 text-green-400 px-2 py-1 rounded text-xs border border-green-800">حاضر</span>
