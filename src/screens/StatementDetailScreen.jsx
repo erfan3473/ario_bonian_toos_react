@@ -55,8 +55,8 @@ const StatementDetailScreen = () => {
         <table className="w-full text-right text-sm">
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                 <tr>
-                    <th className="px-6 py-3">نام</th>
-                    <th className="px-6 py-3">سمت</th>
+                    <th className="px-6 py-3">نام / سمت</th>
+                    <th className="px-6 py-3">اطلاعات بانکی</th> {/* ✅ ستون جدید */}
                     <th className="px-6 py-3 text-center">روز کارکرد</th>
                     <th className="px-6 py-3 text-center">ساعت کل</th>
                     <th className="px-6 py-3 text-center text-yellow-500">درآمد (تومان)</th>
@@ -65,8 +65,32 @@ const StatementDetailScreen = () => {
             <tbody className="divide-y divide-gray-700 text-gray-300">
                 {statement.workers_summary?.map((worker) => (
                     <tr key={worker.worker_id} className="hover:bg-gray-800/50">
-                        <td className="px-6 py-4 font-bold text-white">{worker.name}</td>
-                        <td className="px-6 py-4">{worker.position}</td>
+                        {/* نام و سمت */}
+                        <td className="px-6 py-4">
+                            <div className="font-bold text-white">{worker.name}</div>
+                            <div className="text-xs text-gray-500 mt-1">{worker.position}</div>
+                        </td>
+
+                        {/* ✅ اطلاعات بانکی */}
+                        <td className="px-6 py-4 text-xs">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-gray-500 w-8">ملی:</span>
+                                    <span className="text-gray-300 font-mono">{worker.code_meli || '---'}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-gray-500 w-8">شبا:</span>
+                                    <span className="text-gray-300 font-mono select-all">
+                                        {worker.shaba_number ? `IR${worker.shaba_number}` : '---'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-gray-500 w-8">حساب:</span>
+                                    <span className="text-gray-300 font-mono select-all">{worker.bank_account_number || '---'}</span>
+                                </div>
+                            </div>
+                        </td>
+
                         <td className="px-6 py-4 text-center">{worker.days_worked}</td>
                         <td className="px-6 py-4 text-center font-mono">{worker.total_hours.toFixed(1)}</td>
                         <td className="px-6 py-4 text-center font-mono text-yellow-400 font-bold">

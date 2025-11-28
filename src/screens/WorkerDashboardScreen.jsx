@@ -1,4 +1,3 @@
-// src/screens/WorkerDashboardScreen.jsx
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import QRCode from "react-qr-code"; 
@@ -16,7 +15,6 @@ import {
 import WorkerMap from '../components/WorkerMap';
 import WorkerCard from '../components/WorkerCard';
 import Loader from '../components/Loader';
-import Message from '../components/Message';
 
 // 🌐 تنظیمات سوکت
 const WS_URL = 'ws://192.168.43.130:8000/ws/worker/updates/'; 
@@ -38,7 +36,6 @@ const WorkerDashboardScreen = () => {
   // 1) دریافت داده‌ها از Redux
   const {
     status: workerStatus,
-    error,
     projects: { list: projectsList, selectedProjectId },
     history: { status: historyStatus, data: historyData },
   } = useSelector((state) => state.workers);
@@ -69,7 +66,7 @@ const WorkerDashboardScreen = () => {
     }
   }, [dispatch, workerStatus]);
 
-  // 2. تایمر پاکسازی (هر ۶۰ ثانیه وضعیت آفلاین‌ها را چک می‌کند)
+  // 2. تایمر پاکسازی
   useEffect(() => {
     const interval = setInterval(() => dispatch(cleanupOldWorkers()), 60000);
     return () => clearInterval(interval);
@@ -82,7 +79,6 @@ const WorkerDashboardScreen = () => {
     const connect = () => {
       if (!alive || paused) return;
 
-      // بستن سوکت قبلی اگر باز مانده باشد
       if (socketRef.current) {
         socketRef.current.close();
       }
@@ -91,31 +87,24 @@ const WorkerDashboardScreen = () => {
       socketRef.current = socket;
 
       socket.onopen = () => {
-        console.log('✅ [WS] Connected to Monitoring Stream');
+        console.log('✅ [WS] Connected');
         setConnected(true);
-        reconnectRef.current.attempts = 0; // ریست کردن تلاش‌ها
+        reconnectRef.current.attempts = 0;
       };
 
       socket.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          
-          // پیام‌های سیستمی (مثل خوش‌آمدگویی) را نادیده بگیر
           if (data.message && !data.id && !data.worker_id) return; 
           
-          // پردازش آپدیت موقعیت
           if (data.id || data.worker_id) {
             const workerId = data.id || data.worker_id;
-            
-            // ذخیره زمان آخرین بازدید
             lastSeenRef.current.set(workerId, Date.now());
             
-            // آپدیت ریداکس (اگر پاوز نباشیم)
             if (!paused) {
               dispatch(updateWorkerLocation(data));
             }
             
-            // افکت هایلایت روی کارت و نقشه
             setHighlightId(workerId);
             setTimeout(() => setHighlightId(null), 1500);
           }
@@ -127,10 +116,7 @@ const WorkerDashboardScreen = () => {
       socket.onclose = (e) => {
         if (alive) {
           setConnected(false);
-          console.warn(`⚠️ [WS] Disconnected (Code: ${e.code}). Retrying...`);
-          
           if (!paused) {
-            // تلاش مجدد نمایی (1s, 2s, 4s, 8s, ...)
             const timeout = Math.min(30000, 1000 * 2 ** reconnectRef.current.attempts++);
             reconnectRef.current.timeoutId = setTimeout(connect, timeout);
           }
@@ -138,7 +124,6 @@ const WorkerDashboardScreen = () => {
       };
 
       socket.onerror = (err) => {
-        console.error("❌ [WS] Error. Check VPN or Network.", err);
         socket.close();
       };
     };
@@ -189,21 +174,90 @@ const WorkerDashboardScreen = () => {
     };
   }, [dashboardStats, selectedProjectId]);
 
+  // ✅ 🖨️ تابع اصلاح شده پرینت (بدون نیاز به اینترنت)
+  const handlePrintQR = () => {
+    // 1. پیدا کردن المنت QR کد از صفحه فعلی (چون SVG هست کیفیتش عالیه)
+    const qrElement = document.getElementById('printable-qr-area');
+    
+    if (qrElement) {
+        // کپی کردن HTML مربوط به SVG
+        const qrSvg = qrElement.innerHTML; 
+
+        const printWindow = window.open('', '_blank', 'width=800,height=800');
+        if (printWindow) {
+            printWindow.document.write(`
+                <html dir="rtl">
+                <head>
+                    <title>چاپ QR Code - ${currentProjectStats.name}</title>
+                    <style>
+                    body { 
+                        display: flex; 
+                        flex-direction: column; 
+                        align-items: center; 
+                        justify-content: center; 
+                        height: 100vh; 
+                        margin: 0; 
+                        font-family: 'Tahoma', sans-serif; 
+                    }
+                    h1 { margin-bottom: 30px; font-size: 28px; text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px;}
+                    .qr-box { 
+                        padding: 30px; 
+                        border: 4px solid black; 
+                        border-radius: 20px; 
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    svg {
+                        width: 400px !important; /* سایز بزرگ برای پرینت */
+                        height: 400px !important;
+                    }
+                    .footer { margin-top: 20px; font-size: 16px; color: #333; font-weight: bold; }
+                    @media print {
+                        @page { margin: 0; size: A4 portrait; }
+                        body { -webkit-print-color-adjust: exact; }
+                        /* مخفی کردن هدر و فوتر مرورگر در برخی نسخه‌ها */
+                        header, footer { display: none; } 
+                    }
+                    </style>
+                </head>
+                <body>
+                    <h1>پروژه: ${currentProjectStats.name}</h1>
+                    
+                    <div class="qr-box">
+                        ${qrSvg} </div>
+                    
+                    <p class="footer">برای ورود به پروژه، کد را با اپلیکیشن اسکن کنید.</p>
+                    
+                    <script>
+                    // کمی صبر میکنیم تا مطمئن شیم رندر شده بعد پرینت میگیریم
+                    window.onload = function() {
+                        setTimeout(() => {
+                            window.print();
+                            // window.close(); // اختیاری: بستن بعد از پرینت
+                        }, 500);
+                    }
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+        }
+    } else {
+        alert("خطا: QR Code یافت نشد. لطفا مودال را باز نگه دارید.");
+    }
+  };
 
   return (
     <div className="p-6 container mx-auto min-h-screen bg-gray-900 text-gray-100">
       
-      {/* 🚨 هشدار قطع اتصال (مخصوص شرایط VPN) */}
+      {/* 🚨 هشدار قطع اتصال */}
       {!connected && !paused && (
         <div className="bg-yellow-600/20 border border-yellow-500 text-yellow-200 px-4 py-3 rounded-lg mb-6 flex items-center gap-3 animate-pulse">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <span>
-            ارتباط با سرور مانیتورینگ قطع است. 
-            <span className="font-bold mx-1">اگر VPN روشن است، آن را خاموش کنید</span> 
-            یا تنظیمات Split Tunneling را بررسی نمایید.
-          </span>
+          <span>اتصال قطع است.</span>
         </div>
       )}
 
@@ -216,17 +270,14 @@ const WorkerDashboardScreen = () => {
           loadingHistory={historyStatus === 'loading'}
         />
         
-        {/* نشانگر وضعیت اتصال */}
         <div className={`absolute top-4 left-14 z-[400] backdrop-blur px-3 py-1 rounded-full flex items-center gap-2 text-xs border shadow-lg transition-colors ${connected ? 'bg-gray-900/80 border-gray-700' : 'bg-red-900/90 border-red-500'}`}>
           <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
           <span className="font-mono font-bold">{connected ? 'LIVE STREAM' : 'DISCONNECTED'}</span>
         </div>
       </div>
 
-      {/* 🎛️ نوار کنترل و فیلتر */}
+      {/* 🎛️ نوار کنترل */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4 bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700">
-        
-        {/* بخش انتخاب پروژه */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           <div className="relative flex-grow xl:flex-grow-0">
             <select
@@ -234,13 +285,9 @@ const WorkerDashboardScreen = () => {
               value={selectedProjectId ?? ''}
               onChange={(e) => {
                 const value = e.target.value;
-                if (value === '') {
-                  dispatch(setSelectedProject(null));
-                } else if (value === 'uncategorized') {
-                  dispatch(setSelectedProject('uncategorized'));
-                } else {
-                  dispatch(setSelectedProject(Number(value)));
-                }
+                if (value === '') dispatch(setSelectedProject(null));
+                else if (value === 'uncategorized') dispatch(setSelectedProject('uncategorized'));
+                else dispatch(setSelectedProject(Number(value)));
               }}
             >
               <option value="">🌍 نمای کلی سازمان</option>
@@ -249,12 +296,9 @@ const WorkerDashboardScreen = () => {
               ))}
               <option value="uncategorized" className="text-yellow-500">⚠️ بدون پروژه</option>
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-              <svg className="fill-current h-4 w-4" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-            </div>
           </div>
 
-          {/* دکمه QR Code */}
+          {/* دکمه QR */}
           {selectedProjectId && selectedProjectId !== 'uncategorized' && (
             <button 
               onClick={() => setShowQRModal(true)}
@@ -287,50 +331,34 @@ const WorkerDashboardScreen = () => {
         </div>
       </div>
 
-      {/* 📊 داشبورد لیست و آمار */}
+      {/* لیست و آمار */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* ستون راست: لیست کارگران */}
         <div className="lg:col-span-3 space-y-4">
-          {/* نوار جستجو */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-800 p-3 rounded-lg border border-gray-700">
             <h2 className="text-lg font-bold flex items-center gap-2 text-gray-200">
-              👷 پرسنل فعال
-              <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
-                {finalWorkers.length}
-              </span>
+              👷 پرسنل فعال <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{finalWorkers.length}</span>
             </h2>
-            
             <div className="flex flex-wrap gap-3 w-full sm:w-auto">
               <input 
-                placeholder="جستجو نام یا ID..." 
-                className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-blue-500 text-white flex-grow"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                placeholder="جستجو..." 
+                className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white flex-grow"
+                value={search} onChange={(e) => setSearch(e.target.value)}
               />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white"
-              >
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white">
                 <option value="name">الفبا</option>
                 <option value="recent">زمان آپدیت</option>
               </select>
-              <label className="flex items-center gap-2 text-sm cursor-pointer select-none bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600 hover:bg-gray-700 text-gray-300">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300">
                 <input type="checkbox" checked={showOfflineWorkers} onChange={e => setShowOfflineWorkers(e.target.checked)} />
                 نمایش آفلاین‌ها
               </label>
             </div>
           </div>
 
-          {/* گرید کارت‌ها */}
           {workerStatus === 'loading' ? <Loader /> : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 min-h-[200px]">
               {finalWorkers.length === 0 ? (
                 <div className="col-span-full flex flex-col items-center justify-center text-gray-500 py-12 border-2 border-dashed border-gray-700 rounded-xl">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
                   <p>هیچ نیرویی با این مشخصات یافت نشد.</p>
                 </div>
               ) : (
@@ -349,14 +377,10 @@ const WorkerDashboardScreen = () => {
           )}
         </div>
 
-        {/* ستون چپ: سایدبار اطلاعات */}
         <aside className="space-y-6 h-fit sticky top-6">
-          {/* کارت آمار پروژه */}
           <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-5 rounded-xl shadow-lg border border-gray-700 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-            <h3 className="text-gray-300 text-xs mb-4 uppercase tracking-wider font-bold">
-              وضعیت: {currentProjectStats.name}
-            </h3>
+            <h3 className="text-gray-300 text-xs mb-4 uppercase tracking-wider font-bold">وضعیت: {currentProjectStats.name}</h3>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="bg-gray-700/50 p-3 rounded-lg">
                 <div className="text-3xl font-extrabold text-white">{currentProjectStats.totalWorkers}</div>
@@ -366,51 +390,6 @@ const WorkerDashboardScreen = () => {
                 <div className="text-3xl font-extrabold text-green-400">{currentProjectStats.activeWorkers}</div>
                 <div className="text-xs text-green-300 mt-1">حاضر در شیفت</div>
               </div>
-            </div>
-          </div>
-
-          {/* لیست پروژه‌های فعال */}
-          <div className="bg-gray-800 p-5 rounded-xl shadow-lg border border-gray-700">
-            <h3 className="text-gray-400 text-xs mb-4 uppercase tracking-wider font-bold">دسترسی سریع</h3>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => dispatch(setSelectedProject(null))}
-                className={`text-xs px-3 py-1.5 rounded-full transition-all border ${
-                  selectedProjectId === null
-                    ? 'bg-blue-600 text-white border-blue-500'
-                    : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
-                }`}
-              >
-                همه
-              </button>
-              {projectsList.map(p => {
-                const isActive = dashboardStats.projects[p.id]?.activeWorkers > 0;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => dispatch(setSelectedProject(p.id))}
-                    className={`text-xs px-3 py-1.5 rounded-full transition-all border ${
-                      selectedProjectId === p.id 
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20' 
-                        : isActive 
-                          ? 'bg-gray-700 text-green-400 border-green-900/50 hover:border-green-500' 
-                          : 'bg-gray-700 text-gray-500 border-transparent hover:bg-gray-600'
-                    }`}
-                  >
-                    {p.name} {isActive && '•'}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => dispatch(setSelectedProject('uncategorized'))}
-                className={`text-xs px-3 py-1.5 rounded-full transition-all border ${
-                  selectedProjectId === 'uncategorized'
-                    ? 'bg-yellow-600 text-white border-yellow-500'
-                    : 'bg-gray-700 text-yellow-400 border-gray-600 hover:bg-gray-600'
-                }`}
-              >
-                بدون پروژه
-              </button>
             </div>
           </div>
         </aside>
@@ -428,10 +407,11 @@ const WorkerDashboardScreen = () => {
           >
             <div className="mb-4">
               <h2 className="text-gray-900 text-2xl font-bold">{currentProjectStats.name}</h2>
-              <p className="text-gray-500 text-sm mt-1">کد را با اپلیکیشن اسکن کنید</p>
+              <p className="text-gray-500 text-sm mt-1">کد را اسکن کنید</p>
             </div>
             
-            <div className="flex justify-center mb-6 p-6 bg-gray-100 rounded-2xl border border-gray-200">
+            {/* ✅ اضافه کردن ID برای کپی کردن */}
+            <div id="printable-qr-area" className="flex justify-center mb-6 p-6 bg-gray-100 rounded-2xl border border-gray-200">
               <QRCode 
                 value={JSON.stringify({ 
                   project_id: selectedProjectId,
@@ -442,12 +422,25 @@ const WorkerDashboardScreen = () => {
               />
             </div>
 
-            <button 
-              onClick={() => setShowQRModal(false)}
-              className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition shadow-lg"
-            >
-              بستن
-            </button>
+            <div className="flex gap-3">
+              {/* ✅ دکمه جدید پرینت */}
+              <button 
+                onClick={handlePrintQR}
+                className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                پرینت
+              </button>
+              
+              <button 
+                onClick={() => setShowQRModal(false)}
+                className="flex-1 py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition shadow-lg"
+              >
+                بستن
+              </button>
+            </div>
           </div>
         </div>
       )}
