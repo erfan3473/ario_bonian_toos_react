@@ -11,9 +11,13 @@ import VoiceAssistantScreen from "./screens/VoiceAssistantScreen";
 import ProjectListScreen from './screens/ProjectListScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
-import ProjectReportsScreen from './screens/ProjectReportsScreen';
+import DailySummaryScreen from './screens/DailySummaryScreen';
 import MonthlyStatementsScreen from './screens/MonthlyStatementsScreen';
 import StatementDetailScreen from './screens/StatementDetailScreen';
+import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
+
+
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { userInfo } = useSelector((state) => state.userLogin);
@@ -46,10 +50,12 @@ function App() {
             <Route path="/admin/projects/:id/geofence" element={<ProjectGeofenceScreen />} />
             
             {/* ✅ مسیر جدید گزارشات */}
-            <Route path="/admin/reports" element={<ProjectReportsScreen />} />
+            <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
             <Route path="/admin/statements" element={<MonthlyStatementsScreen />} />
             <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
             <Route path="/admin/statements/:id" element={<StatementDetailScreen />} />
+            <Route path="/admin/approvals" element={<PendingApprovalsScreen />} />
+
           </Routes>
         </main>
 

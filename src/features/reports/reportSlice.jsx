@@ -1,46 +1,59 @@
-//src/features/reports/reportSlice.js
+// src/features/reports/reportSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
 // =====================
-// دریافت لیست گزارشات با فیلتر
+// دریافت گزارش‌های در انتظار تایید (برای سرکارگر/سرپرست/مدیر)
 // =====================
-export const fetchDailyReports = createAsyncThunk(
-  'reports/fetchList',
-  async ({ projectId, date } = {}, { rejectWithValue }) => {
+export const fetchPendingApprovals = createAsyncThunk(
+  'reports/fetchPending',
+  async (_, { rejectWithValue }) => {
     try {
-      // پارامترهای فیلتر (Query Params)
-      const params = {};
-      if (projectId) params.project_id = projectId;
-      if (date) params.date = date;
-
-      // درخواست به اندپوینت جدیدی که ساختیم
-      const { data } = await axiosInstance.get('/projects/reports/', { params });
+      const { data } = await axiosInstance.get('/reports/pending/');
       return data;
     } catch (error) {
-      const message =
-        error.response?.data?.detail ||
-        error.message ||
-        'خطا در دریافت گزارشات';
-      return rejectWithValue(message);
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت گزارش‌ها'
+      );
     }
   }
 );
 
 // =====================
-// تغییر وضعیت گزارش (تایید/رد)
+// دریافت خلاصه روزانه (برای مدیر پروژه)
 // =====================
-export const updateReportStatus = createAsyncThunk(
-  'reports/updateStatus',
-  async ({ reportId, action, reason }, { rejectWithValue }) => {
+export const fetchDailySummary = createAsyncThunk(
+  'reports/fetchDailySummary',
+  async ({ projectId, date }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post(`/projects/reports/${reportId}/action/`, {
-        action,
-        reason
-      });
-      return { reportId, ...response.data }; // برمی‌گرداند: { reportId, success, new_status }
+      const { data } = await axiosInstance.get(
+        `/reports/daily/${projectId}/${date}/`
+      );
+      return data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.detail || 'خطا در تغییر وضعیت');
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت خلاصه روزانه'
+      );
+    }
+  }
+);
+
+// =====================
+// تایید یا رد گزارش
+// =====================
+export const approveReport = createAsyncThunk(
+  'reports/approve',
+  async ({ reportId, decision, notes = '' }, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.post(
+        `/reports/${reportId}/approve/`,
+        { decision, notes }
+      );
+      return { reportId, ...data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در تایید گزارش'
+      );
     }
   }
 );
@@ -49,65 +62,78 @@ const reportSlice = createSlice({
   name: 'reports',
   initialState: {
     loading: false,
-    reports: [],
+    pendingReports: [],
+    dailySummary: null,
     error: null,
     actionLoading: false,
   },
   reducers: {
     clearReports: (state) => {
-      state.reports = [];
+      state.pendingReports = [];
+      state.dailySummary = null;
       state.error = null;
-    }
+    },
   },
   extraReducers: (builder) => {
     builder
-    
-      // fetchDailyReports
-      .addCase(fetchDailyReports.pending, (state) => {
+      // fetchPendingApprovals
+      .addCase(fetchPendingApprovals.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchDailyReports.fulfilled, (state, action) => {
+      .addCase(fetchPendingApprovals.fulfilled, (state, action) => {
         state.loading = false;
-        state.reports = action.payload;
+        state.pendingReports = action.payload;
       })
-      .addCase(fetchDailyReports.rejected, (state, action) => {
+      .addCase(fetchPendingApprovals.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      }     
-      
-      )
-    // updateReportStatus
-      .addCase(updateReportStatus.pending, (state) => {
-        state.actionLoading = true;
-      })
-      .addCase(updateReportStatus.fulfilled, (state, action) => {
-        state.actionLoading = false;
-        // گزارش مورد نظر را در لیست پیدا کرده و وضعیتش را آپدیت می‌کنیم
-        const { reportId, new_status } = action.payload;
-        const report = state.reports.find((r) => r.id === reportId);
-        if (report) {
-          report.status = new_status;
-          report.status_display = getStatusPersian(new_status); // تابع کمکی فرضی یا دریافت از بکند
-        }
       })
 
-       .addCase(updateReportStatus.rejected, (state, action) => {
+      // fetchDailySummary
+      .addCase(fetchDailySummary.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchDailySummary.fulfilled, (state, action) => {
+        state.loading = false;
+        state.dailySummary = action.payload;
+      })
+      .addCase(fetchDailySummary.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // approveReport
+      .addCase(approveReport.pending, (state) => {
+        state.actionLoading = true;
+      })
+      .addCase(approveReport.fulfilled, (state, action) => {
         state.actionLoading = false;
-        alert(action.payload); // نمایش خطای ساده
-    });
-      
+        const { reportId, new_status } = action.payload;
+
+        // آپدیت در لیست pending
+        const report = state.pendingReports.find((r) => r.id === reportId);
+        if (report) {
+          report.status = new_status;
+        }
+
+        // آپدیت در dailySummary
+        if (state.dailySummary?.hierarchical_reports) {
+          const summaryReport = state.dailySummary.hierarchical_reports.find(
+            (r) => r.id === reportId
+          );
+          if (summaryReport) {
+            summaryReport.status = new_status;
+          }
+        }
+      })
+      .addCase(approveReport.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      });
   },
 });
-const getStatusPersian = (status) => {
-    const map = {
-        'DRAFT': 'پیش‌نویس',
-        'SUBMITTED': 'ارسال شده',
-        'PM_APPROVED': 'تأیید مدیر پروژه',
-        'FINAL_APPROVED': 'تأیید نهایی',
-        'REJECTED': 'رد شده'
-    };
-    return map[status] || status;
-};
+
 export const { clearReports } = reportSlice.actions;
 export default reportSlice.reducer;
