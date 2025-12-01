@@ -70,6 +70,15 @@ const Header = ({ toggleSidebar }) => {
             مانیتور نیروها
           </Link>
 
+
+           <Link
+            to="/admin/users"
+            className="hover:text-sky-300 transition text-sm"
+          >
+            مدیریت کاربران
+          </Link>
+
+
           <Link
             to="/admin/daily-summary"
             className="hover:text-sky-300 transition text-sm"
@@ -82,12 +91,7 @@ const Header = ({ toggleSidebar }) => {
           >
               new version گزارش روزانه
           </Link>
-          <Link
-            to="/admin/statements"
-            className="hover:text-sky-300 transition text-sm"
-          >
-             صورت وضعیت ماهانه 
-          </Link>
+          
 
           {/* ✅ لینک جدید: مدیریت پروژه‌ها */}
           <Link

@@ -2,36 +2,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
-/*
-  این فایل الان ۳ کار اصلی می‌کنه:
+// ═══════════════════════════════════════════════════════════
+// 🔐 Async Thunks
+// ═══════════════════════════════════════════════════════════
 
-  1) لاگین با شماره موبایل (loginWithPhone)
-  2) گرفتن پروفایل کاربر لاگین‌شده (fetchUserProfile)
-  3) آپدیت پروفایل کاربر (updateUserProfile)
-     و بعد از آپدیت، userInfo + localStorage را آپدیت می‌کنیم
-*/
-
-// =====================
-// ۱) Login با شماره موبایل
-// =====================
-
+// 1️⃣ لاگین با شماره موبایل
 export const loginWithPhone = createAsyncThunk(
   'user/loginWithPhone',
   async ({ phone_number, password }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.post('/users/login/', {
+      const { data } = await axiosInstance.post('/auth/login/', {
         phone_number,
         password,
       });
 
-      // مهم: حتماً access داشته باشیم
       if (!data.access) {
         throw new Error('توکن دسترسی (access) در پاسخ بک‌اند نبود.');
       }
 
-      // ذخیره تو localStorage
       localStorage.setItem('userInfo', JSON.stringify(data));
-
       return data;
     } catch (error) {
       const message =
@@ -43,46 +32,25 @@ export const loginWithPhone = createAsyncThunk(
   }
 );
 
-// =====================
-// ۲) GET /users/profile/  → گرفتن پروفایل
-// =====================
-
+// 2️⃣ گرفتن پروفایل کاربر لاگین‌شده
 export const fetchUserProfile = createAsyncThunk(
   'user/fetchUserProfile',
   async (_, { rejectWithValue }) => {
     try {
       const { data } = await axiosInstance.get('/users/profile/');
-      return data; // همون UserSerializer
+      return data;
     } catch (error) {
-      const message =
-        error.response?.data?.detail || error.message;
+      const message = error.response?.data?.detail || error.message;
       return rejectWithValue(message);
     }
   }
 );
 
-// =====================
-// ۳) PUT /users/profile/  → آپدیت پروفایل
-//    (انتظار داریم بک‌اند access + refresh هم برگردونه)
-// =====================
-
+// 3️⃣ آپدیت پروفایل کاربر
 export const updateUserProfile = createAsyncThunk(
   'user/updateUserProfile',
   async (profileData, { rejectWithValue }) => {
     try {
-      /*
-        profileData می‌تونه چیزی شبیه این باشه:
-        {
-          first_name,
-          last_name,
-          username,
-          phone_number,
-          password?,  // اختیاری
-          image?,     // File (اختیاری)
-        }
-
-        چون image داریم، بهتره همیشه multipart/form-data بفرستیم.
-      */
       const formData = new FormData();
 
       Object.entries(profileData).forEach(([key, value]) => {
@@ -97,15 +65,11 @@ export const updateUserProfile = createAsyncThunk(
         },
       });
 
-      // اینجا انتظار داریم بک‌اند چیزی مثل زیر برگردونه:
-      // { id, username, ..., profile: {...}, access, refresh }
       if (!data.access) {
         console.warn('⚠️ سرور access برنگردوند، ولی پروفایل آپدیت شد.');
       }
 
-      // توکن و یوزر جدید را ذخیره کنیم
       localStorage.setItem('userInfo', JSON.stringify(data));
-
       return data;
     } catch (error) {
       const message =
@@ -117,22 +81,20 @@ export const updateUserProfile = createAsyncThunk(
   }
 );
 
-// =====================
-// ۴) Login Slice
-// =====================
+// ═══════════════════════════════════════════════════════════
+// 🗂️ Slices
+// ═══════════════════════════════════════════════════════════
 
-const initialLoginState = {
-  loading: false,
-  userInfo:
-    localStorage.getItem('userInfo')
-      ? JSON.parse(localStorage.getItem('userInfo'))
-      : null,
-  error: null,
-};
-
+// 4️⃣ Login Slice
 const userLoginSlice = createSlice({
   name: 'userLogin',
-  initialState: initialLoginState,
+  initialState: {
+    loading: false,
+    userInfo: localStorage.getItem('userInfo')
+      ? JSON.parse(localStorage.getItem('userInfo'))
+      : null,
+    error: null,
+  },
   reducers: {
     logout: (state) => {
       state.loading = false;
@@ -157,8 +119,7 @@ const userLoginSlice = createSlice({
         state.loading = false;
         state.error = action.payload || 'خطا در ورود';
       })
-
-      // 🔑 مهم: وقتی پروفایل را آپدیت می‌کنیم، userInfo را هم به‌روز کنیم
+      // آپدیت پروفایل
       .addCase(updateUserProfile.fulfilled, (state, action) => {
         state.userInfo = action.payload;
         state.error = null;
@@ -169,13 +130,14 @@ const userLoginSlice = createSlice({
 export const { logout } = userLoginSlice.actions;
 export const userLoginReducer = userLoginSlice.reducer;
 
-// =====================
-// ۵) userDetails: گرفتن پروفایل برای ProfileScreen
-// =====================
-
+// 5️⃣ User Details Slice
 const userDetailsSlice = createSlice({
   name: 'userDetails',
-  initialState: { loading: false, user: {}, error: null },
+  initialState: {
+    loading: false,
+    user: {},
+    error: null,
+  },
   reducers: {},
   extraReducers: (builder) => {
     builder
@@ -192,8 +154,6 @@ const userDetailsSlice = createSlice({
         state.loading = false;
         state.error = action.payload || 'خطا در دریافت پروفایل';
       })
-
-      // اگر خواستی، می‌تونی بعد از آپدیت پروفایل اینجا userDetails.user را هم به‌روز کنی:
       .addCase(updateUserProfile.fulfilled, (state, action) => {
         state.user = action.payload;
       });
@@ -202,13 +162,14 @@ const userDetailsSlice = createSlice({
 
 export const userDetailsReducer = userDetailsSlice.reducer;
 
-// =====================
-// ۶) userUpdateProfile: فقط برای state فرم آپدیت
-// =====================
-
+// 6️⃣ User Update Profile Slice
 const userUpdateProfileSlice = createSlice({
   name: 'userUpdateProfile',
-  initialState: { loading: false, success: false, error: null },
+  initialState: {
+    loading: false,
+    success: false,
+    error: null,
+  },
   reducers: {
     resetUpdateProfile: (state) => {
       state.loading = false;
@@ -223,7 +184,7 @@ const userUpdateProfileSlice = createSlice({
         state.success = false;
         state.error = null;
       })
-      .addCase(updateUserProfile.fulfilled, (state, action) => {
+      .addCase(updateUserProfile.fulfilled, (state) => {
         state.loading = false;
         state.success = true;
         state.error = null;
@@ -239,21 +200,11 @@ const userUpdateProfileSlice = createSlice({
 export const { resetUpdateProfile } = userUpdateProfileSlice.actions;
 export const userUpdateProfileReducer = userUpdateProfileSlice.reducer;
 
-// =====================
-// ۷) بقیه‌ی Reducerها (اسکلت خالی فعلاً)
-// =====================
-
-// ثبت نام – بعداً کاملش می‌کنیم
+// ═══════════════════════════════════════════════════════════
+// 🗑️ Deprecated (فعلاً نگه می‌داریم برای سازگاری)
+// ═══════════════════════════════════════════════════════════
 export const userRegisterReducer = (state = {}, action) => state;
-
-// لیست کاربران – بعداً کاملش می‌کنیم
 export const userListReducer = (state = { users: [] }, action) => state;
-
-// حذف کاربر – بعداً
 export const userDeleteReducer = (state = {}, action) => state;
-
-// نقش‌ها – بعداً
 export const userRoleReducer = (state = {}, action) => state;
-
-// آپدیت توسط ادمین – بعداً
 export const userUpdateByAdminReducer = (state = {}, action) => state;

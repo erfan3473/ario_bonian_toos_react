@@ -11,7 +11,8 @@ import {
 } from './features/users/userSlice';
 import workerReducer from './features/workers/workerSlice';
 import reportReducer from './features/reports/reportSlice'; // ✅ ایمپورت جدید
-import statementReducer from './features/statements/statementSlice'; // 👈 اضافه شد
+import adminReducer from './features/admin/adminSlice'; 
+import projectReducer from './features/projects/projectSlice'; // ✅ جدید
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -23,6 +24,8 @@ const preloadedState = {
 
 const store = configureStore({
   reducer: {
+    admin: adminReducer,
+
     userLogin: userLoginReducer,
     userRegister: userRegisterReducer,
     userList: userListReducer,
@@ -32,10 +35,11 @@ const store = configureStore({
 
     workers: workerReducer,
     reports: reportReducer, // ✅ اضافه شد
-    statements: statementReducer, // 👈 اضافه شد
+     projects: projectReducer,
     
     userRole: userRoleReducer,
     userUpdateByAdmin: userUpdateByAdminReducer,
+
   },
   preloadedState,
 });

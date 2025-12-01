@@ -1,10 +1,15 @@
+// src/screens/ProjectGeofenceScreen.jsx
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, FeatureGroup, useMap } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
 import { useDispatch } from 'react-redux';
-import { fetchProjectDetails, updateProjectGeofence } from '../features/workers/workerSlice';
+import { 
+  fetchProjectGeofence,     // ✅ تغییر
+  updateProjectGeofence     // ✅ تغییر
+} from '../features/projects/projectSlice';  // ✅ تغییر
 import Loader from '../components/Loader';
 import Message from '../components/Message';
 
@@ -80,7 +85,7 @@ const ProjectGeofenceScreen = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const result = await dispatch(fetchProjectDetails(id)).unwrap();
+        const result = await dispatch(fetchProjectGeofence(id)).unwrap();  // ✅ تغییر
         setProject(result);
         if (result.boundary_coordinates && result.boundary_coordinates.length > 0) {
             setGeofence(result.boundary_coordinates);
@@ -94,8 +99,6 @@ const ProjectGeofenceScreen = () => {
     loadData();
   }, [dispatch, id]);
 
-  // --- هندلرها ---
-
   // پاک کردن کل نقشه
   const handleClearMap = useCallback(() => {
     if (featureGroupRef.current) {
@@ -107,7 +110,7 @@ const ProjectGeofenceScreen = () => {
   const _onCreated = useCallback((e) => {
     const layer = e.layer;
     
-    // اگر قبلاً فنس داشتیم، پاکش کن (فقط ۱ فنس مجاز است)
+    // فقط ۱ فنس مجاز است
     if (featureGroupRef.current) {
         const layers = featureGroupRef.current.getLayers();
         if (layers.length > 1) {
@@ -147,7 +150,7 @@ const ProjectGeofenceScreen = () => {
         })).unwrap();
         
         alert("✅ محدوده با موفقیت ذخیره شد.");
-        navigate('/projects');
+        navigate('/admin/projects');  // ✅ تغییر
     } catch (err) {
         alert("خطا: " + err);
     } finally {
@@ -155,8 +158,7 @@ const ProjectGeofenceScreen = () => {
     }
   };
 
-  // 🛠️ لود کردن فنس اولیه برای ادیت
-  // این کامپوننت داخلی باعث می‌شود فنس قدیمی قابل ویرایش باشد
+  // لود کردن فنس اولیه برای ادیت
   const LoadInitialShape = () => {
       const loadedRef = useRef(false);
       useEffect(() => {
@@ -198,9 +200,7 @@ const ProjectGeofenceScreen = () => {
                 <button 
                     onClick={handleSave}
                     disabled={saving}
-                    className={`px-6 py-2 rounded-lg font-bold shadow-lg transition flex items-center gap-2
-                        ${saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}
-                    `}
+                    className={`px-6 py-2 rounded-lg font-bold shadow-lg transition flex items-center gap-2 ${saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
                 >
                     {saving ? 'در حال ذخیره...' : 'ذخیره نهایی'}
                 </button>
@@ -222,7 +222,6 @@ const ProjectGeofenceScreen = () => {
 
                 <MapController geofence={geofence} />
                 
-                {/* دکمه پاک کردن اختصاصی */}
                 <ClearControl onClear={handleClearMap} />
 
                 <FeatureGroup ref={featureGroupRef}>
@@ -237,9 +236,8 @@ const ProjectGeofenceScreen = () => {
                             circlemarker: false,
                             marker: false,
                             polyline: false,
-                            // ⚡️ کلید حل مشکل لگ و محدودیت نقاط:
                             polygon: {
-                                allowIntersection: true, // اجازه قطع خطوط (لگ را از بین می‌برد)
+                                allowIntersection: true,
                                 showArea: true,
                                 shapeOptions: { 
                                     color: '#3b82f6',
@@ -256,7 +254,7 @@ const ProjectGeofenceScreen = () => {
             </MapContainer>
 
             <div className="absolute bottom-8 left-8 bg-gray-900/90 backdrop-blur p-4 rounded-xl border border-gray-600 shadow-2xl max-w-xs z-[400] pointer-events-none">
-                <h4 className="font-bold text-blue-400 text-sm mb-2">راهنما:</h4>
+                <h4 className="font-bold text-blue-400 text-sm mb-2">📘 راهنما:</h4>
                 <ul className="list-disc list-inside space-y-1 text-xs text-gray-300">
                     <li>ابزار چندضلعی (Pentagon) بالا سمت راست را بزنید.</li>
                     <li>نقاط را بدون محدودیت کلیک کنید.</li>

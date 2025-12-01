@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDailySummary } from '../features/reports/reportSlice';
-import { fetchProjects } from '../features/workers/workerSlice';
+import { fetchProjects } from '../features/projects/projectSlice';
 
 const DailySummaryScreen = () => {
   const dispatch = useDispatch();

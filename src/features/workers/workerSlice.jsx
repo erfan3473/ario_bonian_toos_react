@@ -1,13 +1,15 @@
 // src/features/workers/workerSlice.js
+
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
 const MAX_IDLE_MS = 5 * 60 * 1000; // 5 دقیقه
 
-// ==================================================================
-// 1) Async Thunks
-// ==================================================================
+// ═══════════════════════════════════════════════════════════
+// 📋 Async Thunks
+// ═══════════════════════════════════════════════════════════
 
+// 1️⃣ دریافت لیست کارگران
 export const fetchWorkers = createAsyncThunk(
   'workers/fetchWorkers',
   async (_, { rejectWithValue }) => {
@@ -20,6 +22,7 @@ export const fetchWorkers = createAsyncThunk(
   }
 );
 
+// 2️⃣ تاریخچه مکان کارگر
 export const fetchWorkerHistory = createAsyncThunk(
   'workers/fetchHistory',
   async ({ workerId, timeRange = '24h' }, { rejectWithValue }) => {
@@ -43,46 +46,7 @@ export const fetchWorkerHistory = createAsyncThunk(
   }
 );
 
-export const fetchProjects = createAsyncThunk(
-  'workers/fetchProjects',
-  async (_, { rejectWithValue }) => {
-    try {
-      const { data } = await axiosInstance.get('/projects/');
-      return data;
-    } catch (error) {
-      if (error.response?.status === 404) return [];
-      return rejectWithValue(error.response?.data?.detail || error.message);
-    }
-  }
-);
-
-// ✅ دریافت اطلاعات کامل پروژه (شامل فنس)
-export const fetchProjectDetails = createAsyncThunk(
-  'workers/fetchProjectDetails',
-  async (projectId, { rejectWithValue }) => {
-    try {
-      const { data } = await axiosInstance.get(`/projects/${projectId}/geofence/`);
-      return data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.detail || error.message);
-    }
-  }
-);
-
-// ✅ ذخیره فنس جدید
-export const updateProjectGeofence = createAsyncThunk(
-  'workers/updateProjectGeofence',
-  async ({ projectId, coordinates }, { rejectWithValue }) => {
-    try {
-      const { data } = await axiosInstance.patch(`/projects/${projectId}/geofence/`, {
-        boundary_coordinates: coordinates,
-      });
-      return data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.detail || error.message);
-    }
-  }
-);
+// 3️⃣ حضور و غیاب روزانه
 export const fetchDailyAttendance = createAsyncThunk(
   'workers/fetchDailyAttendance',
   async ({ projectId, date }, { rejectWithValue }) => {
@@ -97,46 +61,31 @@ export const fetchDailyAttendance = createAsyncThunk(
     }
   }
 );
-// ==================================================================
-// 2) Initial State
-// ==================================================================
-const initialState = {
-  status: 'idle',
-  error: null,
 
-  allWorkers: {},
+// ═══════════════════════════════════════════════════════════
+// 🗂️ Slice
+// ═══════════════════════════════════════════════════════════
 
-  projects: {
-    status: 'idle',
-    list: [],
-    selectedProjectId: null,
-  },
-
-  currentProject: {
-    status: 'idle',
-    error: null,
-    data: null,
-  },
-
-  history: {
-    status: 'idle',
-    error: null,
-    data: {},
-  },
-  // ✅ استیت جدید برای لیست حضور غیاب
-    dailyAttendance: {
-        list: [],
-        loading: false,
-        error: null
-    }
-};
-
-// ==================================================================
-// 3) Slice Definition
-// ==================================================================
 const workersSlice = createSlice({
   name: 'workers',
-  initialState,
+  initialState: {
+    status: 'idle',
+    error: null,
+    allWorkers: {},
+
+    history: {
+      status: 'idle',
+      error: null,
+      data: {},
+    },
+
+    dailyAttendance: {
+      list: [],
+      loading: false,
+      error: null,
+    },
+  },
+
   reducers: {
     updateWorkerLocation: (state, action) => {
       const u = action.payload;
@@ -183,31 +132,10 @@ const workersSlice = createSlice({
         }
       });
     },
-
-    setSelectedProject: (state, action) => {
-      state.projects.selectedProjectId = action.payload;
-    },
-
-    clearCurrentProject: (state) => {
-      state.currentProject.data = null;
-      state.currentProject.status = 'idle';
-      state.currentProject.error = null;
-    },
   },
+
   extraReducers: (builder) => {
     builder
-    .addCase(fetchDailyAttendance.pending, (state) => {
-        state.dailyAttendance.loading = true;
-        state.dailyAttendance.error = null;
-      })
-      .addCase(fetchDailyAttendance.fulfilled, (state, action) => {
-        state.dailyAttendance.loading = false;
-        state.dailyAttendance.list = action.payload;
-      })
-      .addCase(fetchDailyAttendance.rejected, (state, action) => {
-        state.dailyAttendance.loading = false;
-        state.dailyAttendance.error = action.payload;
-      })
       // fetchWorkers
       .addCase(fetchWorkers.pending, (state) => {
         state.status = 'loading';
@@ -253,47 +181,29 @@ const workersSlice = createSlice({
         state.history.error = action.payload;
       })
 
-      // fetchProjects
-      .addCase(fetchProjects.pending, (state) => {
-        state.projects.status = 'loading';
+      // fetchDailyAttendance
+      .addCase(fetchDailyAttendance.pending, (state) => {
+        state.dailyAttendance.loading = true;
+        state.dailyAttendance.error = null;
       })
-      .addCase(fetchProjects.fulfilled, (state, action) => {
-        state.projects.status = 'succeeded';
-        state.projects.list = action.payload;
+      .addCase(fetchDailyAttendance.fulfilled, (state, action) => {
+        state.dailyAttendance.loading = false;
+        state.dailyAttendance.list = action.payload;
       })
-      .addCase(fetchProjects.rejected, (state, action) => {
-        state.projects.status = 'failed';
-        state.projects.error = action.payload;
-      })
-
-      // جزئیات پروژه (فنس)
-      .addCase(fetchProjectDetails.pending, (state) => {
-        state.currentProject.status = 'loading';
-        state.currentProject.error = null;
-      })
-      .addCase(fetchProjectDetails.fulfilled, (state, action) => {
-        state.currentProject.status = 'succeeded';
-        state.currentProject.data = action.payload;
-      })
-      .addCase(fetchProjectDetails.rejected, (state, action) => {
-        state.currentProject.status = 'failed';
-        state.currentProject.error = action.payload;
-      })
-
-      // آپدیت فنس
-      .addCase(updateProjectGeofence.fulfilled, (state, action) => {
-        state.currentProject.data = action.payload;
+      .addCase(fetchDailyAttendance.rejected, (state, action) => {
+        state.dailyAttendance.loading = false;
+        state.dailyAttendance.error = action.payload;
       });
   },
 });
 
-// ==================================================================
-// 4) Selectors
-// ==================================================================
+// ═══════════════════════════════════════════════════════════
+// 🔍 Selectors
+// ═══════════════════════════════════════════════════════════
 
 const selectAllWorkersObj = (state) => state.workers.allWorkers;
-const selectProjectsList = (state) => state.workers.projects.list;
-const selectSelectedProjectId = (state) => state.workers.projects.selectedProjectId;
+const selectProjectsList = (state) => state.projects.list; // ✅ از projects می‌خونیم
+const selectSelectedProjectId = (state) => state.projects.selectedProjectId; // ✅ از projects
 
 export const selectProjectDashboardStats = createSelector(
   [selectAllWorkersObj, selectProjectsList],
@@ -309,7 +219,6 @@ export const selectProjectDashboardStats = createSelector(
       },
     };
 
-    // همه پروژه‌ها + یک گروه "بدون پروژه"
     projectsList.forEach((p) => {
       dashboard.projects[p.id] = {
         id: p.id,
@@ -318,6 +227,7 @@ export const selectProjectDashboardStats = createSelector(
         activeWorkers: 0,
       };
     });
+
     dashboard.projects['uncategorized'] = {
       id: 'uncategorized',
       name: 'بدون پروژه',
@@ -361,8 +271,6 @@ export const selectVisibleWorkers = createSelector(
 export const {
   updateWorkerLocation,
   cleanupOldWorkers,
-  setSelectedProject,
-  clearCurrentProject,
 } = workersSlice.actions;
 
 export default workersSlice.reducer;

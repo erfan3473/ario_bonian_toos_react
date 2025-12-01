@@ -1,23 +1,30 @@
+// src/screens/WorkerDashboardScreen.jsx
+
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import QRCode from "react-qr-code"; 
+import QRCode from "react-qr-code";
 
+// ✅ تفکیک imports
 import {
   fetchWorkers,
-  fetchProjects,
   updateWorkerLocation,
   cleanupOldWorkers,
-  setSelectedProject,
   selectVisibleWorkers,
   selectProjectDashboardStats
 } from '../features/workers/workerSlice';
+
+// ✅ استفاده از projectSlice جدید
+import {
+  fetchProjects,
+  setSelectedProject,
+} from '../features/projects/projectSlice';
 
 import WorkerMap from '../components/WorkerMap';
 import WorkerCard from '../components/WorkerCard';
 import Loader from '../components/Loader';
 
 // 🌐 تنظیمات سوکت
-const WS_URL = 'ws://192.168.43.130:8000/ws/worker/updates/'; 
+const WS_URL = 'ws://192.168.43.130:8000/ws/worker/updates/';
 
 // تابع کمکی برای نمایش زمان
 const formatTimeAgo = (ts) => {
@@ -33,12 +40,12 @@ const formatTimeAgo = (ts) => {
 const WorkerDashboardScreen = () => {
   const dispatch = useDispatch();
 
-  // 1) دریافت داده‌ها از Redux
-  const {
-    status: workerStatus,
-    projects: { list: projectsList, selectedProjectId },
-    history: { status: historyStatus, data: historyData },
-  } = useSelector((state) => state.workers);
+  // ✅ 1) دریافت داده‌ها از Redux (اصلاح شده)
+  const { status: workerStatus } = useSelector((state) => state.workers);
+  const { history: { status: historyStatus, data: historyData } } = useSelector((state) => state.workers);
+  
+  // ✅ دریافت Projects از projectSlice
+  const { list: projectsList, selectedProjectId, loading: projectsLoading } = useSelector((state) => state.projects);
 
   const visibleWorkers = useSelector(selectVisibleWorkers);
   const dashboardStats = useSelector(selectProjectDashboardStats);
@@ -58,13 +65,16 @@ const WorkerDashboardScreen = () => {
   const reconnectRef = useRef({ attempts: 0, timeoutId: null });
   const lastSeenRef = useRef(new Map());
 
-  // 1. دریافت اطلاعات اولیه
+  // ✅ 1. دریافت اطلاعات اولیه
   useEffect(() => {
     if (workerStatus === 'idle') {
       dispatch(fetchWorkers());
+    }
+    // دریافت پروژه‌ها از projectSlice
+    if (projectsList.length === 0 && !projectsLoading) {
       dispatch(fetchProjects());
     }
-  }, [dispatch, workerStatus]);
+  }, [dispatch, workerStatus, projectsList.length, projectsLoading]);
 
   // 2. تایمر پاکسازی
   useEffect(() => {
@@ -95,7 +105,7 @@ const WorkerDashboardScreen = () => {
       socket.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.message && !data.id && !data.worker_id) return; 
+          if (data.message && !data.id && !data.worker_id) return;
           
           if (data.id || data.worker_id) {
             const workerId = data.id || data.worker_id;
@@ -165,7 +175,11 @@ const WorkerDashboardScreen = () => {
 
   const currentProjectStats = useMemo(() => {
     if (selectedProjectId) {
-      return dashboardStats.projects[selectedProjectId] || { name: 'ناشناس', totalWorkers: 0, activeWorkers: 0 };
+      return dashboardStats.projects[selectedProjectId] || { 
+        name: 'ناشناس', 
+        totalWorkers: 0, 
+        activeWorkers: 0 
+      };
     }
     return { 
       name: 'نمای کلی (همه پروژه‌ها)', 
@@ -174,77 +188,79 @@ const WorkerDashboardScreen = () => {
     };
   }, [dashboardStats, selectedProjectId]);
 
-  // ✅ 🖨️ تابع اصلاح شده پرینت (بدون نیاز به اینترنت)
+  // ✅ تابع پرینت QR
   const handlePrintQR = () => {
-    // 1. پیدا کردن المنت QR کد از صفحه فعلی (چون SVG هست کیفیتش عالیه)
     const qrElement = document.getElementById('printable-qr-area');
     
     if (qrElement) {
-        // کپی کردن HTML مربوط به SVG
-        const qrSvg = qrElement.innerHTML; 
-
-        const printWindow = window.open('', '_blank', 'width=800,height=800');
-        if (printWindow) {
-            printWindow.document.write(`
-                <html dir="rtl">
-                <head>
-                    <title>چاپ QR Code - ${currentProjectStats.name}</title>
-                    <style>
-                    body { 
-                        display: flex; 
-                        flex-direction: column; 
-                        align-items: center; 
-                        justify-content: center; 
-                        height: 100vh; 
-                        margin: 0; 
-                        font-family: 'Tahoma', sans-serif; 
-                    }
-                    h1 { margin-bottom: 30px; font-size: 28px; text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px;}
-                    .qr-box { 
-                        padding: 30px; 
-                        border: 4px solid black; 
-                        border-radius: 20px; 
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                    }
-                    svg {
-                        width: 400px !important; /* سایز بزرگ برای پرینت */
-                        height: 400px !important;
-                    }
-                    .footer { margin-top: 20px; font-size: 16px; color: #333; font-weight: bold; }
-                    @media print {
-                        @page { margin: 0; size: A4 portrait; }
-                        body { -webkit-print-color-adjust: exact; }
-                        /* مخفی کردن هدر و فوتر مرورگر در برخی نسخه‌ها */
-                        header, footer { display: none; } 
-                    }
-                    </style>
-                </head>
-                <body>
-                    <h1>پروژه: ${currentProjectStats.name}</h1>
-                    
-                    <div class="qr-box">
-                        ${qrSvg} </div>
-                    
-                    <p class="footer">برای ورود به پروژه، کد را با اپلیکیشن اسکن کنید.</p>
-                    
-                    <script>
-                    // کمی صبر میکنیم تا مطمئن شیم رندر شده بعد پرینت میگیریم
-                    window.onload = function() {
-                        setTimeout(() => {
-                            window.print();
-                            // window.close(); // اختیاری: بستن بعد از پرینت
-                        }, 500);
-                    }
-                    </script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-        }
+      const qrSvg = qrElement.innerHTML;
+      const printWindow = window.open('', '_blank', 'width=800,height=800');
+      
+      if (printWindow) {
+        printWindow.document.write(`
+          <html dir="rtl">
+          <head>
+            <title>چاپ QR Code - ${currentProjectStats.name}</title>
+            <style>
+              body { 
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+                justify-content: center; 
+                height: 100vh; 
+                margin: 0; 
+                font-family: 'Tahoma', sans-serif; 
+              }
+              h1 { 
+                margin-bottom: 30px; 
+                font-size: 28px; 
+                text-align: center; 
+                border-bottom: 2px solid #000; 
+                padding-bottom: 10px;
+              }
+              .qr-box { 
+                padding: 30px; 
+                border: 4px solid black; 
+                border-radius: 20px; 
+                display: flex;
+                justify-content: center;
+                align-items: center;
+              }
+              svg {
+                width: 400px !important;
+                height: 400px !important;
+              }
+              .footer { 
+                margin-top: 20px; 
+                font-size: 16px; 
+                color: #333; 
+                font-weight: bold; 
+              }
+              @media print {
+                @page { margin: 0; size: A4 portrait; }
+                body { -webkit-print-color-adjust: exact; }
+                header, footer { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <h1>پروژه: ${currentProjectStats.name}</h1>
+            <div class="qr-box">${qrSvg}</div>
+            <p class="footer">برای ورود به پروژه، کد را با اپلیکیشن اسکن کنید.</p>
+            <script>
+              window.onload = function() {
+                setTimeout(() => {
+                  window.print();
+                }, 500);
+              }
+            </script>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
     } else {
-        alert("خطا: QR Code یافت نشد. لطفا مودال را باز نگه دارید.");
+      alert("خطا: QR Code یافت نشد. لطفا مودال را باز نگه دارید.");
     }
   };
 
@@ -323,7 +339,10 @@ const WorkerDashboardScreen = () => {
           </button>
           
           <button
-            onClick={() => { dispatch(fetchWorkers()); dispatch(fetchProjects()); }}
+            onClick={() => { 
+              dispatch(fetchWorkers()); 
+              dispatch(fetchProjects()); 
+            }}
             className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
           >
             ⟳ بازخوانی
@@ -342,14 +361,23 @@ const WorkerDashboardScreen = () => {
               <input 
                 placeholder="جستجو..." 
                 className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white flex-grow"
-                value={search} onChange={(e) => setSearch(e.target.value)}
+                value={search} 
+                onChange={(e) => setSearch(e.target.value)}
               />
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white">
+              <select 
+                value={sortBy} 
+                onChange={(e) => setSortBy(e.target.value)} 
+                className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white"
+              >
                 <option value="name">الفبا</option>
                 <option value="recent">زمان آپدیت</option>
               </select>
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300">
-                <input type="checkbox" checked={showOfflineWorkers} onChange={e => setShowOfflineWorkers(e.target.checked)} />
+                <input 
+                  type="checkbox" 
+                  checked={showOfflineWorkers} 
+                  onChange={e => setShowOfflineWorkers(e.target.checked)} 
+                />
                 نمایش آفلاین‌ها
               </label>
             </div>
@@ -410,7 +438,6 @@ const WorkerDashboardScreen = () => {
               <p className="text-gray-500 text-sm mt-1">کد را اسکن کنید</p>
             </div>
             
-            {/* ✅ اضافه کردن ID برای کپی کردن */}
             <div id="printable-qr-area" className="flex justify-center mb-6 p-6 bg-gray-100 rounded-2xl border border-gray-200">
               <QRCode 
                 value={JSON.stringify({ 
@@ -423,7 +450,6 @@ const WorkerDashboardScreen = () => {
             </div>
 
             <div className="flex gap-3">
-              {/* ✅ دکمه جدید پرینت */}
               <button 
                 onClick={handlePrintQR}
                 className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-lg flex items-center justify-center gap-2"
