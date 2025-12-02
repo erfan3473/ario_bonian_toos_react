@@ -33,7 +33,7 @@ const UserManagementScreen = () => {
   
   useEffect(() => {
     dispatch(fetchUsers());
-    dispatch(fetchDropdowns()); // positions, skillLevels, employmentTypes
+    dispatch(fetchDropdowns()); // positions, skillLevels, employmentTypes, leaveTypes
     dispatch(fetchProjects());  // پروژه‌ها
   }, [dispatch]);
 

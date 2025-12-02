@@ -1,4 +1,5 @@
 // src/features/admin/adminSlice.jsx
+// ⚠️ [translate:فایل کامل - جایگزین کن]
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
@@ -9,45 +10,24 @@ const API_BASE = 'http://localhost:8000/api/admin';
 // 🛠️ Helper Functions
 // ═══════════════════════════════════════════════════════════
 
-/**
- * استخراج پیام خطا از response
- */
 const extractErrorMessage = (error) => {
   if (error.response?.data) {
     const data = error.response.data;
-    
-    // اگر خطا به صورت object بود (مثلاً validation errors)
     if (typeof data === 'object' && !Array.isArray(data)) {
       const firstKey = Object.keys(data)[0];
-      if (firstKey && Array.isArray(data[firstKey])) {
-        return data[firstKey][0];
-      }
-      if (firstKey) {
-        return data[firstKey];
-      }
+      if (firstKey && Array.isArray(data[firstKey])) return data[firstKey][0];
+      if (firstKey) return data[firstKey];
     }
-    
-    // اگر خطا string بود
     if (typeof data === 'string') return data;
-    
-    // اگر detail داشت
     if (data.detail) return data.detail;
   }
-  
   return error.message || 'خطای ناشناخته رخ داد';
 };
 
-/**
- * ساخت config با token
- */
 const getAuthConfig = (getState, isMultipart = false) => {
   const { userLogin } = getState();
   const token = userLogin?.userInfo?.access;
-  
-  if (!token) {
-    throw new Error('توکن احراز هویت یافت نشد');
-  }
-  
+  if (!token) throw new Error('توکن احراز هویت یافت نشد');
   return {
     headers: {
       'Content-Type': isMultipart ? 'multipart/form-data' : 'application/json',
@@ -65,11 +45,7 @@ export const fetchUsers = createAsyncThunk(
   async (params = {}, { rejectWithValue, getState }) => {
     try {
       const config = getAuthConfig(getState);
-      // ✅ GET /api/admin/users/?role=admin|employee|worker
-      const { data } = await axios.get(`${API_BASE}/users/`, {
-        ...config,
-        params, // ?role=worker, ?search=علی
-      });
+      const { data } = await axios.get(`${API_BASE}/users/`, { ...config, params });
       return Array.isArray(data) ? data : data.results || [];
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -82,9 +58,7 @@ export const fetchUserDetail = createAsyncThunk(
   async (userId, { rejectWithValue, getState }) => {
     try {
       if (!userId) throw new Error('شناسه کاربر الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ GET /api/admin/users/<id>/
       const { data } = await axios.get(`${API_BASE}/users/${userId}/`, config);
       return data;
     } catch (error) {
@@ -98,15 +72,8 @@ export const updateUser = createAsyncThunk(
   async ({ userId, userData }, { rejectWithValue, getState }) => {
     try {
       if (!userId) throw new Error('شناسه کاربر الزامی است');
-      if (!userData) throw new Error('داده‌های کاربر الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ PUT /api/admin/users/<id>/update/
-      const { data } = await axios.put(
-        `${API_BASE}/users/${userId}/update/`,
-        userData,
-        config
-      );
+      const { data } = await axios.put(`${API_BASE}/users/${userId}/update/`, userData, config);
       return data;
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -118,10 +85,7 @@ export const createUser = createAsyncThunk(
   'admin/createUser',
   async (userData, { rejectWithValue, getState }) => {
     try {
-      if (!userData) throw new Error('داده‌های کاربر الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ POST /api/admin/users/
       const { data } = await axios.post(`${API_BASE}/users/`, userData, config);
       return data;
     } catch (error) {
@@ -134,10 +98,7 @@ export const deleteUser = createAsyncThunk(
   'admin/deleteUser',
   async (userId, { rejectWithValue, getState }) => {
     try {
-      if (!userId) throw new Error('شناسه کاربر الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ DELETE /api/admin/users/<id>/delete/
       await axios.delete(`${API_BASE}/users/${userId}/delete/`, config);
       return userId;
     } catch (error) {
@@ -154,16 +115,8 @@ export const updateEmployee = createAsyncThunk(
   'admin/updateEmployee',
   async ({ employeeId, employeeData }, { rejectWithValue, getState }) => {
     try {
-      if (!employeeId) throw new Error('شناسه کارمند الزامی است');
-      if (!employeeData) throw new Error('داده‌های کارمند الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ PUT /api/admin/employees/<id>/
-      const { data } = await axios.put(
-        `${API_BASE}/employees/${employeeId}/`,
-        employeeData,
-        config
-      );
+      const { data } = await axios.put(`${API_BASE}/employees/${employeeId}/`, employeeData, config);
       return data;
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -180,11 +133,7 @@ export const fetchContracts = createAsyncThunk(
   async (params = {}, { rejectWithValue, getState }) => {
     try {
       const config = getAuthConfig(getState);
-      // ✅ GET /api/admin/contracts/
-      const { data } = await axios.get(`${API_BASE}/contracts/`, {
-        ...config,
-        params,
-      });
+      const { data } = await axios.get(`${API_BASE}/contracts/`, { ...config, params });
       return Array.isArray(data) ? data : data.results || [];
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -196,17 +145,8 @@ export const createContract = createAsyncThunk(
   'admin/createContract',
   async (contractData, { rejectWithValue, getState }) => {
     try {
-      if (!contractData) throw new Error('داده‌های قرارداد الزامی است');
-      if (!contractData.employee) throw new Error('شناسه کارمند الزامی است');
-      if (!contractData.project) throw new Error('شناسه پروژه الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ POST /api/admin/contracts/
-      const { data } = await axios.post(
-        `${API_BASE}/contracts/`,
-        contractData,
-        config
-      );
+      const { data } = await axios.post(`${API_BASE}/contracts/`, contractData, config);
       return data;
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -218,16 +158,8 @@ export const updateContract = createAsyncThunk(
   'admin/updateContract',
   async ({ contractId, contractData }, { rejectWithValue, getState }) => {
     try {
-      if (!contractId) throw new Error('شناسه قرارداد الزامی است');
-      if (!contractData) throw new Error('داده‌های قرارداد الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ PUT /api/admin/contracts/<id>/
-      const { data } = await axios.put(
-        `${API_BASE}/contracts/${contractId}/`,
-        contractData,
-        config
-      );
+      const { data } = await axios.put(`${API_BASE}/contracts/${contractId}/`, contractData, config);
       return data;
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -239,10 +171,7 @@ export const deleteContract = createAsyncThunk(
   'admin/deleteContract',
   async (contractId, { rejectWithValue, getState }) => {
     try {
-      if (!contractId) throw new Error('شناسه قرارداد الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ✅ DELETE /api/admin/contracts/<id>/
       await axios.delete(`${API_BASE}/contracts/${contractId}/`, config);
       return contractId;
     } catch (error) {
@@ -252,7 +181,7 @@ export const deleteContract = createAsyncThunk(
 );
 
 // ═══════════════════════════════════════════════════════════
-// 🔄 Async Thunks - Dropdowns
+// 🔄 Async Thunks - Dropdowns (GET)
 // ═══════════════════════════════════════════════════════════
 
 export const fetchDropdowns = createAsyncThunk(
@@ -260,19 +189,17 @@ export const fetchDropdowns = createAsyncThunk(
   async (_, { rejectWithValue, getState }) => {
     try {
       const config = getAuthConfig(getState);
-      
-         // ✅ فقط 3 تای اول رو بگیر (پروژه‌ها از projectSlice میاد)
-      const [positions, skillLevels, employmentTypes] = await Promise.all([
+      const [positions, skillLevels, employmentTypes, leaveTypes] = await Promise.all([
         axios.get(`${API_BASE}/dropdowns/positions/`, config),
         axios.get(`${API_BASE}/dropdowns/skill-levels/`, config),
         axios.get(`${API_BASE}/dropdowns/employment-types/`, config),
+        axios.get(`${API_BASE}/dropdowns/leave-types/`, config),
       ]);
-
       return {
         positions: positions.data || [],
         skillLevels: skillLevels.data || [],
         employmentTypes: employmentTypes.data || [],
-        
+        leaveTypes: leaveTypes.data || [],
       };
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -280,64 +207,16 @@ export const fetchDropdowns = createAsyncThunk(
   }
 );
 
-// ✅ برای بارگذاری جداگانه هر dropdown (اختیاری)
-export const fetchPositions = createAsyncThunk(
-  'admin/fetchPositions',
-  async (_, { rejectWithValue, getState }) => {
-    try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.get(`${API_BASE}/dropdowns/positions/`, config);
-      return data || [];
-    } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
-    }
-  }
-);
-
-export const fetchSkillLevels = createAsyncThunk(
-  'admin/fetchSkillLevels',
-  async (_, { rejectWithValue, getState }) => {
-    try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.get(`${API_BASE}/dropdowns/skill-levels/`, config);
-      return data || [];
-    } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
-    }
-  }
-);
-
-export const fetchEmploymentTypes = createAsyncThunk(
-  'admin/fetchEmploymentTypes',
-  async (_, { rejectWithValue, getState }) => {
-    try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.get(`${API_BASE}/dropdowns/employment-types/`, config);
-      return data || [];
-    } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
-    }
-  }
-);
-
 // ═══════════════════════════════════════════════════════════
-// 🔄 Async Thunks - Employment Types Management (Settings)
+// 👔 Employment Types - CRUD
 // ═══════════════════════════════════════════════════════════
 
 export const createEmploymentType = createAsyncThunk(
   'admin/createEmploymentType',
   async (employmentTypeData, { rejectWithValue, getState }) => {
     try {
-      if (!employmentTypeData?.key) throw new Error('کلید نوع استخدام الزامی است');
-      if (!employmentTypeData?.description) throw new Error('نام فارسی الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ⚠️ این endpoint هنوز نساختیم! باید به admin_views.py اضافه بشه
-      const { data } = await axios.post(
-        `${API_BASE}/employment-types/`,
-        employmentTypeData,
-        config
-      );
+      const { data } = await axios.post(`${API_BASE}/employment-types/`, employmentTypeData, config);
       return data;
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
@@ -349,17 +228,151 @@ export const updateEmploymentType = createAsyncThunk(
   'admin/updateEmploymentType',
   async ({ id, data: employmentTypeData }, { rejectWithValue, getState }) => {
     try {
-      if (!id) throw new Error('شناسه نوع استخدام الزامی است');
-      if (!employmentTypeData) throw new Error('داده‌های نوع استخدام الزامی است');
-      
       const config = getAuthConfig(getState);
-      // ⚠️ این endpoint هنوز نساختیم!
-      const { data } = await axios.put(
-        `${API_BASE}/employment-types/${id}/`,
-        employmentTypeData,
-        config
-      );
+      const { data } = await axios.put(`${API_BASE}/employment-types/${id}/`, employmentTypeData, config);
       return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const deleteEmploymentType = createAsyncThunk(
+  'admin/deleteEmploymentType',
+  async (id, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      await axios.delete(`${API_BASE}/employment-types/${id}/delete/`, config);
+      return id;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════
+// 🎯 Positions - CRUD
+// ═══════════════════════════════════════════════════════════
+
+export const createPosition = createAsyncThunk(
+  'admin/createPosition',
+  async (positionData, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      const { data } = await axios.post(`${API_BASE}/positions/`, positionData, config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const updatePosition = createAsyncThunk(
+  'admin/updatePosition',
+  async ({ id, data: positionData }, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      const { data } = await axios.put(`${API_BASE}/positions/${id}/`, positionData, config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const deletePosition = createAsyncThunk(
+  'admin/deletePosition',
+  async (id, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      await axios.delete(`${API_BASE}/positions/${id}/delete/`, config);
+      return id;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════
+// ⭐ Skill Levels - CRUD
+// ═══════════════════════════════════════════════════════════
+
+export const createSkillLevel = createAsyncThunk(
+  'admin/createSkillLevel',
+  async (skillLevelData, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      const { data } = await axios.post(`${API_BASE}/skill-levels/`, skillLevelData, config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const updateSkillLevel = createAsyncThunk(
+  'admin/updateSkillLevel',
+  async ({ id, data: skillLevelData }, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      const { data } = await axios.put(`${API_BASE}/skill-levels/${id}/`, skillLevelData, config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const deleteSkillLevel = createAsyncThunk(
+  'admin/deleteSkillLevel',
+  async (id, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      await axios.delete(`${API_BASE}/skill-levels/${id}/delete/`, config);
+      return id;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════
+// 🏖️ Leave Types - CRUD
+// ═══════════════════════════════════════════════════════════
+
+export const createLeaveType = createAsyncThunk(
+  'admin/createLeaveType',
+  async (leaveTypeData, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      const { data } = await axios.post(`${API_BASE}/leave-types/`, leaveTypeData, config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const updateLeaveType = createAsyncThunk(
+  'admin/updateLeaveType',
+  async ({ id, data: leaveTypeData }, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      const { data } = await axios.put(`${API_BASE}/leave-types/${id}/`, leaveTypeData, config);
+      return data;
+    } catch (error) {
+      return rejectWithValue(extractErrorMessage(error));
+    }
+  }
+);
+
+export const deleteLeaveType = createAsyncThunk(
+  'admin/deleteLeaveType',
+  async (id, { rejectWithValue, getState }) => {
+    try {
+      const config = getAuthConfig(getState);
+      await axios.delete(`${API_BASE}/leave-types/${id}/delete/`, config);
+      return id;
     } catch (error) {
       return rejectWithValue(extractErrorMessage(error));
     }
@@ -373,69 +386,40 @@ export const updateEmploymentType = createAsyncThunk(
 const adminSlice = createSlice({
   name: 'admin',
   initialState: {
-    // Users
-    users: {
-      data: [],
-      loading: false,
-      error: null,
-    },
-    
-    // Selected User (برای modal جزئیات)
-    selectedUser: {
-      data: null,
-      loading: false,
-      error: null,
-    },
-    
-    // Update Status (برای همه عملیات CUD)
-    updateStatus: {
-      loading: false,
-      success: false,
-      error: null,
-    },
+    users: { data: [], loading: false, error: null },
+    selectedUser: { data: null, loading: false, error: null },
+    updateStatus: { loading: false, success: false, error: null },
     
     // Dropdowns
     positions: [],
     skillLevels: [],
     employmentTypes: [],
-    projects: [],
+    leaveTypes: [],
     dropdownsLoading: false,
     dropdownsError: null,
     
-    // Contracts
-    contracts: {
-      data: [],
-      loading: false,
-      error: null,
-    },
+    contracts: { data: [], loading: false, error: null },
   },
   
   reducers: {
     clearSelectedUser: (state) => {
-      state.selectedUser.data = null;
-      state.selectedUser.error = null;
-      state.selectedUser.loading = false;
+      state.selectedUser = { data: null, loading: false, error: null };
     },
-    
     resetUpdateStatus: (state) => {
-      state.updateStatus.loading = false;
-      state.updateStatus.success = false;
-      state.updateStatus.error = null;
+      state.updateStatus = { loading: false, success: false, error: null };
     },
-    
     clearUsersError: (state) => {
       state.users.error = null;
     },
-    
     clearContractsError: (state) => {
       state.contracts.error = null;
     },
   },
   
   extraReducers: (builder) => {
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     // Users
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     builder
       .addCase(fetchUsers.pending, (state) => {
         state.users.loading = true;
@@ -444,74 +428,54 @@ const adminSlice = createSlice({
       .addCase(fetchUsers.fulfilled, (state, action) => {
         state.users.loading = false;
         state.users.data = action.payload;
-        state.users.error = null;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
         state.users.loading = false;
         state.users.error = action.payload || 'خطا در بارگذاری کاربران';
       });
     
-    // User Detail
     builder
       .addCase(fetchUserDetail.pending, (state) => {
         state.selectedUser.loading = true;
-        state.selectedUser.error = null;
       })
       .addCase(fetchUserDetail.fulfilled, (state, action) => {
         state.selectedUser.loading = false;
         state.selectedUser.data = action.payload;
-        state.selectedUser.error = null;
       })
       .addCase(fetchUserDetail.rejected, (state, action) => {
         state.selectedUser.loading = false;
-        state.selectedUser.error = action.payload || 'خطا در بارگذاری اطلاعات کاربر';
+        state.selectedUser.error = action.payload;
       });
     
-    // Update User
     builder
       .addCase(updateUser.pending, (state) => {
-        state.updateStatus.loading = true;
-        state.updateStatus.success = false;
-        state.updateStatus.error = null;
+        state.updateStatus = { loading: true, success: false, error: null };
       })
       .addCase(updateUser.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.success = true;
+        state.updateStatus = { loading: false, success: true, error: null };
         state.selectedUser.data = action.payload;
-        
-        // آپدیت در لیست
         const index = state.users.data.findIndex((u) => u.id === action.payload.id);
-        if (index !== -1) {
-          state.users.data[index] = action.payload;
-        }
+        if (index !== -1) state.users.data[index] = action.payload;
       })
       .addCase(updateUser.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در ذخیره اطلاعات';
+        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
     
-    // Create User
     builder
       .addCase(createUser.pending, (state) => {
-        state.updateStatus.loading = true;
-        state.updateStatus.success = false;
-        state.updateStatus.error = null;
+        state.updateStatus = { loading: true, success: false, error: null };
       })
       .addCase(createUser.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.success = true;
+        state.updateStatus = { loading: false, success: true, error: null };
         state.users.data.push(action.payload);
       })
       .addCase(createUser.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در ایجاد کاربر';
+        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
     
-    // Delete User
     builder
       .addCase(deleteUser.pending, (state) => {
         state.updateStatus.loading = true;
-        state.updateStatus.error = null;
       })
       .addCase(deleteUser.fulfilled, (state, action) => {
         state.updateStatus.loading = false;
@@ -520,35 +484,29 @@ const adminSlice = createSlice({
       })
       .addCase(deleteUser.rejected, (state, action) => {
         state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در حذف کاربر';
+        state.updateStatus.error = action.payload;
       });
     
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     // Employee
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     builder
       .addCase(updateEmployee.pending, (state) => {
-        state.updateStatus.loading = true;
-        state.updateStatus.success = false;
-        state.updateStatus.error = null;
+        state.updateStatus = { loading: true, success: false, error: null };
       })
       .addCase(updateEmployee.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.success = true;
-        
-        // آپدیت employee_details در selectedUser
+        state.updateStatus = { loading: false, success: true, error: null };
         if (state.selectedUser.data) {
           state.selectedUser.data.employee_details = action.payload;
         }
       })
       .addCase(updateEmployee.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در ذخیره اطلاعات کارمند';
+        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
     
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     // Dropdowns
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     builder
       .addCase(fetchDropdowns.pending, (state) => {
         state.dropdownsLoading = true;
@@ -559,32 +517,19 @@ const adminSlice = createSlice({
         state.positions = action.payload.positions;
         state.skillLevels = action.payload.skillLevels;
         state.employmentTypes = action.payload.employmentTypes;
-        state.projects = action.payload.projects;
+        state.leaveTypes = action.payload.leaveTypes;
       })
       .addCase(fetchDropdowns.rejected, (state, action) => {
         state.dropdownsLoading = false;
-        state.dropdownsError = action.payload || 'خطا در بارگذاری داده‌ها';
+        state.dropdownsError = action.payload;
       });
     
-    // Individual Dropdowns
-    builder
-      .addCase(fetchPositions.fulfilled, (state, action) => {
-        state.positions = action.payload;
-      })
-      .addCase(fetchSkillLevels.fulfilled, (state, action) => {
-        state.skillLevels = action.payload;
-      })
-      .addCase(fetchEmploymentTypes.fulfilled, (state, action) => {
-        state.employmentTypes = action.payload;
-      });
-    
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     // Contracts
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
     builder
       .addCase(fetchContracts.pending, (state) => {
         state.contracts.loading = true;
-        state.contracts.error = null;
       })
       .addCase(fetchContracts.fulfilled, (state, action) => {
         state.contracts.loading = false;
@@ -592,22 +537,16 @@ const adminSlice = createSlice({
       })
       .addCase(fetchContracts.rejected, (state, action) => {
         state.contracts.loading = false;
-        state.contracts.error = action.payload || 'خطا در بارگذاری قراردادها';
+        state.contracts.error = action.payload;
       });
     
-    // Create Contract
     builder
       .addCase(createContract.pending, (state) => {
-        state.updateStatus.loading = true;
-        state.updateStatus.success = false;
-        state.updateStatus.error = null;
+        state.updateStatus = { loading: true, success: false, error: null };
       })
       .addCase(createContract.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.success = true;
+        state.updateStatus = { loading: false, success: true, error: null };
         state.contracts.data.push(action.payload);
-        
-        // آپدیت در selectedUser
         if (state.selectedUser.data?.employee_details) {
           if (!state.selectedUser.data.employee_details.contracts) {
             state.selectedUser.data.employee_details.contracts = [];
@@ -616,43 +555,31 @@ const adminSlice = createSlice({
         }
       })
       .addCase(createContract.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در ایجاد قرارداد';
+        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
     
-    // Update Contract
     builder
       .addCase(updateContract.pending, (state) => {
-        state.updateStatus.loading = true;
-        state.updateStatus.success = false;
-        state.updateStatus.error = null;
+        state.updateStatus = { loading: true, success: false, error: null };
       })
       .addCase(updateContract.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.success = true;
-        
-        // آپدیت در لیست
+        state.updateStatus = { loading: false, success: true, error: null };
         const index = state.contracts.data.findIndex((c) => c.id === action.payload.id);
-        if (index !== -1) {
-          state.contracts.data[index] = action.payload;
-        }
+        if (index !== -1) state.contracts.data[index] = action.payload;
         
-        // آپدیت در selectedUser
         if (state.selectedUser.data?.employee_details?.contracts) {
-          const userContractIndex = state.selectedUser.data.employee_details.contracts.findIndex(
+          const userIndex = state.selectedUser.data.employee_details.contracts.findIndex(
             (c) => c.id === action.payload.id
           );
-          if (userContractIndex !== -1) {
-            state.selectedUser.data.employee_details.contracts[userContractIndex] = action.payload;
+          if (userIndex !== -1) {
+            state.selectedUser.data.employee_details.contracts[userIndex] = action.payload;
           }
         }
       })
       .addCase(updateContract.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در ویرایش قرارداد';
+        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
     
-    // Delete Contract
     builder
       .addCase(deleteContract.pending, (state) => {
         state.updateStatus.loading = true;
@@ -661,35 +588,183 @@ const adminSlice = createSlice({
         state.updateStatus.loading = false;
         state.contracts.data = state.contracts.data.filter((c) => c.id !== action.payload);
         
-        // حذف از selectedUser
         if (state.selectedUser.data?.employee_details?.contracts) {
           state.selectedUser.data.employee_details.contracts = 
-            state.selectedUser.data.employee_details.contracts.filter(
-              (c) => c.id !== action.payload
-            );
+            state.selectedUser.data.employee_details.contracts.filter((c) => c.id !== action.payload);
         }
-        
         state.updateStatus.success = true;
       })
       .addCase(deleteContract.rejected, (state, action) => {
         state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload || 'خطا در حذف قرارداد';
+        state.updateStatus.error = action.payload;
       });
     
-    // ═════════════════════════════════════════════════════════
-    // Employment Types Management
-    // ═════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════
+    // 👔 Employment Types
+    // ════════════════════════════════════════════════════
     builder
+      .addCase(createEmploymentType.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
       .addCase(createEmploymentType.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
         state.employmentTypes.push(action.payload);
-        state.updateStatus.success = true;
+      })
+      .addCase(createEmploymentType.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(updateEmploymentType.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
       })
       .addCase(updateEmploymentType.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
         const index = state.employmentTypes.findIndex((et) => et.id === action.payload.id);
-        if (index !== -1) {
-          state.employmentTypes[index] = action.payload;
-        }
+        if (index !== -1) state.employmentTypes[index] = action.payload;
+      })
+      .addCase(updateEmploymentType.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(deleteEmploymentType.pending, (state) => {
+        state.updateStatus.loading = true;
+      })
+      .addCase(deleteEmploymentType.fulfilled, (state, action) => {
+        state.updateStatus.loading = false;
+        state.employmentTypes = state.employmentTypes.filter((et) => et.id !== action.payload);
         state.updateStatus.success = true;
+      })
+      .addCase(deleteEmploymentType.rejected, (state, action) => {
+        state.updateStatus.loading = false;
+        state.updateStatus.error = action.payload;
+      });
+    
+    // ════════════════════════════════════════════════════
+    // 🎯 Positions
+    // ════════════════════════════════════════════════════
+    builder
+      .addCase(createPosition.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(createPosition.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        state.positions.push(action.payload);
+      })
+      .addCase(createPosition.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(updatePosition.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(updatePosition.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        const index = state.positions.findIndex((p) => p.id === action.payload.id);
+        if (index !== -1) state.positions[index] = action.payload;
+      })
+      .addCase(updatePosition.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(deletePosition.pending, (state) => {
+        state.updateStatus.loading = true;
+      })
+      .addCase(deletePosition.fulfilled, (state, action) => {
+        state.updateStatus.loading = false;
+        state.positions = state.positions.filter((p) => p.id !== action.payload);
+        state.updateStatus.success = true;
+      })
+      .addCase(deletePosition.rejected, (state, action) => {
+        state.updateStatus.loading = false;
+        state.updateStatus.error = action.payload;
+      });
+    
+    // ════════════════════════════════════════════════════
+    // ⭐ Skill Levels
+    // ════════════════════════════════════════════════════
+    builder
+      .addCase(createSkillLevel.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(createSkillLevel.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        state.skillLevels.push(action.payload);
+      })
+      .addCase(createSkillLevel.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(updateSkillLevel.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(updateSkillLevel.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        const index = state.skillLevels.findIndex((sl) => sl.id === action.payload.id);
+        if (index !== -1) state.skillLevels[index] = action.payload;
+      })
+      .addCase(updateSkillLevel.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(deleteSkillLevel.pending, (state) => {
+        state.updateStatus.loading = true;
+      })
+      .addCase(deleteSkillLevel.fulfilled, (state, action) => {
+        state.updateStatus.loading = false;
+        state.skillLevels = state.skillLevels.filter((sl) => sl.id !== action.payload);
+        state.updateStatus.success = true;
+      })
+      .addCase(deleteSkillLevel.rejected, (state, action) => {
+        state.updateStatus.loading = false;
+        state.updateStatus.error = action.payload;
+      });
+    
+    // ════════════════════════════════════════════════════
+    // 🏖️ Leave Types
+    // ════════════════════════════════════════════════════
+    builder
+      .addCase(createLeaveType.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(createLeaveType.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        state.leaveTypes.push(action.payload);
+      })
+      .addCase(createLeaveType.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(updateLeaveType.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(updateLeaveType.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        const index = state.leaveTypes.findIndex((lt) => lt.id === action.payload.id);
+        if (index !== -1) state.leaveTypes[index] = action.payload;
+      })
+      .addCase(updateLeaveType.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
+      });
+    
+    builder
+      .addCase(deleteLeaveType.pending, (state) => {
+        state.updateStatus.loading = true;
+      })
+      .addCase(deleteLeaveType.fulfilled, (state, action) => {
+        state.updateStatus.loading = false;
+        state.leaveTypes = state.leaveTypes.filter((lt) => lt.id !== action.payload);
+        state.updateStatus.success = true;
+      })
+      .addCase(deleteLeaveType.rejected, (state, action) => {
+        state.updateStatus.loading = false;
+        state.updateStatus.error = action.payload;
       });
   },
 });

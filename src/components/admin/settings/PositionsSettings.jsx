@@ -1,26 +1,29 @@
 // src/components/admin/settings/PositionsSettings.jsx
 
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState, useMemo } from 'react'; // ✅ اضافه کردن useMemo
+import { useSelector } from 'react-redux';
 
 const PositionsSettings = () => {
-  const dispatch = useDispatch();
-  const { positions, loading } = useSelector((state) => state.admin);
+  const { positions } = useSelector((state) => state.admin);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // فیلتر سمت‌ها
-  const filteredPositions = positions.filter((pos) =>
-    pos.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pos.code?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // ✅ فیلتر با useMemo - فقط وقتی positions یا searchTerm تغییر کنه اجرا میشه
+  const filteredPositions = useMemo(() => {
+    return positions.filter((pos) =>
+      pos.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      pos.code?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [positions, searchTerm]);
 
-  // گروه‌بندی بر اساس سطح سلسله‌مراتب
-  const groupedPositions = filteredPositions.reduce((acc, pos) => {
-    const level = pos.hierarchy_level || 0;
-    if (!acc[level]) acc[level] = [];
-    acc[level].push(pos);
-    return acc;
-  }, {});
+  // ✅ گروه‌بندی با useMemo - فقط وقتی filteredPositions تغییر کنه
+  const groupedPositions = useMemo(() => {
+    return filteredPositions.reduce((acc, pos) => {
+      const level = pos.hierarchy_level || 0;
+      if (!acc[level]) acc[level] = [];
+      acc[level].push(pos);
+      return acc;
+    }, {});
+  }, [filteredPositions]);
 
   const levelNames = {
     0: '👑 مدیریت ارشد',
@@ -56,7 +59,6 @@ const PositionsSettings = () => {
           .sort((a, b) => Number(a) - Number(b))
           .map((level) => (
             <div key={level} className="bg-gray-900 rounded-xl p-6 border border-gray-700">
-              {/* Level Header */}
               <div className="mb-4 pb-3 border-b border-gray-700">
                 <h4 className="text-white font-bold text-lg">
                   {levelNames[level] || `سطح ${level}`}
@@ -66,24 +68,17 @@ const PositionsSettings = () => {
                 </p>
               </div>
 
-              {/* Positions Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {groupedPositions[level].map((position) => (
                   <div
                     key={position.id}
                     className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-blue-600 transition"
                   >
-                    {/* Title & Code */}
                     <div className="mb-3">
-                      <h5 className="text-white font-bold text-lg">
-                        {position.title}
-                      </h5>
-                      <p className="text-gray-400 text-sm font-mono">
-                        {position.code}
-                      </p>
+                      <h5 className="text-white font-bold text-lg">{position.title}</h5>
+                      <p className="text-gray-400 text-sm font-mono">{position.code}</p>
                     </div>
 
-                    {/* Report Type */}
                     <div className="mb-3">
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
@@ -107,17 +102,13 @@ const PositionsSettings = () => {
                       </span>
                     </div>
 
-                    {/* Parent Position */}
                     {position.parent_position && (
                       <div className="text-gray-400 text-sm mb-2">
                         <span className="text-gray-500">گزارش به:</span>{' '}
-                        <span className="text-blue-400">
-                          {position.parent_position_title}
-                        </span>
+                        <span className="text-blue-400">{position.parent_position_title}</span>
                       </div>
                     )}
 
-                    {/* BOQ Access */}
                     {position.can_enter_boq_items && (
                       <div className="mt-3 pt-3 border-t border-gray-700">
                         <span className="text-green-400 text-xs font-bold">

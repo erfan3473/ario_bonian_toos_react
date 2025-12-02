@@ -3,7 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDropdowns } from '../../features/admin/adminSlice';
-import { fetchProjects } from '../../features/projects/projectSlice'; // ✅ import
+import { fetchProjects } from '../../features/projects/projectSlice';
+import EmploymentTypesSettings from '../../components/admin/settings/EmploymentTypesSettings';
+import PositionsSettings from '../../components/admin/settings/PositionsSettings';
+import SkillLevelsSettings from '../../components/admin/settings/SkillLevelsSettings';
+import LeaveTypesSettings from '../../components/admin/settings/LeaveTypesSettings';
 
 const SettingsScreen = () => {
   const dispatch = useDispatch();
@@ -12,13 +16,20 @@ const SettingsScreen = () => {
   const { dropdownsLoading, dropdownsError } = useSelector((state) => state.admin);
   const projectsLoading = useSelector((state) => state.projects.loading);
 
+  const tabs = [
+    { id: 'employment-types', label: 'انواع استخدام', icon: '👔' },
+    { id: 'positions', label: 'سمت‌های سازمانی', icon: '🎯' },
+    { id: 'skill-levels', label: 'سطوح مهارت', icon: '⭐' },
+    { id: 'leave-types', label: 'انواع مرخصی', icon: '🏖️' },
+    { id: 'system', label: 'تنظیمات سیستم', icon: '⚙️' },
+  ];
+
+  // ✅ فقط یک بار fetch کن
   useEffect(() => {
-    // ✅ بارگذاری همه داده‌ها
-    dispatch(fetchDropdowns());  // positions, skillLevels, employmentTypes
-    dispatch(fetchProjects());   // projects
+    dispatch(fetchDropdowns());
+    dispatch(fetchProjects());
   }, [dispatch]);
 
-  // ✅ Loading state (همه با هم)
   const isLoading = dropdownsLoading || projectsLoading;
 
   if (isLoading) {
@@ -32,7 +43,6 @@ const SettingsScreen = () => {
     );
   }
 
-  // ✅ Error state
   if (dropdownsError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
@@ -55,7 +65,6 @@ const SettingsScreen = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">
             ⚙️ تنظیمات سیستم
@@ -65,7 +74,6 @@ const SettingsScreen = () => {
           </p>
         </div>
 
-        {/* Tabs Navigation */}
         <div className="bg-gray-800 rounded-xl border border-gray-700 mb-6 p-2">
           <div className="flex flex-wrap gap-2">
             {tabs.map((tab) => (
@@ -85,21 +93,12 @@ const SettingsScreen = () => {
           </div>
         </div>
 
-        {/* Content Area */}
         <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-2xl">
           <div className="p-6">
             {activeTab === 'employment-types' && <EmploymentTypesSettings />}
             {activeTab === 'positions' && <PositionsSettings />}
             {activeTab === 'skill-levels' && <SkillLevelsSettings />}
-            
-            {/* Under Development Tabs */}
-            {activeTab === 'leave-types' && (
-              <div className="text-center py-20">
-                <div className="text-6xl mb-4">🏖️</div>
-                <p className="text-gray-400 text-xl mb-2">انواع مرخصی</p>
-                <p className="text-gray-500">🚧 این بخش در دست توسعه است</p>
-              </div>
-            )}
+            {activeTab === 'leave-types' && <LeaveTypesSettings />}
             
             {activeTab === 'system' && (
               <div className="text-center py-20">
@@ -111,7 +110,6 @@ const SettingsScreen = () => {
           </div>
         </div>
 
-        {/* Footer Info */}
         <div className="mt-6 text-center text-gray-500 text-sm">
           <p>💡 نکته: تغییرات در این بخش بر روی کل سیستم تأثیرگذار است</p>
         </div>
