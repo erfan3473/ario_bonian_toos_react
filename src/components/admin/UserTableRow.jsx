@@ -3,34 +3,93 @@
 import React from 'react';
 
 const UserTableRow = ({ user, onClick }) => {
-  const employee = user.employee_details;
-  const contract = user.active_contract;
+  const employee = user?.employee_details;
+  const contracts = employee?.contracts || [];
+  const activeContracts = contracts.filter(c => c.is_active);
   
-  const isMonthly = contract?.employment_type_key === 'permanent_monthly';
+  // سمت و رنگ
+  const position = employee?.position;
+  const positionTitle = position?.title || 'نامشخص';
+  const positionColor = position?.color_hex || '#6B7280';
+  
+  // سطح مهارت
+  const skillLevel = employee?.skill_level;
+  const skillLevelDisplay = skillLevel 
+    ? `سطح ${skillLevel.level_number}` 
+    : null;
+  
   const avatarText = user.first_name?.[0] || user.username?.[0] || '?';
 
   return (
-    <tr className="hover:bg-gray-700/30 transition">
+    <tr 
+      className="hover:bg-gray-700/30 transition-colors border-l-4"
+      style={{ borderLeftColor: positionColor }}
+    >
       {/* نام و آواتار */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+          <div 
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md relative"
+            style={{ 
+              backgroundColor: positionColor,
+              border: `2px solid ${positionColor}`,
+            }}
+          >
             {avatarText}
+            
+            {/* نقطه سبز برای کاربران فعال */}
+            {user.is_active && (
+              <span 
+                className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
+                style={{ backgroundColor: '#10B981' }}
+              />
+            )}
           </div>
           <div>
-            <div className="text-white font-bold">
+            <div className="text-white font-bold flex items-center gap-2">
               {user.first_name || user.last_name
                 ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
                 : user.username}
+              
+              {/* Badge ادمین */}
+              {user.is_superuser && (
+                <span className="text-purple-400 text-xs">👑</span>
+              )}
             </div>
             <div className="text-gray-400 text-xs">@{user.username}</div>
           </div>
         </div>
       </td>
 
-      {/* سمت */}
-      <td className="px-4 py-3 text-white">
-        {user.position_title || '---'}
+      {/* سمت با رنگ */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          {/* نقطه رنگی */}
+          <div 
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: positionColor }}
+          />
+          <span 
+            className="font-bold"
+            style={{ color: positionColor }}
+          >
+            {positionTitle}
+          </span>
+        </div>
+        
+        {/* سطح مهارت */}
+        {skillLevelDisplay && (
+          <div className="text-yellow-400 text-xs mt-1">
+            ⭐ {skillLevelDisplay}
+          </div>
+        )}
+        
+        {/* Badge کارگر */}
+        {employee?.is_worker && (
+          <span className="inline-block mt-1 bg-orange-900/40 text-orange-300 px-2 py-0.5 rounded-full text-xs border border-orange-700">
+            👷 کارگر
+          </span>
+        )}
       </td>
 
       {/* کدملی */}
@@ -43,29 +102,57 @@ const UserTableRow = ({ user, onClick }) => {
         {user.profile?.phone_number || '---'}
       </td>
 
-      {/* نوع استخدام */}
+      {/* نوع استخدام و پروژه‌ها */}
       <td className="px-4 py-3 text-center">
-        {contract ? (
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-            isMonthly
-              ? 'bg-blue-900/30 text-blue-400 border border-blue-700'
-              : 'bg-orange-900/30 text-orange-400 border border-orange-700'
-          }`}>
-            {contract.employment_type}
-          </span>
+        {activeContracts.length > 0 ? (
+          <div className="space-y-1">
+            {activeContracts.slice(0, 2).map((contract) => (
+              <div key={contract.id} className="text-xs">
+                <div 
+                  className="inline-block px-2 py-1 rounded text-white"
+                  style={{ backgroundColor: `${positionColor}80` }}
+                >
+                  📍 {contract.project_name}
+                </div>
+                <div className="text-gray-400 text-xs mt-0.5">
+                  {contract.employment_type_description}
+                </div>
+              </div>
+            ))}
+            {activeContracts.length > 2 && (
+              <div className="text-gray-500 text-xs">
+                +{activeContracts.length - 2} دیگر
+              </div>
+            )}
+          </div>
         ) : (
-          <span className="text-gray-500">بدون قرارداد</span>
+          <span className="text-gray-500 text-sm">بدون قرارداد</span>
         )}
       </td>
 
       {/* دستمزد */}
-      <td className="px-4 py-3 text-center text-green-400 font-mono font-bold">
-        {contract ? (
-          isMonthly
-            ? `${Number(contract.monthly_salary).toLocaleString('fa-IR')} ت/ماه`
-            : `${Number(contract.daily_wage).toLocaleString('fa-IR')} ت/روز`
+      <td className="px-4 py-3 text-center">
+        {activeContracts.length > 0 ? (
+          <div className="space-y-1">
+            {activeContracts.map((contract) => (
+              <div key={contract.id} className="text-sm">
+                {contract.monthly_salary > 0 && (
+                  <div className="text-blue-400 font-mono font-bold">
+                    {Number(contract.monthly_salary).toLocaleString('fa-IR')}
+                    <span className="text-gray-400 text-xs mr-1">ت/ماه</span>
+                  </div>
+                )}
+                {contract.daily_wage > 0 && (
+                  <div className="text-green-400 font-mono font-bold">
+                    {Number(contract.daily_wage).toLocaleString('fa-IR')}
+                    <span className="text-gray-400 text-xs mr-1">ت/روز</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         ) : (
-          '---'
+          <span className="text-gray-500">---</span>
         )}
       </td>
 
@@ -73,7 +160,12 @@ const UserTableRow = ({ user, onClick }) => {
       <td className="px-4 py-3 text-center">
         <button
           onClick={onClick}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg text-sm transition"
+          className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105"
+          style={{
+            backgroundColor: `${positionColor}40`,
+            color: positionColor,
+            border: `1px solid ${positionColor}`,
+          }}
         >
           ✏️ ویرایش
         </button>

@@ -1,23 +1,35 @@
 // src/components/admin/tabs/PersonalInfoTab.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateUser } from '../../../features/admin/adminSlice';
 
 const PersonalInfoTab = ({ user }) => {
   const dispatch = useDispatch();
-  const { loading } = useSelector((state) => state.admin.updateStatus);
+  const { loading, success, error } = useSelector((state) => state.admin.updateStatus);
 
   const [formData, setFormData] = useState({
-    username: user?.username || '',
-    first_name: user?.first_name || '',
-    last_name: user?.last_name || '',
-    email: user?.email || '',
-    phone_number: user?.profile?.phone_number || '',
-    is_active: user?.is_active ?? true,
-    is_staff: user?.is_staff || false,
-    is_admin: user?.is_admin || false,
+    username: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone_number: '',
+    is_admin: false,
   });
+
+  // ✅ مقداردهی اولیه با user (وقتی user لود شد)
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        username: user.username || '',
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        email: user.email || '',
+        phone_number: user.profile?.phone_number || '',
+        is_admin: user.is_superuser || false, // ✅ توجه: از API معمولاً is_superuser میاد
+      });
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -29,7 +41,18 @@ const PersonalInfoTab = ({ user }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    dispatch(updateUser({ userId: user.id, userData: formData }));
+    
+    // ✅ ارسال با فرمت صحیح
+    const payload = {
+      username: formData.username,
+      first_name: formData.first_name,
+      last_name: formData.last_name,
+      email: formData.email,
+      phone_number: formData.phone_number,
+      is_admin: formData.is_admin, // Backend باید is_superuser و is_staff رو ست کنه
+    };
+
+    dispatch(updateUser({ userId: user.id, data: payload }));
   };
 
   if (!user) {
@@ -42,6 +65,19 @@ const PersonalInfoTab = ({ user }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
+          <p className="text-green-400">✅ اطلاعات با موفقیت ذخیره شد</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-700 rounded-xl p-4">
+          <p className="text-red-400">❌ {error}</p>
+        </div>
+      )}
+
       {/* نام کاربری و ایمیل */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -113,64 +149,78 @@ const PersonalInfoTab = ({ user }) => {
           placeholder="09123456789"
           className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
         />
-        <p className="text-gray-500 text-sm mt-1">
-          فرمت: 09xxxxxxxxx
+        <p className="text-gray-500 text-sm mt-1">فرمت: 09xxxxxxxxx</p>
+      </div>
+
+      {/* سطح دسترسی - فقط ادمین */}
+      <div className="bg-gradient-to-br from-purple-900/20 to-purple-800/10 rounded-xl p-6 border border-purple-700/50">
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-3xl">👑</span>
+          <div>
+            <h3 className="text-white font-bold text-lg">سطح دسترسی مدیریتی</h3>
+            <p className="text-gray-400 text-sm">
+              دسترسی به پنل مدیریت کاربران و تنظیمات سیستم
+            </p>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-4 cursor-pointer bg-gray-800/50 rounded-lg p-4 hover:bg-gray-800 transition-colors">
+          <input
+            type="checkbox"
+            name="is_admin"
+            checked={formData.is_admin}
+            onChange={handleChange}
+            className="w-6 h-6 rounded border-gray-600 text-purple-600 focus:ring-2 focus:ring-purple-500 cursor-pointer"
+          />
+          <div>
+            <span className="text-white font-bold text-lg">🔧 دسترسی مدیر سیستم</span>
+            <p className="text-gray-400 text-sm mt-1">
+              امکان مدیریت کاربران، تنظیمات سیستم، و دسترسی کامل به همه بخش‌ها
+            </p>
+          </div>
+        </label>
+
+        {formData.is_admin && (
+          <div className="mt-4 bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+            <p className="text-yellow-400 text-sm flex items-center gap-2">
+              <span>⚠️</span>
+              <span>
+                این کاربر به تمام بخش‌های مدیریتی شامل مدیریت کاربران و تنظیمات سیستم دسترسی خواهد داشت
+              </span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* نکته مهم */}
+      <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+        <p className="text-blue-400 text-sm flex items-start gap-2">
+          <span className="text-lg">💡</span>
+          <span>
+            <strong>نکته:</strong> همه افراد در سیستم به عنوان کارمند ثبت می‌شوند. 
+            برای دسترسی مدیریتی، تیک "دسترسی مدیر سیستم" را فعال کنید.
+          </span>
         </p>
       </div>
 
-      {/* سطح دسترسی */}
-      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <h3 className="text-white font-bold mb-4">🔐 سطح دسترسی</h3>
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="is_active"
-              checked={formData.is_active}
-              onChange={handleChange}
-              className="w-5 h-5 rounded border-gray-600 text-blue-600 focus:ring-2 focus:ring-blue-500"
-            />
-            <span className="text-gray-300">
-              ✅ کاربر فعال (می‌تواند وارد سیستم شود)
-            </span>
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="is_staff"
-              checked={formData.is_staff}
-              onChange={handleChange}
-              className="w-5 h-5 rounded border-gray-600 text-green-600 focus:ring-2 focus:ring-green-500"
-            />
-            <span className="text-gray-300">
-              👔 کارمند (دسترسی به پنل کارمندی)
-            </span>
-          </label>
-
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="is_admin"
-              checked={formData.is_admin}
-              onChange={handleChange}
-              className="w-5 h-5 rounded border-gray-600 text-purple-600 focus:ring-2 focus:ring-purple-500"
-            />
-            <span className="text-gray-300">
-              🔧 ادمین (دسترسی کامل به سیستم)
-            </span>
-          </label>
-        </div>
-      </div>
-
       {/* دکمه ذخیره */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3 pt-4">
         <button
           type="submit"
           disabled={loading}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition"
+          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-8 py-3 rounded-lg font-bold transition shadow-lg flex items-center gap-2"
         >
-          {loading ? '⏳ در حال ذخیره...' : '💾 ذخیره اطلاعات شخصی'}
+          {loading ? (
+            <>
+              <span className="animate-spin">⏳</span>
+              <span>در حال ذخیره...</span>
+            </>
+          ) : (
+            <>
+              <span>💾</span>
+              <span>ذخیره اطلاعات</span>
+            </>
+          )}
         </button>
       </div>
     </form>

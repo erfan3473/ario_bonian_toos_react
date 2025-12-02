@@ -1,24 +1,37 @@
-// src/api/axiosInstance.js
+// src/api/axios.js (یا axiosInstance.js)
 import axios from 'axios';
 
-const axiosInstance = axios.create({
-  baseURL: '/api', // بدون اسلش آخر
+const api = axios.create({
+  baseURL: '/api',
 });
 
-axiosInstance.interceptors.request.use((config) => {
-  const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-  const token = userInfo?.access; // ⚠️ توجه: از access استفاده کن نه token
-  
-  console.log('🔑 Axios Interceptor - Access Token:', token ? 'Exists' : 'Missing');
-  
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`; // ⚠️ از access استفاده کن
-    console.log('✅ Authorization header added with access token');
+api.interceptors.request.use(
+  (config) => {
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const token = userInfo?.access;
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
+);
 
-export default axiosInstance;
+// ✅ اضافه کردن response interceptor برای handle کردن 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token منقضی شده - logout
+      localStorage.removeItem('userInfo');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;

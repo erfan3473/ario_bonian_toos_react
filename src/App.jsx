@@ -1,5 +1,4 @@
 // src/App.jsx
-
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -16,7 +15,8 @@ import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
 import UserManagementScreen from './screens/admin/UserManagementScreen';
-import SettingsScreen from './screens/admin/SettingsScreen'; // ✅ جدید
+import UserDetailPage from './screens/admin/UserDetailPage'; // ✅ جدید
+import SettingsScreen from './screens/admin/SettingsScreen';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,9 +48,12 @@ function App() {
             <Route path="/assistant" element={<VoiceAssistantScreen />} />
             <Route path="/projects" element={<ProjectListScreen />} />
             
-            {/* Admin Routes */}
+            {/* ✅ Admin Routes - User Management */}
             <Route path="/admin/users" element={<UserManagementScreen />} />
-            <Route path="/admin/settings" element={<SettingsScreen />} /> {/* ✅ جدید */}
+            <Route path="/admin/users/:userId" element={<UserDetailPage />} /> {/* ✅ جدید */}
+            <Route path="/admin/users/new" element={<UserDetailPage />} /> {/* ✅ جدید */}
+            
+            <Route path="/admin/settings" element={<SettingsScreen />} />
             <Route path="/admin/projects/:id/geofence" element={<ProjectGeofenceScreen />} />
             <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
             <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />

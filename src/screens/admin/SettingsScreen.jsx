@@ -24,7 +24,6 @@ const SettingsScreen = () => {
     { id: 'system', label: 'تنظیمات سیستم', icon: '⚙️' },
   ];
 
-  // ✅ فقط یک بار fetch کن
   useEffect(() => {
     dispatch(fetchDropdowns());
     dispatch(fetchProjects());

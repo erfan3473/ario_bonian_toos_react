@@ -6,17 +6,17 @@ import {
   createContract,
   updateContract,
   deleteContract,
-  fetchDropdowns,
+  fetchEmploymentTypes,  // ✅ تغییر: به جای fetchDropdowns
   resetUpdateStatus,
 } from '../../../features/admin/adminSlice';
-import { fetchProjects } from '../../../features/projects/projectSlice'; // ✅ import
+import { fetchProjects } from '../../../features/projects/projectSlice';
 
 const ContractsTab = ({ user }) => {
   const dispatch = useDispatch();
   
   // ✅ Redux State
   const { employmentTypes } = useSelector((state) => state.admin);
-  const projects = useSelector((state) => state.projects.list); // ✅ از projectSlice
+  const projects = useSelector((state) => state.projects.list);
   const { loading, success, error } = useSelector((state) => state.admin.updateStatus);
 
   const [showNewForm, setShowNewForm] = useState(false);
@@ -36,10 +36,10 @@ const ContractsTab = ({ user }) => {
     is_active: true,
   });
 
-  // ✅ بارگذاری داده‌ها
+  // ✅ بارگذاری داده‌ها - تغییر اینجا
   useEffect(() => {
-    dispatch(fetchDropdowns()); // employmentTypes
-    dispatch(fetchProjects());  // projects از projectSlice
+    dispatch(fetchEmploymentTypes()); // ✅ به جای fetchDropdowns
+    dispatch(fetchProjects());
   }, [dispatch]);
 
   useEffect(() => {
@@ -93,7 +93,8 @@ const ContractsTab = ({ user }) => {
     };
 
     if (editingId) {
-      dispatch(updateContract({ contractId: editingId, contractData: payload }));
+      // ✅ تغییر نام parameter
+      dispatch(updateContract({ contractId: editingId, data: payload }));
     } else {
       dispatch(createContract(payload));
     }

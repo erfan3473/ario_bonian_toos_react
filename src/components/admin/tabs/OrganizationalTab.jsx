@@ -1,26 +1,47 @@
 // src/components/admin/tabs/OrganizationalTab.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateEmployee } from '../../../features/admin/adminSlice';
 
 const OrganizationalTab = ({ user }) => {
   const dispatch = useDispatch();
-  const { loading } = useSelector((state) => state.admin.updateStatus);
+  const { loading, success, error } = useSelector((state) => state.admin.updateStatus);
   const { positions, skillLevels } = useSelector((state) => state.admin);
 
   const employee = user?.employee_details;
 
+  // ✅ Sort با useMemo
+  const sortedSkillLevels = useMemo(() => {
+    return [...skillLevels].sort((a, b) => a.level_number - b.level_number);
+  }, [skillLevels]);
+
   const [formData, setFormData] = useState({
-    code_meli: employee?.code_meli || '',
-    father_name: employee?.father_name || '',
-    age: employee?.age || '',
-    position_id: employee?.position?.id || '',        // ✅ اصلاح
-    skill_level_id: employee?.skill_level?.id || '',  // ✅ اصلاح
-    insurance_code: employee?.insurance_code || '',
-    shaba_number: employee?.shaba_number || '',
-    bank_account_number: employee?.bank_account_number || '',
+    code_meli: '',
+    father_name: '',
+    age: '',
+    position_id: '',
+    skill_level_id: '',
+    insurance_code: '',
+    shaba_number: '',
+    bank_account_number: '',
   });
+
+  // ✅ مقداردهی اولیه
+  useEffect(() => {
+    if (employee) {
+      setFormData({
+        code_meli: employee.code_meli || '',
+        father_name: employee.father_name || '',
+        age: employee.age || '',
+        position_id: employee.position?.id || '',
+        skill_level_id: employee.skill_level?.id || '',
+        insurance_code: employee.insurance_code || '',
+        shaba_number: employee.shaba_number || '',
+        bank_account_number: employee.bank_account_number || '',
+      });
+    }
+  }, [employee]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,13 +54,26 @@ const OrganizationalTab = ({ user }) => {
       alert('این کاربر هنوز پروفایل کارمندی ندارد!');
       return;
     }
-    dispatch(updateEmployee({ employeeId: employee.id, employeeData: formData }));
+    dispatch(updateEmployee({ employeeId: employee.id, data: formData }));
   };
 
   if (!user) return null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-900/20 border border-green-700 rounded-xl p-4">
+          <p className="text-green-400">✅ اطلاعات سازمانی با موفقیت ذخیره شد</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-700 rounded-xl p-4">
+          <p className="text-red-400">❌ {error}</p>
+        </div>
+      )}
+
       {/* کدملی و نام پدر */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -53,6 +87,7 @@ const OrganizationalTab = ({ user }) => {
             onChange={handleChange}
             required
             maxLength={10}
+            pattern="[0-9]{10}"
             className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
             placeholder="0000000000"
           />
@@ -104,11 +139,14 @@ const OrganizationalTab = ({ user }) => {
       {/* سمت و سطح مهارت */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-gray-300 mb-2 font-bold">سمت سازمانی</label>
+          <label className="block text-gray-300 mb-2 font-bold">
+            سمت سازمانی <span className="text-red-500">*</span>
+          </label>
           <select
             name="position_id"
             value={formData.position_id}
             onChange={handleChange}
+            required
             className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="">-- انتخاب کنید --</option>
@@ -129,7 +167,7 @@ const OrganizationalTab = ({ user }) => {
             className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             <option value="">-- انتخاب کنید --</option>
-            {skillLevels.map((skill) => (
+            {sortedSkillLevels.map((skill) => (
               <option key={skill.id} value={skill.id}>
                 سطح {skill.level_number} - {skill.title}
               </option>
@@ -172,8 +210,8 @@ const OrganizationalTab = ({ user }) => {
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={loading}
-          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition"
+          disabled={loading || !employee?.id}
+          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition shadow-lg"
         >
           {loading ? '⏳ در حال ذخیره...' : '💾 ذخیره اطلاعات سازمانی'}
         </button>

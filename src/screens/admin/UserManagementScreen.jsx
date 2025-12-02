@@ -1,48 +1,39 @@
 // src/screens/admin/UserManagementScreen.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsers, fetchDropdowns } from '../../features/admin/adminSlice';
+import { useNavigate } from 'react-router-dom'; // ✅ جدید
+import {
+  fetchUsers,
+  fetchPositions,
+  fetchSkillLevels,
+  fetchEmploymentTypes,
+  fetchLeaveTypes,
+} from '../../features/admin/adminSlice';
 import { fetchProjects } from '../../features/projects/projectSlice';
 import UserCard from '../../components/admin/UserCard';
 import UserTableRow from '../../components/admin/UserTableRow';
-import UserDetailModal from '../../components/admin/UserDetailModal';
 
 const UserManagementScreen = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate(); // ✅ جدید
   
-  // ═══════════════════════════════════════════════════════
-  // 📌 Local State
-  // ═══════════════════════════════════════════════════════
-  
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState('all'); // 'all' | 'admin' | 'employee' | 'worker'
+  const [filterRole, setFilterRole] = useState('all');
   
-  // ═══════════════════════════════════════════════════════
-  // 📌 Redux State
-  // ═══════════════════════════════════════════════════════
-  
-  const { data: users, loading, error } = useSelector((state) => state.admin.users);
+  const { users, loading } = useSelector((state) => state.admin);
   const projects = useSelector((state) => state.projects.list);
 
-  // ═══════════════════════════════════════════════════════
-  // 🔄 Effects
-  // ═══════════════════════════════════════════════════════
-  
   useEffect(() => {
     dispatch(fetchUsers());
-    dispatch(fetchDropdowns()); // positions, skillLevels, employmentTypes, leaveTypes
-    dispatch(fetchProjects());  // پروژه‌ها
+    dispatch(fetchPositions());
+    dispatch(fetchSkillLevels());
+    dispatch(fetchEmploymentTypes());
+    dispatch(fetchLeaveTypes());
+    dispatch(fetchProjects());
   }, [dispatch]);
 
-  // ═══════════════════════════════════════════════════════
-  // 🔍 Filtering Logic
-  // ═══════════════════════════════════════════════════════
-  
   const filteredUsers = users.filter((user) => {
-    // جستجو
     const matchesSearch =
       user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -50,7 +41,6 @@ const UserManagementScreen = () => {
       user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.employee_details?.code_meli?.includes(searchTerm);
 
-    // فیلتر نقش
     let matchesRole = true;
     if (filterRole === 'admin') {
       matchesRole = user.is_superuser;
@@ -63,10 +53,6 @@ const UserManagementScreen = () => {
     return matchesSearch && matchesRole;
   });
 
-  // ═══════════════════════════════════════════════════════
-  // 📊 Statistics
-  // ═══════════════════════════════════════════════════════
-  
   const stats = {
     total: users.length,
     admins: users.filter((u) => u.is_superuser).length,
@@ -74,30 +60,30 @@ const UserManagementScreen = () => {
     workers: users.filter((u) => u.employee_details?.is_worker === true).length,
   };
 
-  // ═══════════════════════════════════════════════════════
-  // 🎯 Event Handlers
-  // ═══════════════════════════════════════════════════════
-  
+  // ✅ تغییر به Navigation
   const handleUserClick = (userId) => {
-    setSelectedUserId(userId);
+    navigate(`/admin/users/${userId}`);
   };
 
-  const handleCloseModal = () => {
-    setSelectedUserId(null);
-    dispatch(fetchUsers()); // رفرش لیست بعد از تغییرات
+  const handleNewUserClick = () => {
+    navigate('/admin/users/new');
   };
 
   const handleRefresh = () => {
     dispatch(fetchUsers());
     dispatch(fetchProjects());
+    dispatch(fetchPositions());
+    dispatch(fetchSkillLevels());
+    dispatch(fetchEmploymentTypes());
+    dispatch(fetchLeaveTypes());
   };
 
-  // ═══════════════════════════════════════════════════════
-  // 🎨 Render States
-  // ═══════════════════════════════════════════════════════
+  // ✅ Back button برای بازگشت از صفحه جزئیات
+  const handleBackFromDetail = () => {
+    navigate('/admin/users');
+  };
 
-  // Loading
-  if (loading && users.length === 0) {
+  if (loading.users && users.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -108,35 +94,9 @@ const UserManagementScreen = () => {
     );
   }
 
-  // Error
-  if (error && users.length === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-red-900/20 border border-red-700 rounded-xl p-8 text-center">
-            <div className="text-6xl mb-4">❌</div>
-            <p className="text-red-400 text-xl mb-4">
-              {error || 'خطا در بارگذاری کاربران'}
-            </p>
-            <button
-              onClick={handleRefresh}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold transition"
-            >
-              🔄 تلاش مجدد
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
-        
-        {/* ═════════════════════════════════════════ */}
-        {/* Header */}
-        {/* ═════════════════════════════════════════ */}
         
         <div className="mb-8">
           <div className="flex justify-between items-center">
@@ -149,23 +109,17 @@ const UserManagementScreen = () => {
               </p>
             </div>
             
-            {/* Refresh Button */}
             <button
               onClick={handleRefresh}
-              disabled={loading}
+              disabled={loading.users}
               className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
             >
-              {loading ? '⏳' : '🔄'} بروزرسانی
+              {loading.users ? '⏳' : '🔄'} بروزرسانی
             </button>
           </div>
         </div>
 
-        {/* ═════════════════════════════════════════ */}
-        {/* Stats Cards */}
-        {/* ═════════════════════════════════════════ */}
-        
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {/* کل کاربران */}
           <div 
             className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 border border-blue-700 hover:scale-105 transition-transform cursor-pointer"
             onClick={() => setFilterRole('all')}
@@ -174,7 +128,6 @@ const UserManagementScreen = () => {
             <div className="text-white text-3xl font-bold">{stats.total}</div>
           </div>
           
-          {/* ادمین‌ها */}
           <div 
             className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 border border-purple-700 hover:scale-105 transition-transform cursor-pointer"
             onClick={() => setFilterRole('admin')}
@@ -183,7 +136,6 @@ const UserManagementScreen = () => {
             <div className="text-white text-3xl font-bold">{stats.admins}</div>
           </div>
           
-          {/* کارمندان */}
           <div 
             className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 border border-green-700 hover:scale-105 transition-transform cursor-pointer"
             onClick={() => setFilterRole('employee')}
@@ -192,7 +144,6 @@ const UserManagementScreen = () => {
             <div className="text-white text-3xl font-bold">{stats.employees}</div>
           </div>
           
-          {/* کارگران */}
           <div 
             className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-4 border border-orange-700 hover:scale-105 transition-transform cursor-pointer"
             onClick={() => setFilterRole('worker')}
@@ -202,14 +153,9 @@ const UserManagementScreen = () => {
           </div>
         </div>
 
-        {/* ═════════════════════════════════════════ */}
-        {/* Toolbar */}
-        {/* ═════════════════════════════════════════ */}
-        
         <div className="bg-gray-800 rounded-xl p-4 mb-6 border border-gray-700 shadow-lg">
           <div className="flex flex-col lg:flex-row gap-4">
             
-            {/* Search */}
             <div className="flex-grow">
               <input
                 type="text"
@@ -220,7 +166,6 @@ const UserManagementScreen = () => {
               />
             </div>
 
-            {/* Role Filter */}
             <div className="w-full lg:w-auto">
               <select
                 value={filterRole}
@@ -234,7 +179,6 @@ const UserManagementScreen = () => {
               </select>
             </div>
 
-            {/* View Mode Toggle */}
             <div className="flex gap-2">
               <button
                 onClick={() => setViewMode('grid')}
@@ -260,9 +204,8 @@ const UserManagementScreen = () => {
               </button>
             </div>
 
-            {/* Add User Button */}
             <button
-              onClick={() => setSelectedUserId('new')}
+              onClick={handleNewUserClick} // ✅ تغییر
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold transition shadow-lg whitespace-nowrap"
             >
               ➕ کاربر جدید
@@ -270,12 +213,7 @@ const UserManagementScreen = () => {
           </div>
         </div>
 
-        {/* ═════════════════════════════════════════ */}
-        {/* Content Area */}
-        {/* ═════════════════════════════════════════ */}
-        
         {filteredUsers.length === 0 ? (
-          // Empty State
           <div className="bg-gray-800 rounded-xl p-12 text-center border border-gray-700 shadow-lg">
             <div className="text-6xl mb-4">🔍</div>
             <p className="text-gray-400 text-xl mb-2">کاربری یافت نشد</p>
@@ -285,20 +223,18 @@ const UserManagementScreen = () => {
           </div>
         ) : (
           <>
-            {/* Grid View */}
             {viewMode === 'grid' && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredUsers.map((user) => (
                   <UserCard
                     key={user.id}
                     user={user}
-                    onClick={() => handleUserClick(user.id)}
+                    onClick={() => handleUserClick(user.id)} // ✅ تغییر
                   />
                 ))}
               </div>
             )}
 
-            {/* Table View */}
             {viewMode === 'table' && (
               <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-lg">
                 <div className="overflow-x-auto">
@@ -309,7 +245,7 @@ const UserManagementScreen = () => {
                         <th className="px-4 py-3 text-right text-gray-300 font-bold">سمت</th>
                         <th className="px-4 py-3 text-center text-gray-300 font-bold">کدملی</th>
                         <th className="px-4 py-3 text-center text-gray-300 font-bold">موبایل</th>
-                        <th className="px-4 py-3 text-center text-gray-300 font-bold">نوع استخدام</th>
+                        <th className="px-4 py-3 text-center text-gray-300 font-bold">پروژه‌ها</th>
                         <th className="px-4 py-3 text-center text-gray-300 font-bold">دستمزد</th>
                         <th className="px-4 py-3 text-center text-gray-300 font-bold">عملیات</th>
                       </tr>
@@ -319,7 +255,7 @@ const UserManagementScreen = () => {
                         <UserTableRow
                           key={user.id}
                           user={user}
-                          onClick={() => handleUserClick(user.id)}
+                          onClick={() => handleUserClick(user.id)} // ✅ تغییر
                         />
                       ))}
                     </tbody>
@@ -330,24 +266,12 @@ const UserManagementScreen = () => {
           </>
         )}
 
-        {/* Results Count */}
         {filteredUsers.length > 0 && (
           <div className="mt-4 text-center text-gray-500 text-sm">
             نمایش {filteredUsers.length} از {users.length} کاربر
           </div>
         )}
       </div>
-
-      {/* ═════════════════════════════════════════ */}
-      {/* User Detail Modal */}
-      {/* ═════════════════════════════════════════ */}
-      
-      {selectedUserId && (
-        <UserDetailModal
-          userId={selectedUserId === 'new' ? null : selectedUserId}
-          onClose={handleCloseModal}
-        />
-      )}
     </div>
   );
 };

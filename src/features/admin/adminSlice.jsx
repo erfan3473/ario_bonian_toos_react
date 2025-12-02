@@ -1,779 +1,638 @@
 // src/features/admin/adminSlice.jsx
-// ⚠️ [translate:فایل کامل - جایگزین کن]
+// ⚠️ فایل کامل - جایگزین کن
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:8000/api/admin';
+import api from '../../api/axiosInstance';
 
 // ═══════════════════════════════════════════════════════════
-// 🛠️ Helper Functions
+// 🔄 ASYNC THUNKS
 // ═══════════════════════════════════════════════════════════
 
-const extractErrorMessage = (error) => {
-  if (error.response?.data) {
-    const data = error.response.data;
-    if (typeof data === 'object' && !Array.isArray(data)) {
-      const firstKey = Object.keys(data)[0];
-      if (firstKey && Array.isArray(data[firstKey])) return data[firstKey][0];
-      if (firstKey) return data[firstKey];
-    }
-    if (typeof data === 'string') return data;
-    if (data.detail) return data.detail;
-  }
-  return error.message || 'خطای ناشناخته رخ داد';
-};
-
-const getAuthConfig = (getState, isMultipart = false) => {
-  const { userLogin } = getState();
-  const token = userLogin?.userInfo?.access;
-  if (!token) throw new Error('توکن احراز هویت یافت نشد');
-  return {
-    headers: {
-      'Content-Type': isMultipart ? 'multipart/form-data' : 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  };
-};
-
-// ═══════════════════════════════════════════════════════════
-// 🔄 Async Thunks - Users
-// ═══════════════════════════════════════════════════════════
-
+// 👥 Users
 export const fetchUsers = createAsyncThunk(
   'admin/fetchUsers',
-  async (params = {}, { rejectWithValue, getState }) => {
+  async (role = '', { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.get(`${API_BASE}/users/`, { ...config, params });
-      return Array.isArray(data) ? data : data.results || [];
+      const response = await api.get(`/admin/users/${role ? `?role=${role}` : ''}`);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت کاربران');
     }
   }
 );
 
 export const fetchUserDetail = createAsyncThunk(
   'admin/fetchUserDetail',
-  async (userId, { rejectWithValue, getState }) => {
+  async (userId, { rejectWithValue }) => {
     try {
-      if (!userId) throw new Error('شناسه کاربر الزامی است');
-      const config = getAuthConfig(getState);
-      const { data } = await axios.get(`${API_BASE}/users/${userId}/`, config);
-      return data;
+      const response = await api.get(`/admin/users/${userId}/`);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت جزئیات کاربر');
     }
   }
 );
 
 export const updateUser = createAsyncThunk(
   'admin/updateUser',
-  async ({ userId, userData }, { rejectWithValue, getState }) => {
+  async ({ userId, data }, { rejectWithValue }) => {
     try {
-      if (!userId) throw new Error('شناسه کاربر الزامی است');
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/users/${userId}/update/`, userData, config);
-      return data;
+      const response = await api.put(`/admin/users/${userId}/update/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
-    }
-  }
-);
-
-export const createUser = createAsyncThunk(
-  'admin/createUser',
-  async (userData, { rejectWithValue, getState }) => {
-    try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.post(`${API_BASE}/users/`, userData, config);
-      return data;
-    } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش کاربر');
     }
   }
 );
 
 export const deleteUser = createAsyncThunk(
   'admin/deleteUser',
-  async (userId, { rejectWithValue, getState }) => {
+  async (userId, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      await axios.delete(`${API_BASE}/users/${userId}/delete/`, config);
+      await api.delete(`/admin/users/${userId}/delete/`);
       return userId;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در حذف کاربر');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
-// 🔄 Async Thunks - Employees
-// ═══════════════════════════════════════════════════════════
-
+// 👔 Employees
 export const updateEmployee = createAsyncThunk(
   'admin/updateEmployee',
-  async ({ employeeId, employeeData }, { rejectWithValue, getState }) => {
+  async ({ employeeId, data }, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/employees/${employeeId}/`, employeeData, config);
-      return data;
+      const response = await api.put(`/admin/employees/${employeeId}/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش کارمند');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
-// 🔄 Async Thunks - Contracts
-// ═══════════════════════════════════════════════════════════
+export const fetchEmployeeLeaveSummary = createAsyncThunk(
+  'admin/fetchEmployeeLeaveSummary',
+  async ({ employeeId, year }, { rejectWithValue }) => {
+    try {
+      const response = await api.get(`/admin/employees/${employeeId}/leave-summary/?year=${year}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت موجودی مرخصی');
+    }
+  }
+);
 
+// 📝 Contracts
 export const fetchContracts = createAsyncThunk(
   'admin/fetchContracts',
-  async (params = {}, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.get(`${API_BASE}/contracts/`, { ...config, params });
-      return Array.isArray(data) ? data : data.results || [];
+      const response = await api.get('/admin/contracts/');
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت قراردادها');
     }
   }
 );
 
 export const createContract = createAsyncThunk(
   'admin/createContract',
-  async (contractData, { rejectWithValue, getState }) => {
+  async (data, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.post(`${API_BASE}/contracts/`, contractData, config);
-      return data;
+      const response = await api.post('/admin/contracts/', data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ایجاد قرارداد');
     }
   }
 );
 
 export const updateContract = createAsyncThunk(
   'admin/updateContract',
-  async ({ contractId, contractData }, { rejectWithValue, getState }) => {
+  async ({ contractId, data }, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/contracts/${contractId}/`, contractData, config);
-      return data;
+      const response = await api.put(`/admin/contracts/${contractId}/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش قرارداد');
     }
   }
 );
 
 export const deleteContract = createAsyncThunk(
   'admin/deleteContract',
-  async (contractId, { rejectWithValue, getState }) => {
+  async (contractId, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      await axios.delete(`${API_BASE}/contracts/${contractId}/`, config);
+      await api.delete(`/admin/contracts/${contractId}/`);
       return contractId;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در حذف قرارداد');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
-// 🔄 Async Thunks - Dropdowns (GET)
-// ═══════════════════════════════════════════════════════════
+// 📋 Dropdowns - Individual
+export const fetchPositions = createAsyncThunk(
+  'admin/fetchPositions',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/admin/dropdowns/positions/');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت سمت‌ها');
+    }
+  }
+);
 
+export const fetchSkillLevels = createAsyncThunk(
+  'admin/fetchSkillLevels',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/admin/dropdowns/skill-levels/');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت سطوح مهارت');
+    }
+  }
+);
+
+export const fetchEmploymentTypes = createAsyncThunk(
+  'admin/fetchEmploymentTypes',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/admin/dropdowns/employment-types/');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت انواع استخدام');
+    }
+  }
+);
+
+export const fetchLeaveTypes = createAsyncThunk(
+  'admin/fetchLeaveTypes',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/admin/dropdowns/leave-types/');
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت انواع مرخصی');
+    }
+  }
+);
+
+// 📋 Dropdowns - Batch (برای SettingsScreen)
 export const fetchDropdowns = createAsyncThunk(
   'admin/fetchDropdowns',
-  async (_, { rejectWithValue, getState }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
-      const config = getAuthConfig(getState);
-      const [positions, skillLevels, employmentTypes, leaveTypes] = await Promise.all([
-        axios.get(`${API_BASE}/dropdowns/positions/`, config),
-        axios.get(`${API_BASE}/dropdowns/skill-levels/`, config),
-        axios.get(`${API_BASE}/dropdowns/employment-types/`, config),
-        axios.get(`${API_BASE}/dropdowns/leave-types/`, config),
+      // ✅ فراخوانی همزمان همه dropdowns
+      const results = await Promise.allSettled([
+        dispatch(fetchPositions()).unwrap(),
+        dispatch(fetchSkillLevels()).unwrap(),
+        dispatch(fetchEmploymentTypes()).unwrap(),
+        dispatch(fetchLeaveTypes()).unwrap(),
       ]);
-      return {
-        positions: positions.data || [],
-        skillLevels: skillLevels.data || [],
-        employmentTypes: employmentTypes.data || [],
-        leaveTypes: leaveTypes.data || [],
-      };
+
+      // بررسی خطاها
+      const errors = results
+        .filter((r) => r.status === 'rejected')
+        .map((r) => r.reason);
+
+      if (errors.length > 0) {
+        return rejectWithValue(errors[0]);
+      }
+
+      return { success: true };
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue('خطا در بارگذاری داده‌ها');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
 // 👔 Employment Types - CRUD
-// ═══════════════════════════════════════════════════════════
-
 export const createEmploymentType = createAsyncThunk(
   'admin/createEmploymentType',
-  async (employmentTypeData, { rejectWithValue, getState }) => {
+  async (data, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.post(`${API_BASE}/employment-types/`, employmentTypeData, config);
-      return data;
+      const response = await api.post('/admin/employment-types/', data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ایجاد نوع استخدام');
     }
   }
 );
 
 export const updateEmploymentType = createAsyncThunk(
   'admin/updateEmploymentType',
-  async ({ id, data: employmentTypeData }, { rejectWithValue, getState }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/employment-types/${id}/`, employmentTypeData, config);
-      return data;
+      const response = await api.put(`/admin/employment-types/${id}/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش نوع استخدام');
     }
   }
 );
 
 export const deleteEmploymentType = createAsyncThunk(
   'admin/deleteEmploymentType',
-  async (id, { rejectWithValue, getState }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      await axios.delete(`${API_BASE}/employment-types/${id}/delete/`, config);
+      await api.delete(`/admin/employment-types/${id}/delete/`);
       return id;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در حذف نوع استخدام');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
 // 🎯 Positions - CRUD
-// ═══════════════════════════════════════════════════════════
-
 export const createPosition = createAsyncThunk(
   'admin/createPosition',
-  async (positionData, { rejectWithValue, getState }) => {
+  async (data, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.post(`${API_BASE}/positions/`, positionData, config);
-      return data;
+      const response = await api.post('/admin/positions/', data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ایجاد سمت');
     }
   }
 );
 
 export const updatePosition = createAsyncThunk(
   'admin/updatePosition',
-  async ({ id, data: positionData }, { rejectWithValue, getState }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/positions/${id}/`, positionData, config);
-      return data;
+      const response = await api.put(`/admin/positions/${id}/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش سمت');
     }
   }
 );
 
 export const deletePosition = createAsyncThunk(
   'admin/deletePosition',
-  async (id, { rejectWithValue, getState }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      await axios.delete(`${API_BASE}/positions/${id}/delete/`, config);
+      await api.delete(`/admin/positions/${id}/delete/`);
       return id;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در حذف سمت');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
 // ⭐ Skill Levels - CRUD
-// ═══════════════════════════════════════════════════════════
-
 export const createSkillLevel = createAsyncThunk(
   'admin/createSkillLevel',
-  async (skillLevelData, { rejectWithValue, getState }) => {
+  async (data, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.post(`${API_BASE}/skill-levels/`, skillLevelData, config);
-      return data;
+      const response = await api.post('/admin/skill-levels/', data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ایجاد سطح مهارت');
     }
   }
 );
 
 export const updateSkillLevel = createAsyncThunk(
   'admin/updateSkillLevel',
-  async ({ id, data: skillLevelData }, { rejectWithValue, getState }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/skill-levels/${id}/`, skillLevelData, config);
-      return data;
+      const response = await api.put(`/admin/skill-levels/${id}/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش سطح مهارت');
     }
   }
 );
 
 export const deleteSkillLevel = createAsyncThunk(
   'admin/deleteSkillLevel',
-  async (id, { rejectWithValue, getState }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      await axios.delete(`${API_BASE}/skill-levels/${id}/delete/`, config);
+      await api.delete(`/admin/skill-levels/${id}/delete/`);
       return id;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در حذف سطح مهارت');
     }
   }
 );
 
-// ═══════════════════════════════════════════════════════════
 // 🏖️ Leave Types - CRUD
-// ═══════════════════════════════════════════════════════════
-
 export const createLeaveType = createAsyncThunk(
   'admin/createLeaveType',
-  async (leaveTypeData, { rejectWithValue, getState }) => {
+  async (data, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.post(`${API_BASE}/leave-types/`, leaveTypeData, config);
-      return data;
+      const response = await api.post('/admin/leave-types/', data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ایجاد نوع مرخصی');
     }
   }
 );
 
 export const updateLeaveType = createAsyncThunk(
   'admin/updateLeaveType',
-  async ({ id, data: leaveTypeData }, { rejectWithValue, getState }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      const { data } = await axios.put(`${API_BASE}/leave-types/${id}/`, leaveTypeData, config);
-      return data;
+      const response = await api.put(`/admin/leave-types/${id}/`, data);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش نوع مرخصی');
     }
   }
 );
 
 export const deleteLeaveType = createAsyncThunk(
   'admin/deleteLeaveType',
-  async (id, { rejectWithValue, getState }) => {
+  async (id, { rejectWithValue }) => {
     try {
-      const config = getAuthConfig(getState);
-      await axios.delete(`${API_BASE}/leave-types/${id}/delete/`, config);
+      await api.delete(`/admin/leave-types/${id}/delete/`);
       return id;
     } catch (error) {
-      return rejectWithValue(extractErrorMessage(error));
+      return rejectWithValue(error.response?.data?.detail || 'خطا در حذف نوع مرخصی');
+    }
+  }
+);
+
+// 🏖️ Leave Requests
+export const approveLeaveRequest = createAsyncThunk(
+  'admin/approveLeaveRequest',
+  async (requestId, { rejectWithValue }) => {
+    try {
+      await api.post(`/admin/leave-requests/${requestId}/approve/`);
+      return requestId;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در تایید درخواست');
+    }
+  }
+);
+
+export const rejectLeaveRequest = createAsyncThunk(
+  'admin/rejectLeaveRequest',
+  async ({ requestId, reason }, { rejectWithValue }) => {
+    try {
+      await api.post(`/admin/leave-requests/${requestId}/reject/`, { reason });
+      return requestId;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در رد درخواست');
     }
   }
 );
 
 // ═══════════════════════════════════════════════════════════
-// 🗄️ Slice
+// 📦 INITIAL STATE
+// ═══════════════════════════════════════════════════════════
+
+const initialState = {
+  users: [],
+  selectedUser: null,
+  contracts: [],
+  positions: [],
+  skillLevels: [],
+  employmentTypes: [],
+  leaveTypes: [],
+  leaveSummary: null,
+  
+  loading: {
+    users: false,
+    contracts: false,
+    leaveSummary: false,
+  },
+  
+  dropdownsLoading: false,
+  dropdownsError: null,
+  
+  updateStatus: {
+    loading: false,
+    success: false,
+    error: null,
+  },
+};
+
+// ═══════════════════════════════════════════════════════════
+// 🎯 SLICE
 // ═══════════════════════════════════════════════════════════
 
 const adminSlice = createSlice({
   name: 'admin',
-  initialState: {
-    users: { data: [], loading: false, error: null },
-    selectedUser: { data: null, loading: false, error: null },
-    updateStatus: { loading: false, success: false, error: null },
-    
-    // Dropdowns
-    positions: [],
-    skillLevels: [],
-    employmentTypes: [],
-    leaveTypes: [],
-    dropdownsLoading: false,
-    dropdownsError: null,
-    
-    contracts: { data: [], loading: false, error: null },
-  },
-  
+  initialState,
   reducers: {
-    clearSelectedUser: (state) => {
-      state.selectedUser = { data: null, loading: false, error: null };
-    },
     resetUpdateStatus: (state) => {
       state.updateStatus = { loading: false, success: false, error: null };
     },
-    clearUsersError: (state) => {
-      state.users.error = null;
+    clearSelectedUser: (state) => {
+      state.selectedUser = null;
     },
-    clearContractsError: (state) => {
-      state.contracts.error = null;
+    clearLeaveSummary: (state) => {
+      state.leaveSummary = null;
     },
   },
-  
   extraReducers: (builder) => {
-    // ════════════════════════════════════════════════════
-    // Users
-    // ════════════════════════════════════════════════════
+    // 👥 Users
     builder
       .addCase(fetchUsers.pending, (state) => {
-        state.users.loading = true;
-        state.users.error = null;
+        state.loading.users = true;
       })
       .addCase(fetchUsers.fulfilled, (state, action) => {
-        state.users.loading = false;
-        state.users.data = action.payload;
+        state.loading.users = false;
+        state.users = action.payload;
       })
-      .addCase(fetchUsers.rejected, (state, action) => {
-        state.users.loading = false;
-        state.users.error = action.payload || 'خطا در بارگذاری کاربران';
-      });
-    
-    builder
-      .addCase(fetchUserDetail.pending, (state) => {
-        state.selectedUser.loading = true;
+      .addCase(fetchUsers.rejected, (state) => {
+        state.loading.users = false;
       })
+      
       .addCase(fetchUserDetail.fulfilled, (state, action) => {
-        state.selectedUser.loading = false;
-        state.selectedUser.data = action.payload;
+        state.selectedUser = action.payload;
       })
-      .addCase(fetchUserDetail.rejected, (state, action) => {
-        state.selectedUser.loading = false;
-        state.selectedUser.error = action.payload;
-      });
-    
-    builder
+      
       .addCase(updateUser.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
+        state.updateStatus.loading = true;
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         state.updateStatus = { loading: false, success: true, error: null };
-        state.selectedUser.data = action.payload;
-        const index = state.users.data.findIndex((u) => u.id === action.payload.id);
-        if (index !== -1) state.users.data[index] = action.payload;
+        const index = state.users.findIndex((u) => u.id === action.payload.id);
+        if (index !== -1) state.users[index] = action.payload;
+        if (state.selectedUser?.id === action.payload.id) {
+          state.selectedUser = action.payload;
+        }
       })
       .addCase(updateUser.rejected, (state, action) => {
         state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(createUser.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
       })
-      .addCase(createUser.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
-        state.users.data.push(action.payload);
-      })
-      .addCase(createUser.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(deleteUser.pending, (state) => {
-        state.updateStatus.loading = true;
-      })
+      
       .addCase(deleteUser.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.users.data = state.users.data.filter((u) => u.id !== action.payload);
-        state.updateStatus.success = true;
-      })
-      .addCase(deleteUser.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload;
+        state.users = state.users.filter((u) => u.id !== action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
       });
-    
-    // ════════════════════════════════════════════════════
-    // Employee
-    // ════════════════════════════════════════════════════
+
+    // 👔 Employees
     builder
       .addCase(updateEmployee.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
+        state.updateStatus.loading = true;
       })
       .addCase(updateEmployee.fulfilled, (state, action) => {
         state.updateStatus = { loading: false, success: true, error: null };
-        if (state.selectedUser.data) {
-          state.selectedUser.data.employee_details = action.payload;
-        }
       })
       .addCase(updateEmployee.rejected, (state, action) => {
         state.updateStatus = { loading: false, success: false, error: action.payload };
+      })
+      
+      .addCase(fetchEmployeeLeaveSummary.pending, (state) => {
+        state.loading.leaveSummary = true;
+      })
+      .addCase(fetchEmployeeLeaveSummary.fulfilled, (state, action) => {
+        state.loading.leaveSummary = false;
+        state.leaveSummary = action.payload;
+      })
+      .addCase(fetchEmployeeLeaveSummary.rejected, (state) => {
+        state.loading.leaveSummary = false;
       });
-    
-    // ════════════════════════════════════════════════════
-    // Dropdowns
-    // ════════════════════════════════════════════════════
+
+    // 📝 Contracts
+    builder
+      .addCase(fetchContracts.pending, (state) => {
+        state.loading.contracts = true;
+      })
+      .addCase(fetchContracts.fulfilled, (state, action) => {
+        state.loading.contracts = false;
+        state.contracts = action.payload;
+      })
+      .addCase(fetchContracts.rejected, (state) => {
+        state.loading.contracts = false;
+      })
+      
+      .addCase(createContract.fulfilled, (state, action) => {
+        state.contracts.push(action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
+      })
+      
+      .addCase(updateContract.fulfilled, (state, action) => {
+        const index = state.contracts.findIndex((c) => c.id === action.payload.id);
+        if (index !== -1) state.contracts[index] = action.payload;
+        state.updateStatus = { loading: false, success: true, error: null };
+      })
+      
+      .addCase(deleteContract.fulfilled, (state, action) => {
+        state.contracts = state.contracts.filter((c) => c.id !== action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
+      });
+
+    // 📋 Dropdowns - Batch
     builder
       .addCase(fetchDropdowns.pending, (state) => {
         state.dropdownsLoading = true;
         state.dropdownsError = null;
       })
-      .addCase(fetchDropdowns.fulfilled, (state, action) => {
+      .addCase(fetchDropdowns.fulfilled, (state) => {
         state.dropdownsLoading = false;
-        state.positions = action.payload.positions;
-        state.skillLevels = action.payload.skillLevels;
-        state.employmentTypes = action.payload.employmentTypes;
-        state.leaveTypes = action.payload.leaveTypes;
       })
       .addCase(fetchDropdowns.rejected, (state, action) => {
         state.dropdownsLoading = false;
         state.dropdownsError = action.payload;
       });
-    
-    // ════════════════════════════════════════════════════
-    // Contracts
-    // ════════════════════════════════════════════════════
+
+    // 📋 Dropdowns - Individual
     builder
-      .addCase(fetchContracts.pending, (state) => {
-        state.contracts.loading = true;
+      .addCase(fetchPositions.fulfilled, (state, action) => {
+        state.positions = action.payload;
       })
-      .addCase(fetchContracts.fulfilled, (state, action) => {
-        state.contracts.loading = false;
-        state.contracts.data = action.payload;
+      .addCase(fetchSkillLevels.fulfilled, (state, action) => {
+        state.skillLevels = action.payload;
       })
-      .addCase(fetchContracts.rejected, (state, action) => {
-        state.contracts.loading = false;
-        state.contracts.error = action.payload;
+      .addCase(fetchEmploymentTypes.fulfilled, (state, action) => {
+        state.employmentTypes = action.payload;
+      })
+      .addCase(fetchLeaveTypes.fulfilled, (state, action) => {
+        state.leaveTypes = action.payload;
       });
-    
+
+    // 👔 Employment Types - CRUD
     builder
-      .addCase(createContract.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
-      })
-      .addCase(createContract.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
-        state.contracts.data.push(action.payload);
-        if (state.selectedUser.data?.employee_details) {
-          if (!state.selectedUser.data.employee_details.contracts) {
-            state.selectedUser.data.employee_details.contracts = [];
-          }
-          state.selectedUser.data.employee_details.contracts.push(action.payload);
-        }
-      })
-      .addCase(createContract.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(updateContract.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
-      })
-      .addCase(updateContract.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
-        const index = state.contracts.data.findIndex((c) => c.id === action.payload.id);
-        if (index !== -1) state.contracts.data[index] = action.payload;
-        
-        if (state.selectedUser.data?.employee_details?.contracts) {
-          const userIndex = state.selectedUser.data.employee_details.contracts.findIndex(
-            (c) => c.id === action.payload.id
-          );
-          if (userIndex !== -1) {
-            state.selectedUser.data.employee_details.contracts[userIndex] = action.payload;
-          }
-        }
-      })
-      .addCase(updateContract.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(deleteContract.pending, (state) => {
-        state.updateStatus.loading = true;
-      })
-      .addCase(deleteContract.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.contracts.data = state.contracts.data.filter((c) => c.id !== action.payload);
-        
-        if (state.selectedUser.data?.employee_details?.contracts) {
-          state.selectedUser.data.employee_details.contracts = 
-            state.selectedUser.data.employee_details.contracts.filter((c) => c.id !== action.payload);
-        }
-        state.updateStatus.success = true;
-      })
-      .addCase(deleteContract.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload;
-      });
-    
-    // ════════════════════════════════════════════════════
-    // 👔 Employment Types
-    // ════════════════════════════════════════════════════
-    builder
-      .addCase(createEmploymentType.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
-      })
       .addCase(createEmploymentType.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
         state.employmentTypes.push(action.payload);
-      })
-      .addCase(createEmploymentType.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(updateEmploymentType.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(updateEmploymentType.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
-        const index = state.employmentTypes.findIndex((et) => et.id === action.payload.id);
+        const index = state.employmentTypes.findIndex((e) => e.id === action.payload.id);
         if (index !== -1) state.employmentTypes[index] = action.payload;
-      })
-      .addCase(updateEmploymentType.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(deleteEmploymentType.pending, (state) => {
-        state.updateStatus.loading = true;
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(deleteEmploymentType.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.employmentTypes = state.employmentTypes.filter((et) => et.id !== action.payload);
-        state.updateStatus.success = true;
-      })
-      .addCase(deleteEmploymentType.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload;
-      });
-    
-    // ════════════════════════════════════════════════════
-    // 🎯 Positions
-    // ════════════════════════════════════════════════════
-    builder
-      .addCase(createPosition.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
-      })
-      .addCase(createPosition.fulfilled, (state, action) => {
+        state.employmentTypes = state.employmentTypes.filter((e) => e.id !== action.payload);
         state.updateStatus = { loading: false, success: true, error: null };
-        state.positions.push(action.payload);
-      })
-      .addCase(createPosition.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
-    
+
+    // 🎯 Positions - CRUD
     builder
-      .addCase(updatePosition.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
+      .addCase(createPosition.fulfilled, (state, action) => {
+        state.positions.push(action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(updatePosition.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
         const index = state.positions.findIndex((p) => p.id === action.payload.id);
         if (index !== -1) state.positions[index] = action.payload;
-      })
-      .addCase(updatePosition.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(deletePosition.pending, (state) => {
-        state.updateStatus.loading = true;
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(deletePosition.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
         state.positions = state.positions.filter((p) => p.id !== action.payload);
-        state.updateStatus.success = true;
-      })
-      .addCase(deletePosition.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload;
-      });
-    
-    // ════════════════════════════════════════════════════
-    // ⭐ Skill Levels
-    // ════════════════════════════════════════════════════
-    builder
-      .addCase(createSkillLevel.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
-      })
-      .addCase(createSkillLevel.fulfilled, (state, action) => {
         state.updateStatus = { loading: false, success: true, error: null };
-        state.skillLevels.push(action.payload);
-      })
-      .addCase(createSkillLevel.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
-    
+
+    // ⭐ Skill Levels - CRUD
     builder
-      .addCase(updateSkillLevel.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
+      .addCase(createSkillLevel.fulfilled, (state, action) => {
+        state.skillLevels.push(action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(updateSkillLevel.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
-        const index = state.skillLevels.findIndex((sl) => sl.id === action.payload.id);
+        const index = state.skillLevels.findIndex((s) => s.id === action.payload.id);
         if (index !== -1) state.skillLevels[index] = action.payload;
-      })
-      .addCase(updateSkillLevel.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(deleteSkillLevel.pending, (state) => {
-        state.updateStatus.loading = true;
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(deleteSkillLevel.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.skillLevels = state.skillLevels.filter((sl) => sl.id !== action.payload);
-        state.updateStatus.success = true;
-      })
-      .addCase(deleteSkillLevel.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload;
-      });
-    
-    // ════════════════════════════════════════════════════
-    // 🏖️ Leave Types
-    // ════════════════════════════════════════════════════
-    builder
-      .addCase(createLeaveType.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
-      })
-      .addCase(createLeaveType.fulfilled, (state, action) => {
+        state.skillLevels = state.skillLevels.filter((s) => s.id !== action.payload);
         state.updateStatus = { loading: false, success: true, error: null };
-        state.leaveTypes.push(action.payload);
-      })
-      .addCase(createLeaveType.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
-    
+
+    // 🏖️ Leave Types - CRUD
     builder
-      .addCase(updateLeaveType.pending, (state) => {
-        state.updateStatus = { loading: true, success: false, error: null };
+      .addCase(createLeaveType.fulfilled, (state, action) => {
+        state.leaveTypes.push(action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(updateLeaveType.fulfilled, (state, action) => {
-        state.updateStatus = { loading: false, success: true, error: null };
-        const index = state.leaveTypes.findIndex((lt) => lt.id === action.payload.id);
+        const index = state.leaveTypes.findIndex((l) => l.id === action.payload.id);
         if (index !== -1) state.leaveTypes[index] = action.payload;
-      })
-      .addCase(updateLeaveType.rejected, (state, action) => {
-        state.updateStatus = { loading: false, success: false, error: action.payload };
-      });
-    
-    builder
-      .addCase(deleteLeaveType.pending, (state) => {
-        state.updateStatus.loading = true;
+        state.updateStatus = { loading: false, success: true, error: null };
       })
       .addCase(deleteLeaveType.fulfilled, (state, action) => {
-        state.updateStatus.loading = false;
-        state.leaveTypes = state.leaveTypes.filter((lt) => lt.id !== action.payload);
-        state.updateStatus.success = true;
+        state.leaveTypes = state.leaveTypes.filter((l) => l.id !== action.payload);
+        state.updateStatus = { loading: false, success: true, error: null };
+      });
+
+    // 🏖️ Leave Requests
+    builder
+      .addCase(approveLeaveRequest.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        if (state.leaveSummary) {
+          state.leaveSummary.pending_requests = state.leaveSummary.pending_requests.filter(
+            (r) => r.id !== action.payload
+          );
+        }
       })
-      .addCase(deleteLeaveType.rejected, (state, action) => {
-        state.updateStatus.loading = false;
-        state.updateStatus.error = action.payload;
+      .addCase(rejectLeaveRequest.fulfilled, (state, action) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+        if (state.leaveSummary) {
+          state.leaveSummary.pending_requests = state.leaveSummary.pending_requests.filter(
+            (r) => r.id !== action.payload
+          );
+        }
       });
   },
 });
 
-export const {
-  clearSelectedUser,
-  resetUpdateStatus,
-  clearUsersError,
-  clearContractsError,
-} = adminSlice.actions;
-
+export const { resetUpdateStatus, clearSelectedUser, clearLeaveSummary } = adminSlice.actions;
 export default adminSlice.reducer;
