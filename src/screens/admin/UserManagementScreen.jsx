@@ -1,16 +1,9 @@
 // src/screens/admin/UserManagementScreen.jsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  fetchAllUsers,
-  fetchPositions,
-  fetchSkillLevels,
-  fetchEmploymentTypes,
-  setSearchTerm,
-  setRoleFilter,
-  setViewMode,
-} from '../../features/admin/adminSlice';
+import { fetchUsers, fetchDropdowns } from '../../features/admin/adminSlice';
+import { fetchProjects } from '../../features/projects/projectSlice';
 import UserCard from '../../components/admin/UserCard';
 import UserTableRow from '../../components/admin/UserTableRow';
 import UserDetailModal from '../../components/admin/UserDetailModal';
@@ -18,208 +11,341 @@ import UserDetailModal from '../../components/admin/UserDetailModal';
 const UserManagementScreen = () => {
   const dispatch = useDispatch();
   
-  const { list: users, loading } = useSelector((state) => state.admin.users);
-  const { searchTerm, role, viewMode } = useSelector((state) => state.admin.filters);
+  // ═══════════════════════════════════════════════════════
+  // 📌 Local State
+  // ═══════════════════════════════════════════════════════
   
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
   const [selectedUserId, setSelectedUserId] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('all'); // 'all' | 'admin' | 'employee' | 'worker'
+  
+  // ═══════════════════════════════════════════════════════
+  // 📌 Redux State
+  // ═══════════════════════════════════════════════════════
+  
+  const { data: users, loading, error } = useSelector((state) => state.admin.users);
+  const projects = useSelector((state) => state.projects.list);
 
+  // ═══════════════════════════════════════════════════════
+  // 🔄 Effects
+  // ═══════════════════════════════════════════════════════
+  
   useEffect(() => {
-    dispatch(fetchAllUsers());
-    dispatch(fetchPositions());
-    dispatch(fetchSkillLevels());
-    dispatch(fetchEmploymentTypes());
+    dispatch(fetchUsers());
+    dispatch(fetchDropdowns()); // positions, skillLevels, employmentTypes
+    dispatch(fetchProjects());  // پروژه‌ها
   }, [dispatch]);
 
-  // فیلتر کاربران
+  // ═══════════════════════════════════════════════════════
+  // 🔍 Filtering Logic
+  // ═══════════════════════════════════════════════════════
+  
   const filteredUsers = users.filter((user) => {
     // جستجو
-    const matchSearch =
+    const matchesSearch =
       user.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.employee_details?.code_meli?.includes(searchTerm) ||
-      user.profile?.phone_number?.includes(searchTerm);
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.employee_details?.code_meli?.includes(searchTerm);
 
-    // نقش
-    const matchRole =
-      role === 'all' ||
-      (role === 'workers' && user.employee_details) ||
-      (role === 'staff' && user.is_staff) ||
-      (role === 'admin' && user.is_admin);
+    // فیلتر نقش
+    let matchesRole = true;
+    if (filterRole === 'admin') {
+      matchesRole = user.is_superuser;
+    } else if (filterRole === 'employee') {
+      matchesRole = user.employee_details !== null;
+    } else if (filterRole === 'worker') {
+      matchesRole = user.employee_details?.is_worker === true;
+    }
 
-    return matchSearch && matchRole;
+    return matchesSearch && matchesRole;
   });
 
-  // آمار
+  // ═══════════════════════════════════════════════════════
+  // 📊 Statistics
+  // ═══════════════════════════════════════════════════════
+  
   const stats = {
     total: users.length,
-    workers: users.filter((u) => u.employee_details).length,
-    staff: users.filter((u) => u.is_staff).length,
-    admin: users.filter((u) => u.is_admin).length,
+    admins: users.filter((u) => u.is_superuser).length,
+    employees: users.filter((u) => u.employee_details !== null).length,
+    workers: users.filter((u) => u.employee_details?.is_worker === true).length,
   };
 
+  // ═══════════════════════════════════════════════════════
+  // 🎯 Event Handlers
+  // ═══════════════════════════════════════════════════════
+  
+  const handleUserClick = (userId) => {
+    setSelectedUserId(userId);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedUserId(null);
+    dispatch(fetchUsers()); // رفرش لیست بعد از تغییرات
+  };
+
+  const handleRefresh = () => {
+    dispatch(fetchUsers());
+    dispatch(fetchProjects());
+  };
+
+  // ═══════════════════════════════════════════════════════
+  // 🎨 Render States
+  // ═══════════════════════════════════════════════════════
+
+  // Loading
+  if (loading && users.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin text-6xl mb-4">⏳</div>
+          <p className="text-white text-xl">در حال بارگذاری کاربران...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error
+  if (error && users.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-red-900/20 border border-red-700 rounded-xl p-8 text-center">
+            <div className="text-6xl mb-4">❌</div>
+            <p className="text-red-400 text-xl mb-4">
+              {error || 'خطا در بارگذاری کاربران'}
+            </p>
+            <button
+              onClick={handleRefresh}
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-bold transition"
+            >
+              🔄 تلاش مجدد
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-6 rtl min-h-screen">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2">
-              👥 مدیریت کاربران
-            </h1>
-            <p className="text-gray-400">
-              مشاهده و ویرایش اطلاعات {filteredUsers.length} کاربر
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        
+        {/* ═════════════════════════════════════════ */}
+        {/* Header */}
+        {/* ═════════════════════════════════════════ */}
+        
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">
+                👥 مدیریت کاربران
+              </h1>
+              <p className="text-gray-400">
+                مدیریت جامع کارمندان، قراردادها و اطلاعات پرسنلی
+              </p>
+            </div>
+            
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+            >
+              {loading ? '⏳' : '🔄'} بروزرسانی
+            </button>
+          </div>
+        </div>
+
+        {/* ═════════════════════════════════════════ */}
+        {/* Stats Cards */}
+        {/* ═════════════════════════════════════════ */}
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* کل کاربران */}
+          <div 
+            className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 border border-blue-700 hover:scale-105 transition-transform cursor-pointer"
+            onClick={() => setFilterRole('all')}
+          >
+            <div className="text-blue-300 text-sm mb-1">👥 کل کاربران</div>
+            <div className="text-white text-3xl font-bold">{stats.total}</div>
+          </div>
+          
+          {/* ادمین‌ها */}
+          <div 
+            className="bg-gradient-to-br from-purple-900 to-purple-800 rounded-xl p-4 border border-purple-700 hover:scale-105 transition-transform cursor-pointer"
+            onClick={() => setFilterRole('admin')}
+          >
+            <div className="text-purple-300 text-sm mb-1">👑 ادمین‌ها</div>
+            <div className="text-white text-3xl font-bold">{stats.admins}</div>
+          </div>
+          
+          {/* کارمندان */}
+          <div 
+            className="bg-gradient-to-br from-green-900 to-green-800 rounded-xl p-4 border border-green-700 hover:scale-105 transition-transform cursor-pointer"
+            onClick={() => setFilterRole('employee')}
+          >
+            <div className="text-green-300 text-sm mb-1">👔 کارمندان</div>
+            <div className="text-white text-3xl font-bold">{stats.employees}</div>
+          </div>
+          
+          {/* کارگران */}
+          <div 
+            className="bg-gradient-to-br from-orange-900 to-orange-800 rounded-xl p-4 border border-orange-700 hover:scale-105 transition-transform cursor-pointer"
+            onClick={() => setFilterRole('worker')}
+          >
+            <div className="text-orange-300 text-sm mb-1">👷 کارگران</div>
+            <div className="text-white text-3xl font-bold">{stats.workers}</div>
+          </div>
+        </div>
+
+        {/* ═════════════════════════════════════════ */}
+        {/* Toolbar */}
+        {/* ═════════════════════════════════════════ */}
+        
+        <div className="bg-gray-800 rounded-xl p-4 mb-6 border border-gray-700 shadow-lg">
+          <div className="flex flex-col lg:flex-row gap-4">
+            
+            {/* Search */}
+            <div className="flex-grow">
+              <input
+                type="text"
+                placeholder="🔍 جستجو (نام، نام‌کاربری، کدملی، ایمیل)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+              />
+            </div>
+
+            {/* Role Filter */}
+            <div className="w-full lg:w-auto">
+              <select
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="w-full lg:w-auto bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer transition"
+              >
+                <option value="all">همه ({stats.total})</option>
+                <option value="admin">👑 ادمین‌ها ({stats.admins})</option>
+                <option value="employee">👔 کارمندان ({stats.employees})</option>
+                <option value="worker">👷 کارگران ({stats.workers})</option>
+              </select>
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`flex-1 lg:flex-none px-4 py-2 rounded-lg font-bold transition ${
+                  viewMode === 'grid'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                }`}
+                title="نمایش کارتی"
+              >
+                🔲 کارت
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`flex-1 lg:flex-none px-4 py-2 rounded-lg font-bold transition ${
+                  viewMode === 'table'
+                    ? 'bg-blue-600 text-white shadow-lg'
+                    : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+                }`}
+                title="نمایش جدولی"
+              >
+                📋 جدول
+              </button>
+            </div>
+
+            {/* Add User Button */}
+            <button
+              onClick={() => setSelectedUserId('new')}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold transition shadow-lg whitespace-nowrap"
+            >
+              ➕ کاربر جدید
+            </button>
+          </div>
+        </div>
+
+        {/* ═════════════════════════════════════════ */}
+        {/* Content Area */}
+        {/* ═════════════════════════════════════════ */}
+        
+        {filteredUsers.length === 0 ? (
+          // Empty State
+          <div className="bg-gray-800 rounded-xl p-12 text-center border border-gray-700 shadow-lg">
+            <div className="text-6xl mb-4">🔍</div>
+            <p className="text-gray-400 text-xl mb-2">کاربری یافت نشد</p>
+            <p className="text-gray-500">
+              {searchTerm ? 'جستجوی دیگری امتحان کنید' : 'هیچ کاربری ثبت نشده است'}
             </p>
           </div>
-
-          <button
-            onClick={() => {
-              setSelectedUserId(null);
-              setShowModal(true);
-            }}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg"
-          >
-            ➕ افزودن کاربر جدید
-          </button>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: 'همه', count: stats.total, icon: '👥', color: 'blue' },
-            { label: 'کارگران', count: stats.workers, icon: '👷', color: 'orange' },
-            { label: 'کارمندان', count: stats.staff, icon: '👔', color: 'green' },
-            { label: 'ادمین‌ها', count: stats.admin, icon: '🔧', color: 'purple' },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className={`bg-gradient-to-br from-${stat.color}-900/30 to-${stat.color}-800/30 border border-${stat.color}-700 rounded-xl p-4`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-400 text-sm">{stat.label}</p>
-                  <p className="text-white text-2xl font-bold">{stat.count}</p>
-                </div>
-                <span className="text-4xl">{stat.icon}</span>
+        ) : (
+          <>
+            {/* Grid View */}
+            {viewMode === 'grid' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredUsers.map((user) => (
+                  <UserCard
+                    key={user.id}
+                    user={user}
+                    onClick={() => handleUserClick(user.id)}
+                  />
+                ))}
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            )}
 
-      {/* Filters */}
-      <div className="bg-gray-800 rounded-xl p-4 mb-6 border border-gray-700">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* جستجو */}
-          <input
-            type="text"
-            placeholder="🔍 جستجو (نام، کدملی، موبایل، نام کاربری)"
-            value={searchTerm}
-            onChange={(e) => dispatch(setSearchTerm(e.target.value))}
-            className="flex-grow bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          />
+            {/* Table View */}
+            {viewMode === 'table' && (
+              <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-lg">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-900 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-right text-gray-300 font-bold">کاربر</th>
+                        <th className="px-4 py-3 text-right text-gray-300 font-bold">سمت</th>
+                        <th className="px-4 py-3 text-center text-gray-300 font-bold">کدملی</th>
+                        <th className="px-4 py-3 text-center text-gray-300 font-bold">موبایل</th>
+                        <th className="px-4 py-3 text-center text-gray-300 font-bold">نوع استخدام</th>
+                        <th className="px-4 py-3 text-center text-gray-300 font-bold">دستمزد</th>
+                        <th className="px-4 py-3 text-center text-gray-300 font-bold">عملیات</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {filteredUsers.map((user) => (
+                        <UserTableRow
+                          key={user.id}
+                          user={user}
+                          onClick={() => handleUserClick(user.id)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
-          {/* فیلتر نقش */}
-          <select
-            value={role}
-            onChange={(e) => dispatch(setRoleFilter(e.target.value))}
-            className="bg-gray-700 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">همه ({stats.total})</option>
-            <option value="workers">کارگران ({stats.workers})</option>
-            <option value="staff">کارمندان ({stats.staff})</option>
-            <option value="admin">ادمین‌ها ({stats.admin})</option>
-          </select>
-
-          {/* تغییر نمایش */}
-          <div className="flex bg-gray-700 rounded-lg p-1">
-            <button
-              onClick={() => dispatch(setViewMode('cards'))}
-              className={`px-4 py-2 rounded transition ${
-                viewMode === 'cards'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              🎴 کارت
-            </button>
-            <button
-              onClick={() => dispatch(setViewMode('table'))}
-              className={`px-4 py-2 rounded transition ${
-                viewMode === 'table'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              📋 جدول
-            </button>
+        {/* Results Count */}
+        {filteredUsers.length > 0 && (
+          <div className="mt-4 text-center text-gray-500 text-sm">
+            نمایش {filteredUsers.length} از {users.length} کاربر
           </div>
-        </div>
+        )}
       </div>
 
-      {/* محتوا */}
-      {loading ? (
-        <div className="text-center text-blue-400 py-20">
-          <div className="animate-spin text-6xl mb-4">⏳</div>
-          در حال بارگذاری...
-        </div>
-      ) : filteredUsers.length === 0 ? (
-        <div className="text-center text-gray-500 py-20">
-          <div className="text-6xl mb-4">🔍</div>
-          <p className="text-xl">هیچ کاربری یافت نشد</p>
-        </div>
-      ) : viewMode === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredUsers.map((user) => (
-            <UserCard
-              key={user.id}
-              user={user}
-              onClick={() => {
-                setSelectedUserId(user.id);
-                setShowModal(true);
-              }}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-gray-800 rounded-xl overflow-hidden border border-gray-700">
-          <table className="w-full">
-            <thead className="bg-gray-900 text-gray-400">
-              <tr>
-                <th className="px-4 py-3 text-right">نام</th>
-                <th className="px-4 py-3 text-right">سمت</th>
-                <th className="px-4 py-3 text-center">کدملی</th>
-                <th className="px-4 py-3 text-center">موبایل</th>
-                <th className="px-4 py-3 text-center">نوع استخدام</th>
-                <th className="px-4 py-3 text-center">دستمزد</th>
-                <th className="px-4 py-3 text-center">عملیات</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {filteredUsers.map((user) => (
-                <UserTableRow
-                  key={user.id}
-                  user={user}
-                  onClick={() => {
-                    setSelectedUserId(user.id);
-                    setShowModal(true);
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Modal */}
-      {showModal && (
+      {/* ═════════════════════════════════════════ */}
+      {/* User Detail Modal */}
+      {/* ═════════════════════════════════════════ */}
+      
+      {selectedUserId && (
         <UserDetailModal
-          userId={selectedUserId}
-          onClose={() => {
-            setShowModal(false);
-            setSelectedUserId(null);
-          }}
+          userId={selectedUserId === 'new' ? null : selectedUserId}
+          onClose={handleCloseModal}
         />
       )}
     </div>

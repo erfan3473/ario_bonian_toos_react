@@ -79,17 +79,18 @@ const Header = ({ toggleSidebar }) => {
           </Link>
 
 
-          <Link
-            to="/admin/daily-summary"
-            className="hover:text-sky-300 transition text-sm"
-          >
-             گزارش روزانه
-          </Link>
+          
            <Link
             to="/admin/approvals"
             className="hover:text-sky-300 transition text-sm"
           >
               new version گزارش روزانه
+          </Link>
+           <Link
+            to="/admin/settings"
+            className="hover:text-sky-300 transition text-sm"
+          >
+              تنظیمات شغلی
           </Link>
           
 

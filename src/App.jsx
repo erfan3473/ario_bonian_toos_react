@@ -1,4 +1,5 @@
-// src/App.jsx 
+// src/App.jsx
+
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -13,13 +14,9 @@ import ProjectListScreen from './screens/ProjectListScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
-
 import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
-
-
 import UserManagementScreen from './screens/admin/UserManagementScreen';
-
-
+import SettingsScreen from './screens/admin/SettingsScreen'; // ✅ جدید
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,23 +41,20 @@ function App() {
 
         <main className="flex-grow container mx-auto p-4">
           <Routes>
-            <Route path="/admin/users" element={<UserManagementScreen />} />
-
             <Route path="/" element={<HomeScreen />} />
             <Route path="/auth" element={<AuthScreen />} />
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
             <Route path="/assistant" element={<VoiceAssistantScreen />} />
             <Route path="/projects" element={<ProjectListScreen />} />
+            
+            {/* Admin Routes */}
+            <Route path="/admin/users" element={<UserManagementScreen />} />
+            <Route path="/admin/settings" element={<SettingsScreen />} /> {/* ✅ جدید */}
             <Route path="/admin/projects/:id/geofence" element={<ProjectGeofenceScreen />} />
-            
-            {/* ✅ مسیر جدید گزارشات */}
             <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
-            
             <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
-           
             <Route path="/admin/approvals" element={<PendingApprovalsScreen />} />
-
           </Routes>
         </main>
 

@@ -3,10 +3,12 @@
 import React from 'react';
 
 const UserCard = ({ user, onClick }) => {
-  // ✅ استخراج قراردادهای فعال
-  const activeContracts = user.employee_details?.contracts?.filter(c => c.is_active) || [];
-  const activeProjects = activeContracts.map(c => c.project?.name).filter(Boolean);
-
+  const employee = user?.employee_details;
+  
+  // ✅ قراردادهای فعال از contracts (نه active_contract)
+  const contracts = employee?.contracts || [];
+  const activeContracts = contracts.filter(c => c.is_active);
+  
   return (
     <div
       onClick={onClick}
@@ -39,7 +41,7 @@ const UserCard = ({ user, onClick }) => {
             👔 کارمند
           </span>
         )}
-        {user.employee_details && (
+        {employee && (
           <span className="bg-orange-900/30 text-orange-400 px-3 py-1 rounded-full text-xs font-bold border border-orange-700">
             👷 کارگر
           </span>
@@ -51,14 +53,14 @@ const UserCard = ({ user, onClick }) => {
         <div className="flex justify-between">
           <span className="text-gray-400">سمت:</span>
           <span className="text-white font-bold">
-            {user.position_title || 'نامشخص'}
+            {user.position || 'نامشخص'}
           </span>
         </div>
         
         <div className="flex justify-between">
           <span className="text-gray-400">کدملی:</span>
           <span className="text-white font-mono">
-            {user.employee_details?.code_meli || '---'}
+            {employee?.code_meli || '---'}
           </span>
         </div>
 
@@ -66,24 +68,57 @@ const UserCard = ({ user, onClick }) => {
           <span className="text-gray-400">موبایل:</span>
           <span className="text-white">{user.profile?.phone_number || '---'}</span>
         </div>
-
-        {/* ✅ نمایش پروژه‌های فعال */}
-        {activeProjects.length > 0 && (
-          <div className="pt-2 mt-2 border-t border-gray-700">
-            <span className="text-gray-400 text-xs block mb-1">پروژه‌های فعال:</span>
-            <div className="flex flex-wrap gap-1">
-              {activeProjects.map((projectName, idx) => (
-                <span
-                  key={idx}
-                  className="bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded text-xs border border-blue-700"
-                >
-                  📍 {projectName}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ✅ قراردادهای فعال */}
+      {activeContracts.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-700 space-y-3">
+          <div className="text-gray-400 text-xs font-bold mb-2">
+            📋 قراردادهای فعال ({activeContracts.length})
+          </div>
+          {activeContracts.map((contract) => (
+            <div 
+              key={contract.id}
+              className="bg-gray-900/50 p-3 rounded-lg border border-gray-600"
+            >
+              {/* نام پروژه */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-blue-400 font-bold text-sm">
+                  📍 {contract.project_name || 'نامشخص'}
+                </span>
+              </div>
+              
+              {/* نوع استخدام */}
+              <div className="text-gray-400 text-xs mb-2">
+                {contract.employment_type_description || 'نامشخص'}
+              </div>
+
+              {/* پرداخت */}
+              <div className="flex items-center justify-between">
+                {contract.daily_wage > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-green-400 font-bold text-sm">
+                      {Number(contract.daily_wage).toLocaleString('fa-IR')}
+                    </span>
+                    <span className="text-gray-400 text-xs">تومان/روز</span>
+                  </div>
+                )}
+                {contract.monthly_salary > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-blue-400 font-bold text-sm">
+                      {Number(contract.monthly_salary).toLocaleString('fa-IR')}
+                    </span>
+                    <span className="text-gray-400 text-xs">تومان/ماه</span>
+                  </div>
+                )}
+                {!contract.daily_wage && !contract.monthly_salary && (
+                  <span className="text-gray-500 text-xs">بدون دستمزد</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Status */}
       <div className="mt-4 pt-4 border-t border-gray-700">
