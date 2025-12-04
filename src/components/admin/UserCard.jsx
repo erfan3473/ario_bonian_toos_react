@@ -136,36 +136,26 @@ const UserCard = ({ user, onClick }) => {
                 boxShadow: `0 0 15px ${positionColor}20`,
               }}
             >
+              {/* پروژه */}
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-blue-400 font-bold text-sm">
                   📍 {contract.project_name || 'نامشخص'}
                 </span>
               </div>
               
+              {/* نوع استخدام */}
               {contract.employment_type_description && (
-                <div className="text-gray-400 text-xs mb-2">
+                <div 
+                  className="inline-block px-3 py-1 rounded-full text-xs font-bold border"
+                  style={{
+                    backgroundColor: `${positionColor}30`,
+                    borderColor: positionColor,
+                    color: positionColor,
+                  }}
+                >
                   {contract.employment_type_description}
                 </div>
               )}
-
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                {contract.daily_wage > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-green-400 font-bold text-sm">
-                      {Number(contract.daily_wage).toLocaleString('fa-IR')}
-                    </span>
-                    <span className="text-gray-400 text-xs">تومان/روز</span>
-                  </div>
-                )}
-                {contract.monthly_salary > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-blue-400 font-bold text-sm">
-                      {Number(contract.monthly_salary).toLocaleString('fa-IR')}
-                    </span>
-                    <span className="text-gray-400 text-xs">تومان/ماه</span>
-                  </div>
-                )}
-              </div>
             </div>
           ))}
         </div>

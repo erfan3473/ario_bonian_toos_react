@@ -369,6 +369,21 @@ export const approveLeaveRequest = createAsyncThunk(
     }
   }
 );
+// 🏖️ Leave Requests - List
+export const fetchLeaveRequests = createAsyncThunk(
+  'admin/fetchLeaveRequests',
+  async (status = '', { rejectWithValue }) => {
+    try {
+      const url = status 
+        ? `/admin/leave-requests/?status=${status}`
+        : '/admin/leave-requests/';
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت درخواست‌ها');
+    }
+  }
+);
 
 export const rejectLeaveRequest = createAsyncThunk(
   'admin/rejectLeaveRequest',
@@ -394,13 +409,17 @@ const initialState = {
   skillLevels: [],
   employmentTypes: [],
   leaveTypes: [],
+  leaveRequests: [],
   leaveSummary: null,
   
-  loading: {
-    users: false,
-    contracts: false,
-    leaveSummary: false,
-  },
+ loading: {
+  users: false,
+  userDetail: false,  
+  contracts: false,
+  leaveSummary: false,
+  leaveRequests: false,
+},
+
   
   dropdownsLoading: false,
   dropdownsError: null,
@@ -444,9 +463,18 @@ const adminSlice = createSlice({
         state.loading.users = false;
       })
       
+      .addCase(fetchUserDetail.pending, (state) => {
+        state.loading.userDetail = true;  // ✅
+      })
       .addCase(fetchUserDetail.fulfilled, (state, action) => {
+        state.loading.userDetail = false; // ✅
         state.selectedUser = action.payload;
       })
+      .addCase(fetchUserDetail.rejected, (state, action) => {
+        state.loading.userDetail = false; // ✅
+        console.error('Fetch user detail failed:', action.payload);
+      })
+
       
       .addCase(updateUser.pending, (state) => {
         state.updateStatus.loading = true;
@@ -615,8 +643,24 @@ const adminSlice = createSlice({
 
     // 🏖️ Leave Requests
     builder
+        .addCase(fetchLeaveRequests.pending, (state) => {
+        state.loading.leaveRequests = true;
+      })
+      .addCase(fetchLeaveRequests.fulfilled, (state, action) => {
+        state.loading.leaveRequests = false;
+        state.leaveRequests = action.payload;
+      })
+      .addCase(fetchLeaveRequests.rejected, (state) => {
+        state.loading.leaveRequests = false;
+      })
+
       .addCase(approveLeaveRequest.fulfilled, (state, action) => {
         state.updateStatus = { loading: false, success: true, error: null };
+        // ✅ از لیست کل هم حذف کن
+        state.leaveRequests = state.leaveRequests.filter(
+          (r) => r.id !== action.payload
+        );
+        // leaveSummary هم آپدیت بشه
         if (state.leaveSummary) {
           state.leaveSummary.pending_requests = state.leaveSummary.pending_requests.filter(
             (r) => r.id !== action.payload

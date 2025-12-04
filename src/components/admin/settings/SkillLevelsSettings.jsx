@@ -77,13 +77,15 @@ const SkillLevelsSettings = () => {
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-900/20 border border-blue-700 rounded-xl p-6">
-        <h4 className="text-blue-400 font-bold mb-2">ℹ️ راهنما</h4>
-        <p className="text-gray-300 text-sm">
-          سطح مهارت کارگران تأثیر مستقیم بر ضریب دستمزد آنها دارد. 
-          هرچه سطح مهارت بالاتر باشد، ضریب بیشتری اعمال می‌شود.
-        </p>
-      </div>
+      {/* Info Box */}
+<div className="bg-blue-900/20 border border-blue-700 rounded-xl p-6">
+  <h4 className="text-blue-400 font-bold mb-2">ℹ️ راهنما</h4>
+  <p className="text-gray-300 text-sm">
+    سطح مهارت کارگران نشان‌دهنده تجربه و تخصص آنهاست. 
+    این اطلاعات برای دسته‌بندی و گزارش‌گیری استفاده می‌شود.
+  </p>
+</div>
+
     </div>
   );
 };

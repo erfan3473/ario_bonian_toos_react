@@ -14,7 +14,9 @@ const UserDetailPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   
-  const { selectedUser, loading: userLoading } = useSelector((state) => state.admin);
+  const { selectedUser, loading } = useSelector((state) => state.admin);
+const userLoading = loading.userDetail;
+
   const [activeTab, setActiveTab] = useState('personal');
   const [isNewUser, setIsNewUser] = useState(userId === 'new');
 
@@ -43,8 +45,9 @@ const UserDetailPage = () => {
     navigate('/admin/users');
   };
 
-  if (userLoading && !isNewUser) {
-    return (
+  
+if (userLoading && !isNewUser) {
+  return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-8">
         <div className="bg-gray-900 rounded-2xl p-12 text-center border-4 border-gray-700 max-w-4xl w-full animate-pulse">
           <div className="animate-spin text-6xl mb-8 text-blue-500">⏳</div>

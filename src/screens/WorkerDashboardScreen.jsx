@@ -24,7 +24,7 @@ import WorkerCard from '../components/WorkerCard';
 import Loader from '../components/Loader';
 
 // 🌐 تنظیمات سوکت
-const WS_URL = 'ws://192.168.43.130:8000/ws/worker/updates/';
+const WS_URL = 'wss://ariobonyantoos.com/ws/worker/updates/';
 
 // تابع کمکی برای نمایش زمان
 const formatTimeAgo = (ts) => {

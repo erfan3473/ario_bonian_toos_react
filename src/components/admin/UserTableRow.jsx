@@ -102,21 +102,33 @@ const UserTableRow = ({ user, onClick }) => {
         {user.profile?.phone_number || '---'}
       </td>
 
-      {/* نوع استخدام و پروژه‌ها */}
+      {/* پروژه‌ها و نوع استخدام */}
       <td className="px-4 py-3 text-center">
         {activeContracts.length > 0 ? (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {activeContracts.slice(0, 2).map((contract) => (
               <div key={contract.id} className="text-xs">
+                {/* نام پروژه */}
                 <div 
-                  className="inline-block px-2 py-1 rounded text-white"
+                  className="inline-block px-2 py-1 rounded text-white mb-1"
                   style={{ backgroundColor: `${positionColor}80` }}
                 >
                   📍 {contract.project_name}
                 </div>
-                <div className="text-gray-400 text-xs mt-0.5">
-                  {contract.employment_type_description}
-                </div>
+                
+                {/* نوع استخدام */}
+                {contract.employment_type_description && (
+                  <div 
+                    className="inline-block px-2 py-1 rounded-full text-xs font-bold border"
+                    style={{
+                      backgroundColor: `${positionColor}20`,
+                      borderColor: `${positionColor}60`,
+                      color: positionColor,
+                    }}
+                  >
+                    {contract.employment_type_description}
+                  </div>
+                )}
               </div>
             ))}
             {activeContracts.length > 2 && (
@@ -127,32 +139,6 @@ const UserTableRow = ({ user, onClick }) => {
           </div>
         ) : (
           <span className="text-gray-500 text-sm">بدون قرارداد</span>
-        )}
-      </td>
-
-      {/* دستمزد */}
-      <td className="px-4 py-3 text-center">
-        {activeContracts.length > 0 ? (
-          <div className="space-y-1">
-            {activeContracts.map((contract) => (
-              <div key={contract.id} className="text-sm">
-                {contract.monthly_salary > 0 && (
-                  <div className="text-blue-400 font-mono font-bold">
-                    {Number(contract.monthly_salary).toLocaleString('fa-IR')}
-                    <span className="text-gray-400 text-xs mr-1">ت/ماه</span>
-                  </div>
-                )}
-                {contract.daily_wage > 0 && (
-                  <div className="text-green-400 font-mono font-bold">
-                    {Number(contract.daily_wage).toLocaleString('fa-IR')}
-                    <span className="text-gray-400 text-xs mr-1">ت/روز</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <span className="text-gray-500">---</span>
         )}
       </td>
 
