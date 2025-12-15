@@ -8,7 +8,7 @@ import HomeScreen from './screens/HomeScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
 import AuthScreen from './screens/AuthScreen';
 import ProfileScreen from './screens/ProfileScreen';
-import VoiceAssistantScreen from "./screens/VoiceAssistantScreen";
+// import VoiceAssistantScreen from "./screens/VoiceAssistantScreen";
 import ProjectListScreen from './screens/ProjectListScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
@@ -17,6 +17,7 @@ import PendingApprovalsScreen from './screens/PendingApprovalsScreen';
 import UserManagementScreen from './screens/admin/UserManagementScreen';
 import UserDetailPage from './screens/admin/UserDetailPage'; // ✅ جدید
 import SettingsScreen from './screens/admin/SettingsScreen';
+import RequestManagementScreen from './screens/admin/RequestManagementScreen';
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -45,7 +46,7 @@ function App() {
             <Route path="/auth" element={<AuthScreen />} />
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
             <Route path="/profile" element={<ProfileScreen />} />
-            <Route path="/assistant" element={<VoiceAssistantScreen />} />
+            {/* <Route path="/assistant" element={<VoiceAssistantScreen />} /> */}
             <Route path="/projects" element={<ProjectListScreen />} />
             
             {/* ✅ Admin Routes - User Management */}
@@ -58,6 +59,7 @@ function App() {
             <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
             <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
             <Route path="/admin/approvals" element={<PendingApprovalsScreen />} />
+             <Route path="/admin/requests" element={<RequestManagementScreen />} /> {/* ✅ جدید */}
           </Routes>
         </main>
 

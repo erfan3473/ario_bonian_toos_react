@@ -10,9 +10,10 @@ import {
   userUpdateByAdminReducer
 } from './features/users/userSlice';
 import workerReducer from './features/workers/workerSlice';
-import reportReducer from './features/reports/reportSlice'; // ✅ ایمپورت جدید
+import reportReducer from './features/reports/reportSlice'; 
 import adminReducer from './features/admin/adminSlice'; 
-import projectReducer from './features/projects/projectSlice'; // ✅ جدید
+import projectReducer from './features/projects/projectSlice'; 
+import adminRequestReducer from './features/admin/adminRequestSlice';
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -34,9 +35,9 @@ const store = configureStore({
     userUpdateProfile: userUpdateProfileReducer,
 
     workers: workerReducer,
-    reports: reportReducer, // ✅ اضافه شد
-     projects: projectReducer,
-    
+    reports: reportReducer, 
+    projects: projectReducer,
+    adminRequests: adminRequestReducer, 
     userRole: userRoleReducer,
     userUpdateByAdmin: userUpdateByAdminReducer,
 

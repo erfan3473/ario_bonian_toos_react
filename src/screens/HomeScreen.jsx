@@ -1,198 +1,320 @@
 // src/screens/HomeScreen.jsx
-import projectImage from '../assets/project.jpeg';
+
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import CountUp from 'react-countup';
-import { useInView } from 'react-intersection-observer';
-import HeroAnimation from '../components/HeroAnimation'; 
+import { 
+  FaAndroid, 
+  FaUsers, 
+  FaChartLine, 
+  FaClipboardList,
+  FaCog,
+  FaBuilding,
+  FaFileAlt,
+  FaCheckCircle,
+  FaMobileAlt,
+  FaRocket,
+  FaShieldAlt
+} from 'react-icons/fa';
 
-// کامپوننت‌های آیکون (بدون تغییر)
-const IconScale = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-blue-400">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12A2.25 2.25 0 0020.25 14.25V3M3.75 21h16.5M16.5 3.75h.008v.008h-.008V3.75z" />
-  </svg>
-);
-const IconTech = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-blue-400">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 12l4.179 2.25M21.75 12l-4.179-2.25v4.5l4.179-2.25z" />
-  </svg>
-);
-const IconQuality = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-blue-400">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
-const IconTrust = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-blue-400">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m9.75 9.75h-4.5a2.25 2.25 0 00-2.25 2.25v2.25a2.25 2.25 0 002.25 2.25h4.5a2.25 2.25 0 002.25-2.25V16.5a2.25 2.25 0 00-2.25-2.25z" />
-  </svg>
-);
-
-const HeroSection = () => (
-  <section className="relative w-full flex flex-col justify-center items-center text-white text-center overflow-hidden pt-6">
-    {/* 👇 ویدیو / انیمیشن با گوشه گرد و فاصله */}
-    <HeroAnimation />
-
-    {/* 👇 متن روی ویدیو نیست، زیرشه */}
-    <div className="z-20 p-4 max-w-3xl mt-4">
-      <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight mb-4 drop-shadow-lg text-blue-100">
-        آریوبنیان توس: <span className="text-blue-500">مجری مگاپروژه‌های زیرساختی</span>
-      </h1>
-      <p className="text-base md:text-lg text-gray-200 mb-6">
-        تلفیق دانش مهندسی، تکنولوژی روز و تعهد برای ساختن فردای ایران
-      </p>
-      <a
-        href="#featured-projects"
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-base transition-transform transform hover:scale-105 shadow-lg"
-      >
-        مشاهده پروژه‌های شاخص
-      </a>
-    </div>
-  </section>
-);
-
-const ValuePropositionSection = () => (
-    <section id="why-us" className="bg-gray-900 py-20 px-4">
-      <div className="container mx-auto text-center">
-        <h2 className="text-3xl font-bold text-white mb-2">چرا آریوبنیان توس؟</h2>
-        <p className="text-gray-400 mb-12">مزیت‌های رقابتی ما در اجرای پروژه‌های کلان</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <div className="bg-gray-800 p-8 rounded-xl shadow-lg hover:shadow-blue-500/20 transition-all duration-300 transform hover:-translate-y-2">
-            <IconScale />
-            <h3 className="text-xl font-bold text-white mt-6 mb-2">توان اجرایی در مقیاس کلان</h3>
-            <p className="text-gray-400">مدیریت و اجرای پروژه‌های چندوجهی و عظیم در سطح ملی.</p>
-          </div>
-          <div className="bg-gray-800 p-8 rounded-xl shadow-lg hover:shadow-blue-500/20 transition-all duration-300 transform hover:-translate-y-2">
-            <IconTech />
-            <h3 className="text-xl font-bold text-white mt-6 mb-2">تکنولوژی و نوآوری</h3>
-            <p className="text-gray-400">استفاده از پهپادهای نقشه‌برداری، BIM و اتوماسیون در پروژه‌ها.</p>
-          </div>
-          <div className="bg-gray-800 p-8 rounded-xl shadow-lg hover:shadow-blue-500/20 transition-all duration-300 transform hover:-translate-y-2">
-            <IconQuality />
-            <h3 className="text-xl font-bold text-white mt-6 mb-2">تضمین زمان و کیفیت</h3>
-            <p className="text-gray-400">تعهد به زمان‌بندی دقیق و بالاترین استانداردهای کیفی.</p>
-          </div>
-          <div className="bg-gray-800 p-8 rounded-xl shadow-lg hover:shadow-blue-500/20 transition-all duration-300 transform hover:-translate-y-2">
-            <IconTrust />
-            <h3 className="text-xl font-bold text-white mt-6 mb-2">شریک استراتژیک قابل اعتماد</h3>
-            <p className="text-gray-400">سوابق درخشان در همکاری با شهرداری‌ها و ارگان‌های دولتی.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-);
-
-const FeaturedProjectSection = () => (
-  <section id="featured-projects" className="py-20 bg-black px-4">
-    <div className="container mx-auto">
-      <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-white">پروژه شاخص: آبیاری مکانیزه کوه‌های خلج</h2>
-        <p className="text-gray-400 mt-2">بزرگترین پروژه آبیاری فضای سبز ایران، نمادی از توانمندی ما</p>
-      </div>
-      <div className="bg-gray-900 rounded-xl shadow-2xl overflow-hidden md:flex">
-        {/* ✅ اصلاح: جایگزینی placeholder با عکس واقعی */}
-        <div className="md:w-1/2 bg-gray-800 min-h-[300px] flex items-center justify-center overflow-hidden">
-          <img 
-            src={projectImage} 
-            alt="پروژه آبیاری مکانیزه کوه‌های خلج"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="p-8 md:w-1/2 flex flex-col justify-center">
-          <h3 className="text-2xl font-bold text-white mb-4">مشخصات کلیدی پروژه</h3>
-          <div className="space-y-4">
-            <div className="flex items-center"><span className="text-blue-400 font-bold text-lg w-32">کارفرما:</span><span className="text-gray-300">شهرداری مشهد</span></div>
-            <div className="flex items-center"><span className="text-blue-400 font-bold text-lg w-32">مساحت:</span><span className="text-gray-300">+۵۰۰ هکتار</span></div>
-            <div className="flex items-center"><span className="text-blue-400 font-bold text-lg w-32">لوله‌گذاری:</span><span className="text-gray-300">+۱۵۰ کیلومتر</span></div>
-          </div>
-          <p className="text-gray-400 mt-6 mb-6">این پروژه ملی با چالش‌های فنی و اجرایی منحصر به فردی همراه بود که با موفقیت توسط تیم متخصص آریوبنیان توس به سرانجام رسید.</p>
-          <Link to="/projects" className="text-center bg-transparent border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white font-semibold py-2 px-6 rounded-md transition-colors">مشاهده تمام پروژه‌ها</Link>
-        </div>
-      </div>
-    </div>
-  </section>
-);
-
-// ✅ اصلاح ۴: پیاده‌سازی شمارشگر انیمیشنی
-const AnimatedStat = ({ end, suffix, text }) => {
-  const { ref, inView } = useInView({
-    triggerOnce: true, // فقط یک بار انیمیشن را اجرا کن
-    threshold: 0.5, // وقتی ۵۰٪ آیتم دیده شد
-  });
-
-  return (
-    <div ref={ref} className="text-center">
-      <h3 className="text-4xl font-extrabold text-blue-500">
-        {inView ? <CountUp end={end} duration={2.5} /> : '0'}
-        {suffix && <span>{suffix}</span>}
-      </h3>
-      <p className="text-gray-400 mt-2">{text}</p>
-    </div>
-  );
-};
-
-const StatsSection = () => (
-    <section className="bg-gray-800 py-16">
-        <div className="container mx-auto">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-                <AnimatedStat end={20} suffix="+" text="پروژه موفق دولتی" />
-                <AnimatedStat end={500} suffix="+" text="کیلومتر راهسازی و لوله‌گذاری" />
-                <AnimatedStat end={1.5} decimals={1} suffix="M+" text="متر مکعب عملیات خاکی" />
-                <AnimatedStat end={100} suffix="%" text="رضایت کارفرمایان" />
-            </div>
-        </div>
-    </section>
-);
-
-
-const ClientLogosSection = () => (
-    <section className="py-16 bg-gray-900">
-        <div className="container mx-auto text-center">
-            <h2 className="text-2xl font-bold text-white mb-8">افتخار همکاری با</h2>
-            <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-6">
-                <p className="text-gray-500 text-xl font-semibold filter grayscale hover:grayscale-0 transition-all">شهرداری مشهد</p>
-                <p className="text-gray-500 text-xl font-semibold filter grayscale hover:grayscale-0 transition-all">استانداری خراسان رضوی</p>
-                <p className="text-gray-500 text-xl font-semibold filter grayscale hover:grayscale-0 transition-all">وزارت نیرو</p>
-                <p className="text-gray-500 text-xl font-semibold filter grayscale hover:grayscale-0 transition-all">اداره کل راه و شهرسازی</p>
-            </div>
-        </div>
-    </section>
-);
-
-const FinalCTASection = () => (
-    <section className="bg-black text-white py-20 px-4">
-        <div className="container mx-auto text-center max-w-4xl">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                پروژه بعدی خود را به یک <span className="text-blue-500">موفقیت ملی</span> تبدیل کنید.
-            </h2>
-            <p className="text-gray-400 text-lg mb-8">
-                تیم کارشناسان ارشد ما آماده ارائه مشاوره و بررسی نیازمندی‌های پروژه‌های بزرگ شماست. همین امروز با ما تماس بگیرید.
-            </p>
-            <div className="flex justify-center gap-4">
-                <Link to="/contact" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105">
-                    تماس با واحد توسعه کسب‌وکار
-                </Link>
-                <button className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                    دریافت کاتالوگ شرکت
-                </button>
-            </div>
-        </div>
-    </section>
-);
-
+import bannerImage from '../assets/banner.webp';
 
 const HomeScreen = () => {
+  const { userInfo } = useSelector((state) => state.userLogin);
+  
+  // ✅ چک کردن نقش ادمین
+  const isAdmin = userInfo?.is_admin;
+
   return (
-    <div className="bg-gray-900">
-      <HeroSection />
-      <ValuePropositionSection />
-      <FeaturedProjectSection />
-      <StatsSection />
-      <ClientLogosSection />
-      <FinalCTASection />
-      {/* Footer را می‌توانید در اینجا اضافه کنید */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900">
+      
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🎯 بخش Hero با بنر */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden">
+        {/* بنر تصویری */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={bannerImage} 
+            alt="سیستم اتوماسیون آریو بنیان طوس" 
+            className="w-full h-full object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/70 to-gray-900"></div>
+        </div>
+
+        {/* محتوای Hero */}
+        <div className="relative z-10 container mx-auto px-6 py-20 text-center">
+          <div className="flex items-center justify-center mb-6">
+            <FaRocket className="text-yellow-400 text-5xl animate-bounce" />
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-black text-white mb-4 drop-shadow-2xl">
+            سیستم اتوماسیون <span className="text-yellow-400">۸ پا</span>
+          </h1>
+          
+          <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
+            مدیریت هوشمند پروژه‌های عمرانی | حضور و غیاب | گزارش‌دهی لحظه‌ای
+          </p>
+
+          <div className="flex flex-wrap gap-4 justify-center items-center">
+            {/* ✅ دکمه دانلود اپلیکیشن اندروید */}
+            <a 
+              href="https://ariobonyantoos.com/media/downloads/app-release.apk"
+              download="koohzad-app.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300"
+            >
+              <FaAndroid className="text-3xl" />
+              <div className="text-right">
+                <div className="text-xs">دانلود اپلیکیشن</div>
+                <div className="text-lg">Android (84MB)</div>
+              </div>
+            </a>
+
+            {!userInfo && (
+              <Link 
+                to="/auth"
+                className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300"
+              >
+                <FaShieldAlt className="text-2xl" />
+                <span>ورود به پنل مدیریت</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 📱 معرفی ویژگی‌های اپلیکیشن */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-16 bg-gray-900/50">
+        <div className="container mx-auto px-6">
+          <h2 className="text-4xl font-bold text-white text-center mb-12">
+            ویژگی‌های اپلیکیشن موبایل
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FeatureCard
+              icon={<FaMobileAlt />}
+              title="ثبت حضور با GPS"
+              description="ثبت ورود و خروج خودکار با موقعیت جغرافیایی"
+              color="blue"
+            />
+            <FeatureCard
+              icon={<FaFileAlt />}
+              title="گزارش‌دهی سریع"
+              description="ارسال گزارش کارکرد روزانه با عکس و توضیحات"
+              color="green"
+            />
+            <FeatureCard
+              icon={<FaCheckCircle />}
+              title="درخواست‌ها"
+              description="ثبت درخواست مرخصی، مالی و تجهیزات"
+              color="yellow"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 🎛️ پنل مدیریت (فقط برای ادمین‌ها) */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {isAdmin && (
+        <section className="py-16">
+          <div className="container mx-auto px-6">
+            <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-3xl p-8 border-2 border-yellow-500/50">
+              <div className="flex items-center gap-4 mb-8">
+                <FaShieldAlt className="text-yellow-400 text-4xl" />
+                <h2 className="text-3xl font-bold text-white">
+                  پنل مدیریت سیستم
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* مدیریت کاربران */}
+                <AdminButton
+                  to="/admin/users"
+                  icon={<FaUsers />}
+                  title="مدیریت کاربران"
+                  description="افزودن و ویرایش کارکنان"
+                  color="blue"
+                />
+
+                {/* مدیریت پروژه‌ها */}
+                <AdminButton
+                  to="/projects"
+                  icon={<FaBuilding />}
+                  title="مدیریت پروژه‌ها"
+                  description="پروژه‌ها و محدوده جغرافیایی"
+                  color="purple"
+                />
+
+                {/* مانیتور نیروها */}
+                <AdminButton
+                  to="/dashboard"
+                  icon={<FaChartLine />}
+                  title="مانیتور نیروها"
+                  description="وضعیت لحظه‌ای کارکنان"
+                  color="green"
+                />
+
+                {/* گزارش روزانه */}
+                <AdminButton
+                  to="/admin/approvals"
+                  icon={<FaFileAlt />}
+                  title="گزارش روزانه"
+                  description="تایید گزارش‌های کارکرد"
+                  color="orange"
+                />
+
+                {/* خلاصه گزارش */}
+                <AdminButton
+                  to="/admin/daily-summary"
+                  icon={<FaClipboardList />}
+                  title="خلاصه گزارش"
+                  description="آمار و ارقام کلی"
+                  color="indigo"
+                />
+
+                {/* مدیریت درخواست‌ها */}
+                <AdminButton
+                  to="/admin/requests"
+                  icon={<FaCheckCircle />}
+                  title="مدیریت درخواست‌ها"
+                  description="تایید مرخصی، مالی و تجهیزات"
+                  color="pink"
+                />
+
+                {/* تنظیمات */}
+                <AdminButton
+                  to="/admin/settings"
+                  icon={<FaCog />}
+                  title="تنظیمات"
+                  description="مشاغل، نوع مرخصی و ..."
+                  color="gray"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 💬 راهنمای سریع */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-16 bg-gray-900/50">
+        <div className="container mx-auto px-6 max-w-4xl">
+          <div className="bg-gray-800/50 rounded-2xl p-8 backdrop-blur-sm border border-gray-700">
+            <h2 className="text-3xl font-bold text-white mb-6 text-center">
+              چگونه شروع کنم؟
+            </h2>
+            
+            <div className="space-y-4">
+              <GuideStep 
+                number="1"
+                title="دانلود اپلیکیشن"
+                description="فایل APK را دانلود و روی گوشی خود نصب کنید"
+              />
+              <GuideStep 
+                number="2"
+                title="ورود به سیستم"
+                description="با شماره موبایل و رمز عبور دریافتی وارد شوید"
+              />
+              <GuideStep 
+                number="3"
+                title="ثبت حضور"
+                description="در محل کار، دکمه ثبت حضور را بزنید"
+              />
+              <GuideStep 
+                number="4"
+                title="گزارش‌دهی"
+                description="در پایان روز، گزارش کارکرد خود را ارسال کنید"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* 📞 تماس با ما */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      <section className="py-16 bg-gradient-to-r from-blue-900 to-purple-900">
+        <div className="container mx-auto px-6 text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            نیاز به راهنمایی دارید؟
+          </h2>
+          <p className="text-gray-300 mb-6">
+            تیم پشتیبانی ما آماده کمک به شماست
+          </p>
+          <a 
+            href="tel:+989361234567"
+            className="inline-block bg-white text-blue-900 font-bold py-3 px-8 rounded-full hover:bg-gray-100 transition-all"
+          >
+            تماس با پشتیبانی
+          </a>
+        </div>
+      </section>
     </div>
   );
 };
+
+// ═══════════════════════════════════════════════════════════
+// 🎨 Component های کمکی
+// ═══════════════════════════════════════════════════════════
+
+const FeatureCard = ({ icon, title, description, color }) => {
+  const colors = {
+    blue: 'from-blue-500 to-blue-700',
+    green: 'from-green-500 to-green-700',
+    yellow: 'from-yellow-500 to-yellow-700',
+  };
+
+  return (
+    <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700 hover:border-gray-600 transition-all hover:transform hover:scale-105">
+      <div className={`w-16 h-16 bg-gradient-to-br ${colors[color]} rounded-2xl flex items-center justify-center text-white text-3xl mb-4 mx-auto`}>
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold text-white mb-2 text-center">{title}</h3>
+      <p className="text-gray-400 text-center">{description}</p>
+    </div>
+  );
+};
+
+const AdminButton = ({ to, icon, title, description, color }) => {
+  const colors = {
+    blue: 'from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800',
+    purple: 'from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800',
+    green: 'from-green-500 to-green-700 hover:from-green-600 hover:to-green-800',
+    orange: 'from-orange-500 to-orange-700 hover:from-orange-600 hover:to-orange-800',
+    indigo: 'from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800',
+    pink: 'from-pink-500 to-pink-700 hover:from-pink-600 hover:to-pink-800',
+    gray: 'from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800',
+    cyan: 'from-cyan-500 to-cyan-700 hover:from-cyan-600 hover:to-cyan-800',
+  };
+
+  return (
+    <Link
+      to={to}
+      className={`bg-gradient-to-br ${colors[color]} p-6 rounded-2xl text-white hover:shadow-2xl transform hover:scale-105 transition-all duration-300`}
+    >
+      <div className="text-4xl mb-3">{icon}</div>
+      <h3 className="text-lg font-bold mb-1">{title}</h3>
+      <p className="text-sm opacity-90">{description}</p>
+    </Link>
+  );
+};
+
+const GuideStep = ({ number, title, description }) => (
+  <div className="flex gap-4 items-start">
+    <div className="flex-shrink-0 w-10 h-10 bg-yellow-500 text-gray-900 rounded-full flex items-center justify-center font-bold">
+      {number}
+    </div>
+    <div>
+      <h3 className="text-white font-bold mb-1">{title}</h3>
+      <p className="text-gray-400 text-sm">{description}</p>
+    </div>
+  </div>
+);
 
 export default HomeScreen;
