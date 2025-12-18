@@ -87,18 +87,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             <span>پروفایل من</span>
           </NavLink>
 
-          {/* دستیار / چت هوشمند */}
-          <NavLink
-            to="/assistant"
-            className={({ isActive }) =>
-              `${linkBaseClass} ${
-                isActive ? activeLinkClass : defaultLinkClass
-              }`
-            }
-          >
-            <FaHeadset size="1.2em" className="text-sky-300" />
-            <span>دستیار / پشتیبانی</span>
-          </NavLink>
         </nav>
 
         {/* فوتر کوچک */}

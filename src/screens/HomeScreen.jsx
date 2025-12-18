@@ -159,14 +159,7 @@ const HomeScreen = () => {
                   color="green"
                 />
 
-                {/* گزارش روزانه */}
-                <AdminButton
-                  to="/admin/approvals"
-                  icon={<FaFileAlt />}
-                  title="گزارش روزانه"
-                  description="تایید گزارش‌های کارکرد"
-                  color="orange"
-                />
+                
 
                 {/* خلاصه گزارش */}
                 <AdminButton
@@ -248,10 +241,10 @@ const HomeScreen = () => {
             تیم پشتیبانی ما آماده کمک به شماست
           </p>
           <a 
-            href="tel:+989361234567"
+            href="tel:+989157051014"
             className="inline-block bg-white text-blue-900 font-bold py-3 px-8 rounded-full hover:bg-gray-100 transition-all"
           >
-            تماس با پشتیبانی
+            تماس با پشتیبانی 09157051014
           </a>
         </div>
       </section>

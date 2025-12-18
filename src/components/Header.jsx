@@ -67,7 +67,7 @@ const Header = ({ toggleSidebar }) => {
   }, []);
 
   return (
-    <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-40 w-full">
+    <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-[1002] w-full">
       <div className="flex justify-between items-center py-4 px-6">
         
         {/* ═══════════════════════════════════════════════════════════ */}
@@ -115,7 +115,7 @@ const Header = ({ toggleSidebar }) => {
             <div className="relative" ref={adminMenuRef}>
               <button
                 onClick={() => setAdminMenuOpen(!adminMenuOpen)}
-                className="flex items-center gap-2 bg-yellow-600/20 hover:bg-yellow-600/30 px-4 py-2 rounded-lg transition text-sm font-semibold border border-yellow-600/40"
+                className="flex items-center gap-2 bg-yellow-600/20 hover:bg-yellow-600/30 px-4 py-2 z-[1002] rounded-lg transition text-sm font-semibold border border-yellow-600/40"
               >
                 <FaCog className="text-yellow-400" />
                 <span className="text-yellow-300">پنل مدیریت</span>
@@ -168,15 +168,7 @@ const Header = ({ toggleSidebar }) => {
                     <span>مدیریت درخواست‌ها</span>
                   </Link>
 
-                  {/* گزارش روزانه */}
-                  <Link
-                    to="/admin/approvals"
-                    className="flex items-center gap-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-sky-300 transition"
-                    onClick={() => setAdminMenuOpen(false)}
-                  >
-                    <FaFileAlt className="text-orange-400" />
-                    <span>گزارش روزانه</span>
-                  </Link>
+                  
 
                   {/* خلاصه گزارش */}
                   <Link

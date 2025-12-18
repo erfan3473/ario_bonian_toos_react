@@ -3,7 +3,7 @@ import React from 'react';
 import Avatar from 'react-avatar';
 import { FaCalendarAlt } from 'react-icons/fa';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://ariobonyantoos.com';
 
 // تابع کمکی برای ساخت URL کامل تصویر
 const getProfileImage = (user) => {

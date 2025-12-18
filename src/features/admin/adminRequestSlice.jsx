@@ -1,7 +1,7 @@
 // src/features/admin/adminRequestSlice.js
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axiosInstance from '../../api/axiosInstance'; // ✅
+import axiosInstance from '../../api/axiosInstance';
 
 // ═══════════════════════════════════════════════════════════
 // 📊 Async Thunks
@@ -18,7 +18,7 @@ export const fetchFinancialRequests = createAsyncThunk(
       
       if (params.toString()) url += `?${params.toString()}`;
       
-      const { data } = await axiosInstance.get(url); // ✅ تغییر داد
+      const { data } = await axiosInstance.get(url);
       return data.data;
     } catch (error) {
       return rejectWithValue(
@@ -39,7 +39,7 @@ export const fetchEquipmentRequests = createAsyncThunk(
       
       if (params.toString()) url += `?${params.toString()}`;
       
-      const { data } = await axiosInstance.get(url); // ✅
+      const { data } = await axiosInstance.get(url);
       return data.data;
     } catch (error) {
       return rejectWithValue(
@@ -60,7 +60,7 @@ export const fetchLeaveRequests = createAsyncThunk(
       
       if (params.toString()) url += `?${params.toString()}`;
       
-      const { data } = await axiosInstance.get(url); // ✅
+      const { data } = await axiosInstance.get(url);
       return data.data;
     } catch (error) {
       return rejectWithValue(
@@ -70,13 +70,14 @@ export const fetchLeaveRequests = createAsyncThunk(
   }
 );
 
+// ✅ در درخواست مالی، admin_note وجود دارد و ارسال می‌شود
 export const updateFinancialStatus = createAsyncThunk(
   'adminRequests/updateFinancialStatus',
   async ({ id, status, admin_note = '' }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.patch(`/admin/requests/financial/${id}/`, { // ✅
+      const { data } = await axiosInstance.patch(`/admin/requests/financial/${id}/`, {
         status,
-        admin_note,
+        admin_note, 
       });
       return data.data;
     } catch (error) {
@@ -87,13 +88,14 @@ export const updateFinancialStatus = createAsyncThunk(
   }
 );
 
+// ❌ در درخواست تجهیزات، admin_note حذف شد
 export const updateEquipmentStatus = createAsyncThunk(
   'adminRequests/updateEquipmentStatus',
-  async ({ id, status, admin_note = '' }, { rejectWithValue }) => {
+  async ({ id, status }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.patch(`/admin/requests/equipment/${id}/`, { // ✅
-        status,
-        admin_note,
+      // فقط status ارسال می‌شود
+      const { data } = await axiosInstance.patch(`/admin/requests/equipment/${id}/`, {
+        status, 
       });
       return data.data;
     } catch (error) {
@@ -104,13 +106,14 @@ export const updateEquipmentStatus = createAsyncThunk(
   }
 );
 
+// ❌ در درخواست مرخصی، admin_note حذف شد
 export const updateLeaveStatus = createAsyncThunk(
   'adminRequests/updateLeaveStatus',
-  async ({ id, status, admin_note = '' }, { rejectWithValue }) => {
+  async ({ id, status }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.patch(`/admin/requests/leave/${id}/`, { // ✅
+      // فقط status ارسال می‌شود
+      const { data } = await axiosInstance.patch(`/admin/requests/leave/${id}/`, {
         status,
-        admin_note,
       });
       return data.data;
     } catch (error) {
@@ -125,7 +128,7 @@ export const fetchRequestsStats = createAsyncThunk(
   'adminRequests/fetchStats',
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get('/admin/requests/stats/'); // ✅
+      const { data } = await axiosInstance.get('/admin/requests/stats/');
       return data.data;
     } catch (error) {
       return rejectWithValue(
@@ -136,7 +139,7 @@ export const fetchRequestsStats = createAsyncThunk(
 );
 
 // ═══════════════════════════════════════════════════════════
-// 🗂️ Slice (بدون تغییر)
+// 🗂️ Slice
 // ═══════════════════════════════════════════════════════════
 
 const adminRequestSlice = createSlice({
@@ -167,6 +170,7 @@ const adminRequestSlice = createSlice({
   
   extraReducers: (builder) => {
     builder
+      // Financial Fetch
       .addCase(fetchFinancialRequests.pending, (state) => {
         state.financial.loading = true;
         state.financial.error = null;
@@ -180,6 +184,7 @@ const adminRequestSlice = createSlice({
         state.financial.error = action.payload;
       })
       
+      // Equipment Fetch
       .addCase(fetchEquipmentRequests.pending, (state) => {
         state.equipment.loading = true;
         state.equipment.error = null;
@@ -193,6 +198,7 @@ const adminRequestSlice = createSlice({
         state.equipment.error = action.payload;
       })
       
+      // Leave Fetch
       .addCase(fetchLeaveRequests.pending, (state) => {
         state.leave.loading = true;
         state.leave.error = null;
@@ -206,6 +212,7 @@ const adminRequestSlice = createSlice({
         state.leave.error = action.payload;
       })
       
+      // Stats Fetch
       .addCase(fetchRequestsStats.pending, (state) => {
         state.stats.loading = true;
         state.stats.error = null;
@@ -219,6 +226,7 @@ const adminRequestSlice = createSlice({
         state.stats.error = action.payload;
       })
       
+      // Update Financial
       .addCase(updateFinancialStatus.pending, (state) => {
         state.updating = true;
         state.updateError = null;
@@ -239,6 +247,7 @@ const adminRequestSlice = createSlice({
         state.updateError = action.payload;
       })
       
+      // Update Equipment
       .addCase(updateEquipmentStatus.pending, (state) => {
         state.updating = true;
         state.updateError = null;
@@ -259,6 +268,7 @@ const adminRequestSlice = createSlice({
         state.updateError = action.payload;
       })
       
+      // Update Leave
       .addCase(updateLeaveStatus.pending, (state) => {
         state.updating = true;
         state.updateError = null;
