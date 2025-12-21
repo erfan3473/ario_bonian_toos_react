@@ -101,6 +101,7 @@ const workersSlice = createSlice({
       // اطلاعات پروفایل / شغلی
       worker.name = u.name ?? worker.name;
       worker.position = u.position ?? worker.position;
+      worker.position_color_hex = u.position_color_hex ?? worker.position_color_hex;
 
       // هماهنگ با backend + موبایل
       if (u.current_project_id !== undefined) {
@@ -157,6 +158,7 @@ const workersSlice = createSlice({
             stale: isStale,
             current_project_id: w.current_project_id || null,
             current_project_name: w.current_project_name || null,
+             position_color_hex: w.position_color_hex || null, // ✅
           };
         });
         state.allWorkers = { ...state.allWorkers, ...workersMap };

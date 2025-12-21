@@ -172,6 +172,12 @@ const WorkerDashboardScreen = () => {
 
     return list;
   }, [visibleWorkers, search, sortBy, showOfflineWorkers]);
+  // بعد از useMemo finalWorkers
+useEffect(() => {
+  if (finalWorkers.length > 0) {
+    console.log('🔍 Sample Worker:', finalWorkers[0]);
+  }
+}, [finalWorkers]);
 
   const currentProjectStats = useMemo(() => {
     if (selectedProjectId) {
