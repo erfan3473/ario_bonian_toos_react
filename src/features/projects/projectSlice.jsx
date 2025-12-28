@@ -26,7 +26,7 @@ export const fetchProjectDetail = createAsyncThunk(
   'projects/fetchProjectDetail',
   async (projectId, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get(`/projects/${projectId}/`);
+      const { data } = await axiosInstance.get(`/projects/${projectId}/detail/`); // ✅ تغییر مسیر
       return data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || error.message);
@@ -67,7 +67,7 @@ export const createProject = createAsyncThunk(
   'projects/createProject',
   async (projectData, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.post('/projects/', projectData);
+      const { data } = await axiosInstance.post('/projects/create/', projectData); // ✅ تغییر مسیر
       return data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || error.message);
@@ -80,8 +80,21 @@ export const updateProject = createAsyncThunk(
   'projects/updateProject',
   async ({ projectId, projectData }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.put(`/projects/${projectId}/`, projectData);
+      const { data } = await axiosInstance.patch(`/projects/${projectId}/detail/`, projectData); // ✅ تغییر به PATCH
       return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message);
+    }
+  }
+);
+
+// 7️⃣ حذف پروژه (soft delete)
+export const deleteProject = createAsyncThunk(
+  'projects/deleteProject',
+  async (projectId, { rejectWithValue }) => {
+    try {
+      await axiosInstance.delete(`/projects/${projectId}/detail/`);
+      return projectId; // برمیگردونیم تا از لیست حذف کنیم
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || error.message);
     }
@@ -134,6 +147,11 @@ const projectSlice = createSlice({
     clearGeofence: (state) => {
       state.geofence.data = null;
       state.geofence.error = null;
+    },
+    
+    // ✅ پاک کردن error
+    clearError: (state) => {
+      state.error = null;
     },
   },
 
@@ -197,14 +215,28 @@ const projectSlice = createSlice({
       // ═══════════════════════════════════════════════════════════
       // createProject
       // ═══════════════════════════════════════════════════════════
+      .addCase(createProject.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(createProject.fulfilled, (state, action) => {
+        state.loading = false;
         state.list.push(action.payload);
+      })
+      .addCase(createProject.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       // ═══════════════════════════════════════════════════════════
       // updateProject
       // ═══════════════════════════════════════════════════════════
+      .addCase(updateProject.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(updateProject.fulfilled, (state, action) => {
+        state.loading = false;
         const index = state.list.findIndex((p) => p.id === action.payload.id);
         if (index !== -1) {
           state.list[index] = action.payload;
@@ -212,6 +244,31 @@ const projectSlice = createSlice({
         if (state.selectedProject.data?.id === action.payload.id) {
           state.selectedProject.data = action.payload;
         }
+      })
+      .addCase(updateProject.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // ═══════════════════════════════════════════════════════════
+      // deleteProject
+      // ═══════════════════════════════════════════════════════════
+      .addCase(deleteProject.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteProject.fulfilled, (state, action) => {
+        state.loading = false;
+        // حذف از لیست
+        state.list = state.list.filter((p) => p.id !== action.payload);
+        // پاک کردن selectedProject اگه همونی باشه که حذف شد
+        if (state.selectedProject.data?.id === action.payload) {
+          state.selectedProject.data = null;
+        }
+      })
+      .addCase(deleteProject.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
@@ -220,6 +277,7 @@ export const {
   setSelectedProject,
   clearSelectedProject,
   clearGeofence,
+  clearError, // ✅ اضافه شد
 } = projectSlice.actions;
 
 export default projectSlice.reducer;

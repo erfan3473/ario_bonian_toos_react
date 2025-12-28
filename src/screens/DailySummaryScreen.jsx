@@ -4,11 +4,12 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchDailySummary } from '../features/reports/reportSlice';
 import { fetchProjects } from '../features/projects/projectSlice';
+import PersianDatePicker from '../components/PersianDatePicker';
+
 
 const DailySummaryScreen = () => {
   const dispatch = useDispatch();
   
-  // ✅ اصلاح selector ها
   const { dailySummary, summaryLoading, summaryError } = useSelector((state) => state.reports);
   const { list: projectsList, loading: projectsLoading } = useSelector((state) => state.projects);
 
@@ -44,10 +45,10 @@ const DailySummaryScreen = () => {
   // ✅ تابع indent بر اساس سطح سلسله‌مراتب
   const getHierarchyIndent = (level) => {
     const indents = {
-      0: 'mr-0',      // مدیر پروژه
-      1: 'mr-8',      // سرپرست کارگاه
-      2: 'mr-16',     // سرکارگر
-      3: 'mr-24',     // کارگر
+      0: 'mr-0',
+      1: 'mr-8',
+      2: 'mr-16',
+      3: 'mr-24',
     };
     return indents[level] || 'mr-0';
   };
@@ -55,10 +56,10 @@ const DailySummaryScreen = () => {
   // ✅ آیکون بر اساس سطح سلسله‌مراتب
   const getHierarchyIcon = (level) => {
     const icons = {
-      0: '👑',  // مدیر پروژه
-      1: '🔧',  // سرپرست کارگاه
-      2: '👔',  // سرکارگر
-      3: '👷',  // کارگر
+      0: '👑',
+      1: '🔧',
+      2: '👔',
+      3: '👷',
     };
     return icons[level] || '👤';
   };
@@ -135,7 +136,7 @@ const DailySummaryScreen = () => {
       {/* Filters */}
       {/* ═══════════════════════════════════════════════════════════ */}
       <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-wrap gap-4 items-end">
           {/* انتخاب پروژه */}
           <div className="flex-grow min-w-[250px]">
             <label className="text-gray-400 text-sm mb-1 block">پروژه</label>
@@ -156,14 +157,14 @@ const DailySummaryScreen = () => {
             </select>
           </div>
 
-          {/* انتخاب تاریخ */}
-          <div className="min-w-[200px]">
-            <label className="text-gray-400 text-sm mb-1 block">تاریخ</label>
-            <input
-              type="date"
+          {/* انتخاب تاریخ - تقویم فارسی */}
+          <div className="min-w-[250px] relative z-20">
+            <PersianDatePicker
+              label="تاریخ"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              onChange={setSelectedDate}
+              placeholder="انتخاب تاریخ"
+              required
             />
           </div>
 
@@ -226,11 +227,8 @@ const DailySummaryScreen = () => {
       {/* ═══════════════════════════════════════════════════════════ */}
       {dailySummary && !summaryLoading && (
         <>
-          {/* ═══════════════════════════════════════════════════════════ */}
           {/* Stats Cards */}
-          {/* ═══════════════════════════════════════════════════════════ */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* تعداد گزارش‌ها */}
             <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 p-4 rounded-xl border border-blue-700/50">
               <div className="text-blue-400 text-sm mb-1">تعداد گزارش‌ها</div>
               <div className="text-3xl font-bold text-white">
@@ -238,7 +236,6 @@ const DailySummaryScreen = () => {
               </div>
             </div>
 
-            {/* تایید شده */}
             <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 p-4 rounded-xl border border-green-700/50">
               <div className="text-green-400 text-sm mb-1">تایید شده</div>
               <div className="text-3xl font-bold text-white">
@@ -246,7 +243,6 @@ const DailySummaryScreen = () => {
               </div>
             </div>
 
-            {/* منتظر تایید */}
             <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 p-4 rounded-xl border border-yellow-700/50">
               <div className="text-yellow-400 text-sm mb-1">منتظر تایید</div>
               <div className="text-3xl font-bold text-white">
@@ -254,7 +250,6 @@ const DailySummaryScreen = () => {
               </div>
             </div>
 
-            {/* هزینه فهرست بها */}
             <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/20 p-4 rounded-xl border border-purple-700/50">
               <div className="text-purple-400 text-sm mb-1">هزینه فهرست بها</div>
               <div className="text-2xl font-bold text-white font-mono">
@@ -265,9 +260,7 @@ const DailySummaryScreen = () => {
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════ */}
           {/* Hierarchical Reports */}
-          {/* ═══════════════════════════════════════════════════════════ */}
           <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
               🌳 گزارش‌های سلسله‌مراتبی
@@ -287,7 +280,6 @@ const DailySummaryScreen = () => {
                       report.author_position?.hierarchy_level || 0
                     )}`}
                   >
-                    {/* Header */}
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex items-start gap-3">
                         <div className="text-3xl">
@@ -314,19 +306,16 @@ const DailySummaryScreen = () => {
                       {getStatusBadge(report.status)}
                     </div>
 
-                    {/* Content */}
                     <div className="bg-gray-800 p-3 rounded mb-3 text-gray-300 text-sm whitespace-pre-wrap">
                       {report.work_summary || 'بدون متن'}
                     </div>
 
-                    {/* Issues */}
                     {report.issues && (
                       <div className="bg-red-900/20 border border-red-700 p-3 rounded mb-3 text-red-300 text-sm">
                         <strong>⚠️ مشکلات:</strong> {report.issues}
                       </div>
                     )}
 
-                    {/* Media Files */}
                     {report.media_files && report.media_files.length > 0 && (
                       <div className="flex gap-2 overflow-x-auto mb-3">
                         {report.media_files.map((media) => (
@@ -341,7 +330,6 @@ const DailySummaryScreen = () => {
                       </div>
                     )}
 
-                    {/* Approval Info */}
                     {report.status === 'APPROVED' && report.approved_by && (
                       <div className="text-xs text-green-400 bg-green-900/20 p-2 rounded border border-green-700">
                         ✅ تایید شده توسط: {report.approved_by?.username} |{' '}
@@ -361,9 +349,7 @@ const DailySummaryScreen = () => {
             )}
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════ */}
           {/* BOQ Summary */}
-          {/* ═══════════════════════════════════════════════════════════ */}
           {dailySummary.boq_summary && dailySummary.boq_summary.reports_count > 0 && (
             <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
@@ -392,9 +378,7 @@ const DailySummaryScreen = () => {
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════ */}
           {/* Attendance */}
-          {/* ═══════════════════════════════════════════════════════════ */}
           {dailySummary.workers_attendance &&
             dailySummary.workers_attendance.length > 0 && (
               <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">

@@ -59,8 +59,8 @@ const HomeScreen = () => {
           <div className="flex flex-wrap gap-4 justify-center items-center">
             {/* ✅ دکمه دانلود اپلیکیشن اندروید */}
             <a 
-              href="https://ariobonyantoos.com/media/downloads/app-release.apk"
-              download="koohzad-app.apk"
+              href="https://ariobonyantoos.com/media/downloads/8pa.apk"
+              download="8Pa.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-full shadow-2xl transform hover:scale-105 transition-all duration-300"
@@ -68,7 +68,7 @@ const HomeScreen = () => {
               <FaAndroid className="text-3xl" />
               <div className="text-right">
                 <div className="text-xs">دانلود اپلیکیشن</div>
-                <div className="text-lg">Android (84MB)</div>
+                <div className="text-lg">Android (85MB)</div>
               </div>
             </a>
 

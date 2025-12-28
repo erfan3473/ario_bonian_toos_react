@@ -145,18 +145,18 @@ const ProjectGeofenceScreen = () => {
     try {
         setSaving(true);
         await dispatch(updateProjectGeofence({ 
-            projectId: id, 
-            coordinates: geofence 
+        projectId: id, 
+        coordinates: geofence 
         })).unwrap();
         
         alert("✅ محدوده با موفقیت ذخیره شد.");
-        navigate('/admin/projects');  // ✅ تغییر
+        navigate('/projects');  // ✅ تغییر از '/admin/projects' به '/projects'
     } catch (err) {
         alert("خطا: " + err);
     } finally {
         setSaving(false);
     }
-  };
+    };
 
   // لود کردن فنس اولیه برای ادیت
   const LoadInitialShape = () => {

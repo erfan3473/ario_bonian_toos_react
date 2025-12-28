@@ -1,116 +1,185 @@
-import React, { useState, useEffect } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
-import { createProjectThunk, resetProjectCreate } from '../features/projects/projectCreateSlice'
-
-import Loader from '../components/Loader'
-import Message from '../components/Message'
+// src/screens/ProjectCreateScreen.jsx
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { createProject, clearError } from '../features/projects/projectSlice';
+import Loader from '../components/Loader';
+import Message from '../components/Message';
+import PersianDatePicker from '../components/PersianDatePicker';
 
 function ProjectCreateScreen() {
-  const [name, setName] = useState('')
-  const [locationText, setLocationText] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [isActive, setIsActive] = useState(true)
+  const [name, setName] = useState('');
+  const [locationText, setLocationText] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [localError, setLocalError] = useState(null);
+  const [localSuccess, setLocalSuccess] = useState(false);
 
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const { loading, error, success, project } = useSelector((state) => state.projectCreate)
+  const { loading, error } = useSelector((state) => state.projects);
 
   useEffect(() => {
-    if (success && project) {
-      // وقتی پروژه با موفقیت ساخته شد → برو به لیست پروژه‌ها
-      navigate('/admin/users')
-      dispatch(resetProjectCreate())
-    }
-  }, [success, project, navigate, dispatch])
+    setLocalError(null);
+    setLocalSuccess(false);
+  }, []);
 
-  const submitHandler = (e) => {
-    e.preventDefault()
+  useEffect(() => {
+    if (localSuccess) {
+      const timer = setTimeout(() => {
+        navigate('/projects');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [localSuccess, navigate]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearError());
+    };
+  }, [dispatch]);
+
+  const submitHandler = async (e) => {
+    e.preventDefault();
+    setLocalError(null);
+
+    if (!name.trim()) {
+      setLocalError('نام پروژه الزامی است');
+      return;
+    }
+
+    if (!startDate) {
+      setLocalError('تاریخ شروع الزامی است');
+      return;
+    }
+
+    if (endDate && new Date(endDate) <= new Date(startDate)) {
+      setLocalError('تاریخ پایان باید بعد از تاریخ شروع باشد');
+      return;
+    }
+
     const projectData = {
-      name,
-      location_text: locationText,
+      name: name.trim(),
+      location_text: locationText.trim() || '',
       start_date: startDate,
       end_date: endDate || null,
       is_active: isActive,
+    };
+
+    try {
+      const result = await dispatch(createProject(projectData)).unwrap();
+      console.log('✅ پروژه با موفقیت ساخته شد:', result);
+      setLocalSuccess(true);
+    } catch (err) {
+      console.error('❌ خطا در ساخت پروژه:', err);
+      setLocalError(err || 'خطا در ایجاد پروژه');
     }
-    dispatch(createProjectThunk(projectData))
-  }
+  };
 
   return (
-    <div className="max-w-2xl mx-auto mt-10 p-6 bg-gray-900/30 border border-gray-700 rounded-xl shadow-lg">
-      <h1 className="text-2xl font-bold mb-6 text-gray-100">ایجاد پروژه جدید</h1>
+    <div className="max-w-2xl mx-auto bg-gray-800 rounded-lg shadow-lg p-6">
+      <h1 className="text-2xl font-bold mb-6 text-white">ایجاد پروژه جدید</h1>
+
+      {(localError || error) && (
+        <Message variant="danger">{localError || error}</Message>
+      )}
+
+      {localSuccess && (
+        <Message variant="success">
+          پروژه با موفقیت ایجاد شد! در حال انتقال...
+        </Message>
+      )}
 
       {loading && <Loader />}
-      {error && <Message variant="danger">{error}</Message>}
 
-      <form onSubmit={submitHandler} className="space-y-4">
+      <form onSubmit={submitHandler} className="space-y-6">
+        {/* نام پروژه */}
         <div>
-          <label className="block text-sm mb-1">نام پروژه</label>
+          <label className="block text-gray-300 mb-2">
+            نام پروژه <span className="text-red-500">*</span>
+          </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+            placeholder="مثال: ساختمان مسکونی تهران"
             required
-            className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 focus:outline-none"
           />
         </div>
 
+        {/* موقعیت */}
         <div>
-          <label className="block text-sm mb-1">آدرس پروژه</label>
+          <label className="block text-gray-300 mb-2">موقعیت مکانی</label>
           <input
             type="text"
             value={locationText}
             onChange={(e) => setLocationText(e.target.value)}
-            className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 focus:outline-none"
+            className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+            placeholder="مثال: تهران، خیابان ولیعصر"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm mb-1">تاریخ شروع</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm mb-1">تاریخ پایان</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 focus:outline-none"
-            />
-          </div>
+        {/* تاریخ شروع */}
+        <div className="relative z-20">
+          <PersianDatePicker
+            label="تاریخ شروع"
+            value={startDate}
+            onChange={setStartDate}
+            placeholder="انتخاب تاریخ شروع"
+            required
+          />
         </div>
 
-        <div className="flex items-center space-x-2">
+        {/* تاریخ پایان */}
+        <div className="relative z-10 mt-8">
+          <PersianDatePicker
+            label="تاریخ پایان (اختیاری)"
+            value={endDate}
+            onChange={setEndDate}
+            placeholder="انتخاب تاریخ پایان"
+            minimumDate={startDate}
+          />
+        </div>
+
+        {/* وضعیت فعال/غیرفعال */}
+        <div className="flex items-center gap-3 mt-8">
           <input
-            id="isActive"
             type="checkbox"
+            id="isActive"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 text-blue-600 border-gray-700 rounded"
+            className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
           />
-          <label htmlFor="isActive" className="text-sm">
-            پروژه فعال است؟
+          <label htmlFor="isActive" className="text-gray-300">
+            پروژه فعال است
           </label>
         </div>
 
-        <button
-          type="submit"
-          className="w-full py-3 mt-4 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold shadow hover:scale-105 transition-transform"
-        >
-          ذخیره پروژه
-        </button>
+        {/* دکمه‌ها */}
+        <div className="flex gap-3 pt-6">
+          <button
+            type="submit"
+            disabled={loading || localSuccess}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {loading ? 'در حال ایجاد...' : 'ایجاد پروژه'}
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => navigate('/projects')}
+            disabled={loading}
+            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 rounded font-medium transition"
+          >
+            انصراف
+          </button>
+        </div>
       </form>
     </div>
-  )
+  );
 }
 
-export default ProjectCreateScreen
+export default ProjectCreateScreen;

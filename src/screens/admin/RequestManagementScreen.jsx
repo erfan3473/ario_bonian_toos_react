@@ -22,13 +22,14 @@ import {
   FaChartLine 
 } from 'react-icons/fa';
 
+
 const RequestManagementScreen = () => {
   const dispatch = useDispatch();
   
   const { financial, equipment, leave, stats, updating, updateSuccess, updateError } = 
     useSelector((state) => state.adminRequests);
 
-  const [activeTab, setActiveTab] = useState('financial'); // financial | equipment | leave
+  const [activeTab, setActiveTab] = useState('financial');
   const [filterStatus, setFilterStatus] = useState('PENDING');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -59,7 +60,6 @@ const RequestManagementScreen = () => {
       setAdminNote('');
       dispatch(resetUpdateStatus());
       
-      // رفرش لیست
       if (activeTab === 'financial') {
         dispatch(fetchFinancialRequests({ status: filterStatus }));
       } else if (activeTab === 'equipment') {
@@ -118,7 +118,7 @@ const RequestManagementScreen = () => {
     };
 
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-bold ${styles[status]}`}>
+      <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-tight ${styles[status]}`}>
         {labels[status] || status}
       </span>
     );
@@ -151,17 +151,17 @@ const RequestManagementScreen = () => {
   
   return (
     <div className="p-6 bg-gray-900 min-h-screen">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-2">
+      {/* Header - مرکز */}
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
           مدیریت درخواست‌ها
         </h1>
-        <p className="text-gray-400">تایید و رد درخواست‌های کارکنان</p>
+        <p className="text-gray-400 tracking-normal">تایید و رد درخواست‌های کارکنان</p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - مرکز */}
       {stats.data && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 max-w-6xl mx-auto">
           <StatCard
             icon={<FaClock />}
             title="در انتظار"
@@ -189,8 +189,8 @@ const RequestManagementScreen = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-gray-700">
+      {/* Tabs - مرکز */}
+      <div className="flex justify-center gap-2 mb-6 border-b border-gray-700 max-w-4xl mx-auto">
         <TabButton
           active={activeTab === 'financial'}
           onClick={() => setActiveTab('financial')}
@@ -211,8 +211,8 @@ const RequestManagementScreen = () => {
         />
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-2 mb-6">
+      {/* Filter - مرکز */}
+      <div className="flex justify-center gap-3 mb-8 max-w-3xl mx-auto">
         <FilterButton
           active={filterStatus === 'PENDING'}
           onClick={() => setFilterStatus('PENDING')}
@@ -235,19 +235,19 @@ const RequestManagementScreen = () => {
         />
       </div>
 
-      {/* Content */}
+      {/* Content - کارت‌ها بدون مرکز */}
       {currentData.loading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto"></div>
-          <p className="text-gray-400 mt-4">در حال بارگذاری...</p>
+          <p className="text-gray-400 mt-4 tracking-normal">در حال بارگذاری...</p>
         </div>
       ) : currentData.error ? (
-        <div className="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400">
+        <div className="bg-red-500/10 border border-red-500 rounded-lg p-4 text-red-400 max-w-4xl mx-auto">
           {currentData.error}
         </div>
       ) : currentData.data.length === 0 ? (
-        <div className="text-center py-12 bg-gray-800 rounded-lg">
-          <p className="text-gray-400 text-lg">درخواستی یافت نشد</p>
+        <div className="text-center py-12 bg-gray-800 rounded-lg max-w-4xl mx-auto">
+          <p className="text-gray-400 text-lg tracking-normal">درخواستی یافت نشد</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
@@ -285,6 +285,7 @@ const RequestManagementScreen = () => {
   );
 };
 
+
 // ═══════════════════════════════════════════════════════════
 // Sub Components
 // ═══════════════════════════════════════════════════════════
@@ -298,11 +299,11 @@ const StatCard = ({ icon, title, value, color }) => {
   };
 
   return (
-    <div className={`bg-gray-800 border-r-4 ${colors[color]} rounded-lg p-4`}>
+    <div className={`bg-gray-800 border-r-4 ${colors[color]} rounded-lg p-4 hover:bg-gray-750 transition-colors`}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-400 text-sm">{title}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}</p>
+          <p className="text-gray-400 text-sm font-medium tracking-tight">{title}</p>
+          <p className="text-2xl font-bold text-white mt-1 tracking-tight">{value}</p>
         </div>
         <div className={`text-3xl ${colors[color]}`}>{icon}</div>
       </div>
@@ -313,7 +314,7 @@ const StatCard = ({ icon, title, value, color }) => {
 const TabButton = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-6 py-3 font-semibold transition-colors ${
+    className={`flex items-center gap-2 px-6 py-3 font-bold tracking-tight transition-colors ${
       active
         ? 'text-yellow-500 border-b-2 border-yellow-500'
         : 'text-gray-400 hover:text-white'
@@ -327,7 +328,7 @@ const TabButton = ({ active, onClick, icon, label }) => (
 const FilterButton = ({ active, onClick, label }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+    className={`px-5 py-2.5 rounded-lg font-bold tracking-tight transition-colors ${
       active
         ? 'bg-yellow-500 text-gray-900'
         : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -343,16 +344,16 @@ const RequestCard = ({ request, type, onAction, formatNumber, formatDate, getSta
       return (
         <>
           <div>
-            <p className="text-sm text-gray-400">نوع</p>
-            <p className="text-white font-semibold">{request.type_display}</p>
+            <p className="text-sm text-gray-400 tracking-normal">نوع</p>
+            <p className="text-white font-bold tracking-tight">{request.type_display}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400">مبلغ</p>
-            <p className="text-white font-semibold">{formatNumber(request.amount)} ریال</p>
+            <p className="text-sm text-gray-400 tracking-normal">مبلغ</p>
+            <p className="text-white font-bold tracking-tight">{formatNumber(request.amount)} ریال</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400">دلیل</p>
-            <p className="text-white">{request.reason || 'ندارد'}</p>
+            <p className="text-sm text-gray-400 tracking-normal">دلیل</p>
+            <p className="text-white font-semibold tracking-tight">{request.reason || 'ندارد'}</p>
           </div>
         </>
       );
@@ -360,16 +361,16 @@ const RequestCard = ({ request, type, onAction, formatNumber, formatDate, getSta
       return (
         <>
           <div>
-            <p className="text-sm text-gray-400">وسیله</p>
-            <p className="text-white font-semibold">{request.item_name}</p>
+            <p className="text-sm text-gray-400 tracking-normal">وسیله</p>
+            <p className="text-white font-bold tracking-tight">{request.item_name}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400">تعداد</p>
-            <p className="text-white font-semibold">{request.count}</p>
+            <p className="text-sm text-gray-400 tracking-normal">تعداد</p>
+            <p className="text-white font-bold tracking-tight">{request.count}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400">پروژه</p>
-            <p className="text-white">{request.project_name || 'نامشخص'}</p>
+            <p className="text-sm text-gray-400 tracking-normal">پروژه</p>
+            <p className="text-white font-semibold tracking-tight">{request.project_name || 'نامشخص'}</p>
           </div>
         </>
       );
@@ -377,16 +378,16 @@ const RequestCard = ({ request, type, onAction, formatNumber, formatDate, getSta
       return (
         <>
           <div>
-            <p className="text-sm text-gray-400">نوع</p>
-            <p className="text-white font-semibold">{request.leave_type_name}</p>
+            <p className="text-sm text-gray-400 tracking-normal">نوع</p>
+            <p className="text-white font-bold tracking-tight">{request.leave_type_name}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400">مدت</p>
-            <p className="text-white font-semibold">{request.total_days} روز</p>
+            <p className="text-sm text-gray-400 tracking-normal">مدت</p>
+            <p className="text-white font-bold tracking-tight">{request.total_days} روز</p>
           </div>
           <div>
-            <p className="text-sm text-gray-400">تاریخ</p>
-            <p className="text-white">{request.start_date} تا {request.end_date}</p>
+            <p className="text-sm text-gray-400 tracking-normal">تاریخ</p>
+            <p className="text-white font-semibold tracking-tight">{request.start_date} تا {request.end_date}</p>
           </div>
         </>
       );
@@ -397,8 +398,8 @@ const RequestCard = ({ request, type, onAction, formatNumber, formatDate, getSta
     <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-750 transition-colors">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-lg font-bold text-white">{request.employee_name || 'نام کارمند'}</h3>
-          <p className="text-sm text-gray-400">تاریخ ثبت: {formatDate(request.created_at)}</p>
+          <h3 className="text-lg font-bold text-white tracking-tight">{request.employee_name || 'نام کارمند'}</h3>
+          <p className="text-sm text-gray-400 tracking-normal">تاریخ ثبت: {formatDate(request.created_at)}</p>
         </div>
         {getStatusBadge(request.status)}
       </div>
@@ -409,15 +410,15 @@ const RequestCard = ({ request, type, onAction, formatNumber, formatDate, getSta
 
       {request.admin_note && (
         <div className="bg-gray-700 rounded p-3 mb-4">
-          <p className="text-xs text-gray-400 mb-1">یادداشت مدیر:</p>
-          <p className="text-sm text-white">{request.admin_note}</p>
+          <p className="text-xs text-gray-400 mb-1 tracking-normal">یادداشت مدیر:</p>
+          <p className="text-sm text-white tracking-normal">{request.admin_note}</p>
         </div>
       )}
 
       {request.status === 'PENDING' && (
         <button
           onClick={onAction}
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2 px-4 rounded transition-colors"
+          className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-2.5 px-4 rounded transition-colors tracking-tight"
         >
           بررسی و اقدام
         </button>
@@ -444,7 +445,7 @@ const ActionModal = ({
       <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">بررسی درخواست</h2>
+            <h2 className="text-2xl font-bold text-white tracking-tight">بررسی درخواست</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-white text-2xl"
@@ -453,9 +454,8 @@ const ActionModal = ({
             </button>
           </div>
 
-          {/* Request Details */}
           <div className="bg-gray-700 rounded-lg p-4 mb-6">
-            <h3 className="text-lg font-semibold text-white mb-3">جزئیات</h3>
+            <h3 className="text-lg font-bold text-white mb-3 tracking-tight">جزئیات</h3>
             
             {type === 'financial' && (
               <>
@@ -487,40 +487,37 @@ const ActionModal = ({
             <DetailRow label="تاریخ ثبت" value={formatDate(request.created_at)} />
           </div>
 
-          {/* Admin Note */}
           <div className="mb-6">
-            <label className="block text-white font-semibold mb-2">
+            <label className="block text-white font-bold mb-2 tracking-tight">
               یادداشت مدیر (اختیاری)
             </label>
             <textarea
               value={adminNote}
               onChange={(e) => setAdminNote(e.target.value)}
-              className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-yellow-500 outline-none"
+              className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-yellow-500 outline-none tracking-normal"
               rows="4"
               placeholder="در صورت نیاز، توضیحات خود را وارد کنید..."
             />
           </div>
 
-          {/* Error */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500 rounded-lg p-3 mb-4 text-red-400">
+            <div className="bg-red-500/10 border border-red-500 rounded-lg p-3 mb-4 text-red-400 tracking-normal">
               {error}
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex gap-4">
             <button
               onClick={onApprove}
               disabled={loading}
-              className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 bg-green-500 hover:bg-green-600 disabled:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 tracking-tight"
             >
               {loading ? '...' : <><FaCheck /> تایید</>}
             </button>
             <button
               onClick={onReject}
               disabled={loading}
-              className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="flex-1 bg-red-500 hover:bg-red-600 disabled:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 tracking-tight"
             >
               {loading ? '...' : <><FaTimes /> رد</>}
             </button>
@@ -533,8 +530,8 @@ const ActionModal = ({
 
 const DetailRow = ({ label, value }) => (
   <div className="flex justify-between py-2 border-b border-gray-600 last:border-0">
-    <span className="text-gray-400">{label}:</span>
-    <span className="text-white font-semibold">{value}</span>
+    <span className="text-gray-400 tracking-normal">{label}:</span>
+    <span className="text-white font-bold tracking-tight">{value}</span>
   </div>
 );
 

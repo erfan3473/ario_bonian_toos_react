@@ -140,39 +140,7 @@ const UserManagementScreen = () => {
           </div>
         </div>
 
-        {/* ✅ Tabs Navigation */}
-        <div className="bg-gray-800 rounded-xl p-2 mb-6 border border-gray-700 flex gap-2">
-          <button
-            onClick={() => handleTabChange('users')}
-            className={`flex-1 py-3 rounded-lg font-bold transition ${
-              activeTab === 'users'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-            }`}
-          >
-            👥 کاربران
-          </button>
-          <button
-            onClick={() => handleTabChange('contracts')}
-            className={`flex-1 py-3 rounded-lg font-bold transition ${
-              activeTab === 'contracts'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-            }`}
-          >
-            📝 قراردادها
-          </button>
-          <button
-            onClick={() => handleTabChange('leaves')}
-            className={`flex-1 py-3 rounded-lg font-bold transition ${
-              activeTab === 'leaves'
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
-            }`}
-          >
-            🏖️ درخواست‌های مرخصی
-          </button>
-        </div>
+        
 
         {/* ✅ Tab Content */}
         {activeTab === 'leaves' ? (

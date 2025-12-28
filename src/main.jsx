@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import store from './store';
 import App from './App';
-import './styles/tailwind.css';
+import './index.css'
 import 'leaflet/dist/leaflet.css'; // استایل‌های نقشه
 
 // نکته مهم: React.StrictMode حذف شد تا لگ‌های نقشه در حالت Draw رفع شود

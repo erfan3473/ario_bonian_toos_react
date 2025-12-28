@@ -102,12 +102,13 @@ const ProjectListScreen = () => {
                   فنس‌کشی
                 </Link>
                 
-                <Link
-                  to={`/admin/projects/${project.id}/edit`}
-                  className="px-4 py-2.5 bg-gray-700/50 text-gray-300 rounded-lg hover:bg-gray-600 border border-gray-600 transition font-bold text-sm"
-                >
-                  ✏️ ویرایش
-                </Link>
+                 {/* ✅ دکمه ویرایش فعال شد */}
+              <Link
+                to={`/admin/projects/${project.id}/edit`}
+                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded text-center text-sm transition"
+              >
+                ✏️ ویرایش
+              </Link>
               </div>
             </div>
           ))}

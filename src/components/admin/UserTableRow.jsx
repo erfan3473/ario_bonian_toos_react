@@ -1,4 +1,5 @@
 // src/components/admin/UserTableRow.jsx
+// ⚠️ فایل کامل و نهایی - جایگزین فایل قبلی شود
 
 import React from 'react';
 
@@ -10,7 +11,8 @@ const UserTableRow = ({ user, onClick }) => {
   // سمت و رنگ
   const position = employee?.position;
   const positionTitle = position?.title || 'نامشخص';
-  const positionColor = position?.color_hex || '#6B7280';
+  // اگر رنگ سمت مشخص نبود، خاکستری پیش‌فرض
+  const positionColor = position?.color_hex || '#6B7280'; 
   
   // سطح مهارت
   const skillLevel = employee?.skill_level;
@@ -18,142 +20,138 @@ const UserTableRow = ({ user, onClick }) => {
     ? `سطح ${skillLevel.level_number}` 
     : null;
   
+  // حرف اول برای آواتار متنی
   const avatarText = user.first_name?.[0] || user.username?.[0] || '?';
 
   return (
     <tr 
-      className="hover:bg-gray-700/30 transition-colors border-l-4"
+      onClick={onClick}
+      className="hover:bg-gray-800/50 transition-colors border-l-4 cursor-pointer group border-b border-gray-800"
       style={{ borderLeftColor: positionColor }}
     >
-      {/* نام و آواتار */}
-      <td className="px-4 py-3">
+      {/* 1. نام و آواتار (30%) */}
+      <td className="px-4 py-4 w-[30%] align-middle">
         <div className="flex items-center gap-3">
           <div 
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-md relative"
+            className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-white font-bold shadow-md relative overflow-hidden"
             style={{ 
-              backgroundColor: positionColor,
+              backgroundColor: user.profile?.image ? 'transparent' : positionColor,
               border: `2px solid ${positionColor}`,
             }}
           >
-            {avatarText}
+            {/* ✅ لاجیک نمایش عکس یا متن */}
+            {user.profile?.image ? (
+              <img 
+                src={user.profile.image} 
+                alt={user.username} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-lg drop-shadow-md">{avatarText}</span>
+            )}
             
             {/* نقطه سبز برای کاربران فعال */}
             {user.is_active && (
               <span 
-                className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
+                className="absolute top-0 right-0 w-3 h-3 rounded-full animate-pulse border border-gray-900"
                 style={{ backgroundColor: '#10B981' }}
               />
             )}
           </div>
-          <div>
-            <div className="text-white font-bold flex items-center gap-2">
+          
+          <div className="overflow-hidden">
+            <div className="text-white font-bold flex items-center gap-2 truncate">
               {user.first_name || user.last_name
                 ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
                 : user.username}
               
               {/* Badge ادمین */}
               {user.is_superuser && (
-                <span className="text-purple-400 text-xs">👑</span>
+                <span className="text-purple-400 text-xs" title="ادمین">👑</span>
               )}
             </div>
-            <div className="text-gray-400 text-xs">@{user.username}</div>
+            <div className="text-gray-400 text-xs truncate">@{user.username}</div>
           </div>
         </div>
       </td>
 
-      {/* سمت با رنگ */}
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          {/* نقطه رنگی */}
-          <div 
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: positionColor }}
-          />
-          <span 
-            className="font-bold"
-            style={{ color: positionColor }}
-          >
-            {positionTitle}
-          </span>
-        </div>
-        
-        {/* سطح مهارت */}
-        {skillLevelDisplay && (
-          <div className="text-yellow-400 text-xs mt-1">
-            ⭐ {skillLevelDisplay}
+      {/* 2. سمت (15%) */}
+      <td className="px-4 py-4 w-[15%] align-middle">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: positionColor }}
+            />
+            <span 
+              className="font-bold text-sm truncate"
+              style={{ color: positionColor }}
+            >
+              {positionTitle}
+            </span>
           </div>
-        )}
-        
-        {/* Badge کارگر */}
-        {employee?.is_worker && (
-          <span className="inline-block mt-1 bg-orange-900/40 text-orange-300 px-2 py-0.5 rounded-full text-xs border border-orange-700">
-            👷 کارگر
-          </span>
-        )}
+          
+          {skillLevelDisplay && (
+            <span className="text-yellow-500/80 text-[10px] mt-1 pr-4">
+              ⭐ {skillLevelDisplay}
+            </span>
+          )}
+        </div>
       </td>
 
-      {/* کدملی */}
-      <td className="px-4 py-3 text-center text-gray-300 font-mono text-sm">
+      {/* 3. کدملی (15%) */}
+      <td className="px-4 py-4 text-center text-gray-300 font-mono text-sm w-[15%] align-middle">
         {employee?.code_meli || '---'}
       </td>
 
-      {/* موبایل */}
-      <td className="px-4 py-3 text-center text-gray-300 font-mono text-sm">
+      {/* 4. موبایل (15%) */}
+      <td className="px-4 py-4 text-center text-gray-300 font-mono text-sm w-[15%] align-middle">
         {user.profile?.phone_number || '---'}
       </td>
 
-      {/* پروژه‌ها و نوع استخدام */}
-      <td className="px-4 py-3 text-center">
+      {/* 5. پروژه‌ها (10%) */}
+      <td className="px-4 py-4 text-center w-[10%] align-middle">
         {activeContracts.length > 0 ? (
-          <div className="space-y-2">
-            {activeContracts.slice(0, 2).map((contract) => (
-              <div key={contract.id} className="text-xs">
-                {/* نام پروژه */}
-                <div 
-                  className="inline-block px-2 py-1 rounded text-white mb-1"
-                  style={{ backgroundColor: `${positionColor}80` }}
-                >
-                  📍 {contract.project_name}
-                </div>
-                
-                {/* نوع استخدام */}
-                {contract.employment_type_description && (
-                  <div 
-                    className="inline-block px-2 py-1 rounded-full text-xs font-bold border"
-                    style={{
-                      backgroundColor: `${positionColor}20`,
-                      borderColor: `${positionColor}60`,
-                      color: positionColor,
-                    }}
-                  >
-                    {contract.employment_type_description}
-                  </div>
-                )}
-              </div>
-            ))}
-            {activeContracts.length > 2 && (
-              <div className="text-gray-500 text-xs">
-                +{activeContracts.length - 2} دیگر
-              </div>
+          <div className="flex flex-col gap-1 items-center">
+            <span 
+              className="px-2 py-1 rounded text-[10px] font-bold text-white truncate max-w-full"
+              style={{ backgroundColor: `${positionColor}80` }}
+            >
+              📍 {activeContracts[0].project_name}
+            </span>
+            {activeContracts.length > 1 && (
+              <span className="text-xs text-gray-500">+{activeContracts.length - 1} دیگر</span>
             )}
           </div>
         ) : (
-          <span className="text-gray-500 text-sm">بدون قرارداد</span>
+          <span className="text-gray-600 text-xs">---</span>
         )}
       </td>
 
-      {/* عملیات */}
-      <td className="px-4 py-3 text-center">
+      {/* 6. دستمزد (10%) */}
+      <td className="px-4 py-4 text-center w-[10%] align-middle">
+        {activeContracts.length > 0 ? (
+           <div className="text-xs font-mono">
+             {activeContracts[0].daily_wage > 0 && <span className="text-green-400 block">{Number(activeContracts[0].daily_wage).toLocaleString()}</span>}
+             {activeContracts[0].monthly_salary > 0 && <span className="text-blue-400 block">{Number(activeContracts[0].monthly_salary).toLocaleString()}</span>}
+             {activeContracts[0].contract_value > 0 && <span className="text-purple-400 block">{Number(activeContracts[0].contract_value).toLocaleString()}</span>}
+           </div>
+        ) : (
+          <span className="text-gray-600 text-xs">---</span>
+        )}
+      </td>
+
+      {/* 7. عملیات (5%) */}
+      <td className="px-4 py-4 text-center w-[5%] align-middle">
         <button
-          onClick={onClick}
-          className="px-4 py-2 rounded-lg text-sm font-bold transition-all hover:scale-105"
-          style={{
-            backgroundColor: `${positionColor}40`,
-            color: positionColor,
-            border: `1px solid ${positionColor}`,
+          onClick={(e) => {
+            e.stopPropagation(); // جلوگیری از کلیک روی سطر
+            onClick();
           }}
+          className="p-2 rounded-lg transition-all hover:scale-110 hover:bg-gray-700"
+          title="ویرایش"
         >
-          ✏️ ویرایش
+          ✏️
         </button>
       </td>
     </tr>

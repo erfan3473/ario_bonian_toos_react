@@ -1,5 +1,5 @@
 // src/features/admin/adminSlice.jsx
-// ⚠️ فایل کامل - جایگزین کن
+// ⚠️ فایل کامل و نهایی - جایگزین فایل قبلی شود
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axiosInstance';
@@ -180,12 +180,11 @@ export const fetchLeaveTypes = createAsyncThunk(
   }
 );
 
-// 📋 Dropdowns - Batch (برای SettingsScreen)
+// 📋 Dropdowns - Batch
 export const fetchDropdowns = createAsyncThunk(
   'admin/fetchDropdowns',
   async (_, { rejectWithValue, dispatch }) => {
     try {
-      // ✅ فراخوانی همزمان همه dropdowns
       const results = await Promise.allSettled([
         dispatch(fetchPositions()).unwrap(),
         dispatch(fetchSkillLevels()).unwrap(),
@@ -193,7 +192,6 @@ export const fetchDropdowns = createAsyncThunk(
         dispatch(fetchLeaveTypes()).unwrap(),
       ]);
 
-      // بررسی خطاها
       const errors = results
         .filter((r) => r.status === 'rejected')
         .map((r) => r.reason);
@@ -358,18 +356,6 @@ export const deleteLeaveType = createAsyncThunk(
 );
 
 // 🏖️ Leave Requests
-export const approveLeaveRequest = createAsyncThunk(
-  'admin/approveLeaveRequest',
-  async (requestId, { rejectWithValue }) => {
-    try {
-      await api.post(`/admin/leave-requests/${requestId}/approve/`);
-      return requestId;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.detail || 'خطا در تایید درخواست');
-    }
-  }
-);
-// 🏖️ Leave Requests - List
 export const fetchLeaveRequests = createAsyncThunk(
   'admin/fetchLeaveRequests',
   async (status = '', { rejectWithValue }) => {
@@ -381,6 +367,18 @@ export const fetchLeaveRequests = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت درخواست‌ها');
+    }
+  }
+);
+
+export const approveLeaveRequest = createAsyncThunk(
+  'admin/approveLeaveRequest',
+  async (requestId, { rejectWithValue }) => {
+    try {
+      await api.post(`/admin/leave-requests/${requestId}/approve/`);
+      return requestId;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || 'خطا در تایید درخواست');
     }
   }
 );
@@ -412,15 +410,14 @@ const initialState = {
   leaveRequests: [],
   leaveSummary: null,
   
- loading: {
-  users: false,
-  userDetail: false,  
-  contracts: false,
-  leaveSummary: false,
-  leaveRequests: false,
-},
+  loading: {
+    users: false,
+    userDetail: false,  
+    contracts: false,
+    leaveSummary: false,
+    leaveRequests: false,
+  },
 
-  
   dropdownsLoading: false,
   dropdownsError: null,
   
@@ -464,17 +461,16 @@ const adminSlice = createSlice({
       })
       
       .addCase(fetchUserDetail.pending, (state) => {
-        state.loading.userDetail = true;  // ✅
+        state.loading.userDetail = true;
       })
       .addCase(fetchUserDetail.fulfilled, (state, action) => {
-        state.loading.userDetail = false; // ✅
+        state.loading.userDetail = false;
         state.selectedUser = action.payload;
       })
       .addCase(fetchUserDetail.rejected, (state, action) => {
-        state.loading.userDetail = false; // ✅
+        state.loading.userDetail = false;
         console.error('Fetch user detail failed:', action.payload);
       })
-
       
       .addCase(updateUser.pending, (state) => {
         state.updateStatus.loading = true;
@@ -503,6 +499,17 @@ const adminSlice = createSlice({
       })
       .addCase(updateEmployee.fulfilled, (state, action) => {
         state.updateStatus = { loading: false, success: true, error: null };
+        
+        // ✅ [FIX] استفاده از employee_details به جای employee
+        if (state.selectedUser && 
+            state.selectedUser.employee_details && 
+            state.selectedUser.employee_details.id === action.payload.id) {
+            
+            state.selectedUser.employee_details = {
+                ...state.selectedUser.employee_details,
+                ...action.payload,
+            };
+        }
       })
       .addCase(updateEmployee.rejected, (state, action) => {
         state.updateStatus = { loading: false, success: false, error: action.payload };
@@ -535,17 +542,38 @@ const adminSlice = createSlice({
       .addCase(createContract.fulfilled, (state, action) => {
         state.contracts.push(action.payload);
         state.updateStatus = { loading: false, success: true, error: null };
+        
+        // ✅ [FIX] استفاده از employee_details
+        if (state.selectedUser?.employee_details?.id === action.payload.employee) {
+          if (!state.selectedUser.employee_details.contracts) {
+            state.selectedUser.employee_details.contracts = [];
+          }
+          state.selectedUser.employee_details.contracts.unshift(action.payload);
+        }
       })
       
       .addCase(updateContract.fulfilled, (state, action) => {
         const index = state.contracts.findIndex((c) => c.id === action.payload.id);
         if (index !== -1) state.contracts[index] = action.payload;
         state.updateStatus = { loading: false, success: true, error: null };
+        
+        // ✅ [FIX] استفاده از employee_details
+        if (state.selectedUser?.employee_details?.contracts) {
+          const empContractIndex = state.selectedUser.employee_details.contracts.findIndex(c => c.id === action.payload.id);
+          if (empContractIndex !== -1) {
+            state.selectedUser.employee_details.contracts[empContractIndex] = action.payload;
+          }
+        }
       })
       
       .addCase(deleteContract.fulfilled, (state, action) => {
         state.contracts = state.contracts.filter((c) => c.id !== action.payload);
         state.updateStatus = { loading: false, success: true, error: null };
+        
+        // ✅ [FIX] استفاده از employee_details
+        if (state.selectedUser?.employee_details?.contracts) {
+          state.selectedUser.employee_details.contracts = state.selectedUser.employee_details.contracts.filter(c => c.id !== action.payload);
+        }
       });
 
     // 📋 Dropdowns - Batch
@@ -643,7 +671,7 @@ const adminSlice = createSlice({
 
     // 🏖️ Leave Requests
     builder
-        .addCase(fetchLeaveRequests.pending, (state) => {
+      .addCase(fetchLeaveRequests.pending, (state) => {
         state.loading.leaveRequests = true;
       })
       .addCase(fetchLeaveRequests.fulfilled, (state, action) => {
@@ -656,11 +684,9 @@ const adminSlice = createSlice({
 
       .addCase(approveLeaveRequest.fulfilled, (state, action) => {
         state.updateStatus = { loading: false, success: true, error: null };
-        // ✅ از لیست کل هم حذف کن
         state.leaveRequests = state.leaveRequests.filter(
           (r) => r.id !== action.payload
         );
-        // leaveSummary هم آپدیت بشه
         if (state.leaveSummary) {
           state.leaveSummary.pending_requests = state.leaveSummary.pending_requests.filter(
             (r) => r.id !== action.payload
