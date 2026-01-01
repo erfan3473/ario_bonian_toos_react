@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
   createContract,
   updateContract,
@@ -10,19 +11,23 @@ import {
   resetUpdateStatus,
 } from '../../../features/admin/adminSlice';
 import { fetchProjects } from '../../../features/projects/projectSlice';
+import { getSchemeContracts } from '../../../features/admin/adminSchemeSlice';
+import FinancialSummaryCard from '../FinancialSummaryCard';
+import JalaliDatePicker from '../../JalaliDatePicker'; // 🆕
 
 const ContractsTab = ({ user }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   
   const { employmentTypes } = useSelector((state) => state.admin);
   const projects = useSelector((state) => state.projects.list);
   const { loading, success, error } = useSelector((state) => state.admin.updateStatus);
+  const { contracts: schemeContracts } = useSelector((state) => state.adminScheme);
 
   const [showNewForm, setShowNewForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // ✅ [FIX] تغییر مسیر به employee_details
   const employee = user?.employee_details; 
   const contracts = employee?.contracts || [];
 
@@ -69,10 +74,20 @@ const ContractsTab = ({ user }) => {
   const showMonthlySalary = selectedEmploymentType?.payment_type === 'monthly';
   const showContractValue = selectedEmploymentType?.payment_type === 'contract';
 
+  // 🆕 چک کردن امکان ثبت قرارداد طرح
+  const canHaveScheme = formData.contract_type === 'EMPLOYMENT' && selectedEmploymentType?.payment_type === 'monthly';
+
   useEffect(() => {
     dispatch(fetchEmploymentTypes());
     dispatch(fetchProjects());
-  }, [dispatch]);
+    
+    // بارگذاری قراردادهای طرح
+    if (contracts.length > 0) {
+      contracts.forEach(contract => {
+        dispatch(getSchemeContracts({ contractId: contract.id }));
+      });
+    }
+  }, [dispatch, contracts.length]);
 
   useEffect(() => {
     if (success) {
@@ -219,6 +234,11 @@ const ContractsTab = ({ user }) => {
     return found?.color || 'gray';
   };
 
+  // 🆕 هندلر رفتن به صفحه طرح طبقه‌بندی
+  const handleGoToScheme = (contract) => {
+    navigate(`/admin/scheme-contract?employee=${employee.user_id}&contract=${contract.id}`);
+  };
+
   if (!user) {
     return <div className="text-center text-gray-500 py-10">لطفاً یک کاربر انتخاب کنید</div>;
   }
@@ -271,10 +291,17 @@ const ContractsTab = ({ user }) => {
         </div>
       )}
 
+      {/* 🆕 کارت خلاصه مالی */}
+      <FinancialSummaryCard 
+        contracts={contracts} 
+        schemeContracts={schemeContracts || []} 
+      />
+
       {/* Form */}
       {showNewForm && (
         <form onSubmit={handleSubmit} className="bg-gray-800/50 rounded-xl p-6 border border-gray-700 space-y-6 shadow-xl backdrop-blur-sm">
           
+          {/* 1. نوع قرارداد */}
           <div className="border-b border-gray-700 pb-6">
             <h4 className="text-blue-400 font-bold text-lg mb-4 flex items-center gap-2">
               <span className="text-2xl">1️⃣</span> نوع قرارداد
@@ -291,9 +318,9 @@ const ContractsTab = ({ user }) => {
                       : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'
                   }`}
                 >
-                   {formData.contract_type === type.value && (
-                      <div className={`absolute top-0 left-0 w-full h-1 bg-${type.color}-500`}></div>
-                   )}
+                  {formData.contract_type === type.value && (
+                    <div className={`absolute top-0 left-0 w-full h-1 bg-${type.color}-500`}></div>
+                  )}
                   <div className="text-xl mb-1">{type.label}</div>
                   <div className="text-sm opacity-80 font-normal">{type.description}</div>
                 </button>
@@ -301,6 +328,7 @@ const ContractsTab = ({ user }) => {
             </div>
           </div>
 
+          {/* 2. مشخصات شغلی */}
           <div className="border-b border-gray-700 pb-6">
             <h4 className="text-blue-400 font-bold text-lg mb-4 flex items-center gap-2">
               <span className="text-2xl">2️⃣</span> مشخصات شغلی
@@ -355,37 +383,30 @@ const ContractsTab = ({ user }) => {
             </div>
           </div>
 
+          {/* 3. بازه زمانی - 🆕 با JalaliDatePicker */}
           <div className="border-b border-gray-700 pb-6">
             <h4 className="text-blue-400 font-bold text-lg mb-4 flex items-center gap-2">
               <span className="text-2xl">3️⃣</span> بازه زمانی
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-gray-300 mb-2 font-bold text-sm">
-                  تاریخ شروع همکاری <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="start_date"
-                  value={formData.start_date}
-                  onChange={handleChange}
-                  required
-                  className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-gray-300 mb-2 font-bold text-sm">تاریخ پایان (اختیاری)</label>
-                <input
-                  type="date"
-                  name="end_date"
-                  value={formData.end_date}
-                  onChange={handleChange}
-                  className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                />
-              </div>
+              <JalaliDatePicker
+                name="start_date"
+                value={formData.start_date}
+                onChange={handleChange}
+                label="تاریخ شروع همکاری"
+                required
+              />
+              
+              <JalaliDatePicker
+                name="end_date"
+                value={formData.end_date}
+                onChange={handleChange}
+                label="تاریخ پایان (اختیاری)"
+              />
             </div>
           </div>
 
+          {/* 4. حقوق و دستمزد */}
           <div className="border-b border-gray-700 pb-6">
             <h4 className="text-green-400 font-bold text-lg mb-4 flex items-center gap-2">
               <span className="text-2xl">4️⃣</span> حقوق و دستمزد
@@ -397,60 +418,76 @@ const ContractsTab = ({ user }) => {
                 <p className="text-yellow-400">لطفاً ابتدا <b>نوع استخدام</b> را در بخش مشخصات شغلی انتخاب کنید.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
-                {showDailyWage && (
-                  <div className="col-span-2 md:col-span-1">
-                    <label className="block text-gray-300 mb-2 font-bold text-sm">
-                      دستمزد روزانه (تومان) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="daily_wage"
-                      value={formData.daily_wage}
-                      onChange={handleChange}
-                      required
-                      className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono text-xl tracking-wider text-left"
-                      placeholder="مثلا: 2500000"
-                    />
-                  </div>
-                )}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+                  {showDailyWage && (
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-gray-300 mb-2 font-bold text-sm">
+                        دستمزد روزانه (تومان) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="daily_wage"
+                        value={formData.daily_wage}
+                        onChange={handleChange}
+                        required
+                        className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono text-xl tracking-wider text-left"
+                        placeholder="مثلا: 2500000"
+                      />
+                    </div>
+                  )}
 
-                {showMonthlySalary && (
-                  <div className="col-span-2 md:col-span-1">
-                    <label className="block text-gray-300 mb-2 font-bold text-sm">
-                      حقوق ثابت ماهانه (تومان) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="monthly_salary"
-                      value={formData.monthly_salary}
-                      onChange={handleChange}
-                      required
-                      className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono text-xl tracking-wider text-left"
-                      placeholder="مثلا: 15000000"
-                    />
-                  </div>
-                )}
+                  {showMonthlySalary && (
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-gray-300 mb-2 font-bold text-sm">
+                        حقوق ثابت ماهانه (تومان) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="monthly_salary"
+                        value={formData.monthly_salary}
+                        onChange={handleChange}
+                        required
+                        className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono text-xl tracking-wider text-left"
+                        placeholder="مثلا: 15000000"
+                      />
+                    </div>
+                  )}
 
-                {showContractValue && (
-                  <div className="col-span-2 md:col-span-1">
-                    <label className="block text-gray-300 mb-2 font-bold text-sm">
-                      مبلغ کل قرارداد (تومان) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      name="contract_value"
-                      value={formData.contract_value}
-                      onChange={handleChange}
-                      required
-                      className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono text-xl tracking-wider text-left"
-                    />
+                  {showContractValue && (
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-gray-300 mb-2 font-bold text-sm">
+                        مبلغ کل قرارداد (تومان) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="contract_value"
+                        value={formData.contract_value}
+                        onChange={handleChange}
+                        required
+                        className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono text-xl tracking-wider text-left"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* 🆕 نوتیف برای قرارداد طرح */}
+                {canHaveScheme && (
+                  <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 flex items-start gap-3">
+                    <span className="text-2xl">💡</span>
+                    <div>
+                      <p className="text-blue-400 font-bold mb-1">قابلیت ثبت قرارداد طرح طبقه‌بندی</p>
+                      <p className="text-gray-400 text-sm">
+                        بعد از ذخیره این قرارداد، می‌توانید آن را به قرارداد طرح طبقه‌بندی (با مزایای کامل) ارتقا دهید.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
             )}
           </div>
 
+          {/* 5. تنظیمات پیمانکاری */}
           {showContractValue && (
             <div className="border-b border-gray-700 pb-6 bg-purple-900/10 p-6 rounded-xl border border-purple-500/20">
               <h4 className="text-purple-400 font-bold text-lg mb-4">تنظیمات پیمانکاری</h4>
@@ -499,6 +536,7 @@ const ContractsTab = ({ user }) => {
             </div>
           )}
 
+          {/* 6. وضعیت بیمه */}
           {formData.contract_type === 'EMPLOYMENT' && (
             <div className="border-b border-gray-700 pb-6">
               <h4 className="text-gray-300 font-bold text-lg mb-4">وضعیت بیمه</h4>
@@ -519,15 +557,12 @@ const ContractsTab = ({ user }) => {
                 
                 {formData.insurance_clearance_received && (
                   <div className="mr-8 animate-fadeIn">
-                    <label className="block text-gray-300 mb-2 font-bold text-sm">
-                      تاریخ تسویه حساب <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
+                    <JalaliDatePicker
                       name="insurance_clearance_date"
                       value={formData.insurance_clearance_date}
                       onChange={handleChange}
-                      className="w-full md:w-1/2 bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none"
+                      label="تاریخ تسویه حساب"
+                      required
                     />
                   </div>
                 )}
@@ -535,20 +570,22 @@ const ContractsTab = ({ user }) => {
             </div>
           )}
 
+          {/* 7. وضعیت فعال */}
           <div className="flex items-center gap-2">
-             <input
-                type="checkbox"
-                name="is_active"
-                id="is_active"
-                checked={formData.is_active}
-                onChange={handleChange}
-                className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
-              />
+            <input
+              type="checkbox"
+              name="is_active"
+              id="is_active"
+              checked={formData.is_active}
+              onChange={handleChange}
+              className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500"
+            />
             <label htmlFor="is_active" className="text-white font-bold cursor-pointer select-none">
               این قرارداد فعال است
             </label>
           </div>
 
+          {/* دکمه‌های فرم */}
           <div className="flex justify-end gap-4 pt-4 border-t border-gray-700">
             <button
               type="button"
@@ -568,6 +605,7 @@ const ContractsTab = ({ user }) => {
         </form>
       )}
 
+      {/* لیست قراردادها */}
       <div className="space-y-4">
         {contracts.length === 0 ? (
           <div className="bg-gray-800/50 rounded-xl p-12 text-center border-2 border-dashed border-gray-700">
@@ -579,6 +617,8 @@ const ContractsTab = ({ user }) => {
           contracts.map((contract) => {
             const typeColor = getContractTypeColor(contract.contract_type);
             const typeLabel = contractTypes.find(t => t.value === contract.contract_type)?.label || contract.contract_type;
+            const hasScheme = schemeContracts?.some(sc => sc.contract === contract.id);
+            const canAddScheme = contract.contract_type === 'EMPLOYMENT' && contract.monthly_salary > 0;
             
             return (
               <div
@@ -590,8 +630,8 @@ const ContractsTab = ({ user }) => {
                 }`}
               >
                 <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h4 className="text-white font-bold text-xl">
                         {contract.project_name || 'پروژه نامشخص'}
                       </h4>
@@ -603,6 +643,11 @@ const ContractsTab = ({ user }) => {
                       ) : (
                         <span className="px-2 py-1 rounded text-xs font-bold bg-gray-700 text-gray-400">غیرفعال</span>
                       )}
+                      {hasScheme && (
+                        <span className="px-2 py-1 rounded text-xs font-bold bg-blue-900/30 text-blue-400 border border-blue-700/50">
+                          ✓ طرح طبقه‌بندی
+                        </span>
+                      )}
                     </div>
                     <p className="text-gray-400 text-sm flex items-center gap-2">
                       <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
@@ -610,7 +655,22 @@ const ContractsTab = ({ user }) => {
                     </p>
                   </div>
 
-                  <div className="flex gap-2 self-start">
+                  <div className="flex gap-2 self-start flex-wrap">
+                    {/* 🆕 دکمه قرارداد طرح */}
+                    {canAddScheme && (
+                      <button
+                        onClick={() => handleGoToScheme(contract)}
+                        className={`px-3 py-2 rounded-lg font-bold text-sm transition ${
+                          hasScheme
+                            ? 'bg-blue-900/30 text-blue-400 border border-blue-700/50 hover:bg-blue-900/50'
+                            : 'bg-green-900/30 text-green-400 border border-green-700/50 hover:bg-green-900/50'
+                        }`}
+                        title={hasScheme ? 'مشاهده قرارداد طرح' : 'ثبت قرارداد طرح'}
+                      >
+                        {hasScheme ? '📋 مشاهده طرح' : '➕ ثبت طرح'}
+                      </button>
+                    )}
+                    
                     <button
                       onClick={() => handleEdit(contract)}
                       className="p-2 text-blue-400 hover:bg-blue-900/30 rounded-lg transition"
@@ -633,30 +693,30 @@ const ContractsTab = ({ user }) => {
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-900/50 rounded-lg p-4">
-                   <div>
+                  <div>
                     <span className="block text-xs text-gray-500 mb-1">شروع همکاری</span>
                     <span className="text-white font-mono text-sm">
-                        {new Date(contract.start_date).toLocaleDateString('fa-IR')}
+                      {new Date(contract.start_date).toLocaleDateString('fa-IR')}
                     </span>
-                   </div>
-                   <div>
+                  </div>
+                  <div>
                     <span className="block text-xs text-gray-500 mb-1">پایان همکاری</span>
                     <span className="text-white font-mono text-sm">
-                        {contract.end_date ? new Date(contract.end_date).toLocaleDateString('fa-IR') : 'نامحدود'}
+                      {contract.end_date ? new Date(contract.end_date).toLocaleDateString('fa-IR') : 'نامحدود'}
                     </span>
-                   </div>
-                   <div>
+                  </div>
+                  <div>
                     <span className="block text-xs text-gray-500 mb-1">مدت</span>
                     <span className="text-white font-bold text-sm">
-                        {calculateDuration(contract.start_date, contract.end_date)}
+                      {calculateDuration(contract.start_date, contract.end_date)}
                     </span>
-                   </div>
-                   <div>
-                     <span className="block text-xs text-gray-500 mb-1">وضعیت مالی</span>
-                     {contract.daily_wage > 0 && <span className="text-green-400 font-mono font-bold text-sm">{Number(contract.daily_wage).toLocaleString()} روزانه</span>}
-                     {contract.monthly_salary > 0 && <span className="text-blue-400 font-mono font-bold text-sm">{Number(contract.monthly_salary).toLocaleString()} ماهانه</span>}
-                     {contract.contract_value > 0 && <span className="text-purple-400 font-mono font-bold text-sm">{Number(contract.contract_value).toLocaleString()} کل</span>}
-                   </div>
+                  </div>
+                  <div>
+                    <span className="block text-xs text-gray-500 mb-1">وضعیت مالی</span>
+                    {contract.daily_wage > 0 && <span className="text-green-400 font-mono font-bold text-sm block">{Number(contract.daily_wage).toLocaleString('fa-IR')} روزانه</span>}
+                    {contract.monthly_salary > 0 && <span className="text-blue-400 font-mono font-bold text-sm block">{Number(contract.monthly_salary).toLocaleString('fa-IR')} ماهانه</span>}
+                    {contract.contract_value > 0 && <span className="text-purple-400 font-mono font-bold text-sm block">{Number(contract.contract_value).toLocaleString('fa-IR')} کل</span>}
+                  </div>
                 </div>
               </div>
             );

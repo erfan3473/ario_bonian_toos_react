@@ -18,6 +18,8 @@ import UserManagementScreen from './screens/admin/UserManagementScreen';
 import UserDetailPage from './screens/admin/UserDetailPage';
 import SettingsScreen from './screens/admin/SettingsScreen';
 import RequestManagementScreen from './screens/admin/RequestManagementScreen';
+import SchemeContractScreen from './screens/admin/SchemeContractScreen';
+import SchemeManagementScreen from './screens/admin/SchemeManagementScreen';
 
 function App() {
   const { userInfo } = useSelector((state) => state.userLogin);
@@ -51,6 +53,9 @@ function App() {
           <Route path="/admin/settings" element={<SettingsScreen />} />
           <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
           <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
+          <Route path="/admin/scheme-contracts" element={<SchemeContractScreen />} />
+          <Route path="/admin/scheme-contracts/:id" element={<SchemeContractScreen />} />
+          <Route path="/admin/scheme-managements" element={<SchemeManagementScreen />} />
           <Route path="/admin/requests" element={<RequestManagementScreen />} />
         </Routes>
       </main>

@@ -14,6 +14,7 @@ import reportReducer from './features/reports/reportSlice';
 import adminReducer from './features/admin/adminSlice'; 
 import projectReducer from './features/projects/projectSlice'; 
 import adminRequestReducer from './features/admin/adminRequestSlice';
+import adminSchemeReducer from './features/admin/adminSchemeSlice';
 // load user info from storage
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -40,6 +41,7 @@ const store = configureStore({
     adminRequests: adminRequestReducer, 
     userRole: userRoleReducer,
     userUpdateByAdmin: userUpdateByAdminReducer,
+    adminScheme: adminSchemeReducer,
 
   },
   preloadedState,

@@ -117,6 +117,19 @@ const Header = () => {
                     <span>کاربران</span>
                   </Link>
 
+                  {/* قرارداد کار منطبق با طرح طبقه بندی */}
+                  <Link
+                    to="/admin/scheme-managements"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
+                      location.pathname.startsWith('/admin/scheme-managements')
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-200 hover:bg-green-700/50'
+                    }`}
+                  >
+                    <FaUsers className="text-green-300" />
+                    <span>گروه شغلی</span>
+                  </Link>
+
                   {/* مدیریت پروژه‌ها */}
                   <Link
                     to="/projects"

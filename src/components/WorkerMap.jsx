@@ -88,7 +88,7 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
       {/* نقشه */}
       <div className="relative w-full h-full z-0 isolate rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl">
         <MapContainer
-          center={[35.6892, 51.389]}
+          center={[36.2974, 59.6062]} // ✅ مشهد
           zoom={13}
           style={{ height: '100%', width: '100%', zIndex: 0 }}
         >
@@ -127,6 +127,9 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
             
             // 🎨 رنگ سمت - با fallback
             const positionColor = worker.position_color_hex || '#3B82F6';
+            
+            // ✅ استفاده از full_name
+            const displayName = worker.full_name || 'اسم ثبت نشده';
 
             const icon = L.divIcon({
               className: '',
@@ -166,21 +169,28 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
                     {worker.profile_image && (
                       <img 
                         src={worker.profile_image} 
-                        alt={worker.name} 
+                        alt={displayName} 
                         className="w-14 h-14 rounded-full mx-auto mb-2 object-cover shadow-md"
                         style={{ border: `3px solid ${positionColor}` }}
                       />
                     )}
-                    <b className="text-sm block text-gray-800">{worker.name}</b>
+                    {/* ✅ استفاده از full_name */}
+                    <b className="text-sm block text-gray-800">{displayName}</b>
                     <span 
                       className="text-xs font-bold block mt-1"
                       style={{ color: positionColor }}
                     >
-                      {worker.position}
+                      {worker.position || 'نیروی ساده'}
                     </span>
                     {worker.current_project_name && (
                       <div className="mt-2 text-[11px] text-gray-600">
                         📍 {worker.current_project_name}
+                      </div>
+                    )}
+                    {/* ✅ نمایش user_id */}
+                    {worker.user_id && (
+                      <div className="mt-1 text-[10px] text-gray-500 font-mono">
+                        ID: {worker.user_id}
                       </div>
                     )}
                   </div>

@@ -1,4 +1,5 @@
 // src/components/WorkerCard.jsx
+
 import React from 'react';
 
 const statusMap = {
@@ -29,158 +30,127 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
 
   const statusKey = worker.today_attendance_status || 'NOT_STARTED';
   const statusConf = statusMap[statusKey] || statusMap.NOT_STARTED;
-  const displayName = worker.name || 'ناشناس';
 
-  // 🔹 رنگ سمت - با fallback مثل UserCard
+  const displayName = worker.full_name || 'اسم ثبت نشده';
   const positionColor = worker.position_color_hex || '#3B82F6';
+  const isOnline = !worker.stale;
 
   return (
     <div
       onClick={handleClick}
-      className="rounded-xl p-4 border-2 hover:shadow-2xl hover:scale-[1.02] cursor-pointer transition-all duration-300 relative overflow-hidden"
-      style={{ 
-        borderColor: highlight ? '#3B82F6' : selected ? '#A855F7' : positionColor,
-        backgroundImage: `linear-gradient(135deg, ${positionColor}15, ${positionColor}05)`,
-      }}
+      className={`
+        relative p-4 rounded-lg border-2 cursor-pointer transition-all
+        ${selected ? 'ring-2 ring-blue-400 scale-105' : ''}
+        ${highlight ? 'animate-pulse ring-2 ring-yellow-400' : ''}
+        ${isOnline 
+          ? 'bg-slate-800/60 border-green-500/50 hover:bg-slate-700/80' 
+          : 'bg-slate-800/30 border-gray-600/50 hover:bg-slate-800/50 opacity-70'
+        }
+      `}
     >
-      {/* خط رنگی بالا */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-1.5 z-10"
-        style={{ backgroundColor: positionColor }}
-      />
+      {/* Badge آنلاین/آفلاین */}
+      <div className="absolute top-2 left-2">
+        {isOnline ? (
+          <span className="flex items-center gap-1 px-2 py-0.5 bg-green-900/40 text-green-300 text-xs rounded-full border border-green-500/30">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            آنلاین
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 px-2 py-0.5 bg-gray-700/40 text-gray-400 text-xs rounded-full border border-gray-600/30">
+            <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+            آفلاین
+          </span>
+        )}
+      </div>
 
-      <div className="flex items-start gap-4 relative z-10">
-        {/* آواتار */}
-        <div className="relative mt-1 flex-shrink-0">
-          <div 
-            className="w-16 h-16 rounded-full overflow-hidden border-2 shadow-lg relative"
-            style={{ borderColor: positionColor }}
-          >
-            {worker.profile_image ? (
-              <img 
-                src={worker.profile_image} 
-                alt={displayName} 
-                className="w-full h-full object-cover" 
-              />
-            ) : (
-              <div 
-                className="w-full h-full flex items-center justify-center text-white text-2xl font-bold"
-                style={{ backgroundColor: positionColor }}
-              >
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
+      {/* گوشه بالا راست: user.id */}
+      {worker.user_id && (
+        <div className="absolute top-2 right-2 text-[10px] text-gray-400 bg-slate-900/70 px-2 py-0.5 rounded-full border border-slate-700">
+          ID: {worker.user_id}
+        </div>
+      )}
+
+      {/* هدر کارت */}
+      <div className="flex items-center gap-3 mb-3 mt-4">
+        {/* عکس پروفایل */}
+        <div className="relative">
+          {worker.profile_image ? (
+            <img
+              src={worker.profile_image}
+              alt={displayName}
+              className="w-12 h-12 rounded-full object-cover border-2"
+              style={{ borderColor: positionColor }}
+            />
+          ) : (
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold border-2"
+              style={{ backgroundColor: positionColor, borderColor: positionColor }}
+            >
+              {displayName.charAt(0)}
+            </div>
+          )}
           
-          {/* نشانگر آنلاین/آفلاین */}
+          {/* نقطه وضعیت آنلاین */}
           <span 
-            className={`absolute -bottom-0.5 -left-0.5 w-4 h-4 border-2 border-gray-900 rounded-full shadow-lg ${
-              worker.stale ? 'bg-gray-500' : 'bg-green-500 animate-pulse'
+            className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-800 ${
+              isOnline ? 'bg-green-500' : 'bg-gray-500'
             }`}
           />
         </div>
 
-        {/* محتوا */}
+        {/* نام و نام خانوادگی */}
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start mb-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-white font-bold text-base truncate leading-tight">
-                {displayName}
-              </h3>
-              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: positionColor }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                <span className="font-bold">{worker.position || 'نیروی ساده'}</span>
-              </p>
-            </div>
-            
-            {/* بج وضعیت */}
-            <span className={`px-2 py-1 rounded-md text-[10px] border font-bold flex items-center gap-1 ${statusConf.className}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${statusConf.dotColor}`}></span>
-              {statusConf.label}
-            </span>
-          </div>
-
-          {/* پروژه */}
-          <div 
-            className="rounded-lg px-2 py-1.5 mb-2 border"
-            style={{
-              backgroundColor: `${positionColor}20`,
-              borderColor: `${positionColor}50`,
-            }}
-          >
-            <p className="text-xs text-gray-400 truncate flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span className="text-white font-medium">{worker.current_project_name || 'بدون پروژه'}</span>
-            </p>
-          </div>
-
-          {/* زمان‌بندی شیفت */}
-          <div className="flex justify-between items-center">
-            {/* ساعات */}
-            <div className="flex gap-2 text-xs">
-              {/* شروع */}
-              <div 
-                className="flex flex-col items-center px-2 py-1 rounded-lg border"
-                style={{
-                  backgroundColor: `${positionColor}15`,
-                  borderColor: `${positionColor}40`,
-                }}
-              >
-                <span className="text-gray-500 text-[9px] uppercase">ورود</span>
-                {worker.shift_start ? (
-                  <span className="text-white font-mono font-bold tracking-wider text-xs">{worker.shift_start}</span>
-                ) : (
-                  <span className="text-gray-600 text-[10px]">--:--</span>
-                )}
-              </div>
-
-              {/* فلش */}
-              <div className="self-center text-gray-600 text-sm">→</div>
-
-              {/* پایان */}
-              <div 
-                className="flex flex-col items-center px-2 py-1 rounded-lg border"
-                style={{
-                  backgroundColor: `${positionColor}15`,
-                  borderColor: `${positionColor}40`,
-                }}
-              >
-                <span className="text-gray-500 text-[9px] uppercase">خروج</span>
-                {worker.shift_end ? (
-                  <span className="text-white font-mono font-bold tracking-wider text-xs">{worker.shift_end}</span>
-                ) : (
-                  statusKey === 'WORKING' ? (
-                    <span className="text-green-400/70 animate-pulse text-[9px] pt-0.5">جاری...</span>
-                  ) : (
-                    <span className="text-gray-600 text-[10px]">--:--</span>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* آخرین بازدید */}
-            <div 
-              className="text-[9px] text-gray-400 flex items-center gap-1 px-2 py-1 rounded-lg border"
-              style={{
-                backgroundColor: `${positionColor}10`,
-                borderColor: `${positionColor}30`,
-              }}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${worker.stale ? 'bg-red-400' : 'bg-green-400 animate-pulse'}`}></span>
-              <span className="font-mono">{lastSeen}</span>
-            </div>
-          </div>
+          <h3 className={`font-semibold truncate ${isOnline ? 'text-white' : 'text-gray-400'}`}>
+            {displayName}
+          </h3>
+          <p className="text-sm text-gray-400 truncate">
+            {worker.position || 'نیروی ساده'}
+          </p>
         </div>
       </div>
 
-      {/* اثر انتخاب */}
-      {selected && (
-        <div className="absolute inset-0 bg-purple-500/5 pointer-events-none rounded-xl"></div>
+      {/* اطلاعات پروژه */}
+      <div className="mb-3 p-2 rounded bg-slate-900/40 border border-slate-700/50">
+        <p className="text-xs text-gray-400 mb-1">پروژه</p>
+        <p className="text-sm text-gray-200 truncate">
+          {worker.current_project_name || 'بدون پروژه'}
+        </p>
+      </div>
+
+      {/* وضعیت شیفت */}
+      <div className={`p-2 rounded border ${statusConf.className}`}>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${statusConf.dotColor}`}></span>
+            <span className="text-sm font-medium">{statusConf.label}</span>
+          </div>
+        </div>
+        
+        {/* ✅ نمایش ورود و خروج */}
+        {(worker.shift_start || worker.shift_end) && (
+          <div className="flex items-center gap-3 text-xs mt-2 pt-2 border-t border-gray-700/50">
+            {worker.shift_start && (
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400">ورود:</span>
+                <span className="font-semibold text-green-300">{worker.shift_start}</span>
+              </div>
+            )}
+            
+            {worker.shift_end && (
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400">خروج:</span>
+                <span className="font-semibold text-blue-300">{worker.shift_end}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* آخرین بروزرسانی */}
+      {lastSeen && (
+        <div className="mt-2 text-xs text-gray-500 text-center">
+          {lastSeen}
+        </div>
       )}
     </div>
   );

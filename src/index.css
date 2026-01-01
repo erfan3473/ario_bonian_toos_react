@@ -27,3 +27,44 @@ body {
 /* ════════════════════════════════════════════════════════════ */
 /* همین! بقیه استایل‌ها توی کامپوننت‌ها با Tailwind */
 /* ════════════════════════════════════════════════════════════ */
+
+
+/* فارسی‌سازی تقویم */
+.Calendar {
+  font-family: 'Vazir', 'Tahoma', sans-serif !important;
+  direction: rtl !important;
+}
+
+.Calendar__day {
+  font-family: inherit;
+}
+
+.Calendar__weekDays {
+  font-family: inherit;
+}
+
+/* رنگ‌بندی سفارشی */
+.Calendar__day.-selected {
+  background-color: #3b82f6 !important;
+  color: white !important;
+}
+
+.Calendar__day:hover {
+  background-color: #dbeafe !important;
+}
+
+.Calendar__day.-selectedStart,
+.Calendar__day.-selectedEnd {
+  background-color: #2563eb !important;
+}
+
+.Calendar__weekDay {
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* استایل input */
+.DatePicker input {
+  text-align: center;
+  font-family: 'Vazir', 'Tahoma', sans-serif;
+}

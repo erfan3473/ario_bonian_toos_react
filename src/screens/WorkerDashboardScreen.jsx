@@ -40,7 +40,7 @@ const formatTimeAgo = (ts) => {
 const WorkerDashboardScreen = () => {
   const dispatch = useDispatch();
 
-  // ✅ 1) دریافت داده‌ها از Redux (اصلاح شده)
+  // ✅ 1) دریافت داده‌ها از Redux
   const { status: workerStatus } = useSelector((state) => state.workers);
   const { history: { status: historyStatus, data: historyData } } = useSelector((state) => state.workers);
   
@@ -83,6 +83,7 @@ const WorkerDashboardScreen = () => {
   }, [dispatch]);
 
   // 3. مدیریت پیشرفته WebSocket
+  
   useEffect(() => {
     let alive = true;
 
@@ -105,6 +106,36 @@ const WorkerDashboardScreen = () => {
       socket.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
+          
+          // ✅ پردازش Initial Snapshot
+          if (data.type === 'initial_snapshot' && data.workers) {
+            console.log(`📸 [WS] Initial snapshot: ${data.workers.length} workers`);
+            
+            data.workers.forEach(worker => {
+              const workerId = worker.id || worker.worker_id;
+              lastSeenRef.current.set(workerId, Date.now());
+              dispatch(updateWorkerLocation(worker));
+            });
+            
+            return;
+          }
+          
+          // ✅ پردازش Heartbeat
+          if (data.type === 'heartbeat_update') {
+            const workerId = data.id || data.worker_id;
+            lastSeenRef.current.set(workerId, Date.now());
+            
+            if (!paused) {
+              dispatch(updateWorkerLocation({
+                id: workerId,
+                status: 'online',
+                timestamp: data.timestamp
+              }));
+            }
+            return;
+          }
+          
+          // ✅ پردازش Location Update
           if (data.message && !data.id && !data.worker_id) return;
           
           if (data.id || data.worker_id) {
@@ -147,17 +178,24 @@ const WorkerDashboardScreen = () => {
     };
   }, [paused, dispatch]);
 
+
+  // 4. فیلترینگ نهایی
   // 4. فیلترینگ نهایی
   const finalWorkers = useMemo(() => {
     let list = visibleWorkers;
     const q = search.trim().toLowerCase();
 
     if (q) {
-      list = list.filter(w => 
-        (w.name || '').toLowerCase().includes(q) || 
-        (w.position || '').toLowerCase().includes(q) ||
-        String(w.id).includes(q)
-      );
+      list = list.filter(w => {
+        return (
+          // ✅ استفاده از full_name به‌جای first_name/last_name
+          (w.full_name || '').toLowerCase().includes(q) ||
+          (w.position || '').toLowerCase().includes(q) ||
+          (w.current_project_name || '').toLowerCase().includes(q) ||
+          String(w.id).includes(q) ||
+          String(w.user_id || '').includes(q)
+        );
+      });
     }
 
     if (!showOfflineWorkers) {
@@ -167,17 +205,17 @@ const WorkerDashboardScreen = () => {
     if (sortBy === 'recent') {
       list = [...list].sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
     } else {
-      list = [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      // ✅ مرتب‌سازی با full_name
+      list = [...list].sort((a, b) => {
+        const nameA = a.full_name || '';
+        const nameB = b.full_name || '';
+        return nameA.localeCompare(nameB, 'fa');
+      });
     }
 
     return list;
   }, [visibleWorkers, search, sortBy, showOfflineWorkers]);
-  // بعد از useMemo finalWorkers
-useEffect(() => {
-  if (finalWorkers.length > 0) {
-    console.log('🔍 Sample Worker:', finalWorkers[0]);
-  }
-}, [finalWorkers]);
+
 
   const currentProjectStats = useMemo(() => {
     if (selectedProjectId) {
@@ -279,7 +317,7 @@ useEffect(() => {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <span>اتصال قطع است.</span>
+          <span>اتصال قطع است. تلاش برای اتصال مجدد...</span>
         </div>
       )}
 
@@ -365,7 +403,7 @@ useEffect(() => {
             </h2>
             <div className="flex flex-wrap gap-3 w-full sm:w-auto">
               <input 
-                placeholder="جستجو..." 
+                placeholder="جستجو نام، سمت، پروژه..." 
                 className="bg-gray-900 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white flex-grow"
                 value={search} 
                 onChange={(e) => setSearch(e.target.value)}

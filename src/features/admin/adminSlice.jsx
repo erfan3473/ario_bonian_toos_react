@@ -394,12 +394,71 @@ export const rejectLeaveRequest = createAsyncThunk(
     }
   }
 );
+export const getSchemeJobClasses = createAsyncThunk(
+  'admin/getSchemeJobClasses',
+  async () => {
+    const response = await api.get('/admin/scheme/job-classes/');
+    return response.data;
+  }
+);
 
+export const getSchemeJobGroups = createAsyncThunk(
+  'admin/getSchemeJobGroups',
+  async ({ year, group } = {}) => {
+    const params = new URLSearchParams();
+    if (year) params.append('year', year);
+    if (group) params.append('group', group);
+    const response = await api.get('/admin/scheme/job-groups/', { params });
+    return response.data;
+  }
+);
+
+export const getSchemeContracts = createAsyncThunk(
+  'admin/getSchemeContracts',
+  async ({ employeeId, projectId, contractId } = {}) => {
+    const params = new URLSearchParams();
+    if (employeeId) params.append('employee_id', employeeId);
+    if (projectId) params.append('project_id', projectId);
+    if (contractId) params.append('contract_id', contractId);
+    const response = await api.get('/admin/scheme/contracts/', { params });
+    return response.data;
+  }
+);
+
+export const createSchemeContract = createAsyncThunk(
+  'admin/createSchemeContract',
+  async (data) => {
+    const response = await api.post('/admin/scheme/contracts/', data);
+    return response.data;
+  }
+);
+
+export const updateSchemeContract = createAsyncThunk(
+  'admin/updateSchemeContract',
+  async ({ id, data }) => {
+    const response = await api.put(`/admin/scheme/contracts/${id}/`, data);
+    return response.data;
+  }
+);
+
+export const recalculateSchemeContract = createAsyncThunk(
+  'admin/recalculateSchemeContract',
+  async (id) => {
+    const response = await api.post(`/admin/scheme/contracts/${id}/recalculate/`);
+    return response.data;
+  }
+);
 // ═══════════════════════════════════════════════════════════
 // 📦 INITIAL STATE
 // ═══════════════════════════════════════════════════════════
 
 const initialState = {
+
+  scheme: {
+    contracts: [],
+    jobClasses: [],
+    jobGroups: [],
+  },
   users: [],
   selectedUser: null,
   contracts: [],
@@ -700,9 +759,36 @@ const adminSlice = createSlice({
             (r) => r.id !== action.payload
           );
         }
+      })
+      
+      // ✅ اضافات به extraReducers موجود
+      .addCase(getSchemeJobClasses.fulfilled, (state, action) => {
+        state.scheme.jobClasses = action.payload;
+      })
+      .addCase(getSchemeJobGroups.fulfilled, (state, action) => {
+        state.scheme.jobGroups = action.payload;
+      })
+      .addCase(getSchemeContracts.fulfilled, (state, action) => {
+        state.scheme.contracts = action.payload;
+      })
+      .addCase(createSchemeContract.fulfilled, (state, action) => {
+        state.scheme.contracts.push(action.payload);
+      })
+      .addCase(updateSchemeContract.fulfilled, (state, action) => {
+        const index = state.scheme.contracts.findIndex(c => c.id === action.payload.id);
+        if (index !== -1) state.scheme.contracts[index] = action.payload;
+      })
+      .addCase(recalculateSchemeContract.fulfilled, (state, action) => {
+        const index = state.scheme.contracts.findIndex(c => c.id === action.payload.data.id);
+        if (index !== -1) state.scheme.contracts[index] = action.payload.data;
       });
   },
 });
 
 export const { resetUpdateStatus, clearSelectedUser, clearLeaveSummary } = adminSlice.actions;
 export default adminSlice.reducer;
+
+
+
+
+

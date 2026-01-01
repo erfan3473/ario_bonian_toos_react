@@ -1,0 +1,170 @@
+
+def post(self, request):
+    user = request.user
+    action = request.data.get('action')
+    
+    logger.info(f"[ClockAction] User {user.id}, Action: {action}")
+    
+    # چک Employee
+    try:
+        employee = Employee.objects.select_related('position').get(user=user)
+    except Employee.DoesNotExist:
+        logger.warning(f"[ClockAction] No Employee for user {user.id}")
+        return Response(
+            {'detail': 'پروفایل کارمندی برای شما ثبت نشده است.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # چک Worker
+    try:
+        worker = Worker.objects.get(employee=employee)
+    except Worker.DoesNotExist:
+        logger.warning(f"[ClockAction] User {user.id} is not a Worker")
+        return Response(
+            {'detail': 'فقط کارگرها می‌توانند ورود/خروج ثبت کنند.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Validation action
+    if not action or action not in ['IN', 'OUT']:
+        logger.error(f"[ClockAction] Invalid action: {action}")
+        return Response(
+            {'detail': 'فیلد action الزامی است و باید IN یا OUT باشد.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # ثبت موقعیت جغرافیایی
+    location_point = self._save_location(
+        worker,
+        request.data.get('lat'),
+        request.data.get('long'),
+        request.data.get('accuracy', 0)
+    )
+
+    today = timezone.localdate()
+    now = timezone.now()
+
+    # ✅ شیفت باز فعلی (در 24 ساعت اخیر)
+    last_24h = now - timedelta(hours=24)
+    open_shift = Attendance.objects.filter(
+        worker=worker,
+        time_in__gte=last_24h,      # در 24 ساعت اخیر شروع شده
+        time_out__isnull=True        # و هنوز خروج نخورده
+    ).select_related('project').order_by('-time_in').first()
+
+    # اجرای action
+    if action == 'IN':
+        # گرفتن پروژه از قرارداد فعال
+        active_contract = employee.contracts.filter(
+            is_active=True,
+            start_date__lte=today,
+        ).select_related('project').order_by('-start_date').first()
+        
+        if not active_contract or not active_contract.project:
+            logger.warning(f"[ClockAction] No active contract/project for worker {worker.id}")
+            return Response(
+                {'detail': 'شما پروژه فعالی ندارید. لطفاً ابتدا QR پروژه را اسکن کنید.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        project = active_contract.project
+        logger.info(f"[ClockAction] Using project from contract: {project.id} - {project.name}")
+        
+        return self._clock_in(worker, project, open_shift, location_point, today, now)
+    
+    else:  # OUT
+        return self._clock_out(open_shift, location_point, now)
+
+
+
+
+def _clock_in(self, worker, project, open_shift, location_point, today, now):
+    """✅ ثبت ورود (با پشتیبانی multi-shift + شب‌کاری)"""
+    
+    # 1. چک شیفت باز
+    if open_shift:
+        logger.warning(f"[ClockAction] Worker {worker.id} has open shift {open_shift.id}")
+        return Response({
+            'detail': 'شما یک شیفت باز دارید. ابتدا از آن خارج شوید.',
+            'open_shift_id': open_shift.id,
+            'open_shift_start': open_shift.time_in.isoformat(),
+            'open_shift_project': open_shift.project.name if open_shift.project else None
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # 2. چک overlap با شیفت‌های قبلی (حداقل 15 دقیقه فاصله)
+    # ✅ چک در 24 ساعت اخیر (نه فقط امروز)
+    last_24h = now - timedelta(hours=24)
+    recent_attendances = Attendance.objects.filter(
+        worker=worker,
+        time_out__gte=last_24h,      # در 24 ساعت اخیر خروج زده
+        time_out__isnull=False
+    ).order_by('-time_out')
+
+    MIN_GAP_MINUTES = 15
+
+    if recent_attendances.exists():
+        last_attendance = recent_attendances.first()
+        time_diff = (now - last_attendance.time_out).total_seconds() / 60
+        
+        if time_diff < MIN_GAP_MINUTES:
+            remaining = int(MIN_GAP_MINUTES - time_diff)
+            logger.warning(
+                f"[ClockAction] Worker {worker.id} trying to clock in too soon. "
+                f"Gap: {time_diff:.1f}min, Required: {MIN_GAP_MINUTES}min"
+            )
+            return Response({
+                'detail': f'باید حداقل {MIN_GAP_MINUTES} دقیقه از خروج قبلی گذشته باشد.',
+                'remaining_minutes': remaining,
+                'last_clock_out': last_attendance.time_out.isoformat()
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    # 3. ✅ تعیین report_date بر اساس ساعت ورود
+    # اگه بعد از ساعت 6 صبح باشه → report_date همون روز
+    # اگه قبل از ساعت 6 صبح باشه → report_date روز قبل (چون شیفت شب)
+    
+    time_in_local = now.astimezone(timezone.get_current_timezone())
+    if time_in_local.hour < 6:  # قبل از ساعت 6 صبح
+        report_date = (time_in_local.date() - timedelta(days=1))
+        logger.info(f"[ClockAction] Night shift detected. Using report_date: {report_date}")
+    else:
+        report_date = time_in_local.date()
+
+    # 4. ایجاد شیفت جدید
+    try:
+        attendance = Attendance.objects.create(
+            worker=worker,
+            project=project,
+            report_date=report_date,  # ✅ استفاده از report_date محاسبه شده
+            time_in=now,
+            location_in=location_point,
+            status='present'
+        )
+
+        # شمارش شیفت‌های امروز (بر اساس report_date)
+        total_shifts_today = Attendance.objects.filter(
+            worker=worker,
+            report_date=report_date
+        ).count()
+
+        logger.info(
+            f"[ClockAction] Clock IN successful: Worker {worker.id}, "
+            f"Attendance {attendance.id}, Shift #{total_shifts_today}, "
+            f"report_date={report_date}"
+        )
+
+        return Response({
+            'success': True,
+            'status': 'WORKING',
+            'attendance_id': attendance.id,
+            'shift_number': total_shifts_today,
+            'project_id': project.id,
+            'project_name': project.name,
+            'time_in': attendance.time_in.isoformat(),
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logger.error(f"[ClockAction] Error in clock IN: {str(e)}", exc_info=True)
+        return Response(
+            {'detail': f'خطا در ثبت ورود: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

@@ -98,12 +98,20 @@ const workersSlice = createSlice({
 
       const worker = state.allWorkers[workerId];
 
-      // اطلاعات پروفایل / شغلی
-      worker.name = u.name ?? worker.name;
+      // ✅ اگر فقط heartbeat است، فقط lastUpdate را آپدیت کن
+      if (u.type === 'heartbeat_update') {
+        worker.lastUpdate = lastUpdate;
+        worker.stale = false;
+        return;
+      }
+
+      // ✅ اگر snapshot یا location_update است، همه چیز را آپدیت کن
+      if (u.full_name !== undefined) worker.full_name = u.full_name;
+      if (u.user_id !== undefined) worker.user_id = u.user_id;
+      
       worker.position = u.position ?? worker.position;
       worker.position_color_hex = u.position_color_hex ?? worker.position_color_hex;
 
-      // هماهنگ با backend + موبایل
       if (u.current_project_id !== undefined) {
         worker.current_project_id = u.current_project_id;
       }
@@ -114,13 +122,17 @@ const workersSlice = createSlice({
         worker.today_attendance_status = u.today_attendance_status;
       }
 
-      // لوکیشن
-      worker.latitude = u.latitude ?? worker.latitude;
-      worker.longitude = u.longitude ?? worker.longitude;
-      worker.accuracy = u.accuracy ?? worker.accuracy;
-      worker.speed = u.speed ?? worker.speed;
+      // ✅ شیفت‌ها (از WebSocket اگر بیاید)
+      if (u.shift_start !== undefined) worker.shift_start = u.shift_start;
+      if (u.shift_end !== undefined) worker.shift_end = u.shift_end;
 
-      // وضعیت آنلاین/آفلاین
+      // لوکیشن
+      if (u.latitude !== undefined) worker.latitude = u.latitude;
+      if (u.longitude !== undefined) worker.longitude = u.longitude;
+      if (u.accuracy !== undefined) worker.accuracy = u.accuracy;
+      if (u.speed !== undefined) worker.speed = u.speed;
+
+      // وضعیت آنلاین
       worker.lastUpdate = lastUpdate;
       worker.stale = u.status === 'offline';
     },
@@ -138,12 +150,10 @@ const workersSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // fetchWorkers
-      .addCase(fetchWorkers.pending, (state) => {
-        state.status = 'loading';
-      })
       .addCase(fetchWorkers.fulfilled, (state, action) => {
         state.status = 'succeeded';
         const workersMap = {};
+        
         action.payload.forEach((w) => {
           const lastUpdate = w.last_location
             ? new Date(w.last_location.timestamp).getTime()
@@ -152,15 +162,28 @@ const workersSlice = createSlice({
 
           workersMap[w.id] = {
             ...w,
+            // ✅ نام و user_id
+            full_name: w.full_name || 'اسم ثبت نشده',
+            user_id: w.user_id || null,
+            
+            // ✅ موقعیت
             latitude: w.last_location?.latitude ?? null,
             longitude: w.last_location?.longitude ?? null,
             lastUpdate,
             stale: isStale,
+            
+            // ✅ پروژه
             current_project_id: w.current_project_id || null,
             current_project_name: w.current_project_name || null,
-             position_color_hex: w.position_color_hex || null, // ✅
+            position_color_hex: w.position_color_hex || null,
+            
+            // ✅ شیفت (از REST API)
+            today_attendance_status: w.today_attendance_status || 'NOT_STARTED',
+            shift_start: w.shift_start || null,
+            shift_end: w.shift_end || null,
           };
         });
+
         state.allWorkers = { ...state.allWorkers, ...workersMap };
       })
       .addCase(fetchWorkers.rejected, (state, action) => {
@@ -204,8 +227,8 @@ const workersSlice = createSlice({
 // ═══════════════════════════════════════════════════════════
 
 const selectAllWorkersObj = (state) => state.workers.allWorkers;
-const selectProjectsList = (state) => state.projects.list; // ✅ از projects می‌خونیم
-const selectSelectedProjectId = (state) => state.projects.selectedProjectId; // ✅ از projects
+const selectProjectsList = (state) => state.projects.list;
+const selectSelectedProjectId = (state) => state.projects.selectedProjectId;
 
 export const selectProjectDashboardStats = createSelector(
   [selectAllWorkersObj, selectProjectsList],
