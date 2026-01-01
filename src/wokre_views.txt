@@ -1,0 +1,1312 @@
+"""
+Worker Views - Production Ready
+================================
+
+API endpoints برای مدیریت کارگران و حضور و غیاب
+
+Endpoints:
+- GET  /api/workers/status/           - وضعیت کامل کارگر
+- POST /api/workers/clock/            - ورود/خروج
+- GET  /api/workers/shifts/monthly/   - شیفت‌های ماهانه
+- GET  /api/workers/shifts/yearly/    - شیفت‌های سالانه
+- GET  /api/workers/me/               - پروفایل من
+- POST /api/workers/me/               - ساخت پروفایل
+- GET  /api/workers/                  - لیست کارگران (Admin)
+- GET  /api/workers/<id>/             - جزئیات کارگر (Admin)
+- GET  /api/workers/<id>/history/     - تاریخچه موقعیت (Admin)
+"""
+from rest_framework.decorators import api_view, permission_classes  
+import logging
+from datetime import datetime, timedelta, date
+import jdatetime
+from django.contrib.gis.geos import Point
+from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from base.models import (
+    LeaveBalance, Worker, WorkerLocation, Employee, 
+    Attendance, Contract
+)
+from base.serializers import (
+    AttendanceSerializer,
+    WorkerSerializer,
+    WorkerLocationSerializer,
+    WorkerProfileCreateSerializer,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 1️⃣ وضعیت کامل کارگر/کارمند
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class WorkerStatusView(APIView):
+    """
+    GET /api/workers/status/
+    
+    برگرداندن وضعیت کامل کارگر/کارمند برای صفحه اصلی اپلیکیشن
+    
+    ✅ پشتیبانی از:
+    - همه سمت‌ها (کارگر، سرکارگر، سرپرست، مدیر)
+    - همه نوع قراردادها (روزمزد، ماهانه، پیمانکاری، ساعتی)
+    - محاسبه دستمزد هوشمند بر اساس نوع قرارداد
+    - مانده مرخصی (فقط قراردادهایی که حق مرخصی دارن)
+    - شیفت‌های امروز با جزئیات کامل
+    
+    Response:
+    - is_employee: bool
+    - is_worker: bool
+    - worker_id: int | null
+    - has_active_contract: bool
+    - position_*: اطلاعات سمت
+    - employment_type_*: اطلاعات نوع استخدام
+    - daily_wage/monthly_salary/contract_value: بر اساس نوع قرارداد
+    - earned_today: int (درآمد امروز)
+    - today_shifts: list (شیفت‌های امروز)
+    - leave_balance_*: مانده مرخصی (اگر داشته باشه)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        today = timezone.localdate()
+        
+        logger.info(f"[WorkerStatus] Request from user {user.id}")
+
+        # چک Employee
+        try:
+            employee = Employee.objects.select_related(
+                'user',
+                'position',
+                'skill_level'
+            ).get(user=user)
+        except Employee.DoesNotExist:
+            logger.warning(f"[WorkerStatus] No Employee found for user {user.id}")
+            return self._build_empty_response()
+
+        # چک Worker
+        try:
+            worker = Worker.objects.get(employee=employee)
+            is_worker = True
+            worker_id = worker.id
+            logger.info(f"[WorkerStatus] Worker found: {worker_id}")
+        except Worker.DoesNotExist:
+            is_worker = False
+            worker_id = None
+            worker = None
+            logger.info(f"[WorkerStatus] User {user.id} is Employee but not Worker")
+
+        # قرارداد فعال
+        contract = employee.contracts.filter(
+            is_active=True,
+            start_date__lte=today,
+        ).select_related(
+            'project',
+            'employment_type'
+        ).order_by('-start_date').first()
+        
+        if contract:
+            logger.info(f"[WorkerStatus] Active contract found: {contract.id}, Project: {contract.project.name if contract.project else 'None'}")
+        else:
+            logger.warning(f"[WorkerStatus] No active contract for user {user.id}")
+
+        # ساخت Response
+        data = self._build_base_data(employee, is_worker, worker_id, contract)
+        
+        if contract:
+            data.update(self._build_contract_data(contract))
+            data.update(self._build_leave_balance_data(employee, contract))
+        else:
+            data.update(self._build_empty_contract_data())
+
+        if is_worker and worker:
+            data.update(self._build_attendance_data(worker, contract, today))
+        else:
+            data.update(self._build_empty_attendance_data())
+
+        logger.info(f"[WorkerStatus] Response built successfully for user {user.id}")
+        return Response(data)
+
+    def _build_empty_response(self):
+        """پاسخ خالی برای کاربرانی که Employee نیستن"""
+        return Response({
+            'is_employee': False,
+            'is_worker': False,
+            'worker_id': None,
+            'has_active_contract': False,
+            'current_project_id': None,
+            'current_project_name': None,
+            'position_title': None,
+            'position_code': None,
+            'hierarchy_level': None,
+            'employment_type_key': None,
+            'employment_type_title': None,
+            'payment_type': None,
+            'contract_type': None,
+            'daily_wage': None,
+            'monthly_salary': None,
+            'contract_value': None,
+            'retention_percent': None,
+            'earned_today': 0,
+            'skill_level_title': None,
+            'skill_level_number': None,
+            'today_record_id': None,
+            'clocked_in': False,
+            'clocked_out': False,
+            'start_time': None,
+            'end_time': None,
+            'leave_balance_annual': None,
+            'leave_balance_sick': None,
+            'today_shifts': [],
+            'detail': 'هنوز پروفایل کارمندی برای شما ساخته نشده است.'
+        })
+
+    def _build_base_data(self, employee, is_worker, worker_id, contract):
+        """اطلاعات پایه Employee"""
+        position = employee.position
+        skill = employee.skill_level
+
+        return {
+            'is_employee': True,
+            'is_worker': is_worker,
+            'worker_id': worker_id,
+            'has_active_contract': contract is not None,
+            'position_title': position.title if position else None,
+            'position_code': position.code if position else None,
+            'hierarchy_level': position.hierarchy_level if position else None,
+            'report_type': position.report_type if position else None,
+            'skill_level_title': skill.title if skill else None,
+            'skill_level_number': skill.level_number if skill else None,
+        }
+
+    def _build_contract_data(self, contract):
+        """اطلاعات قرارداد"""
+        emp_type = contract.employment_type
+        
+        data = {
+            'current_project_id': contract.project.id if contract.project else None,
+            'current_project_name': contract.project.name if contract.project else 'پروژه مشخص نشده',
+            'employment_type_key': emp_type.key,
+            'employment_type_title': emp_type.description,
+            'payment_type': emp_type.payment_type,
+            'contract_type': contract.contract_type,
+        }
+
+        # فقط فیلدهای مرتبط با نوع قرارداد
+        payment_type = emp_type.payment_type
+        
+        if payment_type in ['daily', 'hourly']:
+            data.update({
+                'daily_wage': int(contract.daily_wage) if contract.daily_wage else None,
+                'monthly_salary': None,
+                'contract_value': None,
+                'retention_percent': None,
+            })
+        elif payment_type == 'monthly':
+            data.update({
+                'daily_wage': None,
+                'monthly_salary': int(contract.monthly_salary) if contract.monthly_salary else None,
+                'contract_value': None,
+                'retention_percent': None,
+            })
+        elif payment_type == 'contract':
+            data.update({
+                'daily_wage': None,
+                'monthly_salary': None,
+                'contract_value': int(contract.contract_value) if contract.contract_value else None,
+                'retention_percent': float(contract.retention_percent) if contract.retention_percent else None,
+            })
+        else:
+            data.update({
+                'daily_wage': None,
+                'monthly_salary': None,
+                'contract_value': None,
+                'retention_percent': None,
+            })
+
+        return data
+
+    def _build_empty_contract_data(self):
+        """اطلاعات خالی برای زمانی که قرارداد فعال نیست"""
+        return {
+            'current_project_id': None,
+            'current_project_name': None,
+            'employment_type_key': None,
+            'employment_type_title': None,
+            'payment_type': None,
+            'contract_type': None,
+            'daily_wage': None,
+            'monthly_salary': None,
+            'contract_value': None,
+            'retention_percent': None,
+        }
+
+    def _build_leave_balance_data(self, employee, contract):
+        """مانده مرخصی (فقط برای قراردادهایی که حق مرخصی دارن)"""
+        if not contract.employment_type.has_leave_entitlement:
+            return {
+                'leave_balance_annual': None,
+                'leave_balance_sick': None,
+            }
+
+        data = {}
+
+        try:
+            annual = LeaveBalance.objects.get(
+                employee=employee,
+                leave_type__name='مرخصی استحقاقی'
+            )
+            data['leave_balance_annual'] = annual.remaining_days
+        except LeaveBalance.DoesNotExist:
+            data['leave_balance_annual'] = 0
+
+        try:
+            sick = LeaveBalance.objects.get(
+                employee=employee,
+                leave_type__name='مرخصی استعلاجی'
+            )
+            data['leave_balance_sick'] = sick.remaining_days
+        except LeaveBalance.DoesNotExist:
+            data['leave_balance_sick'] = 0
+
+        return data
+
+
+    def _build_attendance_data(self, worker, contract, today):
+        """
+        ✅ اصلاح شده برای حل مشکل عبور از نیمه‌شب (Midnight Crossing)
+        """
+        
+        # ۱. ابتدا بررسی می‌کنیم آیا کاربر "همین الان" شیفت باز دارد؟
+        # (بدون توجه به اینکه report_date امروز است یا دیروز)
+        last_24h = timezone.now() - timedelta(hours=24)
+        
+        active_shift = Attendance.objects.filter(
+            worker=worker,
+            time_in__gte=last_24h,     # در ۲۴ ساعت اخیر شروع شده
+            time_out__isnull=True      # و هنوز خروج نخورده
+        ).select_related('project').first()
+
+        # ۲. لیست شیفت‌های تقویمی "امروز" برای نمایش در لیست پایین صفحه
+        today_shifts_qs = Attendance.objects.filter(
+            worker=worker,
+            report_date=today
+        ).select_related('project').order_by('time_in')
+
+        # ۳. تعیین وضعیت دکمه‌ها (Logic Core)
+        if active_shift:
+            # کاربر سر کار است (حتی اگر شیفت مال دیروز باشد)
+            current_record = active_shift
+            is_clocked_in = True
+            is_clocked_out = False
+        else:
+            # کاربر سر کار نیست، آخرین وضعیت امروز را چک می‌کنیم
+            current_record = today_shifts_qs.last()
+            is_clocked_in = False
+            is_clocked_out = (current_record.time_out is not None) if current_record else False
+
+        # ۴. آماده‌سازی لیست نمایش
+        # نکته حیاتی: اگر شیفت فعلی مال "دیروز" است، باید آن را به لیست "امروز" اضافه کنیم
+        # تا کاربر در لیست پایین صفحه ببیند که یک شیفت باز دارد.
+        shifts_list = list(today_shifts_qs)
+        
+        if active_shift:
+            # اگر تاریخ شیفت باز با تاریخ امروز فرق داره (یعنی مال دیروزه)، دستی اضافش کن
+            if active_shift.report_date != today:
+                shifts_list.insert(0, active_shift)
+
+        # ۵. ساخت خروجی نهایی
+        data = {
+            'today_record_id': current_record.id if current_record else None,
+            'clocked_in': is_clocked_in,
+            'clocked_out': is_clocked_out,
+            'start_time': current_record.time_in.isoformat() if current_record and current_record.time_in else None,
+            'end_time': current_record.time_out.isoformat() if current_record and current_record.time_out else None,
+            # اگر پروژه شیفت باز با پروژه قرارداد فرق داشت (جابجایی پروژه)، اسم درست رو بفرست
+            'current_project_name': current_record.project.name if (current_record and current_record.project) else None,
+        }
+
+        # محاسبه درآمد و سریالایز کردن لیست
+        data['earned_today'] = self._calculate_earned(today_shifts_qs, contract)
+        data['today_shifts'] = self._build_shifts_list(shifts_list, contract)
+
+        return data
+
+
+    def _build_empty_attendance_data(self):
+        """اطلاعات خالی حضور برای کارمندان عادی"""
+        return {
+            'today_record_id': None,
+            'clocked_in': False,
+            'clocked_out': False,
+            'start_time': None,
+            'end_time': None,
+            'earned_today': 0,
+            'today_shifts': [],
+        }
+
+    def _calculate_earned(self, attendances, contract):
+        """محاسبه درآمد بر اساس نوع قرارداد"""
+        if not contract:
+            return 0
+
+        payment_type = contract.employment_type.payment_type
+        
+        # فقط برای روزمزد و ساعتی محاسبه میشه
+        if payment_type not in ['daily', 'hourly']:
+            return 0
+
+        if not contract.daily_wage:
+            return 0
+
+        total_earned = 0
+        hourly_rate = float(contract.daily_wage) / 8.0
+
+        for att in attendances:
+            if att.time_in and att.time_out:
+                hours = (att.time_out - att.time_in).total_seconds() / 3600.0
+                total_earned += int(hours * hourly_rate)
+
+        return total_earned
+
+    def _build_shifts_list(self, attendances, contract):
+        """ساخت لیست شیفت‌های امروز"""
+        shifts = []
+        
+        for att in attendances:
+            if not att.time_in:
+                continue
+
+            duration = 0
+            earned = 0
+            
+            if att.time_out:
+                duration = (att.time_out - att.time_in).total_seconds() / 3600.0
+                
+                if contract and contract.employment_type.payment_type in ['daily', 'hourly']:
+                    if contract.daily_wage:
+                        hourly_rate = float(contract.daily_wage) / 8.0
+                        earned = int(duration * hourly_rate)
+
+            shifts.append({
+                'id': att.id,
+                'project_id': att.project.id if att.project else None,
+                'project_name': att.project.name if att.project else None,
+                'time_in': att.time_in.isoformat(),
+                'time_out': att.time_out.isoformat() if att.time_out else None,
+                'hours': round(duration, 2),
+                'earned': earned,
+            })
+
+        return shifts
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 2️⃣ ورود/خروج (Clock In/Out)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ClockActionView(APIView):
+    """
+    POST /api/workers/clock/
+    
+    ثبت ورود یا خروج کارگر (با پشتیبانی چند شیفت در روز)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        action = request.data.get('action')
+        
+        logger.info(f"[ClockAction] User {user.id}, Action: {action}")
+        
+        # چک Employee
+        try:
+            employee = Employee.objects.select_related('position').get(user=user)
+        except Employee.DoesNotExist:
+            logger.warning(f"[ClockAction] No Employee for user {user.id}")
+            return Response(
+                {'detail': 'پروفایل کارمندی برای شما ثبت نشده است.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # چک Worker
+        try:
+            worker = Worker.objects.get(employee=employee)
+        except Worker.DoesNotExist:
+            logger.warning(f"[ClockAction] User {user.id} is not a Worker")
+            return Response(
+                {'detail': 'فقط کارکنان می‌توانند ورود/خروج ثبت کنند.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Validation action
+        if not action or action not in ['IN', 'OUT']:
+            logger.error(f"[ClockAction] Invalid action: {action}")
+            return Response(
+                {'detail': 'فیلد action الزامی است و باید IN یا OUT باشد.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ثبت موقعیت جغرافیایی
+        location_point = self._save_location(
+            worker,
+            request.data.get('lat'),
+            request.data.get('long'),
+            request.data.get('accuracy', 0)
+        )
+
+        today = timezone.localdate()
+        now = timezone.now()
+        last_24h = now - timedelta(hours=24)
+        # شیفت باز فعلی
+        open_shift = Attendance.objects.filter(
+            worker=worker,
+            time_in__gte=last_24h,      # در 24 ساعت اخیر شروع شده
+            time_out__isnull=True        # و هنوز خروج نخورده
+        ).select_related('project').order_by('-time_in').first()
+
+        # ✅ اجرای action
+        if action == 'IN':
+             # گرفتن پروژه از قرارداد فعال
+            active_contract = employee.contracts.filter(
+                is_active=True,
+                start_date__lte=today,
+            ).select_related('project').order_by('-start_date').first()
+            
+            if not active_contract or not active_contract.project:
+                logger.warning(f"[ClockAction] No active contract/project for worker {worker.id}")
+                return Response(
+                    {'detail': 'شما پروژه فعالی ندارید. لطفاً ابتدا QR پروژه را اسکن کنید.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            project = active_contract.project
+            logger.info(f"[ClockAction] Using project from contract: {project.id} - {project.name}")
+            
+            return self._clock_in(worker, project, open_shift, location_point, today, now)
+        
+        else:  # OUT
+            return self._clock_out(open_shift, location_point, now)
+
+    def _save_location(self, worker, lat, lng, accuracy):
+        """ذخیره موقعیت جغرافیایی"""
+        if lat is None or lng is None:
+            return None
+
+        try:
+            location_point = Point(float(lng), float(lat), srid=4326)
+            WorkerLocation.objects.create(
+                worker=worker,
+                location=location_point,
+                accuracy=float(accuracy) if accuracy else 0,
+                timestamp=timezone.now()
+            )
+            logger.info(f"[ClockAction] Location saved for worker {worker.id}")
+            return location_point
+        except Exception as e:
+            logger.error(f"[ClockAction] Error saving location: {str(e)}")
+            return None
+
+    
+
+    def _clock_in(self, worker, project, open_shift, location_point, today, now):
+        """✅ ثبت ورود (با پشتیبانی multi-shift + شب‌کاری)"""
+        
+        # 1. چک شیفت باز
+        if open_shift:
+            logger.warning(f"[ClockAction] Worker {worker.id} has open shift {open_shift.id}")
+            return Response({
+                'detail': 'شما یک شیفت باز دارید. ابتدا از آن خارج شوید.',
+                'open_shift_id': open_shift.id,
+                'open_shift_start': open_shift.time_in.isoformat(),
+                'open_shift_project': open_shift.project.name if open_shift.project else None
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 2. چک overlap با شیفت‌های قبلی (حداقل 15 دقیقه فاصله)
+        # ✅ چک در 24 ساعت اخیر (نه فقط امروز)
+        last_24h = now - timedelta(hours=24)
+        recent_attendances = Attendance.objects.filter(
+            worker=worker,
+            time_out__gte=last_24h,      # در 24 ساعت اخیر خروج زده
+            time_out__isnull=False
+        ).order_by('-time_out')
+
+        MIN_GAP_MINUTES = 15
+
+        if recent_attendances.exists():
+            last_attendance = recent_attendances.first()
+            time_diff = (now - last_attendance.time_out).total_seconds() / 60
+            
+            if time_diff < MIN_GAP_MINUTES:
+                remaining = int(MIN_GAP_MINUTES - time_diff)
+                logger.warning(
+                    f"[ClockAction] Worker {worker.id} trying to clock in too soon. "
+                    f"Gap: {time_diff:.1f}min, Required: {MIN_GAP_MINUTES}min"
+                )
+                return Response({
+                    'detail': f'باید حداقل {MIN_GAP_MINUTES} دقیقه از خروج قبلی گذشته باشد.',
+                    'remaining_minutes': remaining,
+                    'last_clock_out': last_attendance.time_out.isoformat()
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. ✅ تعیین report_date بر اساس ساعت ورود
+        # اگه بعد از ساعت 6 صبح باشه → report_date همون روز
+        # اگه قبل از ساعت 6 صبح باشه → report_date روز قبل (چون شیفت شب)
+        
+        time_in_local = now.astimezone(timezone.get_current_timezone())
+        if time_in_local.hour < 6:  # قبل از ساعت 6 صبح
+            report_date = (time_in_local.date() - timedelta(days=1))
+            logger.info(f"[ClockAction] Night shift detected. Using report_date: {report_date}")
+        else:
+            report_date = time_in_local.date()
+
+        # 4. ایجاد شیفت جدید
+        try:
+            attendance = Attendance.objects.create(
+                worker=worker,
+                project=project,
+                report_date=report_date,  # ✅ استفاده از report_date محاسبه شده
+                time_in=now,
+                location_in=location_point,
+                status='present'
+            )
+
+            # شمارش شیفت‌های امروز (بر اساس report_date)
+            total_shifts_today = Attendance.objects.filter(
+                worker=worker,
+                report_date=report_date
+            ).count()
+
+            logger.info(
+                f"[ClockAction] Clock IN successful: Worker {worker.id}, "
+                f"Attendance {attendance.id}, Shift #{total_shifts_today}, "
+                f"report_date={report_date}"
+            )
+
+            return Response({
+                'success': True,
+                'status': 'WORKING',
+                'attendance_id': attendance.id,
+                'shift_number': total_shifts_today,
+                'project_id': project.id,
+                'project_name': project.name,
+                'time_in': attendance.time_in.isoformat(),
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"[ClockAction] Error in clock IN: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': f'خطا در ثبت ورود: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def _clock_out(self, open_shift, location_point, now):
+        """✅ ثبت خروج"""
+        if not open_shift:
+            logger.warning("[ClockAction] No open shift found for clock OUT")
+            return Response(
+                {'detail': 'هیچ شیفت فعالی برای خروج یافت نشد.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            open_shift.time_out = now
+            if location_point:
+                open_shift.location_out = location_point
+            open_shift.save()
+
+            duration = (open_shift.time_out - open_shift.time_in).total_seconds() / 3600.0
+            
+            logger.info(
+                f"[ClockAction] Clock OUT successful: Attendance {open_shift.id}, "
+                f"Duration: {duration:.2f}h"
+            )
+
+            return Response({
+                'success': True,
+                'status': 'FINISHED',
+                'attendance_id': open_shift.id,
+                'project_id': open_shift.project.id if open_shift.project else None,
+                'project_name': open_shift.project.name if open_shift.project else None,
+                'time_in': open_shift.time_in.isoformat(),
+                'time_out': open_shift.time_out.isoformat(),
+                'hours': round(duration, 2),
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"[ClockAction] Error in clock OUT: {str(e)}", exc_info=True)
+            return Response(
+                {'detail': f'خطا در ثبت خروج: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 3️⃣ شیفت‌های ماهانه
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class WorkerMonthlyShiftsView(APIView):
+    """
+    GET /api/workers/shifts/monthly/?year=1403&month=9
+    
+    دریافت خلاصه شیفت‌های ماهانه با تجمیع روزانه
+    
+    ✅ تشخیص هوشمند سال شمسی/میلادی:
+    - year > 2000 → میلادی
+    - year <= 2000 → شمسی
+    
+    Query Params:
+    - year: int (optional, default: امسال شمسی)
+    - month: int (optional, default: این ماه شمسی)
+    
+    Response:
+    {
+        "year": 1403,
+        "month": 9,
+        "total_days_worked": 22,
+        "total_hours": 176.5,
+        "total_earned": 17650000,
+        "days": [...]
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        logger.info(f"[MonthlyShifts] User: {user.id}, Query: {dict(request.query_params)}")
+        
+        # ✅ چک Worker
+        try:
+            worker = Worker.objects.select_related('employee').get(employee__user=user)
+        except Worker.DoesNotExist:
+            logger.warning(f"[MonthlyShifts] Worker not found for user {user.id}")
+            return Response(
+                {"detail": "پروفایل کارگری برای شما ثبت نشده است."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        employee = worker.employee
+        today_jalali = jdatetime.date.today()
+
+        # ✅ دریافت سال/ماه
+        try:
+            req_year = request.query_params.get("year")
+            req_month = request.query_params.get("month")
+            
+            if req_year is None:
+                req_year = today_jalali.year
+            else:
+                req_year = int(req_year)
+            
+            if req_month is None:
+                req_month = today_jalali.month
+            else:
+                req_month = int(req_month)
+        except ValueError:
+            logger.error(f"[MonthlyShifts] Invalid params - year: {request.query_params.get('year')}, month: {request.query_params.get('month')}")
+            return Response(
+                {"detail": "پارامترهای year/month نامعتبر هستند."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        logger.info(f"[MonthlyShifts] Parsed: req_year={req_year}, req_month={req_month}, today={today_jalali}")
+
+        # تشخیص هوشمند
+        jalali_year, jalali_month = self._detect_calendar(req_year, req_month)
+        logger.info(f"[MonthlyShifts] Final: year={jalali_year}, month={jalali_month}")
+
+        # بازه ماه
+        try:
+            start_date, end_date = self._get_month_range(jalali_year, jalali_month)
+            logger.info(f"[MonthlyShifts] Date Range: {start_date} → {end_date}")
+        except Exception as e:
+            logger.error(f"[MonthlyShifts] Date range error: {str(e)}")
+            return Response(
+                {"detail": f"سال یا ماه نامعتبر است: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Attendance ها
+        attendances = Attendance.objects.filter(
+            worker=worker,
+            report_date__gte=start_date,
+            report_date__lt=end_date,
+            time_in__isnull=False,
+        ).select_related("project").order_by("report_date", "time_in")
+        
+        logger.info(f"[MonthlyShifts] Attendances Found: {attendances.count()} records")
+
+        # قراردادها
+        active_contracts = list(
+            employee.contracts.filter(is_active=True).select_related('employment_type', 'project')
+        )
+        logger.info(f"[MonthlyShifts] Active Contracts: {len(active_contracts)}")
+
+        # تجمیع
+        days, total_hours, total_earned = self._aggregate_daily(attendances, active_contracts)
+        logger.info(f"[MonthlyShifts] Aggregated: days={len(days)}, hours={total_hours:.2f}, earned={total_earned}")
+
+        days_list = self._format_days_output(days)
+
+        return Response({
+            "year": jalali_year,
+            "month": jalali_month,
+            "total_days_worked": len(days_list),
+            "total_hours": round(total_hours, 2),
+            "total_earned": int(total_earned),
+            "days": days_list,
+        }, status=status.HTTP_200_OK)
+
+    def _detect_calendar(self, year, month):
+        """تشخیص نوع تقویم (شمسی یا میلادی)"""
+        if year > 2000:
+            # میلادی → تبدیل به شمسی
+            try:
+                temp_date = date(year, month, 1)
+                j_temp = jdatetime.date.fromgregorian(date=temp_date)
+                return j_temp.year, j_temp.month
+            except:
+                return year, month
+        else:
+            # شمسی
+            return year, month
+
+    def _get_month_range(self, jalali_year, jalali_month):
+        """محاسبه بازه ماه به میلادی"""
+        start_date_jalali = jdatetime.date(jalali_year, jalali_month, 1)
+        
+        if jalali_month == 12:
+            end_date_jalali = jdatetime.date(jalali_year + 1, 1, 1)
+        else:
+            end_date_jalali = jdatetime.date(jalali_year, jalali_month + 1, 1)
+        
+        return start_date_jalali.togregorian(), end_date_jalali.togregorian()
+
+    def _aggregate_daily(self, attendances, active_contracts):
+        """تجمیع روزانه شیفت‌ها"""
+        days = {}
+        total_hours = 0.0
+        total_earned = 0
+
+        for att in attendances:
+            rep_date = att.report_date
+
+            if rep_date not in days:
+                days[rep_date] = {
+                    "date": rep_date.isoformat(),
+                    "date_jalali": jdatetime.date.fromgregorian(date=rep_date).strftime("%Y/%m/%d"),
+                    "total_hours": 0.0,
+                    "total_earned": 0,
+                    "shifts_count": 0,
+                    "projects": {},
+                    "shifts": [],
+                }
+
+            # محاسبه ساعت
+            end_dt = att.time_out or att.time_in
+            seconds = max(0, (end_dt - att.time_in).total_seconds())
+            hours = seconds / 3600.0
+
+            # پیدا کردن قرارداد مرتبط
+            shift_contract = self._find_contract(att, active_contracts)
+
+            # محاسبه درآمد
+            earned = self._calculate_shift_earned(hours, shift_contract)
+
+            # تجمیع روزانه
+            day_data = days[rep_date]
+            day_data["total_hours"] += hours
+            day_data["total_earned"] += earned
+            day_data["shifts_count"] += 1
+
+            # اضافه کردن جزئیات شیفت
+            day_data["shifts"].append({
+                "time_in": att.time_in.isoformat() if att.time_in else None,
+                "time_out": att.time_out.isoformat() if att.time_out else None,
+                "project_name": att.project.name if att.project else "پروژه نامشخص",
+                "hours": round(hours, 2),
+                "earned": earned,
+            })
+
+            # تجمیع پروژه‌ای
+            proj_id = att.project.id if att.project else None
+            proj_name = att.project.name if att.project else "پروژه نامشخص"
+
+            if proj_id not in day_data["projects"]:
+                day_data["projects"][proj_id] = {
+                    "project_id": proj_id,
+                    "project_name": proj_name,
+                    "hours": 0.0,
+                    "earned": 0,
+                }
+
+            day_data["projects"][proj_id]["hours"] += hours
+            day_data["projects"][proj_id]["earned"] += earned
+
+            total_hours += hours
+            total_earned += earned
+
+        return days, total_hours, total_earned
+
+    def _find_contract(self, attendance, contracts):
+        """پیدا کردن قرارداد مرتبط با شیفت"""
+        if attendance.project:
+            for c in contracts:
+                if c.project and c.project.id == attendance.project.id:
+                    return c
+        
+        return contracts[0] if contracts else None
+
+    def _calculate_shift_earned(self, hours, contract):
+        """محاسبه درآمد شیفت"""
+        if not contract:
+            return 0
+
+        if contract.employment_type.payment_type not in ['daily', 'hourly']:
+            return 0
+
+        if not contract.daily_wage:
+            return 0
+
+        hourly_rate = float(contract.daily_wage) / 8.0
+        return int(hours * hourly_rate)
+
+    def _format_days_output(self, days):
+        """فرمت کردن خروجی روزها"""
+        days_list = []
+        
+        for d in sorted(days.keys()):
+            day = days[d]
+            
+            # تبدیل projects dict به list
+            projects_list = []
+            for p in day["projects"].values():
+                p["hours"] = round(p["hours"], 2)
+                projects_list.append(p)
+            
+            day["projects"] = projects_list
+            day["total_hours"] = round(day["total_hours"], 2)
+            days_list.append(day)
+
+        return days_list
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 4️⃣ شیفت‌های سالانه
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class WorkerYearlyShiftsView(APIView):
+    """
+    GET /api/workers/shifts/yearly/?year=1403
+    
+    دریافت خلاصه شیفت‌های سالانه با تجمیع ماهانه
+    
+    ✅ تشخیص هوشمند سال شمسی/میلادی:
+    - year > 2000 → میلادی
+    - year <= 2000 → شمسی
+    
+    Query Params:
+    - year: int (optional, default: امسال شمسی)
+    
+    Response:
+    {
+        "year": 1403,
+        "total_days_worked": 220,
+        "total_hours": 1760.0,
+        "total_earned": 176000000,
+        "months": [...]
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        logger.info(f"[YearlyShifts] User: {user.id}, Query: {dict(request.query_params)}")
+        
+        # چک Worker
+        try:
+            worker = Worker.objects.select_related('employee').get(employee__user=user)
+        except Worker.DoesNotExist:
+            logger.warning(f"[YearlyShifts] Worker not found for user {user.id}")
+            return Response(
+                {"detail": "پروفایل کارگری برای شما ثبت نشده است."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        employee = worker.employee
+        today_jalali = jdatetime.date.today()
+
+        # دریافت سال
+        try:
+            req_year = request.query_params.get("year")
+            if req_year is None:
+                req_year = today_jalali.year
+            else:
+                req_year = int(req_year)
+        except ValueError:
+            logger.error(f"[YearlyShifts] Invalid year: {request.query_params.get('year')}")
+            return Response({"detail": "سال نامعتبر است."}, status=400)
+
+        logger.info(f"[YearlyShifts] Parsed Year: req={req_year}, today_jalali={today_jalali.year}")
+
+        # تشخیص هوشمند سال
+        jalali_year = self._detect_year(req_year, today_jalali)
+        logger.info(f"[YearlyShifts] Final Jalali Year: {jalali_year}")
+
+        # بازه تاریخ شمسی
+        try:
+            start_date, end_date = self._get_year_range(jalali_year)
+            logger.info(f"[YearlyShifts] Date Range: {start_date} → {end_date}")
+        except Exception as e:
+            logger.error(f"[YearlyShifts] Date range error: {str(e)}")
+            return Response({"detail": "سال نامعتبر است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # دریافت Attendance ها
+        attendances = Attendance.objects.filter(
+            worker=worker,
+            report_date__gte=start_date,
+            report_date__lt=end_date,
+            time_in__isnull=False,
+        ).select_related("project").order_by("report_date", "time_in")
+        
+        logger.info(f"[YearlyShifts] Attendances Found: {attendances.count()} records")
+
+        # قراردادهای فعال
+        active_contracts = list(
+            employee.contracts.filter(is_active=True).select_related('employment_type', 'project')
+        )
+        logger.info(f"[YearlyShifts] Active Contracts: {len(active_contracts)}")
+
+        # تجمیع ماهانه
+        months_data = self._aggregate_monthly(attendances, active_contracts, jalali_year)
+        logger.info(f"[YearlyShifts] Months with data: {list(months_data.keys())}")
+
+        # ساخت خروجی نهایی
+        result = self._format_yearly_output(months_data, jalali_year)
+        logger.info(f"[YearlyShifts] Final: {result['total_days_worked']} days, {result['total_hours']} hours, {len(result['months'])} months")
+
+        return Response(result, status=status.HTTP_200_OK)
+
+    def _detect_year(self, req_year, today_jalali):
+        """تشخیص نوع سال (شمسی یا میلادی)"""
+        if req_year > 2000:
+            # میلادی → تبدیل به شمسی
+            try:
+                temp_date = date(req_year, 1, 1)
+                return jdatetime.date.fromgregorian(date=temp_date).year
+            except:
+                return today_jalali.year  # fallback
+        else:
+            # شمسی
+            return req_year
+
+    def _get_year_range(self, jalali_year):
+        """محاسبه بازه سال به میلادی"""
+        start_date_jalali = jdatetime.date(jalali_year, 1, 1)
+        end_date_jalali = jdatetime.date(jalali_year + 1, 1, 1)
+        
+        return start_date_jalali.togregorian(), end_date_jalali.togregorian()
+
+    def _aggregate_monthly(self, attendances, active_contracts, jalali_year):
+        """تجمیع ماهانه شیفت‌ها"""
+        persian_months = {
+            1: "فروردین", 2: "اردیبهشت", 3: "خرداد", 4: "تیر",
+            5: "مرداد", 6: "شهریور", 7: "مهر", 8: "آبان",
+            9: "آذر", 10: "دی", 11: "بهمن", 12: "اسفند",
+        }
+
+        months_data = {}
+
+        for att in attendances:
+            j_date = jdatetime.date.fromgregorian(date=att.report_date)
+            
+            if j_date.year != jalali_year:
+                continue
+
+            m_num = j_date.month
+
+            if m_num not in months_data:
+                months_data[m_num] = {
+                    "month": m_num,
+                    "month_name": persian_months.get(m_num, str(m_num)),
+                    "days_set": set(),
+                    "total_hours": 0.0,
+                    "total_earned": 0,
+                }
+
+            # محاسبه ساعت
+            hours = 0.0
+            if att.time_in and att.time_out:
+                duration = att.time_out - att.time_in
+                hours = duration.total_seconds() / 3600.0
+                if att.overtime_hours:
+                    hours += float(att.overtime_hours)
+
+            # پیدا کردن قرارداد
+            shift_contract = None
+            if att.project:
+                for c in active_contracts:
+                    if c.project and c.project.id == att.project.id:
+                        shift_contract = c
+                        break
+            
+            if not shift_contract and active_contracts:
+                shift_contract = active_contracts[0]
+
+            # محاسبه درآمد
+            earned = 0
+            if shift_contract and shift_contract.employment_type.payment_type in ['daily', 'hourly']:
+                if shift_contract.daily_wage:
+                    hourly_rate = float(shift_contract.daily_wage) / 8.0
+                    earned = int(hours * hourly_rate)
+
+            # تجمیع
+            months_data[m_num]["days_set"].add(att.report_date)
+            months_data[m_num]["total_hours"] += hours
+            months_data[m_num]["total_earned"] += earned
+
+        return months_data
+
+    def _format_yearly_output(self, months_data, jalali_year):
+        """فرمت کردن خروجی سالانه"""
+        months_list = []
+        year_total_days = 0
+        year_total_hours = 0.0
+        year_total_earned = 0
+
+        for m in sorted(months_data.keys()):
+            md = months_data[m]
+            days_count = len(md["days_set"])
+            
+            year_total_days += days_count
+            year_total_hours += md["total_hours"]
+            year_total_earned += md["total_earned"]
+
+            months_list.append({
+                "month": md["month"],
+                "month_name": md["month_name"],
+                "days_worked": days_count,
+                "total_hours": round(md["total_hours"], 2),
+                "total_earned": int(md["total_earned"]),
+            })
+
+        return {
+            "year": jalali_year,
+            "total_days_worked": year_total_days,
+            "total_hours": round(year_total_hours, 2),
+            "total_earned": year_total_earned,
+            "months": months_list,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5️⃣ پروفایل کارگر
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class MyWorkerProfileView(APIView):
+    """
+    GET  /api/workers/me/ - دریافت پروفایل کارگر
+    POST /api/workers/me/ - ساخت پروفایل کارگر
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """دریافت پروفایل"""
+        user = request.user
+        try:
+            worker = Worker.objects.select_related(
+                'employee__user',
+                'employee__position',
+            ).prefetch_related(
+                Prefetch(
+                    'locations',
+                    queryset=WorkerLocation.objects.order_by('-timestamp')[:10],
+                    to_attr='ordered_locations',
+                )
+            ).get(employee__user=user)
+        except Worker.DoesNotExist:
+            return Response(
+                {'detail': 'هنوز پروفایل کارگری برای شما ثبت نشده است.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = WorkerSerializer(worker, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """ساخت پروفایل"""
+        user = request.user
+        if Employee.objects.filter(user=user).exists():
+            return Response(
+                {'detail': 'شما قبلا پروفایل خود را تکمیل کرده‌اید.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = WorkerProfileCreateSerializer(
+            data=request.data,
+            context={'user': user},
+        )
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        worker = serializer.save()
+        response_serializer = WorkerSerializer(
+            worker,
+            context={'request': request},
+        )
+
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6️⃣ مدیریت کارگران (Admin Only)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+
+
+
+class WorkerListView(ListAPIView):
+    """
+    GET /api/workers/
+    
+    لیست همه کارگران (فقط Admin)
+    """
+    serializer_class = WorkerSerializer
+    permission_classes = [IsAdminUser]
+    
+    def get_queryset(self):
+        """✅ Optimized Query"""
+        return Worker.objects.select_related(
+            'employee',
+            'employee__user',
+            'employee__position',
+            'employee__skill_level',
+        ).prefetch_related(
+            Prefetch(
+                'locations',
+                queryset=WorkerLocation.objects.order_by('-timestamp')[:1],
+                to_attr='ordered_locations'
+            ),
+            Prefetch(
+                'attendances',
+                queryset=Attendance.objects.select_related('project').order_by('-time_in')[:10]
+            ),
+            Prefetch(
+                'employee__contracts',
+                queryset=Contract.objects.filter(
+                    is_active=True
+                ).select_related('project', 'employment_type')
+            )
+        ).all()
+
+
+class WorkerDetailView(RetrieveAPIView):
+    """GET /api/workers/<id>/ - جزئیات کارگر"""
+    serializer_class = WorkerSerializer
+    permission_classes = [IsAdminUser]
+    lookup_field = 'pk'
+
+    def get_queryset(self):
+        return Worker.objects.select_related(
+            'employee__user',
+            'employee__position',
+        ).prefetch_related(
+            Prefetch(
+                'locations',
+                queryset=WorkerLocation.objects.order_by('-timestamp')[:10],
+                to_attr='ordered_locations',
+            )
+        )
+
+
+class WorkerHistoryView(APIView):
+    """GET /api/workers/<id>/history/?start=...&end=... - تاریخچه موقعیت"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        worker = get_object_or_404(Worker, id=pk)
+
+        start_str = request.query_params.get('start')
+        end_str = request.query_params.get('end')
+
+        if not start_str or not end_str:
+            end_date = timezone.now()
+            start_date = end_date - timedelta(days=1)
+        else:
+            try:
+                start_date = datetime.fromisoformat(start_str)
+                end_date = datetime.fromisoformat(end_str)
+            except ValueError:
+                return Response(
+                    {'detail': 'فرمت تاریخ نامعتبر است. از ISO 8601 استفاده کنید.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        locations = worker.locations.filter(
+            timestamp__range=(start_date, end_date)
+        ).order_by('-timestamp')
+
+        serializer = WorkerLocationSerializer(locations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ProjectDailyAttendanceListView(ListAPIView):
+    """GET /api/workers/attendance/list/?project_id=1&date=2025-01-01"""
+    permission_classes = [IsAdminUser]
+    serializer_class = AttendanceSerializer
+
+    def get_queryset(self):
+        project_id = self.request.query_params.get('project_id')
+        report_date = self.request.query_params.get('date')
+
+        queryset = Attendance.objects.select_related(
+            'worker__employee__user',
+            'worker__employee__position',
+            'project'
+        ).filter(
+            project_id=project_id,
+            report_date=report_date
+        )
+
+        return queryset.order_by('time_in')
+و مسیر ها # base/urls/worker_urls.py
+
+from django.urls import path
+from base.views import worker_views
+
+urlpatterns = [
+    # وضعیت کارگر (برای Flutter)
+    path('status/', worker_views.WorkerStatusView.as_view(), name='worker-status'),
+    
+    # ورود/خروج
+    path('clock/', worker_views.ClockActionView.as_view(), name='worker-clock'),
+    
+    # شیفت‌های ماهانه و سالانه
+    path('shifts/monthly/', worker_views.WorkerMonthlyShiftsView.as_view(), name='worker-monthly-shifts'),
+    path('shifts/yearly/', worker_views.WorkerYearlyShiftsView.as_view(), name='worker-yearly-shifts'),
+    
+    # پروفایل من
+    path('me/', worker_views.MyWorkerProfileView.as_view(), name='worker-me'),
+    
+    # لیست و جزئیات (ادمین)
+    path('', worker_views.WorkerListView.as_view(), name='worker-list'),
+    path('<int:pk>/', worker_views.WorkerDetailView.as_view(), name='worker-detail'),
+    path('<int:pk>/history/', worker_views.WorkerHistoryView.as_view(), name='worker-history'),
+    
+    # لیست حضور روزانه پروژه (ادمین)
+    path('attendance/list/', worker_views.ProjectDailyAttendanceListView.as_view(), name='project-attendance-list'),
+]

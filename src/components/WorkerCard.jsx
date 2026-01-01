@@ -35,6 +35,12 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
   const positionColor = worker.position_color_hex || '#3B82F6';
   const isOnline = !worker.stale;
 
+  // ✅ اطلاعات آخرین شیفت (از Backend)
+  const latestDate = worker.latest_attendance_date_jalali;
+  const latestShiftIn = worker.latest_shift_in;
+  const latestShiftOut = worker.latest_shift_out;
+  const isShiftOpen = worker.is_shift_open;
+
   return (
     <div
       onClick={handleClick}
@@ -126,7 +132,7 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
           </div>
         </div>
         
-        {/* ✅ نمایش ورود و خروج */}
+        {/* ✅ نمایش ورود و خروج (شیفت امروز) */}
         {(worker.shift_start || worker.shift_end) && (
           <div className="flex items-center gap-3 text-xs mt-2 pt-2 border-t border-gray-700/50">
             {worker.shift_start && (
@@ -145,6 +151,24 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
           </div>
         )}
       </div>
+
+      {/* ✅ آخرین شیفت (اگه امروز شیفت نداره) */}
+      {!worker.shift_start && !worker.shift_end && latestDate && latestShiftIn && (
+        <div className="mt-2 p-2 rounded bg-slate-900/30 border border-slate-700/30">
+          <p className="text-[10px] text-gray-500 mb-1">آخرین حضور</p>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">{latestDate}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-green-300">{latestShiftIn}</span>
+              {isShiftOpen ? (
+                <span className="text-orange-400 animate-pulse">● باز</span>
+              ) : latestShiftOut ? (
+                <span className="text-blue-300">{latestShiftOut}</span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* آخرین بروزرسانی */}
       {lastSeen && (
