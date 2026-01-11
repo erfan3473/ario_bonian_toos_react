@@ -1,7 +1,7 @@
 // src/components/WorkerMap.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Polygon } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWorkerHistory } from '../features/workers/workerSlice';
@@ -23,9 +23,10 @@ const formatHistoryTime = (isoTs) => {
   return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
-const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory }) => {
+const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, projectGeofence, connected }) => {
   const dispatch = useDispatch();
   const markerRefs = useRef({});
+  const mapRef = useRef(null);
 
   const [timeRange, setTimeRange] = useState('24h');
   const [historyIndex, setHistoryIndex] = useState(0);
@@ -46,6 +47,17 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
     }
   }, [selectedWorkerId]);
 
+  useEffect(() => {
+    if (projectGeofence && projectGeofence.length > 0 && mapRef.current) {
+        try {
+            const bounds = L.polygon(projectGeofence).getBounds();
+            mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        } catch (e) {
+            console.warn('Cannot fit bounds', e);
+        }
+    }
+  }, [projectGeofence]);
+
   const historyPoints = useMemo(
     () => (workerHistory || []).filter((loc) => loc.latitude && loc.longitude),
     [workerHistory]
@@ -59,8 +71,12 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
   const currentPoint = historyPositions[clampedIndex] || null;
   const currentMeta = historyPoints[clampedIndex] || null;
 
+  // ✅ تشخیص حالت تاریخچه: اگر کاربری انتخاب شده و دیتای نقطه فعلی موجود است
+  const isHistoryMode = selectedWorkerId && currentMeta;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      
       {/* نوار کنترل بازه زمانی */}
       <div className="flex items-center justify-between mb-2 px-2">
         <div className="flex gap-2">
@@ -78,24 +94,66 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
             </button>
           ))}
         </div>
-        {currentMeta && (
-          <span className="px-3 py-1 rounded-lg bg-gray-800 text-gray-100 text-xs font-mono border border-gray-700 shadow-sm">
-            ⏰ {formatHistoryTime(currentMeta.timestamp)}
-          </span>
-        )}
+        {/* ساعت از اینجا حذف شد و به داخل بج منتقل شد */}
       </div>
 
-      {/* نقشه */}
+      {/* کانتینر نقشه */}
       <div className="relative w-full h-full z-0 isolate rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl">
+        
+        {/* ✅ بج هوشمند (تلفیق وضعیت اتصال و ساعت تاریخچه) */}
+        <div 
+            className={`absolute top-4 left-14 z-[400] backdrop-blur px-3 py-1.5 rounded-full flex items-center gap-2 text-xs border shadow-lg transition-colors duration-300 pointer-events-none
+            ${isHistoryMode 
+                ? 'bg-blue-900/90 border-blue-400 text-blue-100' // استایل حالت تاریخچه (آبی)
+                : connected 
+                    ? 'bg-gray-900/80 border-gray-700 text-gray-200' // استایل آنلاین (خاکستری)
+                    : 'bg-red-900/90 border-red-500 text-red-100' // استایل آفلاین (قرمز)
+            }`}
+        >
+            {isHistoryMode ? (
+                // 🕒 حالت تاریخچه: نمایش ساعت
+                <>
+                    <span className="text-lg">🕓</span>
+                    <span className="font-mono font-bold text-sm pt-0.5">
+                        {formatHistoryTime(currentMeta.timestamp)}
+                    </span>
+                </>
+            ) : (
+                // 📡 حالت زنده: نمایش وضعیت اتصال
+                <>
+                    <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                    <span className="font-mono font-bold tracking-wider">
+                        {connected ? 'LIVE STREAM' : 'DISCONNECTED'}
+                    </span>
+                </>
+            )}
+        </div>
+
         <MapContainer
-          center={[36.2974, 59.6062]} // ✅ مشهد
+          center={[36.2974, 59.6062]} 
           zoom={13}
           style={{ height: '100%', width: '100%', zIndex: 0 }}
+          ref={mapRef}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution="&copy; OpenStreetMap"
           />
+
+          {/* ✅ نمایش فنس پروژه */}
+          {projectGeofence && projectGeofence.length > 2 && (
+             <Polygon 
+                positions={projectGeofence}
+                pathOptions={{ 
+                    color: '#3b82f6',
+                    weight: 2,
+                    dashArray: '10, 10',
+                    fillOpacity: 0.1 
+                }}
+             >
+                <Popup>محدوده پروژه</Popup>
+             </Polygon>
+          )}
 
           {/* مسیر تاریخچه - خط قرمز */}
           {visiblePath.length > 1 && (
@@ -105,30 +163,35 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
             />
           )}
 
-          {/* مارکر متحرک روی مسیر */}
           {currentPoint && (
             <Marker position={currentPoint}>
               <Popup>
                 <div className="text-xs">
                   <div className="font-bold text-red-600">📍 نقطه انتخابی</div>
-                  {currentMeta?.timestamp && (
-                    <div className="mt-1 text-[11px] text-gray-600 font-mono">
-                      {formatHistoryTime(currentMeta.timestamp)}
-                    </div>
+                  {currentMeta && (
+                    <>
+                      <div className="mt-1">
+                        زمان: <span className="font-mono">{formatHistoryTime(currentMeta.timestamp)}</span>
+                      </div>
+                      <div className="mt-1">
+                        GPS:{' '}
+                        <span className={currentMeta.gps_enabled ? 'text-green-600' : 'text-red-600 font-bold'}>
+                          {currentMeta.gps_enabled ? 'روشن / کامل' : 'خاموش / محدود'}
+                        </span>
+                      </div>
+                    </>
                   )}
+
                 </div>
               </Popup>
             </Marker>
           )}
 
-          {/* 🔹 مارکر کارگرها با رنگ سمت */}
+          {/* 🔹 مارکر کارگرها */}
           {workers.map((worker) => {
             if (!worker.latitude || !worker.longitude) return null;
             
-            // 🎨 رنگ سمت - با fallback
             const positionColor = worker.position_color_hex || '#3B82F6';
-            
-            // ✅ استفاده از full_name
             const displayName = worker.full_name || 'اسم ثبت نشده';
 
             const icon = L.divIcon({
@@ -174,7 +237,6 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
                         style={{ border: `3px solid ${positionColor}` }}
                       />
                     )}
-                    {/* ✅ استفاده از full_name */}
                     <b className="text-sm block text-gray-800">{displayName}</b>
                     <span 
                       className="text-xs font-bold block mt-1"
@@ -187,7 +249,6 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory })
                         📍 {worker.current_project_name}
                       </div>
                     )}
-                    {/* ✅ نمایش user_id */}
                     {worker.user_id && (
                       <div className="mt-1 text-[10px] text-gray-500 font-mono">
                         ID: {worker.user_id}

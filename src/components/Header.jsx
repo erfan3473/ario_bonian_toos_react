@@ -74,16 +74,27 @@ const Header = () => {
           {userInfo && (
             <nav className="hidden lg:flex items-center gap-2">
               
-              {/* صفحه اصلی */}
+              {/* لیست حقوق*/}
               <Link 
-                to="/" 
+                to="/admin/timesheet" 
                 className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                  isActive('/') 
+                  isActive('/admin/timesheet') 
                     ? 'bg-blue-600 text-white' 
                     : 'text-gray-200 hover:bg-blue-700/50'
                 }`}
               >
-                صفحه اصلی
+               لیست حضور
+              </Link>
+                {/* لیست حقوق*/}
+              <Link 
+                to="/admin/payroll" 
+                className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
+                  isActive('/admin/payroll') 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-200 hover:bg-blue-700/50'
+                }`}
+              >
+               لیست حقوق
               </Link>
 
               {/* ═══════════════════════════════════════════════════════════ */}
@@ -236,6 +247,15 @@ const Header = () => {
                   >
                     <FaUser className="text-sky-400" />
                     <span>پروفایل من</span>
+                  </Link>
+
+                  <Link
+                    to="/tasks"
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+                    onClick={() => setUserMenuOpen(false)}
+                  >
+                    <FaUser className="text-sky-400" />
+                    <span>ماموریت های من</span>
                   </Link>
                   
                   <div className="border-t border-gray-600 my-1"></div>

@@ -17,7 +17,7 @@ const SettingsScreen = () => {
   const projectsLoading = useSelector((state) => state.projects.loading);
 
   const tabs = [
-    { id: 'employment-types', label: 'انواع استخدام', icon: '👔' },
+    { id: 'employment-types', label: 'انواع حقوق و پرداخت', icon: '👔' },
     { id: 'positions', label: 'سمت‌های سازمانی', icon: '🎯' },
     { id: 'skill-levels', label: 'سطوح مهارت', icon: '⭐' },
     { id: 'leave-types', label: 'انواع مرخصی', icon: '🏖️' },

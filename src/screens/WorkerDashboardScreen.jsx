@@ -8,6 +8,7 @@ import QRCode from "react-qr-code";
 import {
   fetchWorkers,
   updateWorkerLocation,
+  updateWorkersBatch, 
   cleanupOldWorkers,
   selectVisibleWorkers,
   selectProjectDashboardStats
@@ -17,6 +18,8 @@ import {
 import {
   fetchProjects,
   setSelectedProject,
+  fetchProjectGeofence, // ✅ اضافه شد
+  clearGeofence
 } from '../features/projects/projectSlice';
 
 import WorkerMap from '../components/WorkerMap';
@@ -45,7 +48,22 @@ const WorkerDashboardScreen = () => {
   const { history: { status: historyStatus, data: historyData } } = useSelector((state) => state.workers);
   
   // ✅ دریافت Projects از projectSlice
-  const { list: projectsList, selectedProjectId, loading: projectsLoading } = useSelector((state) => state.projects);
+  const { 
+      list: projectsList, 
+      selectedProjectId, 
+      loading: projectsLoading,
+      geofence: { data: geofenceData } // استخراج دیتای فنس
+  } = useSelector((state) => state.projects);
+  // ✅ اضافه کردن افکت برای فچ کردن فنس
+  useEffect(() => {
+    if (selectedProjectId && typeof selectedProjectId === 'number') {
+        // اگر پروژه انتخاب شده، فنسش رو بگیر
+        dispatch(fetchProjectGeofence(selectedProjectId));
+    } else {
+        // اگر "همه پروژه‌ها" یا "بدون دسته‌بندی" است، فنس رو پاک کن
+        dispatch(clearGeofence());
+    }
+  }, [selectedProjectId, dispatch]);
 
   const visibleWorkers = useSelector(selectVisibleWorkers);
   const dashboardStats = useSelector(selectProjectDashboardStats);
@@ -64,7 +82,7 @@ const WorkerDashboardScreen = () => {
   const socketRef = useRef(null);
   const reconnectRef = useRef({ attempts: 0, timeoutId: null });
   const lastSeenRef = useRef(new Map());
-
+  const updatesBufferRef = useRef([]);
   // ✅ 1. دریافت اطلاعات اولیه
   useEffect(() => {
     if (workerStatus === 'idle') {
@@ -82,17 +100,26 @@ const WorkerDashboardScreen = () => {
     return () => clearInterval(interval);
   }, [dispatch]);
 
-  // 3. مدیریت پیشرفته WebSocket
-  
+
   useEffect(() => {
     let alive = true;
+    let flushInterval = null; // تایمر خالی کردن بافر
+
+    // ✅ تابع خالی کردن بافر (هر 500ms یا 1s اجرا میشه)
+    const flushBuffer = () => {
+      if (updatesBufferRef.current.length > 0) {
+        // کپی گرفتن و خالی کردن بافر
+        const batch = [...updatesBufferRef.current];
+        updatesBufferRef.current = [];
+        
+        console.log(`🚀 [Redux] Dispatching batch of ${batch.length} updates`);
+        dispatch(updateWorkersBatch(batch));
+      }
+    };
 
     const connect = () => {
       if (!alive || paused) return;
-
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
+      if (socketRef.current) socketRef.current.close();
 
       const socket = new WebSocket(WS_URL);
       socketRef.current = socket;
@@ -101,72 +128,50 @@ const WorkerDashboardScreen = () => {
         console.log('✅ [WS] Connected');
         setConnected(true);
         reconnectRef.current.attempts = 0;
+        
+        // 🔥 شروع لوپ تخلیه بافر (مثلاً هر 500 میلی ثانیه)
+        // این باعث میشه UI خیلی نرم کار کنه حتی اگر 100 تا پیام بیاد
+        flushInterval = setInterval(flushBuffer, 500);
       };
 
       socket.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
           
-          // ✅ پردازش Initial Snapshot
+          // 1. Initial Snapshot (این خودش آرایه است، مستقیم میفرستیم)
           if (data.type === 'initial_snapshot' && data.workers) {
-            console.log(`📸 [WS] Initial snapshot: ${data.workers.length} workers`);
-            
-            data.workers.forEach(worker => {
-              const workerId = worker.id || worker.worker_id;
-              lastSeenRef.current.set(workerId, Date.now());
-              dispatch(updateWorkerLocation(worker));
-            });
-            
+            console.log(`📸 [WS] Snapshot: ${data.workers.length} workers`);
+            // این رو مستقیم دیسپچ کن چون یکبار اول کاره
+            dispatch(updateWorkersBatch(data.workers));
             return;
           }
-          
-          // ✅ پردازش Heartbeat
-          if (data.type === 'heartbeat_update') {
-            const workerId = data.id || data.worker_id;
-            lastSeenRef.current.set(workerId, Date.now());
-            
-            if (!paused) {
-              dispatch(updateWorkerLocation({
-                id: workerId,
-                status: 'online',
-                timestamp: data.timestamp
-              }));
-            }
-            return;
+
+          // 2. سایر پیام‌ها (Heartbeat, Location, Offline)
+          // همه رو میریزیم توی بافر، تایمر خودش دیسپچ میکنه
+          if (data.type === 'heartbeat_update' || data.type === 'worker_location_update' || (data.id || data.worker_id)) {
+             updatesBufferRef.current.push(data);
+             
+             // هایلایت رو اینجا نذار که UI رو بلاک نکنه
+             // اگر خیلی مهمه، باید جدا هندل شه ولی معمولا توی مپ سنگین میشه
           }
-          
-          // ✅ پردازش Location Update
-          if (data.message && !data.id && !data.worker_id) return;
-          
-          if (data.id || data.worker_id) {
-            const workerId = data.id || data.worker_id;
-            lastSeenRef.current.set(workerId, Date.now());
-            
-            if (!paused) {
-              dispatch(updateWorkerLocation(data));
-            }
-            
-            setHighlightId(workerId);
-            setTimeout(() => setHighlightId(null), 1500);
-          }
+
         } catch (err) {
-          console.error('[WS] Parse Error:', err);
+          console.error('[WS] Error:', err);
         }
       };
 
-      socket.onclose = (e) => {
+      socket.onclose = () => {
         if (alive) {
           setConnected(false);
+          clearInterval(flushInterval); // توقف تایمر
           if (!paused) {
             const timeout = Math.min(30000, 1000 * 2 ** reconnectRef.current.attempts++);
             reconnectRef.current.timeoutId = setTimeout(connect, timeout);
           }
         }
       };
-
-      socket.onerror = (err) => {
-        socket.close();
-      };
+      
+      socket.onerror = () => socket.close();
     };
 
     connect();
@@ -174,9 +179,10 @@ const WorkerDashboardScreen = () => {
     return () => {
       alive = false;
       if (socketRef.current) socketRef.current.close();
+      clearInterval(flushInterval);
       clearTimeout(reconnectRef.current.timeoutId);
     };
-  }, [paused, dispatch]);
+  }, [paused, dispatch]); // وابستگی‌ها
 
 
   // 4. فیلترینگ نهایی
@@ -322,18 +328,17 @@ const WorkerDashboardScreen = () => {
       )}
 
       {/* 🗺️ نقشه */}
-      <div className="mb-6 rounded-xl overflow-hidden shadow-2xl border border-gray-700 h-[450px] relative">
+     <div className="mb-6 rounded-xl overflow-hidden shadow-2xl border border-gray-700 h-[450px] relative">
         <WorkerMap
           workers={finalWorkers}
           selectedWorkerId={mapSelectedWorkerId}
           workerHistory={historyData[mapSelectedWorkerId] || []}
           loadingHistory={historyStatus === 'loading'}
+          projectGeofence={geofenceData?.boundary_coordinates}
+          // ✅ اضافه شد: وضعیت اتصال را به نقشه پاس می‌دهیم
+          connected={connected}
         />
         
-        <div className={`absolute top-4 left-14 z-[400] backdrop-blur px-3 py-1 rounded-full flex items-center gap-2 text-xs border shadow-lg transition-colors ${connected ? 'bg-gray-900/80 border-gray-700' : 'bg-red-900/90 border-red-500'}`}>
-          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-          <span className="font-mono font-bold">{connected ? 'LIVE STREAM' : 'DISCONNECTED'}</span>
-        </div>
       </div>
 
       {/* 🎛️ نوار کنترل */}

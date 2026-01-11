@@ -86,7 +86,7 @@ const EmploymentTypesSettings = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-white font-bold text-xl">👔 انواع استخدام</h3>
+          <h3 className="text-white font-bold text-xl">👔 انواع حقوق</h3>
           <p className="text-gray-400 text-sm mt-1">
             مدیریت انواع استخدام و قراردادهای کاری
           </p>

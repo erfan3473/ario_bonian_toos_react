@@ -20,7 +20,10 @@ import SettingsScreen from './screens/admin/SettingsScreen';
 import RequestManagementScreen from './screens/admin/RequestManagementScreen';
 import SchemeContractScreen from './screens/admin/SchemeContractScreen';
 import SchemeManagementScreen from './screens/admin/SchemeManagementScreen';
+import AdminPayrollScreen from './screens/admin/AdminPayrollScreen';
+import MyTasksScreen from './screens/MyTasksScreen';
 
+import AdminTimesheetScreen from './screens/admin/AdminTimesheetScreen';
 function App() {
   const { userInfo } = useSelector((state) => state.userLogin);
 
@@ -54,15 +57,19 @@ function App() {
           <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
           <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
           <Route path="/admin/scheme-contracts" element={<SchemeContractScreen />} />
+          <Route path="/admin/timesheet" element={<AdminTimesheetScreen />} />
+          <Route path="/admin/payroll" element={<AdminPayrollScreen />} />
           <Route path="/admin/scheme-contracts/:id" element={<SchemeContractScreen />} />
           <Route path="/admin/scheme-managements" element={<SchemeManagementScreen />} />
           <Route path="/admin/requests" element={<RequestManagementScreen />} />
+          <Route path="/tasks" element={<MyTasksScreen />} />
+
         </Routes>
       </main>
 
       {/* Footer */}
       <footer className="bg-gray-800 p-4 text-center text-gray-500 mt-auto">
-        &copy; {new Date().getFullYear()} - سامانه مدیریت پروژه آریو بنیان
+        &copy; {new Date().getFullYear()} - سامانه مدیریت پروژه آریو بنیان توس
       </footer>
     </div>
   );

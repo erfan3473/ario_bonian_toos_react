@@ -24,7 +24,7 @@ const UserCard = ({ user, onClick }) => {
       return;
     }
 
-    navigate(`/admin/scheme-contract?employee=${user.id}&contract=${contract.id}`);
+    navigate(`/admin/scheme-contracts?employee=${user.id}&contract=${contract.id}`);
   };
 
   const avatarText = user.first_name?.[0]?.toUpperCase() || user.username?.[0]?.toUpperCase() || '?';

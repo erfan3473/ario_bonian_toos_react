@@ -2,47 +2,66 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+
 import { fetchDailySummary } from '../features/reports/reportSlice';
 import { fetchProjects } from '../features/projects/projectSlice';
-import PersianDatePicker from '../components/PersianDatePicker';
 
+import JalaliDatePicker from '../components/JalaliDatePicker';
+import { formatJalaliDateLong } from '../utils/dateUtils';
+
+import moment from 'moment-jalaali';
+moment.loadPersian({ usePersianDigits: false });
+
+// فرمت ساعت از ISO به HH:mm
+const formatTime = (iso) => {
+  if (!iso) return '---';
+  return moment(iso).format('HH:mm');
+};
 
 const DailySummaryScreen = () => {
   const dispatch = useDispatch();
-  
-  const { dailySummary, summaryLoading, summaryError } = useSelector((state) => state.reports);
-  const { list: projectsList, loading: projectsLoading } = useSelector((state) => state.projects);
+
+  const { dailySummary, summaryLoading, summaryError } = useSelector(
+    (state) => state.reports
+  );
+  const { list: projectsList, loading: projectsLoading } = useSelector(
+    (state) => state.projects
+  );
 
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+
+  // تاریخ برای API (میلادی YYYY-MM-DD)
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split('T')[0]
   );
 
-  // ✅ بارگذاری اولیه پروژه‌ها
+  // بارگذاری اولیه پروژه‌ها
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
-  // ✅ بارگذاری خلاصه روزانه
+  // بارگذاری خلاصه روزانه وقتی پروژه و تاریخ انتخاب شده
   useEffect(() => {
     if (selectedProjectId && selectedDate) {
       dispatch(
-        fetchDailySummary({ projectId: selectedProjectId, date: selectedDate })
+        fetchDailySummary({
+          projectId: selectedProjectId,
+          date: selectedDate,
+        })
       );
     }
   }, [dispatch, selectedProjectId, selectedDate]);
 
-  // ✅ مرتب‌سازی گزارش‌های سلسله‌مراتبی
+  // مرتب‌سازی گزارش‌های سلسله‌مراتبی بر اساس سطح
   const sortedReports = useMemo(() => {
     if (!dailySummary?.hierarchical_reports) return [];
     return [...dailySummary.hierarchical_reports].sort(
-      (a, b) => 
-        (a.author_position?.hierarchy_level || 0) - 
+      (a, b) =>
+        (a.author_position?.hierarchy_level || 0) -
         (b.author_position?.hierarchy_level || 0)
     );
   }, [dailySummary?.hierarchical_reports]);
 
-  // ✅ تابع indent بر اساس سطح سلسله‌مراتب
   const getHierarchyIndent = (level) => {
     const indents = {
       0: 'mr-0',
@@ -53,48 +72,46 @@ const DailySummaryScreen = () => {
     return indents[level] || 'mr-0';
   };
 
-  // ✅ آیکون بر اساس سطح سلسله‌مراتب
   const getHierarchyIcon = (level) => {
     const icons = {
       0: '👑',
-      1: '🔧',
-      2: '👔',
+      1: '👔',
+      2: '🔧',
       3: '👷',
     };
     return icons[level] || '👤';
   };
 
-  // ✅ Badge وضعیت
   const getStatusBadge = (status) => {
     const configs = {
       DRAFT: {
-        bg: 'bg-gray-900/30',
-        text: 'text-gray-400',
-        border: 'border-gray-700',
+        bg: 'bg-gray-100',
+        text: 'text-gray-700',
+        border: 'border-gray-300',
         label: 'پیش‌نویس',
       },
       SUBMITTED: {
-        bg: 'bg-yellow-900/30',
-        text: 'text-yellow-400',
-        border: 'border-yellow-700',
-        label: 'منتظر تایید',
+        bg: 'bg-yellow-50',
+        text: 'text-yellow-700',
+        border: 'border-yellow-300',
+        label: 'منتظر تأیید',
       },
       APPROVED: {
-        bg: 'bg-green-900/30',
-        text: 'text-green-400',
-        border: 'border-green-700',
-        label: 'تایید شده',
+        bg: 'bg-green-50',
+        text: 'text-green-700',
+        border: 'border-green-300',
+        label: 'تأیید شده',
       },
       REJECTED: {
-        bg: 'bg-red-900/30',
-        text: 'text-red-400',
-        border: 'border-red-700',
+        bg: 'bg-red-50',
+        text: 'text-red-700',
+        border: 'border-red-300',
         label: 'رد شده',
       },
       FINAL: {
-        bg: 'bg-blue-900/30',
-        text: 'text-blue-400',
-        border: 'border-blue-700',
+        bg: 'bg-blue-50',
+        text: 'text-blue-700',
+        border: 'border-blue-300',
         label: 'نهایی',
       },
     };
@@ -109,41 +126,80 @@ const DailySummaryScreen = () => {
     );
   };
 
-  // ✅ فرمت تاریخ فارسی
-  const formatPersianDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('fa-IR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+  // Badge رنگی برای وضعیت حضور
+  const getAttendanceStatusBadge = (status) => {
+    const map = {
+      PRESENT: {
+        label: 'حاضر',
+        cls: 'bg-green-50 text-green-700 border border-green-200',
+      },
+      ABSENT: {
+        label: 'غایب',
+        cls: 'bg-red-50 text-red-700 border border-red-200',
+      },
+      LEAVE: {
+        label: 'مرخصی',
+        cls: 'bg-blue-50 text-blue-700 border border-blue-200',
+      },
+      HALF_DAY: {
+        label: 'نیم‌روز',
+        cls: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
+      },
+    };
+    const item = map[status] || {
+      label: status,
+      cls: 'bg-gray-50 text-gray-700 border border-gray-200',
+    };
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${item.cls}`}>
+        {item.label}
+      </span>
+    );
   };
 
+  const hasSummaryBase =
+    dailySummary && dailySummary.id !== 0 && selectedProjectId && !summaryLoading;
+
+  // برای این‌که حضور حتی وقتی گزارش صفر است هم نشان داده شود:
+  const hasAttendance =
+    dailySummary &&
+    dailySummary.workers_attendance &&
+    dailySummary.workers_attendance.length > 0;
+
+  const hasSummary = hasSummaryBase || hasAttendance;
+
   return (
-    <div className="container mx-auto px-4 py-6 rtl min-h-screen bg-gray-900">
-      {/* ═══════════════════════════════════════════════════════════ */}
+    <div className="container mx-auto px-4 py-6 rtl min-h-screen bg-white">
       {/* Header */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+      <div className="mb-6 border-b border-gray-200 pb-4 flex flex-col gap-1">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
           📅 خلاصه روزانه پروژه
         </h1>
-        <p className="text-gray-400">
-          نمای کامل گزارش‌ها، حضور و غیاب، و فهرست بها
+        <p className="text-gray-500 text-sm md:text-base">
+          انتخاب پروژه و تاریخ، و مشاهده گزارش‌های روزانه، فهرست‌بها و حضور و غیاب.
         </p>
+        {dailySummary?.report_date && hasSummary && (
+          <p className="text-gray-600 text-sm">
+            تاریخ گزارش: {formatJalaliDateLong(dailySummary.report_date)}
+          </p>
+        )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Filters */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <div className="bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-700 mb-6">
+      {/* فیلترها */}
+      <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           {/* انتخاب پروژه */}
-          <div className="flex-grow min-w-[250px]">
-            <label className="text-gray-400 text-sm mb-1 block">پروژه</label>
+          <div className="flex-grow min-w-[220px]">
+            <label className="text-gray-600 text-sm mb-1 block">پروژه</label>
             <select
               value={selectedProjectId || ''}
-              onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-              className="w-full bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              onChange={(e) =>
+                setSelectedProjectId(
+                  e.target.value ? Number(e.target.value) : null
+                )
+              }
+              className="w-full bg-white text-gray-800 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed text-sm"
               disabled={projectsLoading}
             >
               <option value="">
@@ -157,18 +213,18 @@ const DailySummaryScreen = () => {
             </select>
           </div>
 
-          {/* انتخاب تاریخ - تقویم فارسی */}
-          <div className="min-w-[250px] relative z-20">
-            <PersianDatePicker
+          {/* انتخاب تاریخ */}
+          <div className="min-w-[220px]">
+            <JalaliDatePicker
+              name="report_date"
               label="تاریخ"
               value={selectedDate}
-              onChange={setSelectedDate}
-              placeholder="انتخاب تاریخ"
-              required
+              onChange={(e) => setSelectedDate(e.target.value)}
+              modal        // برای مودال استفاده می‌شود، پایین پیاده‌سازی‌اش را می‌دهم
             />
           </div>
 
-          {/* دکمه رفرش */}
+          {/* دکمه نمایش/رفرش */}
           <div className="flex items-end">
             <button
               onClick={() => {
@@ -182,264 +238,252 @@ const DailySummaryScreen = () => {
                 }
               }}
               disabled={!selectedProjectId || !selectedDate || summaryLoading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-2"
             >
-              {summaryLoading ? '⏳ در حال بارگذاری...' : '🔄 رفرش'}
+              {summaryLoading ? 'در حال بارگذاری...' : 'نمایش گزارش'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Loading State */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {summaryLoading && (
-        <div className="text-center py-20">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-          <p className="text-blue-400 text-lg">در حال بارگذاری خلاصه روزانه...</p>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Error State */}
-      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* Error */}
       {summaryError && (
-        <div className="bg-red-900/50 text-red-200 p-4 rounded-lg border border-red-700 mb-6">
+        <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 mb-6 text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">❌</span>
+            <span className="text-xl">❌</span>
             <span>{summaryError}</span>
           </div>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* No Project Selected */}
-      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* بدون پروژه */}
       {!selectedProjectId && !summaryLoading && (
-        <div className="text-center text-gray-500 py-20 border-2 border-dashed border-gray-700 rounded-xl">
-          <div className="text-6xl mb-4">📊</div>
-          <p className="text-xl">لطفاً ابتدا یک پروژه انتخاب کنید</p>
+        <div className="text-center text-gray-500 py-14 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+          <div className="text-5xl mb-3">📊</div>
+          <p className="text-base">لطفاً ابتدا یک پروژه انتخاب کنید</p>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Summary Content */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {dailySummary && !summaryLoading && (
-        <>
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 p-4 rounded-xl border border-blue-700/50">
-              <div className="text-blue-400 text-sm mb-1">تعداد گزارش‌ها</div>
-              <div className="text-3xl font-bold text-white">
-                {dailySummary.statistics?.total_hierarchical_reports || 0}
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 p-4 rounded-xl border border-green-700/50">
-              <div className="text-green-400 text-sm mb-1">تایید شده</div>
-              <div className="text-3xl font-bold text-white">
-                {dailySummary.statistics?.approved_reports || 0}
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 p-4 rounded-xl border border-yellow-700/50">
-              <div className="text-yellow-400 text-sm mb-1">منتظر تایید</div>
-              <div className="text-3xl font-bold text-white">
-                {dailySummary.statistics?.pending_reports || 0}
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/20 p-4 rounded-xl border border-purple-700/50">
-              <div className="text-purple-400 text-sm mb-1">هزینه فهرست بها</div>
-              <div className="text-2xl font-bold text-white font-mono">
-                {dailySummary.boq_summary?.total_cost
-                  ? `${Number(dailySummary.boq_summary.total_cost).toLocaleString('fa-IR')} ت`
-                  : '---'}
-              </div>
-            </div>
+      {/* بدون گزارش، ولی ممکن است حضور داشته باشد (اگر dailySummary.id === 0 از بک‌اند گرفتی، حضور هم خالی است) */}
+      {dailySummary &&
+        dailySummary.id === 0 &&
+        selectedProjectId &&
+        !summaryLoading &&
+        !hasAttendance && (
+          <div className="text-center text-gray-500 py-14 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+            <div className="text-4xl mb-2">📝</div>
+            <p className="text-base">
+              برای این تاریخ گزارشی ثبت نشده است و حضور و غیابی هم ثبت نشده است.
+            </p>
           </div>
+        )}
 
-          {/* Hierarchical Reports */}
-          <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-              🌳 گزارش‌های سلسله‌مراتبی
-            </h2>
+      {/* Loading */}
+      {summaryLoading && (
+        <div className="text-center py-14">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-3" />
+          <p className="text-blue-600 text-sm">در حال بارگذاری خلاصه روزانه...</p>
+        </div>
+      )}
 
-            {sortedReports.length === 0 ? (
-              <div className="text-center text-gray-500 py-10 border-2 border-dashed border-gray-700 rounded-xl">
-                <div className="text-5xl mb-3">📝</div>
-                <p className="text-lg">هیچ گزارشی برای این تاریخ ثبت نشده است</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {sortedReports.map((report) => (
-                  <div
-                    key={report.id}
-                    className={`bg-gray-900/50 p-4 rounded-lg border border-gray-700 hover:border-gray-600 transition ${getHierarchyIndent(
-                      report.author_position?.hierarchy_level || 0
-                    )}`}
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl">
-                          {getHierarchyIcon(
-                            report.author_position?.hierarchy_level || 0
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                            {report.author_name || 'نامشخص'}
-                            <span className="text-xs bg-gray-700 px-2 py-0.5 rounded text-gray-300">
-                              {report.position_title || 'بدون سمت'}
-                            </span>
-                          </h3>
-                          <p className="text-sm text-gray-400">
-                            🕐{' '}
-                            {new Date(report.created_at).toLocaleTimeString(
-                              'fa-IR',
-                              { hour: '2-digit', minute: '2-digit' }
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      {getStatusBadge(report.status)}
-                    </div>
-
-                    <div className="bg-gray-800 p-3 rounded mb-3 text-gray-300 text-sm whitespace-pre-wrap">
-                      {report.work_summary || 'بدون متن'}
-                    </div>
-
-                    {report.issues && (
-                      <div className="bg-red-900/20 border border-red-700 p-3 rounded mb-3 text-red-300 text-sm">
-                        <strong>⚠️ مشکلات:</strong> {report.issues}
-                      </div>
-                    )}
-
-                    {report.media_files && report.media_files.length > 0 && (
-                      <div className="flex gap-2 overflow-x-auto mb-3">
-                        {report.media_files.map((media) => (
-                          <img
-                            key={media.id}
-                            src={media.file}
-                            alt="media"
-                            className="w-24 h-24 object-cover rounded border border-gray-600 cursor-pointer hover:scale-105 transition"
-                            onClick={() => window.open(media.file, '_blank')}
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {report.status === 'APPROVED' && report.approved_by && (
-                      <div className="text-xs text-green-400 bg-green-900/20 p-2 rounded border border-green-700">
-                        ✅ تایید شده توسط: {report.approved_by?.username} |{' '}
-                        {new Date(report.approved_at).toLocaleString('fa-IR')}
-                      </div>
-                    )}
-
-                    {report.status === 'REJECTED' && (
-                      <div className="text-xs text-red-400 bg-red-900/20 p-2 rounded border border-red-700">
-                        ❌ رد شده | دلیل:{' '}
-                        {report.rejection_reason || 'ذکر نشده'}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* BOQ Summary */}
-          {dailySummary.boq_summary && dailySummary.boq_summary.reports_count > 0 && (
-            <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 mb-6">
-              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                💰 فهرست بها
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-900 p-4 rounded-lg">
-                  <div className="text-gray-400 text-sm mb-1">تعداد گزارش‌ها</div>
-                  <div className="text-2xl font-bold text-white">
-                    {dailySummary.boq_summary.reports_count}
-                  </div>
+      {/* محتوا */}
+      {hasSummary && (
+        <div className="space-y-6">
+          {/* کارت‌های آمار (فقط اگر dailySummary واقعی داشته باشیم) */}
+          {dailySummary.id !== 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-xs mb-1">تعداد گزارش‌ها</div>
+                <div className="text-xl font-bold text-gray-800">
+                  {dailySummary.statistics?.total_hierarchical_reports || 0}
                 </div>
-                <div className="bg-gray-900 p-4 rounded-lg">
-                  <div className="text-gray-400 text-sm mb-1">تعداد آیتم‌ها</div>
-                  <div className="text-2xl font-bold text-white">
-                    {dailySummary.boq_summary.entries_count}
-                  </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-xs mb-1">تأیید شده</div>
+                <div className="text-xl font-bold text-green-700">
+                  {dailySummary.statistics?.approved_reports || 0}
                 </div>
-                <div className="bg-gray-900 p-4 rounded-lg">
-                  <div className="text-gray-400 text-sm mb-1">جمع کل هزینه</div>
-                  <div className="text-xl font-bold text-yellow-400 font-mono">
-                    {Number(dailySummary.boq_summary.total_cost).toLocaleString('fa-IR')} تومان
-                  </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-xs mb-1">منتظر تأیید</div>
+                <div className="text-xl font-bold text-yellow-600">
+                  {dailySummary.statistics?.pending_reports || 0}
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-xs mb-1">هزینه فهرست‌بها</div>
+                <div className="text-lg font-bold text-blue-700">
+                  {dailySummary.boq_summary?.total_cost
+                    ? `${Number(
+                        dailySummary.boq_summary.total_cost
+                      ).toLocaleString('fa-IR')} تومان`
+                    : '---'}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Attendance */}
-          {dailySummary.workers_attendance &&
-            dailySummary.workers_attendance.length > 0 && (
-              <div className="bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700">
-                <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                  👥 حضور و غیاب
-                  <span className="text-sm text-gray-400 font-normal">
-                    ({dailySummary.statistics?.present_workers || 0} از{' '}
-                    {dailySummary.statistics?.total_workers || 0} نفر)
-                  </span>
+          {/* گزارش‌های سلسله‌مراتبی (فقط اگر DailyReport واقعی باشد) */}
+          {dailySummary.id !== 0 && (
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                🌳 گزارش‌های سلسله‌مراتبی
+              </h2>
+
+              {sortedReports.length === 0 ? (
+                <div className="text-center text-gray-500 py-8 border border-dashed border-gray-200 rounded-lg bg-gray-50 text-sm">
+                  هیچ گزارشی برای این تاریخ ثبت نشده است
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sortedReports.map((report) => (
+                    <div
+                      key={report.id}
+                      className={`bg-gray-50 p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition ${getHierarchyIndent(
+                        report.author_position?.hierarchy_level || 0
+                      )}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-start gap-3">
+                          <div className="text-xl">
+                            {getHierarchyIcon(
+                              report.author_position?.hierarchy_level || 0
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-800">
+                                {report.author_name || 'نامشخص'}
+                              </span>
+                              <span className="text-[11px] bg-gray-200 px-2 py-0.5 rounded text-gray-700">
+                                {report.position_title || 'بدون سمت'}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              🕐{' '}
+                              {new Date(
+                                report.created_at
+                              ).toLocaleTimeString('fa-IR', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        {getStatusBadge(report.status)}
+                      </div>
+
+                      {report.work_summary && (
+                        <div className="bg-white p-3 rounded border border-gray-200 text-xs text-gray-700 whitespace-pre-wrap">
+                          {report.work_summary}
+                        </div>
+                      )}
+
+                      {report.issues && (
+                        <div className="mt-2 bg-red-50 border border-red-200 p-2 rounded text-xs text-red-700">
+                          ⚠️ {report.issues}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* فهرست‌بها (اگر هست) */}
+          {dailySummary.boq_summary &&
+            dailySummary.boq_summary.reports_count > 0 && (
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                  💰 فهرست‌بها
                 </h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-900 text-gray-400">
-                      <tr>
-                        <th className="px-4 py-2 text-right">نام</th>
-                        <th className="px-4 py-2 text-right">سمت</th>
-                        <th className="px-4 py-2 text-center">ورود</th>
-                        <th className="px-4 py-2 text-center">خروج</th>
-                        <th className="px-4 py-2 text-center">اضافه‌کار</th>
-                        <th className="px-4 py-2 text-center">وضعیت</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-700">
-                      {dailySummary.workers_attendance.map((att, idx) => (
-                        <tr key={idx} className="hover:bg-gray-700/30">
-                          <td className="px-4 py-3 text-white font-medium">
-                            {att.worker_name}
-                          </td>
-                          <td className="px-4 py-3 text-gray-400">
-                            {att.position}
-                          </td>
-                          <td className="px-4 py-3 text-center text-green-400 font-mono">
-                            {att.time_in || '---'}
-                          </td>
-                          <td className="px-4 py-3 text-center text-red-400 font-mono">
-                            {att.time_out || '---'}
-                          </td>
-                          <td className="px-4 py-3 text-center text-yellow-400 font-mono">
-                            {att.overtime_hours > 0
-                              ? `${att.overtime_hours} ساعت`
-                              : '---'}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-bold ${
-                                att.status === 'PRESENT'
-                                  ? 'bg-green-900/30 text-green-400'
-                                  : 'bg-red-900/30 text-red-400'
-                              }`}
-                            >
-                              {att.status === 'PRESENT' ? 'حاضر' : att.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                    <div className="text-gray-500 text-xs mb-1">
+                      تعداد گزارش‌ها
+                    </div>
+                    <div className="text-lg font-semibold text-gray-800">
+                      {dailySummary.boq_summary.reports_count}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                    <div className="text-gray-500 text-xs mb-1">
+                      تعداد آیتم‌ها
+                    </div>
+                    <div className="text-lg font-semibold text-gray-800">
+                      {dailySummary.boq_summary.entries_count}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                    <div className="text-gray-500 text-xs mb-1">
+                      جمع کل هزینه
+                    </div>
+                    <div className="text-lg font-bold text-blue-700">
+                      {Number(
+                        dailySummary.boq_summary.total_cost
+                      ).toLocaleString('fa-IR')}{' '}
+                      تومان
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-        </>
+
+          {/* حضور و غیاب (حتی اگر هیچ DailyReport نباشد، فقط کافی است workers_attendance پر باشد) */}
+          {hasAttendance && (
+            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+              <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                👥 حضور و غیاب
+                <span className="text-xs text-gray-500 font-normal">
+                  ({dailySummary.statistics?.present_workers || 0} از{' '}
+                  {dailySummary.statistics?.total_workers || 0} نفر)
+                </span>
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs md:text-sm">
+                  <thead className="bg-gray-100 text-gray-600">
+                    <tr>
+                      <th className="px-3 md:px-4 py-2 text-right">نام</th>
+                      <th className="px-3 md:px-4 py-2 text-center">ورود</th>
+                      <th className="px-3 md:px-4 py-2 text-center">خروج</th>
+                      <th className="px-3 md:px-4 py-2 text-center">
+                        اضافه‌کار
+                      </th>
+                      <th className="px-3 md:px-4 py-2 text-center">وضعیت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {dailySummary.workers_attendance.map((att, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-3 md:px-4 py-2 text-gray-800 font-medium">
+                          {att.worker_name}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 text-center text-gray-700 font-mono">
+                          {formatTime(att.time_in)}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 text-center text-gray-700 font-mono">
+                          {formatTime(att.time_out)}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 text-center text-gray-700 font-mono">
+                          {att.overtime_hours > 0
+                            ? `${att.overtime_hours} ساعت`
+                            : '---'}
+                        </td>
+                        <td className="px-3 md:px-4 py-2 text-center">
+                          {getAttendanceStatusBadge(att.status)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

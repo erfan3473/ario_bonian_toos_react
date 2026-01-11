@@ -47,6 +47,50 @@ export const fetchDailyAttendance = createAsyncThunk(
     }
   }
 );
+const processWorkerUpdate = (state, u) => {
+  const workerId = u.id || u.worker_id;
+  if (!workerId) return;
+
+  const lastUpdate = u.timestamp ? new Date(u.timestamp).getTime() : Date.now();
+
+  if (!state.allWorkers[workerId]) {
+    state.allWorkers[workerId] = { id: workerId };
+  }
+
+  const worker = state.allWorkers[workerId];
+
+  // Heartbeat
+  if (u.type === 'heartbeat_update') {
+    worker.lastUpdate = lastUpdate;
+    worker.stale = false;
+    return;
+  }
+
+  // Offline
+  if (u.status === 'offline' || u.type === 'offline_update') {
+    worker.stale = true;
+    return;
+  }
+
+  // لوکیشن
+  if (u.latitude !== undefined) worker.latitude = u.latitude;
+  if (u.longitude !== undefined) worker.longitude = u.longitude;
+  if (u.accuracy !== undefined) worker.accuracy = u.accuracy;
+  if (u.speed !== undefined) worker.speed = u.speed;
+
+  // 🆕 وضعیت GPS
+  if (u.gps_enabled !== undefined) {
+    worker.gps_enabled = u.gps_enabled;
+  }
+
+  // متا دیتا
+  if (u.full_name !== undefined) worker.full_name = u.full_name;
+  if (u.current_project_id !== undefined) worker.current_project_id = u.current_project_id;
+  if (u.current_project_name !== undefined) worker.current_project_name = u.current_project_name;
+
+  worker.lastUpdate = lastUpdate;
+  worker.stale = false;
+};
 
 const workersSlice = createSlice({
   name: 'workers',
@@ -59,55 +103,17 @@ const workersSlice = createSlice({
   },
 
   reducers: {
+    // 🗑️ این متد تکی است (اگر جای دیگری استفاده میکنی نگه دار، ولی ما از پایینی استفاده میکنیم)
     updateWorkerLocation: (state, action) => {
-      const u = action.payload;
-      const workerId = u.id || u.worker_id;
-      const lastUpdate = u.timestamp ? new Date(u.timestamp).getTime() : Date.now();
+      processWorkerUpdate(state, action.payload);
+    },
 
-      if (!state.allWorkers[workerId]) {
-        state.allWorkers[workerId] = { id: workerId };
+    // 🚀 [جدید] آپدیت دسته‌جمعی (Batch Update) - بهینه برای سوکت
+    updateWorkersBatch: (state, action) => {
+      const updates = action.payload; // آرایه‌ای از آپدیت‌ها
+      if (Array.isArray(updates)) {
+        updates.forEach(u => processWorkerUpdate(state, u));
       }
-
-      const worker = state.allWorkers[workerId];
-
-      // ✅ Heartbeat
-      if (u.type === 'heartbeat_update') {
-        worker.lastUpdate = lastUpdate;
-        worker.stale = false;
-        return;
-      }
-
-      // ✅ Location
-      if (u.latitude !== undefined) worker.latitude = u.latitude;
-      if (u.longitude !== undefined) worker.longitude = u.longitude;
-      if (u.accuracy !== undefined) worker.accuracy = u.accuracy;
-      if (u.speed !== undefined) worker.speed = u.speed;
-
-      // ✅ Basic (فقط از REST API میاد - preserve if not in payload)
-      if (u.full_name !== undefined) worker.full_name = u.full_name;
-      if (u.user_id !== undefined) worker.user_id = u.user_id;
-      if (u.position !== undefined) worker.position = u.position;
-      if (u.position_color_hex !== undefined) worker.position_color_hex = u.position_color_hex;
-
-      // ✅ Project
-      if (u.current_project_id !== undefined) worker.current_project_id = u.current_project_id;
-      if (u.current_project_name !== undefined) worker.current_project_name = u.current_project_name;
-
-      // ✅ Attendance (preserve if not in payload)
-      if (u.today_attendance_status !== undefined) worker.today_attendance_status = u.today_attendance_status;
-      if (u.shift_start !== undefined) worker.shift_start = u.shift_start;
-      if (u.shift_end !== undefined) worker.shift_end = u.shift_end;
-      
-      // ✅ Latest attendance (preserve if not in payload)
-      if (u.latest_attendance_date_jalali !== undefined) {
-        worker.latest_attendance_date_jalali = u.latest_attendance_date_jalali;
-      }
-      if (u.latest_shift_in !== undefined) worker.latest_shift_in = u.latest_shift_in;
-      if (u.latest_shift_out !== undefined) worker.latest_shift_out = u.latest_shift_out;
-      if (u.is_shift_open !== undefined) worker.is_shift_open = u.is_shift_open;
-
-      worker.lastUpdate = lastUpdate;
-      worker.stale = u.status === 'offline';
     },
 
     cleanupOldWorkers: (state) => {
@@ -162,6 +168,7 @@ const workersSlice = createSlice({
             latest_shift_in: w.latest_shift_in || null,
             latest_shift_out: w.latest_shift_out || null,
             is_shift_open: w.is_shift_open || false,
+            gps_enabled: w.last_location?.gps_enabled ?? true,
           };
         });
 
@@ -243,5 +250,5 @@ export const selectVisibleWorkers = createSelector(
   }
 );
 
-export const { updateWorkerLocation, cleanupOldWorkers } = workersSlice.actions;
+export const { updateWorkerLocation,updateWorkersBatch, cleanupOldWorkers, } = workersSlice.actions;
 export default workersSlice.reducer;
