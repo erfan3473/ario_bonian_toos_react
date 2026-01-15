@@ -162,6 +162,15 @@ const RequestManagementScreen = () => {
       {/* Stats Cards - مرکز */}
       {stats.data && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 max-w-6xl mx-auto">
+        <div className="">
+          <StatCard
+            icon={<FaChartLine />}
+            title="کل درخواست‌ها"
+            value={stats.data.total_count || 0}
+            color="blue"
+          />
+        </div>
+
           <StatCard
             icon={<FaClock />}
             title="در انتظار"
@@ -180,39 +189,50 @@ const RequestManagementScreen = () => {
             value={stats.data.rejected_count || 0}
             color="red"
           />
-          <StatCard
-            icon={<FaChartLine />}
-            title="کل درخواست‌ها"
-            value={stats.data.total_count || 0}
-            color="blue"
-          />
+          
+      
         </div>
       )}
 
       {/* Tabs - مرکز */}
       <div className="flex justify-center gap-2 mb-6 border-b border-gray-700 max-w-4xl mx-auto">
+        
+      
         <TabButton
           active={activeTab === 'financial'}
           onClick={() => setActiveTab('financial')}
           icon={<FaMoneyBillWave />}
+          value={0|| stats.data?.total_count_financial }
+          
           label="مالی"
-        />
+          />
+          
+          
         <TabButton
           active={activeTab === 'equipment'}
           onClick={() => setActiveTab('equipment')}
           icon={<FaTools />}
           label="تجهیزات"
+          value={stats.data?.total_count_equipment || 0}
+
         />
         <TabButton
           active={activeTab === 'leave'}
           onClick={() => setActiveTab('leave')}
           icon={<FaCalendarAlt />}
+          value={stats.data?.total_count_leave || 0}
+
           label="مرخصی"
         />
       </div>
 
       {/* Filter - مرکز */}
       <div className="flex justify-center gap-3 mb-8 max-w-3xl mx-auto">
+         <FilterButton
+          active={filterStatus === null}
+          onClick={() => setFilterStatus(null)}
+          label="همه"
+        />
         <FilterButton
           active={filterStatus === 'PENDING'}
           onClick={() => setFilterStatus('PENDING')}
@@ -228,11 +248,7 @@ const RequestManagementScreen = () => {
           onClick={() => setFilterStatus('REJECTED')}
           label="رد شده"
         />
-        <FilterButton
-          active={filterStatus === null}
-          onClick={() => setFilterStatus(null)}
-          label="همه"
-        />
+       
       </div>
 
       {/* Content - کارت‌ها بدون مرکز */}
@@ -311,7 +327,7 @@ const StatCard = ({ icon, title, value, color }) => {
   );
 };
 
-const TabButton = ({ active, onClick, icon, label }) => (
+const TabButton = ({ active, onClick, icon, label , value }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-2 px-6 py-3 font-bold tracking-tight transition-colors ${
@@ -320,8 +336,11 @@ const TabButton = ({ active, onClick, icon, label }) => (
         : 'text-gray-400 hover:text-white'
     }`}
   >
-    {icon}
+    <p className="text-1xl   mt-1 tracking-tight">{value} درخواست</p>
+
     <span>{label}</span>
+    {icon}
+
   </button>
 );
 
