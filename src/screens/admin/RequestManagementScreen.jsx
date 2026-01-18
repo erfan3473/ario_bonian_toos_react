@@ -22,6 +22,7 @@ import {
   FaChartLine 
 } from 'react-icons/fa';
 
+import { formatJalaliDate } from '../../utils/dateUtils';
 
 const RequestManagementScreen = () => {
   const dispatch = useDispatch();
@@ -406,7 +407,10 @@ const RequestCard = ({ request, type, onAction, formatNumber, formatDate, getSta
           </div>
           <div>
             <p className="text-sm text-gray-400 tracking-normal">تاریخ</p>
-            <p className="text-white font-semibold tracking-tight">{request.start_date} تا {request.end_date}</p>
+       
+              
+              
+            <p className="text-white font-semibold tracking-tight">{formatJalaliDate(request.start_date) || '-'} تا {formatJalaliDate(request.end_date) || '-'}</p>
           </div>
         </>
       );

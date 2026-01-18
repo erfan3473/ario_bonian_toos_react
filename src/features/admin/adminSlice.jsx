@@ -26,6 +26,7 @@ export const fetchUserDetail = createAsyncThunk(
   async (userId, { rejectWithValue }) => {
     try {
       const response = await api.get(`/admin/users/${userId}/`);
+      console.log(response.data)
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت جزئیات کاربر');

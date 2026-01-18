@@ -163,15 +163,15 @@ const JalaliDatePicker = ({
     <div className="jalali-datepicker-content">
       {/* Header */}
       <div className="jalali-datepicker-header">
-        <button
-          type="button"
-          onClick={handleNextMonth}
-          className="jalali-datepicker-nav-btn"
-          title="ماه بعد"
-        >
-          ◀
+        
+          <button
+              type="button"
+              onClick={handlePrevMonth}
+              className="jalali-datepicker-nav-btn"
+              title="ماه قبل"
+              >
+              ▶
         </button>
-
         <div className="flex gap-2 items-center">
           <select
             value={currentMonth}
@@ -198,13 +198,15 @@ const JalaliDatePicker = ({
           </select>
         </div>
 
+        
+
         <button
           type="button"
-          onClick={handlePrevMonth}
+          onClick={handleNextMonth}
           className="jalali-datepicker-nav-btn"
-          title="ماه قبل"
+          title="ماه بعد"
         >
-          ▶
+          ◀
         </button>
       </div>
 
@@ -311,17 +313,21 @@ const JalaliDatePicker = ({
       {isOpen && !disabled && modal && (
         <div className="jalali-datepicker-modal-overlay">
           <div className="jalali-datepicker-modal">
-            <div className="jalali-datepicker-modal-header">
-              <span className="text-sm font-semibold text-gray-700">
-                انتخاب تاریخ
-              </span>
+            <div className="jalali-datepicker-modal-header ">
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="text-red-400 hover:text-red-600 text-lg leading-none"
               >
                 ×
               </button>
+              
+              <span className=" text-sm font-semibold text-gray-700">
+                انتخاب تاریخ 
+              </span>
+               <span className=" text-sm font-semibold text-gray-700">
+               
+              </span>
             </div>
             {calendarContent}
           </div>

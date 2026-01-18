@@ -15,13 +15,13 @@ const UserDetailPage = () => {
   const dispatch = useDispatch();
   
   const { selectedUser, loading } = useSelector((state) => state.admin);
-const userLoading = loading.userDetail;
+  const userLoading = loading.userDetail;
 
   const [activeTab, setActiveTab] = useState('personal');
   const [isNewUser, setIsNewUser] = useState(userId === 'new');
 
   const tabs = [
-    { id: 'personal', label: 'اطلاعات شخصی', icon: '👤' },
+    { id: 'personal', label: 'اطلاعات سیستمی', icon: '👤' },
     { id: 'organizational', label: 'سازمانی', icon: '👔' },
     { id: 'contracts', label: 'قراردادها', icon: '📋' },
     { id: 'financial', label: 'مالی', icon: '💰' },
@@ -126,7 +126,7 @@ if (userLoading && !isNewUser) {
         </div>
 
         {/* Content */}
-        <div className="bg-gray-900/70 border-2 border-gray-700 rounded-3xl p-8 shadow-2xl backdrop-blur-sm min-h-[600px]">
+        <div className="bg-gray-900/70 border-2 border-gray-700 rounded-xl p-8 shadow-2xl backdrop-blur-sm min-h-[600px]">
           {activeTab === 'personal' && <PersonalInfoTab user={selectedUser || {}} isNewUser={isNewUser} />}
           {activeTab === 'organizational' && <OrganizationalTab user={selectedUser || {}} />}
           {activeTab === 'contracts' && <ContractsTab user={selectedUser || {}} />}
