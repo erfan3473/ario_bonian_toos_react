@@ -12,7 +12,6 @@ import {
 } from '../../../features/admin/adminSlice';
 import { fetchProjects } from '../../../features/projects/projectSlice';
 import { getSchemeContracts } from '../../../features/admin/adminSchemeSlice';
-import FinancialSummaryCard from '../FinancialSummaryCard';
 import JalaliDatePicker from '../../JalaliDatePicker'; // 🆕
 
 const ContractsTab = ({ user }) => {
@@ -291,11 +290,7 @@ const ContractsTab = ({ user }) => {
         </div>
       )}
 
-      {/* 🆕 کارت خلاصه مالی */}
-      <FinancialSummaryCard 
-        contracts={contracts} 
-        schemeContracts={schemeContracts || []} 
-      />
+      
 
       {/* Form */}
       {showNewForm && (

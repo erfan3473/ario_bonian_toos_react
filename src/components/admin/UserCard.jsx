@@ -72,26 +72,14 @@ const UserCard = ({ user, onClick }) => {
         </div>
 
         {/* Badge وضعیت */}
-        <div className="flex flex-col gap-1 flex-shrink-0">
-          {user.is_active ? (
-            <span className="bg-green-900/50 text-green-300 px-2 py-1 rounded-lg text-xs font-bold border border-green-500/50">
-              ✅ فعال
-            </span>
-          ) : (
-            <span className="bg-red-900/50 text-red-300 px-2 py-1 rounded-lg text-xs font-bold border border-red-500/50">
-              ❌ غیرفعال
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Badges + Info */}
-      <div className="flex items-center justify-between mb-3 px-1 flex-shrink-0">
-        <div className="flex flex-wrap gap-1">
-          {user.is_superuser && (
-            <span className="bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded-full text-xs font-bold border border-purple-400/50 shadow-md">👑</span>
-          )}
-          <span 
+        <div 
+           className="flex rounded-2xs flex-shrink-0 shadow-xl border-3 relative overflow-hidden ring-2 ring-white/20"
+            style={{ 
+              background: `linear-gradient(135deg, ${positionColor}20, ${positionColor}10)`,
+              borderColor: positionColor,
+              boxShadow: `0 6px 20px ${positionColor}30`
+            }}>
+               <span 
             className="px-2 py-0.5 rounded-full text-xs font-bold border shadow-sm truncate max-w-[100px]"
             style={{ 
               backgroundColor: `${positionColor}60`, 
@@ -102,6 +90,16 @@ const UserCard = ({ user, onClick }) => {
           >
             {positionTitle.length > 12 ? `${positionTitle.slice(0,12)}...` : positionTitle}
           </span>
+        </div>
+      </div>
+
+      {/* Badges + Info */}
+      <div className="flex items-center justify-between mb-3 px-1 flex-shrink-0">
+        <div className="flex flex-wrap gap-1">
+          {user.is_superuser && (
+            <span className="bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded-full text-xs font-bold border border-purple-400/50 shadow-md">👑</span>
+          )}
+          
           {employee?.is_worker && (
             <span className="bg-orange-900/80 text-orange-200 px-2 py-0.5 rounded-full text-xs font-bold border border-orange-400/50 shadow-md">👷</span>
           )}

@@ -52,12 +52,12 @@ const UserTableRow = ({ user, onClick }) => {
                 <span className="text-lg drop-shadow-md">{avatarText}</span>
               )}
               
-              {user.is_active && (
+              
                 <span 
                   className="absolute top-0 right-0 w-3 h-3 rounded-full animate-pulse border border-gray-900"
-                  style={{ backgroundColor: '#10B981' }}
+                  style={{ backgroundColor: `${positionColor}` }}
                 />
-              )}
+              
             </div>
             
             <div className="overflow-hidden">
