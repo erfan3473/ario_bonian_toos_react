@@ -22,7 +22,12 @@ export const fetchMonthlyTimesheet = createAsyncThunk(
       const url = `/attendance/timesheet/${qs ? `?${qs}` : ''}`;
 
       const response = await api.get(url);
+      console.log(`avazi0${response.data['meta']['days'][0]['gregorian_date']}`)
+      console.log(`avazi29${response.data['meta']['days'][29]['gregorian_date']}`)
+    
+
       return response.data;
+
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.detail || 'خطا در دریافت گزارش حضور'

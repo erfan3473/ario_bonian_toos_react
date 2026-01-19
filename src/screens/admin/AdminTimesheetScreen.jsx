@@ -44,6 +44,13 @@ const AdminTimesheetScreen = () => {
         month: m.jMonth() + 1, // jMonth از 0 شروع می‌شود
       })
     );
+    // console.log(`slm1${workers}`)
+    // console.log(`slm2${byWorker}`)
+
+    console.log(`roozane  ${meta?.days.length}` )
+    console.log(`baraye kargar  ${workers?.length}` )
+        
+    // console.log(`slm4${byDay}`)
   }, [dispatch, todayGregorian]);
 
   // وقتی کاربر تاریخ را از DatePicker عوض می‌کند
@@ -53,6 +60,8 @@ const AdminTimesheetScreen = () => {
 
     if (!gDate) {
       dispatch(setTimesheetFilters({ year: null, month: null }));
+    console.log(`slm3${meta?.days}`)
+
       return;
     }
 
@@ -81,11 +90,11 @@ const AdminTimesheetScreen = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 rtl min-h-screen bg-white">
+    <div className=" container mx-auto px-4 py-6 rtl min-h-screen bg-white ">
       {/* هدر و تاریخ امروز */}
-      <div className="mb-6 border-b border-gray-200 pb-4 flex flex-col gap-1">
+      <div className="mb-6  border-b border-gray-200 pb-4 flex flex-col gap-1">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
-          📊 گزارش حضور ماهانه (Timesheet)
+          📊 گزارش حضور ماهانه 
         </h1>
         <p className="text-gray-500 text-sm md:text-base">
           مشاهده حضور و غیاب ماهانه کارکنان، با نمایش روزهای تعطیل و جمعه.
@@ -169,12 +178,12 @@ const AdminTimesheetScreen = () => {
 
       {/* خطا / لودینگ */}
       {error && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mt-4 text-sm">
+        <div className="flex bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mt-4 text-sm">
           {error}
         </div>
       )}
       {loading && (
-        <div className="text-center py-10 text-sm text-blue-600">
+        <div className="flex text-center py-10 text-sm text-blue-600">
           در حال بارگذاری تایم‌شیت...
         </div>
       )}
