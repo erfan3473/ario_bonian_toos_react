@@ -9,8 +9,9 @@ const TimesheetByWorker = ({ workers, byWorker }) => {
   return (
     <div className=" space-y-6 mt-4">
       {workers.map((w) => {
-        const wData = byWorker[w.worker_id] || byWorker[w.workerId] || {};
+        const wData = byWorker[w.worker_id] || {};
         const days = wData.days || [];
+    
         const summary = wData.summary || {};
 
         return (
@@ -53,8 +54,9 @@ const TimesheetByWorker = ({ workers, byWorker }) => {
                       <td className="px-2 py-1 text-center text-gray-100">
                         {d.day}
                       </td>
-                      <td className="px-2 py-1 text-center text-red-200">
-                        {d.weekday_name || '-'}
+                      {/* روز هفته (شنبه تا جمعه) */}
+                      <td className="px-3 py-2 text-center text-gray-700 font-semibold">
+                        {d.weekday_name|| 'شنبه '}
                       </td>
                       <td className="px-2 py-1 text-center">
                         {d.is_official_holiday

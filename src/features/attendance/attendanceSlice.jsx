@@ -24,6 +24,7 @@ export const fetchMonthlyTimesheet = createAsyncThunk(
       const response = await api.get(url);
       console.log(`avazi0${response.data['meta']['days'][0]['gregorian_date']}`)
       console.log(`avazi29${response.data['meta']['days'][29]['gregorian_date']}`)
+      console.log(`avazijadid${response.data['workers'][9]}`)
     
 
       return response.data;

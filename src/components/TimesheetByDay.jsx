@@ -91,6 +91,8 @@ const TimesheetByDay = ({ meta, byDay }) => {
                               >
                                 {w.status === 'PRESENT'
                                   ? 'حاضر'
+                                  : w.status === 'present'
+                                  ? 'حاضر' 
                                   : w.status === 'ABSENT'
                                   ? 'غایب'
                                   : w.status === 'LEAVE'

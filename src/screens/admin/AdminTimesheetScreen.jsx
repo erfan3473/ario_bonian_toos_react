@@ -92,7 +92,9 @@ const AdminTimesheetScreen = () => {
   return (
     <div className=" container mx-auto px-4 py-6 rtl min-h-screen bg-white ">
       {/* هدر و تاریخ امروز */}
-      <div className="mb-6  border-b border-gray-200 pb-4 flex flex-col gap-1">
+     {/* هدر و تاریخ امروز */}
+      <div className="mb-6 border-b border-gray-200 pb-4 flex flex-col gap-2 items-center text-center">
+
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
           📊 گزارش حضور ماهانه 
         </h1>
