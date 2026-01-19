@@ -281,7 +281,7 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
               onChange={(e) => setHistoryIndex(Number(e.target.value))}
               className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500"
               style={{
-                background: `linear-gradient(to right, #EF4444 0%, #EF4444 ${(clampedIndex / maxIndex) * 100}%, #374151 ${(clampedIndex / maxIndex) * 100}%, #374151 100%)`,
+                background: `linear-gradient(to left, #EF4444 0%, #EF4444 ${(clampedIndex / maxIndex) * 100}%, #374151 ${(clampedIndex / maxIndex) * 100}%, #374151 100%)`,
               }}
             />
             <div className="flex justify-between text-xs text-gray-400 mt-2 font-mono">
