@@ -40,6 +40,30 @@ export const fetchDailySummary = createAsyncThunk(
   }
 );
 
+export const fetchFlexibleSummary = createAsyncThunk(
+  'reports/fetchFlexibleSummary',
+  async ({ projectId, date }, { rejectWithValue }) => {
+    try {
+      const params = {};
+      if (projectId) params.project_id = projectId;
+      if (date) params.date = date;
+
+      const { data } = await axiosInstance.get(
+        '/reports/daily-reports/summary/',
+        { params }
+      );
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        'خطا در دریافت گزارش‌ها'
+      );
+    }
+  }
+);
+
 // ✅ تایید یا رد گزارش
 export const approveReport = createAsyncThunk(
   'reports/approve',
@@ -110,6 +134,22 @@ export const submitBOQ = createAsyncThunk(
     }
   }
 );
+
+
+const summaryPending = (state) => {
+  state.summaryLoading = true;
+  state.summaryError = null;
+};
+
+const summaryFulfilled = (state, action) => {
+  state.summaryLoading = false;
+  state.dailySummary = action.payload;
+};
+
+const summaryRejected = (state, action) => {
+  state.summaryLoading = false;
+  state.summaryError = action.payload;
+};
 
 // ═══════════════════════════════════════════════════════════
 // 🗂️ Slice
@@ -186,19 +226,16 @@ const reportSlice = createSlice({
 
       // ═══════════════════════════════════════════════════════════
       // fetchDailySummary
-      // ═══════════════════════════════════════════════════════════
-      .addCase(fetchDailySummary.pending, (state) => {
-        state.summaryLoading = true;
-        state.summaryError = null;
-      })
-      .addCase(fetchDailySummary.fulfilled, (state, action) => {
-        state.summaryLoading = false;
-        state.dailySummary = action.payload;
-      })
-      .addCase(fetchDailySummary.rejected, (state, action) => {
-        state.summaryLoading = false;
-        state.summaryError = action.payload;
-      })
+      // ═══════════════════════// fetchDailySummary
+      .addCase(fetchDailySummary.pending, summaryPending)
+      .addCase(fetchDailySummary.fulfilled, summaryFulfilled)
+      .addCase(fetchDailySummary.rejected, summaryRejected)
+
+      // fetchFlexibleSummary
+      .addCase(fetchFlexibleSummary.pending, summaryPending)
+      .addCase(fetchFlexibleSummary.fulfilled, summaryFulfilled)
+      .addCase(fetchFlexibleSummary.rejected, summaryRejected)
+
 
       // ═══════════════════════════════════════════════════════════
       // approveReport
