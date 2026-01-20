@@ -1,32 +1,27 @@
-// src/features/attendance/attendanceSlice.jsx
+// src/features/attendance/attendanceSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axiosInstance';
 
-// 🔄 ۱) گرفتن تایم‌شیت ماهانه
-// GET /api/attendance/timesheet/?year=&month=&project_id=&position_id=&worker_id=&search=
-export const fetchMonthlyTimesheet = createAsyncThunk(
-  'attendance/fetchMonthlyTimesheet',
+// 🔄 گرفتن تایم‌شیت بر اساس بازه تاریخی
+// GET /api/attendance/timesheet-range/?start_date=&end_date=&project_id=&position_id=&worker_id=&search=
+export const fetchTimesheetByRange = createAsyncThunk(
+  'attendance/fetchTimesheetByRange',
   async (params, { rejectWithValue }) => {
     try {
-      const { year, month, projectId, positionId, workerId, search } = params;
+      const { start_date, end_date, project_id, position_id, worker_id, search } = params;
 
       const query = new URLSearchParams();
-      if (year) query.append('year', year);
-      if (month) query.append('month', month);
-      if (projectId) query.append('project_id', projectId);
-      if (positionId) query.append('position_id', positionId);
-      if (workerId) query.append('worker_id', workerId);
+      if (start_date) query.append('start_date', start_date);
+      if (end_date) query.append('end_date', end_date);
+      if (project_id) query.append('project_id', project_id);
+      if (position_id) query.append('position_id', position_id);
+      if (worker_id) query.append('worker_id', worker_id);
       if (search) query.append('search', search);
 
       const qs = query.toString();
-      const url = `/attendance/timesheet/${qs ? `?${qs}` : ''}`;
+      const url = `/attendance/timesheet-range/${qs ? `?${qs}` : ''}`;
 
       const response = await api.get(url);
-      console.log(`avazi0${response.data['meta']['days'][0]['gregorian_date']}`)
-      console.log(`avazi29${response.data['meta']['days'][29]['gregorian_date']}`)
-      console.log(`avazijadid${response.data['workers'][9]}`)
-    
-
       return response.data;
 
     } catch (error) {
@@ -43,15 +38,15 @@ const attendanceSlice = createSlice({
     loading: false,
     error: null,
 
-    meta: null,        // year, month, days, ...
+    meta: null,        // start_date, end_date, total_days, days, ...
     workers: [],       // لیست کارگرها
     byWorker: {},      // برای نما ۱
     byDay: {},         // برای نما ۲
 
     // فیلترهای فعلی UI
     filters: {
-      year: null,
-      month: null,
+      start_date: null,
+      end_date: null,
       projectId: null,
       positionId: null,
       workerId: null,
@@ -72,18 +67,18 @@ const attendanceSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchMonthlyTimesheet.pending, (state) => {
+      .addCase(fetchTimesheetByRange.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchMonthlyTimesheet.fulfilled, (state, action) => {
+      .addCase(fetchTimesheetByRange.fulfilled, (state, action) => {
         state.loading = false;
         state.meta = action.data?.meta || action.payload.meta;
         state.workers = action.data?.workers || action.payload.workers;
         state.byWorker = action.data?.by_worker || action.payload.by_worker;
         state.byDay = action.data?.by_day || action.payload.by_day;
       })
-      .addCase(fetchMonthlyTimesheet.rejected, (state, action) => {
+      .addCase(fetchTimesheetByRange.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || 'خطا در دریافت گزارش حضور';
       });

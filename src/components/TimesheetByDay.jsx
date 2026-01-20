@@ -1,54 +1,81 @@
 // src/components/TimesheetByDay.jsx
 import React from 'react';
 
+const EmptyValue = () => (
+  <span className="text-gray-300 select-none">—</span>
+);
+
 const TimesheetByDay = ({ meta, byDay }) => {
-  if (!meta || !meta.days || meta.days.length === 0) {
-    return <div className="text-sm text-gray-500 mt-4">دیتایی یافت نشد.</div>;
+  if (!meta?.days?.length) {
+    return (
+      <div className="mt-6 text-center text-sm text-gray-400">
+        📭 دیتایی برای نمایش وجود ندارد
+      </div>
+    );
   }
 
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="min-w-full text-xs md:text-sm">
-        <thead>
-          <tr className="bg-gray-100 text-gray-700">
-            <th className="px-3 py-2 text-center font-semibold">روز ماه</th>
-            <th className="px-3 py-2 text-center font-semibold">روز هفته</th>
-            <th className="px-3 py-2 text-center font-semibold">نوع روز</th>
-            <th className="px-3 py-2 text-right font-semibold">کارگرها</th>
+    <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <table className="min-w-full text-xs md:text-sm border-collapse">
+        <thead className="bg-gray-100">
+          <tr className="text-gray-700">
+            <th className="px-3 py-2 text-center font-semibold w-28">
+              روز
+            </th>
+            <th className="px-3 py-2 text-center font-semibold w-24">
+              هفته
+            </th>
+            <th className="px-3 py-2 text-center font-semibold w-32">
+              نوع روز
+            </th>
+            <th className="px-3 py-2 text-right font-semibold">
+              کارگرها
+            </th>
           </tr>
         </thead>
+
         <tbody>
           {meta.days.map((d, idx) => {
-            const dayData = byDay[d.day] || { workers: [] };
-            const isAlt = idx % 2 === 0;
+            const dayKey = d.day_number || d.day;
+            const dayData = byDay[dayKey] || { workers: [] };
 
             return (
               <tr
-                key={d.day}
-                className={`align-top ${
-                  isAlt ? 'bg-gray-50' : 'bg-white'
-                } hover:bg-blue-50 transition-colors`}
+                key={dayKey}
+                className={`align-middle border-t ${
+                  idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                } hover:bg-blue-50/60 transition`}
               >
-                {/* روز ماه */}
-                <td className="px-3 py-2 text-center text-gray-800 font-semibold">
-                  {d.day}
+                {/* تاریخ */}
+                <td className="px-3 py-3 text-center align-middle">
+                  <div className="font-semibold text-gray-800">
+                    {dayKey}
+                  </div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">
+                    {d.jalali_date || (
+                      <>
+                        {d.year}/{d.month}/{d.day}
+                      </>
+                    )}
+                  </div>
                 </td>
 
-                {/* روز هفته (شنبه تا جمعه) */}
-                <td className="px-3 py-2 text-center text-gray-700 font-semibold">
-                  {d.weekday_name}
+                {/* روز هفته */}
+                <td className="px-3 py-3 text-center font-medium text-gray-700">
+                  {d.weekday_name || <EmptyValue />}
                 </td>
 
-                {/* نوع روز (تعطیل رسمی / جمعه / عادی) */}
-                <td className="px-3 py-2 text-center">
+                {/* نوع روز */}
+                <td className="px-3 py-3 text-center">
                   <span
-                    className={
-                      d.is_official_holiday
-                        ? 'px-2 py-1 rounded-full bg-red-100 text-red-700 text-[11px] font-bold'
-                        : d.is_friday
-                        ? 'px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 text-[11px] font-bold'
-                        : 'px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-[11px] font-semibold'
-                    }
+                    className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-[11px] font-semibold
+                      ${
+                        d.is_official_holiday
+                          ? 'bg-red-100 text-red-700'
+                          : d.is_friday
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
                   >
                     {d.is_official_holiday
                       ? d.holiday_title || 'تعطیل رسمی'
@@ -58,63 +85,65 @@ const TimesheetByDay = ({ meta, byDay }) => {
                   </span>
                 </td>
 
-                {/* لیست کارگرها */}
-                <td className="px-3 py-2">
+                {/* کارگرها */}
+                <td className="px-3 py-3">
                   {dayData.workers.length === 0 ? (
-                    <span className="text-gray-400 text-xs">
-                      هیچ رکوردی برای این روز ثبت نشده است
-                    </span>
+                    <div className="text-xs text-gray-400 italic">
+                      هیچ رکوردی ثبت نشده
+                    </div>
                   ) : (
-                    <table className="w-full text-[11px] md:text-[12px]">
-                      <tbody>
-                        {dayData.workers.map((w, wIdx) => (
-                          <tr
-                            key={w.worker_id}
-                            className={`border-b last:border-0 ${
-                              wIdx % 2 === 0 ? 'bg-white/40' : 'bg-gray-100/60'
-                            }`}
-                          >
-                            <td className="px-1 py-1 text-gray-800 font-medium">
-                              {w.worker_name}
-                            </td>
-                            <td className="px-1 py-1 text-center">
-                              <span
-                                className={
-                                  w.status === 'PRESENT'
-                                    ? 'bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full text-[10px] font-bold'
+                    <div className="space-y-1">
+                      {dayData.workers.map((w) => (
+                        <div
+                          key={w.worker_id}
+                          className="grid grid-cols-[1.5fr_1fr_2fr_1fr] gap-2 items-center rounded-md bg-white/70 px-2 py-1 border border-gray-100"
+                        >
+                          {/* نام */}
+                          <div className="font-medium text-gray-800 truncate">
+                            {w.worker_name}
+                          </div>
+
+                          {/* وضعیت */}
+                          <div className="text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold
+                                ${
+                                  w.status === 'PRESENT' || w.status === 'present'
+                                    ? 'bg-green-50 text-green-700 border border-green-200'
                                     : w.status === 'ABSENT'
-                                    ? 'bg-red-50 text-red-700 border border-red-200 px-2 py-0.5 rounded-full text-[10px] font-bold'
+                                    ? 'bg-red-50 text-red-700 border border-red-200'
                                     : w.status === 'LEAVE'
-                                    ? 'bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full text-[10px] font-bold'
-                                    : 'bg-gray-50 text-gray-700 border border-gray-200 px-2 py-0.5 rounded-full text-[10px] font-semibold'
-                                }
-                              >
-                                {w.status === 'PRESENT'
-                                  ? 'حاضر'
-                                  : w.status === 'present'
-                                  ? 'حاضر' 
-                                  : w.status === 'ABSENT'
-                                  ? 'غایب'
-                                  : w.status === 'LEAVE'
-                                  ? 'مرخصی'
-                                  : w.status}
-                              </span>
-                            </td>
-                            <td className="px-1 py-1 text-center text-gray-700 font-mono">
-                              {w.time_in || '-'}{' '}
-                              <span className="mx-1 text-gray-400">تا</span>{' '}
-                              {w.time_out || '-'}
-                            </td>
-                            <td className="px-1 py-1 text-center text-gray-700 font-mono">
-                              {w.hours_worked}
-                              <span className="text-[10px] text-gray-500 mr-1">
-                                ساعت
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-gray-50 text-gray-600 border border-gray-200'
+                                }`}
+                            >
+                              {w.status === 'PRESENT' || w.status === 'present'
+                                ? 'حاضر'
+                                : w.status === 'ABSENT'
+                                ? 'غایب'
+                                : w.status === 'LEAVE'
+                                ? 'مرخصی'
+                                : w.status || 'نامشخص'}
+                            </span>
+                          </div>
+
+                          {/* ساعت */}
+                          <div className="text-center font-mono text-gray-700">
+                            {w.time_in || <EmptyValue />}
+                            <span className="mx-1 text-gray-300">–</span>
+                            {w.time_out || <EmptyValue />}
+                          </div>
+
+                          {/* مجموع */}
+                          <div className="text-center font-mono text-gray-700">
+                            {w.hours_worked ?? <EmptyValue />}
+                            <span className="text-[10px] text-gray-400 mr-1">
+                              ساعت
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </td>
               </tr>
