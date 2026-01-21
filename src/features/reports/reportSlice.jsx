@@ -135,6 +135,13 @@ export const submitBOQ = createAsyncThunk(
   }
 );
 
+const summaryListFulfilled = (state, action) => {
+  state.summaryLoading = false;
+  state.dailySummaryList = action.payload.results || [];
+  state.dailySummaryCount = action.payload.count || 0;
+  state.dailySummary = null;
+};
+
 
 const summaryPending = (state) => {
   state.summaryLoading = true;
@@ -144,7 +151,10 @@ const summaryPending = (state) => {
 const summaryFulfilled = (state, action) => {
   state.summaryLoading = false;
   state.dailySummary = action.payload;
+  state.dailySummaryList = [];
+  state.dailySummaryCount = 0;
 };
+
 
 const summaryRejected = (state, action) => {
   state.summaryLoading = false;
@@ -158,38 +168,48 @@ const summaryRejected = (state, action) => {
 const reportSlice = createSlice({
   name: 'reports',
   initialState: {
-    // لیست گزارش‌های pending
+    // pending
     pendingReports: [],
     loading: false,
     error: null,
 
-    // خلاصه روزانه
+    // single daily summary
     dailySummary: null,
+
+    // flexible summary (list)
+    dailySummaryList: [],
+    dailySummaryCount: 0,
+
+    // shared summary state
     summaryLoading: false,
     summaryError: null,
 
-    // عملیات تایید/رد
+    // approve/reject
     actionLoading: false,
     actionError: null,
 
-    // ارسال گزارش جدید
+    // submit report
     submitLoading: false,
     submitError: null,
     lastSubmittedReport: null,
 
-    // ارسال BOQ
+    // BOQ
     boqLoading: false,
     boqError: null,
   },
+
 
   reducers: {
     // پاک کردن گزارش‌ها
     clearReports: (state) => {
       state.pendingReports = [];
       state.dailySummary = null;
-      state.error = null;
+      state.dailySummaryList = [];
+      state.dailySummaryCount = 0;
       state.summaryError = null;
     },
+
+
 
     // پاک کردن خطاها
     clearErrors: (state) => {
@@ -224,16 +244,14 @@ const reportSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ═══════════════════════════════════════════════════════════
-      // fetchDailySummary
-      // ═══════════════════════// fetchDailySummary
+      // fetchDailySummary (تکی)
       .addCase(fetchDailySummary.pending, summaryPending)
       .addCase(fetchDailySummary.fulfilled, summaryFulfilled)
       .addCase(fetchDailySummary.rejected, summaryRejected)
 
-      // fetchFlexibleSummary
+      // fetchFlexibleSummary (لیستی)
       .addCase(fetchFlexibleSummary.pending, summaryPending)
-      .addCase(fetchFlexibleSummary.fulfilled, summaryFulfilled)
+      .addCase(fetchFlexibleSummary.fulfilled, summaryListFulfilled)
       .addCase(fetchFlexibleSummary.rejected, summaryRejected)
 
 

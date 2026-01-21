@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { fetchDailySummary } from '../features/reports/reportSlice';
+import {
+  fetchDailySummary,
+  fetchFlexibleSummary
+} from '../features/reports/reportSlice';
+
 import { fetchProjects } from '../features/projects/projectSlice';
 
 import JalaliDatePicker from '../components/JalaliDatePicker';
@@ -73,32 +77,58 @@ const MediaItem = ({ media }) => {
   }
 };
 
+
 /* ================= Screen ================= */
 
 const DailySummaryScreen = () => {
   const dispatch = useDispatch();
 
-  const { dailySummary, summaryLoading, summaryError } = useSelector(
-    (state) => state.reports
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+
+
+  const isSingleMode = Boolean(selectedProjectId && selectedDate);
+  const isProjectAllDays = Boolean(selectedProjectId && !selectedDate);
+  const isDateAllProjects = Boolean(!selectedProjectId && selectedDate);
+
+  const {
+    dailySummary,
+    dailySummaryList,
+    summaryLoading,
+    summaryError
+  } = useSelector((state) => state.reports);
+
   const { list: projectsList, loading: projectsLoading } = useSelector(
     (state) => state.projects
   );
 
-  const [selectedProjectId, setSelectedProjectId] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+
 
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
   useEffect(() => {
-    if (selectedProjectId && selectedDate) {
-      dispatch(fetchDailySummary({ projectId: selectedProjectId, date: selectedDate }));
+    if (isSingleMode) {
+      dispatch(fetchDailySummary({
+        projectId: selectedProjectId,
+        date: selectedDate
+      }));
+    } else if (isProjectAllDays || isDateAllProjects) {
+      dispatch(fetchFlexibleSummary({
+        projectId: selectedProjectId,
+        date: selectedDate
+      }));
     }
-  }, [dispatch, selectedProjectId, selectedDate]);
+  }, [
+    dispatch,
+    selectedProjectId,
+    selectedDate,
+    isSingleMode,
+    isProjectAllDays,
+    isDateAllProjects
+  ]);
+
 
   const sortedReports = useMemo(() => {
     if (!dailySummary?.hierarchical_reports?.length) return [];
@@ -117,6 +147,9 @@ const DailySummaryScreen = () => {
     dailySummary && dailySummary.id !== 0 && !summaryLoading;
 
   const hasSummary = hasRealReport || hasAttendance;
+const hasList = dailySummaryList && dailySummaryList.length > 0;
+
+const shouldRenderContent = hasSummary || hasList;
 
   /* ================= Helpers ================= */
 
@@ -170,7 +203,12 @@ const DailySummaryScreen = () => {
 
       {/* Header */}
       <div className="mb-6 border-b pb-4">
-        <h1 className="text-2xl font-bold">خلاصه روزانه پروژه</h1>
+        <h1 className="text-2xl font-bold">
+          {isSingleMode && 'خلاصه روزانه پروژه'}
+          {isProjectAllDays && 'گزارش‌های پروژه در همه روزها'}
+          {isDateAllProjects && 'گزارش همه پروژه‌ها در یک روز'}
+        </h1>
+
         {dailySummary?.report_date && hasSummary && (
           <p className="text-sm mt-2">
             {formatJalaliDateLong(dailySummary.report_date)}
@@ -199,16 +237,31 @@ const DailySummaryScreen = () => {
         <JalaliDatePicker
           name="report_date"
           label="تاریخ"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
+          value={selectedDate || ''}
+          onChange={(e) =>
+            setSelectedDate(e.target.value || null)
+          }
           modal
         />
 
+
         <button
-          onClick={() =>
-            dispatch(fetchDailySummary({ projectId: selectedProjectId, date: selectedDate }))
+         onClick={() => {
+          if (isSingleMode) {
+            dispatch(fetchDailySummary({
+              projectId: selectedProjectId,
+              date: selectedDate
+            }));
+          } else {
+            dispatch(fetchFlexibleSummary({
+              projectId: selectedProjectId,
+              date: selectedDate
+            }));
           }
-          disabled={!selectedProjectId || summaryLoading}
+         }}
+
+          disabled={summaryLoading || (!selectedProjectId && !selectedDate)}
+
           className="bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
         >
           نمایش
@@ -222,11 +275,11 @@ const DailySummaryScreen = () => {
       )}
 
       {/* Content */}
-      {hasSummary && (
+      {shouldRenderContent && (
         <div className="space-y-6">
 
           {/* Reports */}
-          {hasRealReport && (
+          {hasSummary && (
             <div className="bg-white p-5 rounded-xl border">
               <h2 className="text-lg font-bold mb-4">گزارش‌ها</h2>
 
@@ -311,8 +364,29 @@ const DailySummaryScreen = () => {
               </div>
             </div>
           )}
+          {!isSingleMode && hasList && (
+                <div className="space-y-4">
+                  {dailySummaryList.map((summary) => (
+                    <div key={summary.id} className="border rounded-xl p-4 bg-white">
+                      <div className="flex justify-between mb-2">
+                        <div className="font-bold text-sm">
+                          {summary.project_name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatJalaliDateLong(summary.report_date)}
+                        </div>
+                      </div>
+
+                      <div className="text-sm text-gray-700">
+                        تعداد گزارش‌ها: {summary.hierarchical_reports?.length || 0}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
         </div>
+        
       )}
     </div>
   );
