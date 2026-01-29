@@ -1,8 +1,28 @@
-// src/features/payroll/payrollSlice.jsx
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../api/axiosInstance';
+import api from '../../api/axiosInstance'; // اطمینان از مسیر صحیح api
 
-// GET: گرفتن لیست حقوق برای یک بازه
+// ----------------------------------------------------------------------
+// Async Thunks
+// ----------------------------------------------------------------------
+
+// 1. دریافت لیست تمام دوره‌های حقوقی (برای داشبورد)
+export const fetchAllPeriods = createAsyncThunk(
+  'payroll/fetchAllPeriods',
+  async (_, { rejectWithValue }) => {
+    try {
+      // url باید با urls.py جنگو هماهنگ باشد
+      const { data } = await api.get('/admin/payroll/periods/');
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت لیست دوره‌ها'
+      );
+    }
+  }
+);
+
+// 2. دریافت جزئیات یک دوره خاص (با بازه زمانی)
+// اگر دوره وجود نداشته باشد، بک‌ند آن را می‌سازد (Get or Create)
 export const fetchPeriodPayroll = createAsyncThunk(
   'payroll/fetchPeriodPayroll',
   async ({ start, end }, { rejectWithValue }) => {
@@ -10,26 +30,28 @@ export const fetchPeriodPayroll = createAsyncThunk(
       const params = new URLSearchParams();
       if (start) params.append('start', start);
       if (end) params.append('end', end);
-      const { data } = await api.get(`/admin/payrolls/period/?${params.toString()}`);
+      
+      const { data } = await api.get(`/admin/payroll/period/?${params.toString()}`);
       return data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.detail || 'خطا در دریافت لیست حقوق'
+        error.response?.data?.detail || 'خطا در دریافت دوره حقوق'
       );
     }
   }
 );
 
-// POST: تولید اولیه از حضور برای بازه
+// 3. تولید/بروزرسانی ردیف‌ها از سیستم حضور و غیاب
 export const generatePeriodPayroll = createAsyncThunk(
-  'payrolls/generatePeriodPayroll',
+  'payroll/generatePeriodPayroll',
   async ({ start, end }, { rejectWithValue }) => {
     try {
       const params = new URLSearchParams();
       if (start) params.append('start', start);
       if (end) params.append('end', end);
-      params.append('generate', '1');
-      const { data } = await api.post(`/admin/payrolls/period/?${params.toString()}`);
+      params.append('generate', '1'); // فلگ تولید
+      
+      const { data } = await api.post(`/admin/payroll/period/?${params.toString()}`);
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -39,77 +61,93 @@ export const generatePeriodPayroll = createAsyncThunk(
   }
 );
 
-// ایجاد دستی ردیف
+// 4. ایجاد آیتم دستی (پاداش، پیمانکار و ...)
 export const createManualPayrollItem = createAsyncThunk(
   'payroll/createManualPayrollItem',
   async ({ periodId, payload }, { rejectWithValue }) => {
     try {
-      const { data } = await api.post(
-        `/admin/payrolls/${periodId}/items/`,
-        payload
-      );
+      const { data } = await api.post(`/admin/payroll/${periodId}/items/`, payload);
       return data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.detail || 'خطا در ایجاد ردیف حقوق'
+        error.response?.data?.detail || 'خطا در ایجاد ردیف'
       );
     }
   }
 );
 
-// ویرایش ردیف
+// 5. ویرایش یک آیتم
 export const updatePayrollItem = createAsyncThunk(
   'payroll/updatePayrollItem',
   async ({ itemId, payload }, { rejectWithValue }) => {
     try {
-      const { data } = await api.put(
-        `/admin/payrolls/items/${itemId}/`,
-        payload
-      );
+      const { data } = await api.patch(`/admin/payroll/items/${itemId}/`, payload);
       return data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.detail || 'خطا در ویرایش ردیف حقوق'
+        error.response?.data?.detail || 'خطا در ویرایش ردیف'
       );
     }
   }
 );
 
-// حذف ردیف
+// 6. حذف یک آیتم
 export const deletePayrollItem = createAsyncThunk(
   'payroll/deletePayrollItem',
   async (itemId, { rejectWithValue }) => {
     try {
-      await api.delete(`/admin/payrolls/items/${itemId}/delete/`);
-      return itemId;
+      await api.delete(`/admin/payroll/items/${itemId}/delete/`);
+      return itemId; // برگرداندن آیدی برای حذف از استیت
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.detail || 'خطا در حذف ردیف حقوق'
+        error.response?.data?.detail || 'خطا در حذف ردیف'
       );
     }
   }
 );
 
+// 7. تغییر stage ردیف‌ها (تکی یا گروهی)
+export const changeItemStage = createAsyncThunk(
+  'payroll/changeItemStage',
+  async ({ itemIds, stage }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.post('/admin/payroll/items/change-stage/', {
+        item_ids: itemIds,
+        stage: stage,
+      });
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در تغییر مرحله ردیف'
+      );
+    }
+  }
+);
+
+
+// ----------------------------------------------------------------------
+// Slice Definition
+// ----------------------------------------------------------------------
+
 const initialState = {
-  period: null,
-  items: [],
+  periodsList: [],   // لیست خلاصه برای صفحه اصلی
+  currentPeriod: null, // هدر دوره فعلی (شامل start, end, status)
+  items: [],         // لیست ردیف‌های دوره فعلی
   loading: false,
   error: null,
-
-  // فیلتر/انتخاب بازه
-  start: null, // YYYY-MM-DD
-  end: null,   // YYYY-MM-DD
 };
 
 const payrollSlice = createSlice({
   name: 'payroll',
   initialState,
   reducers: {
-    setPayrollRange(state, action) {
-      state.start = action.payload.start;
-      state.end = action.payload.end;
+    // پاک کردن دیتای دوره جاری (هنگام بازگشت به داشبورد)
+    clearCurrentPeriod(state) {
+      state.currentPeriod = null;
+      state.items = [];
+      state.error = null;
     },
-    // آپدیت لوکال یک آیتم (برای inline edit قبل از ارسال به سرور)
+    // آپدیت لوکال برای اینپوت‌های جدول (Optimistic UI)
     updateLocalPayrollItem(state, action) {
       const { id, changes } = action.payload;
       const idx = state.items.findIndex((i) => i.id === id);
@@ -117,20 +155,25 @@ const payrollSlice = createSlice({
         state.items[idx] = { ...state.items[idx], ...changes };
       }
     },
-    resetPayrollState() {
-      return initialState;
-    },
   },
   extraReducers: (builder) => {
     builder
-      // fetch بازه
-      .addCase(fetchPeriodPayroll.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+      // --- Fetch All Periods ---
+      .addCase(fetchAllPeriods.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchAllPeriods.fulfilled, (state, action) => {
+        state.loading = false;
+        state.periodsList = action.payload;
       })
+      .addCase(fetchAllPeriods.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // --- Fetch Single Period ---
+      .addCase(fetchPeriodPayroll.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(fetchPeriodPayroll.fulfilled, (state, action) => {
         state.loading = false;
-        state.period = action.payload.period;
+        state.currentPeriod = action.payload.period;
         state.items = action.payload.items || [];
       })
       .addCase(fetchPeriodPayroll.rejected, (state, action) => {
@@ -138,14 +181,11 @@ const payrollSlice = createSlice({
         state.error = action.payload;
       })
 
-      // generate بازه
-      .addCase(generatePeriodPayroll.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
+      // --- Generate From Attendance ---
+      .addCase(generatePeriodPayroll.pending, (state) => { state.loading = true; state.error = null; })
       .addCase(generatePeriodPayroll.fulfilled, (state, action) => {
         state.loading = false;
-        state.period = action.payload.period;
+        state.currentPeriod = action.payload.period;
         state.items = action.payload.items || [];
       })
       .addCase(generatePeriodPayroll.rejected, (state, action) => {
@@ -153,39 +193,47 @@ const payrollSlice = createSlice({
         state.error = action.payload;
       })
 
-      // create
-      .addCase(createManualPayrollItem.pending, (state) => {
-        state.error = null;
-      })
+      // --- Create Item ---
       .addCase(createManualPayrollItem.fulfilled, (state, action) => {
         state.items.push(action.payload);
       })
-      .addCase(createManualPayrollItem.rejected, (state, action) => {
-        state.error = action.payload;
-      })
-
-      // update
+      
+      // --- Update Item ---
       .addCase(updatePayrollItem.fulfilled, (state, action) => {
         const idx = state.items.findIndex((i) => i.id === action.payload.id);
         if (idx !== -1) {
           state.items[idx] = { ...state.items[idx], ...action.payload };
         }
       })
-      .addCase(updatePayrollItem.rejected, (state, action) => {
-        state.error = action.payload;
-      })
 
-      // delete
+      // --- Delete Item ---
       .addCase(deletePayrollItem.fulfilled, (state, action) => {
         state.items = state.items.filter((i) => i.id !== action.payload);
       })
-      .addCase(deletePayrollItem.rejected, (state, action) => {
+            // --- Change Item Stage ---
+      .addCase(changeItemStage.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(changeItemStage.fulfilled, (state, action) => {
+        state.loading = false;
+        
+        // بروزرسانی local state برای آیتم‌های تغییر یافته
+        action.payload.updated_count; // برای UI feedback
+        
+        // اگر errors داریم، نمایش ندهیم ولی errors در payload موجود است
+        const updated_items = action.payload.updated_count;
+        
+        // TODO: اگر بخواهید دقیق‌تر بروزرسانی کنید، می‌توانید از backend item data استفاده کنید
+        // فعلاً فقط loading را خاموش می‌کنیم
+      })
+      .addCase(changeItemStage.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.payload;
       });
+
   },
 });
 
-export const { setPayrollRange, updateLocalPayrollItem, resetPayrollState } =
-  payrollSlice.actions;
-
+export const { clearCurrentPeriod, updateLocalPayrollItem } = payrollSlice.actions;
 export default payrollSlice.reducer;

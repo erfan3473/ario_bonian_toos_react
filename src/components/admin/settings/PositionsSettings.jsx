@@ -117,7 +117,9 @@ const PositionsSettings = () => {
     { value: 'FOREMAN', label: '👔 سرکارگر', icon: '👔' },
     { value: 'WORKER', label: '👷 کارگر', icon: '👷' },
     { value: 'FACILITIES_STAFF', label: '🔧 تاسیسات', icon: '🔧' },
-    { value: 'SECURITY_GUARD', label: '🛡️ نگهبان', icon: '🛡️' },
+    { value: 'ACCOUNTANT', label: 'حسابدار', icon: '🛡️' },
+    { value: 'TECHNICAL_OFFICE', label: 'دفتر فنی', icon: '🛡️' },
+    { value: 'HR_MANAGER', label: 'مدیر منابع انسانی', icon: '🛡️' },
   ];
 
   const suggestedColors = [

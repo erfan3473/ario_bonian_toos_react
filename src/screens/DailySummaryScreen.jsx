@@ -22,7 +22,7 @@ const formatTime = (iso) => {
   return m.isValid() ? m.format('HH:mm') : '---';
 };
 
-/* ================= Media (Inline) ================= */
+/* ================= Media ================= */
 
 const MediaGrid = ({ files }) => {
   if (!files || files.length === 0) return null;
@@ -43,21 +43,36 @@ const MediaItem = ({ media }) => {
     case 'image':
       return (
         <div className={wrapper}>
-          <img src={media.file} alt="" className="w-full rounded-md" />
+          <img
+            src={media.file}
+            alt=""
+            loading="lazy"                 // NEW
+            className="w-full rounded-md"
+          />
         </div>
       );
 
     case 'video':
       return (
         <div className={wrapper}>
-          <video src={media.file} controls className="w-full rounded-md" />
+          <video
+            src={media.file}
+            controls
+            preload="metadata"             // NEW
+            className="w-full rounded-md"
+          />
         </div>
       );
 
     case 'audio':
       return (
         <div className={wrapper}>
-          <audio src={media.file} controls className="w-full" />
+          <audio
+            src={media.file}
+            controls
+            preload="none"                 // NEW
+            className="w-full"
+          />
         </div>
       );
 
@@ -77,19 +92,22 @@ const MediaItem = ({ media }) => {
   }
 };
 
-
 /* ================= Screen ================= */
+
+const VIEW_MODE = {
+  SINGLE: 'SINGLE',
+  LIST: 'LIST',
+};
 
 const DailySummaryScreen = () => {
   const dispatch = useDispatch();
 
   const [selectedProjectId, setSelectedProjectId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [viewMode, setViewMode] = useState(null);
 
-
-  const isSingleMode = Boolean(selectedProjectId && selectedDate);
-  const isProjectAllDays = Boolean(selectedProjectId && !selectedDate);
-  const isDateAllProjects = Boolean(!selectedProjectId && selectedDate);
+  const isSingleMode = viewMode === VIEW_MODE.SINGLE;
+  const isListMode = viewMode === VIEW_MODE.LIST;
 
   const {
     dailySummary,
@@ -102,33 +120,11 @@ const DailySummaryScreen = () => {
     (state) => state.projects
   );
 
-
-
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (isSingleMode) {
-      dispatch(fetchDailySummary({
-        projectId: selectedProjectId,
-        date: selectedDate
-      }));
-    } else if (isProjectAllDays || isDateAllProjects) {
-      dispatch(fetchFlexibleSummary({
-        projectId: selectedProjectId,
-        date: selectedDate
-      }));
-    }
-  }, [
-    dispatch,
-    selectedProjectId,
-    selectedDate,
-    isSingleMode,
-    isProjectAllDays,
-    isDateAllProjects
-  ]);
-
+  /* ================= Derived ================= */
 
   const sortedReports = useMemo(() => {
     if (!dailySummary?.hierarchical_reports?.length) return [];
@@ -137,19 +133,19 @@ const DailySummaryScreen = () => {
         (a.author_position?.hierarchy_level ?? 0) -
         (b.author_position?.hierarchy_level ?? 0)
     );
-  }, [dailySummary?.hierarchical_reports]);
+  }, [dailySummary?.hierarchical_reports]); // FIX (safe)
 
   const hasAttendance =
-    dailySummary?.workers_attendance &&
-    dailySummary.workers_attendance.length > 0;
+    dailySummary?.workers_attendance?.length > 0;
 
-  const hasRealReport =
-    dailySummary && dailySummary.id !== 0 && !summaryLoading;
+  const hasSummary =
+    Boolean(dailySummary && dailySummary.id && !summaryLoading);
 
-  const hasSummary = hasRealReport || hasAttendance;
-const hasList = dailySummaryList && dailySummaryList.length > 0;
+  const hasList =
+    Boolean(dailySummaryList && dailySummaryList.length > 0);
 
-const shouldRenderContent = hasSummary || hasList;
+  const nothingSelected =
+    !viewMode && !selectedProjectId && !selectedDate; // NEW
 
   /* ================= Helpers ================= */
 
@@ -169,29 +165,8 @@ const shouldRenderContent = hasSummary || hasList;
     };
     const [label, bg] = map[status] || map.SUBMITTED;
     return (
-      <span className={`px-3 py-1 rounded-full text-xs font-bold text-gray-900 ${bg}`}>
+      <span className={`px-3 py-1 rounded-full text-xs font-bold ${bg}`}>
         {label}
-      </span>
-    );
-  };
-
-  const getAttendanceStatusBadge = (status) => {
-    const map = {
-      PRESENT: 'bg-green-50 text-green-700 border border-green-200',
-      ABSENT: 'bg-red-50 text-red-700 border border-red-200',
-      LEAVE: 'bg-blue-50 text-blue-700 border border-blue-200',
-      HALF_DAY: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
-    };
-    const labels = {
-      PRESENT: 'حاضر',
-      ABSENT: 'غایب',
-      LEAVE: 'مرخصی',
-      HALF_DAY: 'نیم‌روز',
-    };
-
-    return (
-      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${map[status]}`}>
-        {labels[status] || status}
       </span>
     );
   };
@@ -205,11 +180,10 @@ const shouldRenderContent = hasSummary || hasList;
       <div className="mb-6 border-b pb-4">
         <h1 className="text-2xl font-bold">
           {isSingleMode && 'خلاصه روزانه پروژه'}
-          {isProjectAllDays && 'گزارش‌های پروژه در همه روزها'}
-          {isDateAllProjects && 'گزارش همه پروژه‌ها در یک روز'}
+          {isListMode && 'لیست گزارش‌ها'}
         </h1>
 
-        {dailySummary?.report_date && hasSummary && (
+        {isSingleMode && dailySummary?.report_date && (
           <p className="text-sm mt-2">
             {formatJalaliDateLong(dailySummary.report_date)}
           </p>
@@ -228,9 +202,7 @@ const shouldRenderContent = hasSummary || hasList;
         >
           <option value="">انتخاب پروژه</option>
           {projectsList?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
+            <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
 
@@ -238,30 +210,27 @@ const shouldRenderContent = hasSummary || hasList;
           name="report_date"
           label="تاریخ"
           value={selectedDate || ''}
-          onChange={(e) =>
-            setSelectedDate(e.target.value || null)
-          }
+          onChange={(e) => setSelectedDate(e.target.value || null)}
           modal
         />
 
-
         <button
-         onClick={() => {
-          if (isSingleMode) {
-            dispatch(fetchDailySummary({
-              projectId: selectedProjectId,
-              date: selectedDate
-            }));
-          } else {
-            dispatch(fetchFlexibleSummary({
-              projectId: selectedProjectId,
-              date: selectedDate
-            }));
-          }
-         }}
-
+          onClick={() => {
+            if (selectedProjectId && selectedDate) {
+              setViewMode(VIEW_MODE.SINGLE);
+              dispatch(fetchDailySummary({
+                projectId: selectedProjectId,
+                date: selectedDate
+              }));
+            } else {
+              setViewMode(VIEW_MODE.LIST);
+              dispatch(fetchFlexibleSummary({
+                projectId: selectedProjectId,
+                date: selectedDate
+              }));
+            }
+          }}
           disabled={summaryLoading || (!selectedProjectId && !selectedDate)}
-
           className="bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
         >
           نمایش
@@ -274,119 +243,94 @@ const shouldRenderContent = hasSummary || hasList;
         </div>
       )}
 
-      {/* Content */}
-      {shouldRenderContent && (
-        <div className="space-y-6">
-
-          {/* Reports */}
-          {hasSummary && (
-            <div className="bg-white p-5 rounded-xl border">
-              <h2 className="text-lg font-bold mb-4">گزارش‌ها</h2>
-
-              <div className="space-y-4">
-                {sortedReports.map((r) => (
-                  <div
-                    key={r.id}
-                    className={`bg-gray-50 p-4 rounded-lg border ${getHierarchyIndent(
-                      r.author_position?.hierarchy_level
-                    )}`}
-                  >
-                    <div className="flex justify-between mb-3">
-                      <div className="flex gap-2">
-                        <span className="text-xl">
-                          {getHierarchyIcon(r.author_position?.hierarchy_level)}
-                        </span>
-                        <div>
-                          <div className="text-sm font-semibold">
-                            {r.author_name}
-                          </div>
-                          <div className="text-xs">
-                            {r.position_title} · {formatTime(r.created_at)}
-                          </div>
-                        </div>
-                      </div>
-                      {getStatusBadge(r.status)}
-                    </div>
-
-                    {r.work_summary && (
-                      <div className="bg-white p-3 rounded border text-sm whitespace-pre-wrap">
-                        {r.work_summary}
-                      </div>
-                    )}
-
-                    <MediaGrid files={r.media_files} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Attendance */}
-          {hasAttendance && (
-            <div className="bg-white p-5 rounded-xl border">
-              <h2 className="text-lg font-bold mb-3">👥 حضور و غیاب</h2>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-3 py-2 text-right">نام</th>
-                      <th className="px-3 py-2 text-center">ورود</th>
-                      <th className="px-3 py-2 text-center">خروج</th>
-                      <th className="px-3 py-2 text-center">اضافه‌کار</th>
-                      <th className="px-3 py-2 text-center">وضعیت</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {dailySummary.workers_attendance.map((att, i) => (
-                      <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 font-medium">
-                          {att.worker_name}
-                        </td>
-                        <td className="px-3 py-2 text-center font-mono">
-                          {formatTime(att.time_in)}
-                        </td>
-                        <td className="px-3 py-2 text-center font-mono">
-                          {formatTime(att.time_out)}
-                        </td>
-                        <td className="px-3 py-2 text-center font-mono">
-                          {att.overtime_hours > 0
-                            ? `${att.overtime_hours} ساعت`
-                            : '---'}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          {getAttendanceStatusBadge(att.status)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-          {!isSingleMode && hasList && (
-                <div className="space-y-4">
-                  {dailySummaryList.map((summary) => (
-                    <div key={summary.id} className="border rounded-xl p-4 bg-white">
-                      <div className="flex justify-between mb-2">
-                        <div className="font-bold text-sm">
-                          {summary.project_name}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {formatJalaliDateLong(summary.report_date)}
-                        </div>
-                      </div>
-
-                      <div className="text-sm text-gray-700">
-                        تعداد گزارش‌ها: {summary.hierarchical_reports?.length || 0}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
+      {/* EMPTY STATE */}
+      {nothingSelected && (
+        <div className="border rounded-xl p-8 text-center text-gray-500 bg-gray-50">
+          برای مشاهده گزارش، پروژه یا تاریخ را انتخاب کنید و روی «نمایش» بزنید
         </div>
-        
+      )}
+
+      {/* ================= LIST VIEW ================= */}
+      {isListMode && hasList && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {dailySummaryList.map((summary) => (
+            <div
+              key={summary.id}
+              onClick={() => {
+                setSelectedProjectId(summary.project);
+                setSelectedDate(summary.report_date);
+                setViewMode(VIEW_MODE.SINGLE);
+                dispatch(fetchDailySummary({
+                  projectId: summary.project,
+                  date: summary.report_date
+                }));
+              }}
+              className="border rounded-xl p-4 bg-white cursor-pointer hover:border-blue-500"
+            >
+              <div className="flex justify-between mb-2">
+                <div className="font-bold text-sm">
+                  {summary.project_name}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {formatJalaliDateLong(summary.report_date)}
+                </div>
+              </div>
+
+              <div className="text-sm text-gray-700">
+                تعداد گزارش‌ها: {summary.hierarchical_reports?.length || 0}
+              </div>
+
+              <div className="text-xs text-blue-600 mt-2">
+                مشاهده جزئیات →
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ================= SINGLE VIEW ================= */}
+      {isSingleMode && hasSummary && (
+        <div className="space-y-6">
+          <div className="bg-white p-5 rounded-xl border">
+            <h2 className="text-lg font-bold mb-4">گزارش‌ها</h2>
+
+            <div className="space-y-4">
+              {sortedReports.map((r) => (
+                <div
+                  key={r.id}
+                  className={`bg-gray-50 p-4 rounded-lg border ${getHierarchyIndent(
+                    r.author_position?.hierarchy_level
+                  )}`}
+                >
+                  <div className="flex justify-between mb-3">
+                    <div className="flex gap-2">
+                      <span className="text-xl">
+                        {getHierarchyIcon(r.author_position?.hierarchy_level)}
+                      </span>
+                      <div>
+                        <div className="text-sm font-semibold">
+                          {r.author_name}
+                        </div>
+                        <div className="text-xs">
+                          {r.position_title} · {formatTime(r.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                    {getStatusBadge(r.status)}
+                  </div>
+
+                  {r.work_summary && (
+                    <div className="bg-white p-3 rounded border text-sm whitespace-pre-wrap">
+                      {r.work_summary}
+                    </div>
+                  )}
+
+                  <MediaGrid files={r.media_files} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

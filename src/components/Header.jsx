@@ -15,7 +15,8 @@ import {
   FaCheckCircle,
   FaCog,
   FaChevronDown,
-  FaBriefcase
+  FaBriefcase,
+  FaIdBadge // ✅ NEW: For role badge
 } from "react-icons/fa";
 
 const Header = () => {
@@ -24,8 +25,15 @@ const Header = () => {
   const location = useLocation();
 
   const { userInfo } = useSelector((state) => state.userLogin);
+  const { user: userProfile } = useSelector((state) => state.userDetails); // ✅ NEW
+  
   const isAdmin = userInfo?.is_admin;
   const userPosition = userInfo?.position;
+  
+  // ✅ NEW: Get report_type from employee position
+  const currentUser = (userProfile && Object.keys(userProfile).length > 0) ? userProfile : userInfo;
+  const userRole = currentUser?.employee?.position?.report_type || 'UNKNOWN';
+  const isSuperUser = currentUser?.is_superuser || false;
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
@@ -46,17 +54,45 @@ const Header = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // تابع کمکی برای چک کردن صفحه فعال
   const isActive = (path) => location.pathname === path;
+
+  // ✅ NEW: Role color mapping
+  const getRoleStyle = (role) => {
+    const styles = {
+      'PROJECT_MANAGER': 'bg-purple-600/20 text-purple-400 border-purple-600/40',
+      'HR_MANAGER': 'bg-pink-600/20 text-pink-400 border-pink-600/40',
+      'TECHNICAL_OFFICE': 'bg-indigo-600/20 text-indigo-400 border-indigo-600/40',
+      'ACCOUNTANT': 'bg-green-600/20 text-green-400 border-green-600/40',
+      'WORKSHOP_SUPERVISOR': 'bg-orange-600/20 text-orange-400 border-orange-600/40',
+      'FOREMAN': 'bg-yellow-600/20 text-yellow-400 border-yellow-600/40',
+      'WORKER': 'bg-blue-600/20 text-blue-400 border-blue-600/40',
+      'UNKNOWN': 'bg-gray-600/20 text-gray-400 border-gray-600/40',
+    };
+    return styles[role] || styles['UNKNOWN'];
+  };
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      'PROJECT_MANAGER': '👔 مدیر پروژه',
+      'HR_MANAGER': '🧑‍💼 مدیر منابع انسانی',
+      'TECHNICAL_OFFICE': '🏛️ دفتر فنی',
+      'ACCOUNTANT': '💰 حسابدار',
+      'WORKSHOP_SUPERVISOR': '👷 سرپرست کارگاه',
+      'FOREMAN': '🔨 سرکارگر',
+      'WORKER': '⚙️ کارگر',
+      'FACILITIES_STAFF': '🔧 پرسنل تاسیسات',
+      'SECURITY_GUARD': '🛡️ نگهبان',
+      'UNKNOWN': '❓ نامشخص',
+    };
+    return labels[role] || role;
+  };
 
   return (
     <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-[1002] w-full">
       <div className="container mx-auto px-6">
         <div className="flex justify-between items-center py-4">
           
-          {/* ═══════════════════════════════════════════════════════════ */}
           {/* لوگو */}
-          {/* ═══════════════════════════════════════════════════════════ */}
           <Link
             to="/"
             className="flex items-center gap-2 hover:opacity-90 transition"
@@ -68,13 +104,10 @@ const Header = () => {
             />
           </Link>
 
-          {/* ═══════════════════════════════════════════════════════════ */}
-          {/* ناوبری اصلی - افقی */}
-          {/* ═══════════════════════════════════════════════════════════ */}
+          {/* ناوبری اصلی */}
           {userInfo && (
             <nav className="hidden lg:flex items-center gap-2">
               
-              {/* لیست حقوق*/}
               <Link 
                 to="/admin/timesheet" 
                 className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -85,7 +118,7 @@ const Header = () => {
               >
                لیست حضور
               </Link>
-                {/* لیست حقوق*/}
+              
               <Link 
                 to="/admin/payroll" 
                 className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -97,12 +130,8 @@ const Header = () => {
                لیست حقوق
               </Link>
 
-              {/* ═══════════════════════════════════════════════════════════ */}
-              {/* منوی ادمین - افقی */}
-              {/* ═══════════════════════════════════════════════════════════ */}
               {isAdmin && (
                 <>
-                  {/* مانیتور نیروها */}
                   <Link
                     to="/dashboard"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -115,7 +144,6 @@ const Header = () => {
                     <span>مانیتور نیروها</span>
                   </Link>
 
-                  {/* مدیریت کاربران */}
                   <Link
                     to="/admin/users"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -128,7 +156,6 @@ const Header = () => {
                     <span>کاربران</span>
                   </Link>
 
-                  {/* قرارداد کار منطبق با طرح طبقه بندی */}
                   <Link
                     to="/admin/scheme-managements"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -141,7 +168,6 @@ const Header = () => {
                     <span>گروه شغلی</span>
                   </Link>
 
-                  {/* مدیریت پروژه‌ها */}
                   <Link
                     to="/projects"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -154,7 +180,6 @@ const Header = () => {
                     <span>پروژه‌ها</span>
                   </Link>
 
-                  {/* مدیریت درخواست‌ها */}
                   <Link
                     to="/admin/requests"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -167,7 +192,6 @@ const Header = () => {
                     <span>درخواست‌ها</span>
                   </Link>
 
-                  {/* خلاصه گزارش */}
                   <Link
                     to="/admin/daily-summary"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -180,7 +204,6 @@ const Header = () => {
                     <span>گزارش‌ها</span>
                   </Link>
 
-                  {/* تنظیمات */}
                   <Link
                     to="/admin/settings"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -197,9 +220,7 @@ const Header = () => {
             </nav>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════ */}
           {/* منوی کاربر */}
-          {/* ═══════════════════════════════════════════════════════════ */}
           {userInfo ? (
             <div className="relative" ref={userMenuRef}>
               <button
@@ -222,7 +243,7 @@ const Header = () => {
               </button>
 
               {userMenuOpen && (
-                <div className="absolute left-0 mt-2 w-56 bg-gray-700 rounded-md shadow-xl py-1 z-50">
+                <div className="absolute left-0 mt-2 w-64 bg-gray-700 rounded-md shadow-xl py-1 z-50">
                   <div className="px-4 py-3 border-b border-gray-600">
                     <p className="text-sm font-semibold text-white">
                       {userInfo.first_name || userInfo.username}
@@ -233,11 +254,26 @@ const Header = () => {
                         {userPosition}
                       </p>
                     )}
-                    {isAdmin && (
-                      <span className="inline-block mt-2 px-2 py-1 text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-600/40">
-                        👑 مدیر سیستم
+                    
+                    {/* ✅ NEW: Role badge */}
+                    <div className="mt-2 flex flex-col gap-1">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border ${getRoleStyle(userRole)}`}>
+                        <FaIdBadge />
+                        <span className="font-bold">نقش: {getRoleLabel(userRole)}</span>
                       </span>
-                    )}
+                      
+                      {isSuperUser && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-600/40">
+                          👑 <span className="font-bold">ادمین سیستم</span>
+                        </span>
+                      )}
+                      
+                      {isAdmin && !isSuperUser && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-red-600/20 text-red-400 rounded-full border border-red-600/40">
+                          🔑 <span className="font-bold">مدیر</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <Link
