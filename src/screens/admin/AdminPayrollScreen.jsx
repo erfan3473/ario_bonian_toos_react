@@ -1,3 +1,4 @@
+// src/scrrens/admin/payrollscreen.jsx
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
@@ -44,14 +45,23 @@ const AdminPayrollScreen = () => {
   // 2. Permissions + Stage Roles ✅ NEW
   // ═══════════════════════════════════════════════════════════
   const currentUser = (userProfile && Object.keys(userProfile).length > 0) ? userProfile : userInfo;
-  const userRole = currentUser?.employee?.position?.report_type || 'UNKNOWN';
+ const userRole =
+  currentUser?.employee?.position?.report_type ||    // ✅ اول snake_case (بک‌اند)
+  currentUser?.employee?.position?.reporttype ||     // ❌ دوم camelCase (fallback نادر)
+  'UNKNOWN';
+
+
   const isSuperUser = currentUser?.is_superuser || false;
 
-  const canManageRows = ['WORKSHOP_SUPERVISOR', 'PROJECT_MANAGER', 'ACCOUNTANT'].includes(userRole) || isSuperUser;
+  const MANAGER_ROLES = ['TECHNICAL_OFFICE', 'PROJECT_MANAGER', 'HR_MANAGER'];
+  const canManageRows = ['WORKSHOP_SUPERVISOR', 'ACCOUNTANT'].includes(userRole) || 
+                      MANAGER_ROLES.includes(userRole) || 
+                      isSuperUser;
+
   const canEditFinance = ['ACCOUNTANT'].includes(userRole) || isSuperUser;
+  const isPeriodFinal = Boolean(currentPeriod?.is_final);
 
   // ✅ NEW: Stage permissions
-  const MANAGER_ROLES = ['PROJECT_MANAGER', 'HR_MANAGER', 'TECHNICAL_OFFICE'];
   const SUPERVISOR_ROLES = ['WORKSHOP_SUPERVISOR'];
   const ACCOUNTANT_ROLES = ['ACCOUNTANT'];
   
@@ -203,16 +213,35 @@ const AdminPayrollScreen = () => {
 
 
   const handleDeleteRow = async (id) => {
-    if (!canManageRows) return;
+  if (!canManageRows) return;
+
+  // ✅ قفل مطلق دوره (حتی برای superuser)
+  if (currentPeriod?.is_final) {
+    showSnackbar('error', 'دوره نهایی شده و حذف ردیف ممنوع است');
+    return;
+  }
+
+  // ✅ قفل مطلق ردیف FINAL
+  const targetRow = items.find(x => x.id === id);
+
+  // اگر ردیف FINAL است، فقط مدیران ارشد حذف کنند
+    if (targetRow?.stage === 'FINAL' && !isManager) {
+      showSnackbar('error', 'ردیف نهایی شده؛ فقط مدیران می‌توانند حذف کنند');
+      return;
+    }
+
     if (!window.confirm('حذف شود؟')) return;
+
     try {
       await dispatch(deletePayrollItem(id)).unwrap();
       showSnackbar('success', 'حذف شد');
-      setSelectedRows(prev => prev.filter(rowId => rowId !== id)); // ✅ Remove from selection
+      setSelectedRows(prev => prev.filter(rowId => rowId !== id));
     } catch (e) {
       showSnackbar('error', e || 'خطا در حذف');
     }
   };
+
+
 
   // ✅ NEW: Batch approve handler
   const handleBatchApprove = async () => {
@@ -375,18 +404,22 @@ const AdminPayrollScreen = () => {
         </div>
     );
   };
-
   // ═══════════════════════════════════════════════════════════
   // VIEW: LIST
   // ═══════════════════════════════════════════════════════════
   if (viewMode === 'LIST') {
-     return (
+    return (
       <div className="container mx-auto px-4 py-8 rtl min-h-screen bg-white">
         {renderSnackbar()}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-black text-black">📂 لیست‌های حقوق</h1>
           {canManageRows && (
-             <button onClick={() => setViewMode('CREATE_MODAL')} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow font-bold">+ دوره جدید</button>
+            <button 
+              onClick={() => setViewMode('CREATE_MODAL')} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-lg transition"
+            >
+              ➕ دوره جدید
+            </button>
           )}
         </div>
         
@@ -395,41 +428,49 @@ const AdminPayrollScreen = () => {
         <div className="grid gap-6 md:grid-cols-3">
           {periodsList.map(p => (
             <div key={p.id} className="bg-white p-6 rounded-2xl shadow border border-gray-300 hover:border-blue-400 transition flex flex-col justify-between min-h-[180px]">
-               <div>
-                 <div className="flex justify-between items-start mb-4">
-                   <div className="flex flex-col">
-                      <span className="text-sm text-gray-500 font-bold mb-1">بازه زمانی:</span>
-                      <h3 className="font-black text-lg text-black">
-                        {formatJalaliDateLong(p.start_date)}
-                        <span className="mx-2 text-gray-400">تا</span>
-                        {formatJalaliDateLong(p.end_date)}
-                      </h3>
-                   </div>
-                   <span className={`text-xs px-2 py-1 rounded border font-bold whitespace-nowrap
-                        ${p.status === 'FINAL' ? 'bg-green-100 text-green-800 border-green-200' : 
-                          p.status === 'FINANCE_CHECK' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                          'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                       {p.status_display}
-                   </span>
-                 </div>
-                 
-                 <div className="flex justify-between items-end border-t border-gray-100 pt-4">
-                    <div>
-                        <p className="text-xs text-gray-500 font-bold">قابل پرداخت:</p>
-                        <div className="text-xl font-black text-blue-700 mt-1">{Number(p.total_payable).toLocaleString()} <span className="text-xs text-black font-normal">تومان</span></div>
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex flex-col">
+                    <span className="text-sm text-gray-500 font-bold mb-1">بازه زمانی:</span>
+                    <h3 className="font-black text-lg text-black">
+                      {formatJalaliDateLong(p.start_date)}
+                      <span className="mx-2 text-gray-400">تا</span>
+                      {formatJalaliDateLong(p.end_date)}
+                    </h3>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded border font-bold whitespace-nowrap
+                    ${p.status === 'FINAL' ? 'bg-green-100 text-green-800 border-green-200' : 
+                      p.status === 'FINANCE_CHECK' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                      'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                    {p.status_display}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-end border-t border-gray-100 pt-4">
+                  <div>
+                    <p className="text-xs text-gray-500 font-bold">قابل پرداخت:</p>
+                    <div className="text-xl font-black text-blue-700 mt-1">
+                      {Number(p.total_payable).toLocaleString()} 
+                      <span className="text-xs text-black font-normal">تومان</span>
                     </div>
-                    <div className="text-xs text-black bg-gray-100 px-2 py-1 rounded">
-                      {p.employee_count} پرسنل
-                    </div>
-                 </div>
-               </div>
-               
-               <button onClick={() => handleOpenPeriod(p)} className="w-full mt-4 border-2 border-blue-600 text-blue-700 font-bold py-2 rounded-xl hover:bg-blue-50 transition">مشاهده و ویرایش</button>
+                  </div>
+                  <div className="text-xs text-black bg-gray-100 px-2 py-1 rounded">
+                    {p.employee_count} پرسنل
+                  </div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => handleOpenPeriod(p)} 
+                className="w-full mt-4 border-2 border-blue-600 text-blue-700 font-bold py-2 rounded-xl hover:bg-blue-50 transition"
+              >
+                مشاهده و ویرایش
+              </button>
             </div>
           ))}
         </div>
       </div>
-     );
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -845,9 +886,15 @@ const AdminPayrollScreen = () => {
                            )}
                            
                            {/* Delete button */}
-                           {canManageRows && !isPeriodFinal && (
-                               <button onClick={() => handleDeleteRow(row.id)} className="text-red-600 hover:text-red-800 font-bold text-sm" title="حذف">🗑</button>
-                           )}
+                           {canManageRows && (
+                            (!isPeriodFinal || isManager) &&
+                            (row.stage !== 'FINAL' || isManager) && (
+                              <button onClick={() => handleDeleteRow(row.id)} className="text-red-600 hover:text-red-800 font-bold text-sm" title="حذف">
+                                🗑
+                              </button>
+                            )
+                          )}
+
                          </div>
                        )}
                     </td>

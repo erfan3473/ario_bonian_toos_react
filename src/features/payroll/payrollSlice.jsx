@@ -124,6 +124,23 @@ export const changeItemStage = createAsyncThunk(
   }
 );
 
+export const changePeriodStatus = createAsyncThunk(
+  'payroll/changePeriodStatus',
+  async ({ periodId, status, is_final }, { rejectWithValue }) => {
+    try {
+      const payload = { status };
+      if (typeof is_final !== 'undefined') payload.is_final = is_final;
+
+      const { data } = await api.post(`/admin/payroll/periods/${periodId}/status/`, payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در تغییر وضعیت دوره'
+      );
+    }
+  }
+);
+
 
 // ----------------------------------------------------------------------
 // Slice Definition
@@ -227,6 +244,21 @@ const payrollSlice = createSlice({
         // TODO: اگر بخواهید دقیق‌تر بروزرسانی کنید، می‌توانید از backend item data استفاده کنید
         // فعلاً فقط loading را خاموش می‌کنیم
       })
+      .addCase(changePeriodStatus.fulfilled, (state, action) => {
+        state.loading = false;
+
+        if (state.currentPeriod) {
+          state.currentPeriod = { ...state.currentPeriod, ...action.payload };
+        }
+
+        const idx = state.periodsList.findIndex(p => p.id === action.payload.id);
+        if (idx !== -1) {
+          state.periodsList[idx] = { ...state.periodsList[idx], ...action.payload };
+        }
+      })
+      .addCase(changePeriodStatus.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(changePeriodStatus.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+
       .addCase(changeItemStage.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;

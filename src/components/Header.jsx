@@ -3,7 +3,7 @@ import logo from "../assets/ario.png";
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { logout } from "../features/users/userSlice";
+import { logout , fetchUserProfile } from "../features/users/userSlice";
 import { 
   FaUser, 
   FaSignOutAlt, 
@@ -32,7 +32,12 @@ const Header = () => {
   
   // ✅ NEW: Get report_type from employee position
   const currentUser = (userProfile && Object.keys(userProfile).length > 0) ? userProfile : userInfo;
-  const userRole = currentUser?.employee?.position?.report_type || 'UNKNOWN';
+  const userRole =
+  currentUser?.employee?.position?.report_type ||    // ✅ اول snake_case (بک‌اند)
+  currentUser?.employee?.position?.reporttype ||     // ❌ دوم camelCase (fallback نادر)
+  'UNKNOWN';
+
+
   const isSuperUser = currentUser?.is_superuser || false;
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -53,6 +58,11 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+  useEffect(() => {
+    if (userInfo && (!userProfile || Object.keys(userProfile).length === 0)) {
+      dispatch(fetchUserProfile());
+    }
+  }, [dispatch, userInfo, userProfile]);
 
   const isActive = (path) => location.pathname === path;
 
