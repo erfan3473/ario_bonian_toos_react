@@ -627,10 +627,8 @@ const PayrollDetailView = () => {
                 <th className="px-4 py-3 text-center">کد ملی</th>
                 <th className="px-4 py-3 text-right">بابت</th>
                 <th className="px-4 py-3 text-center w-48">حساب / کارت</th>
-                <th className="px-4 py-3 text-left">مبلغ ماهانه</th>
-                <th className="px-4 py-3 text-left text-blue-800" title="منفی = بدهی، مثبت = طلب">
-                  مانده پیشین <span className="text-[10px] bg-blue-200 px-1 rounded text-black font-normal">(+/-)</span>
-                </th>
+                {/* ✅ ستون ترکیبی جدید */}
+                <th className="px-4 py-3 text-left w-48">محاسبات (ماهانه / مانده)</th>
                 <th className="px-4 py-3 text-left text-green-800">قابل پرداخت</th>
                 <th className="px-4 py-3 text-center">عملیات</th>
               </tr>
@@ -791,54 +789,63 @@ const PayrollDetailView = () => {
                     )}
                   </td>
 
-                  {/* Monthly Amount */}
-                  <td className="px-4 py-2 text-left">
-                    {isEditing ? (
-                      <input
-                        disabled={!canEditRow}
-                        className={`border rounded w-24 p-1 text-left ltr font-bold ${
-                          !canEditRow ? disabledStyle : activeStyle
-                        }`}
-                        value={row.monthly_amount}
-                        onChange={(e) =>
-                          handleLocalChange(row.id, 'monthly_amount', e.target.value)
-                        }
-                      />
-                    ) : (
-                      <span className="text-black font-bold">
-                        {Number(row.monthly_amount).toLocaleString()}
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Opening Balance */}
-                  <td className="px-4 py-2 text-left">
-                    {isEditing ? (
-                      <input
-                        disabled={!canEditFinance || isRowFinal || isPeriodFinal}
-                        className={`border rounded w-24 p-1 text-left ltr font-bold ${
-                          !canEditFinance || isRowFinal || isPeriodFinal
-                            ? disabledStyle
-                            : row.opening_balance < 0
-                            ? 'text-red-700 bg-red-50 border-red-300'
-                            : 'text-blue-800 bg-blue-50 border-blue-300'
-                        }`}
-                        value={row.opening_balance}
-                        placeholder="0"
-                        onChange={(e) =>
-                          handleLocalChange(row.id, 'opening_balance', e.target.value)
-                        }
-                      />
-                    ) : (
-                      <span
-                        dir="ltr"
-                        className={`font-bold font-mono ${
-                          row.opening_balance < 0 ? 'text-red-600' : 'text-blue-700'
-                        }`}
-                      >
-                        {Number(row.opening_balance).toLocaleString()}
-                      </span>
-                    )}
+                  {/* ✅ ستون ادغام شده جدید */}
+                  <td className="px-4 py-2 align-middle border-l border-gray-100">
+                    <div className="flex flex-col gap-2 w-full">
+                      {isEditing ? (
+                        /* --- حالت ویرایش --- */
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-gray-400">ماهانه:</span>
+                            <input
+                              disabled={!canEditRow}
+                              className={`border rounded w-24 p-1 text-left ltr font-bold text-xs ${
+                                !canEditRow ? disabledStyle : activeStyle
+                              }`}
+                              value={row.monthly_amount}
+                              onChange={(e) => handleLocalChange(row.id, 'monthly_amount', e.target.value)}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-gray-400">مانده:</span>
+                            <input
+                              disabled={!canEditFinance || isRowFinal || isPeriodFinal}
+                              className={`border rounded w-24 p-1 text-left ltr font-bold text-xs ${
+                                !canEditFinance || isRowFinal || isPeriodFinal
+                                  ? disabledStyle
+                                  : row.opening_balance < 0
+                                  ? 'text-red-700 bg-red-50 border-red-300'
+                                  : 'text-blue-800 bg-blue-50 border-blue-300'
+                              }`}
+                              value={row.opening_balance}
+                              placeholder="0"
+                              onChange={(e) => handleLocalChange(row.id, 'opening_balance', e.target.value)}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        /* --- حالت نمایش --- */
+                        <>
+                          <div className="flex justify-between items-center w-full min-w-[140px]">
+                            <span className="text-[10px] text-gray-400">ماهانه:</span>
+                            <span className="font-bold text-gray-800 text-sm">
+                              {Number(row.monthly_amount).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center w-full min-w-[140px] border-t border-dashed border-gray-200 pt-1 mt-1">
+                            <span className="text-[10px] text-gray-400">مانده پیشین:</span>
+                            <span
+                              dir="ltr"
+                              className={`font-mono text-xs font-bold ${
+                                row.opening_balance < 0 ? 'text-red-600' : 'text-blue-600'
+                              }`}
+                            >
+                              {Number(row.opening_balance).toLocaleString()}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </td>
 
                   {/* Final Amount */}
@@ -888,11 +895,6 @@ const PayrollDetailView = () => {
                           </button>
                         )}
 
-                        {isAccountant && row.stage === 'SUPERVISOR_CONFIRMED' && !currentPeriod.is_final && (
-                          <button onClick={() => handleSingleStageChange(row.id, 'FINANCE_CHECK')}>
-                            💰
-                          </button>
-                        )}
 
 
                         {/* Accountant Finance Check */}
