@@ -130,9 +130,9 @@ const Header = () => {
               </Link>
               
               <Link 
-                to="/admin/payroll" 
+                to="/admin/payroll/list" 
                 className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                  isActive('/admin/payroll') 
+                  isActive('/admin/payroll/list') 
                     ? 'bg-blue-600 text-white' 
                     : 'text-gray-200 hover:bg-blue-700/50'
                 }`}

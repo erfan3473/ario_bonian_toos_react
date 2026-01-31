@@ -3,7 +3,8 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Header from './components/Header';
-// ❌ حذف: import Sidebar from './components/Sidebar';
+
+// Screens
 import HomeScreen from './screens/HomeScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
 import AuthScreen from './screens/AuthScreen';
@@ -14,16 +15,23 @@ import ProjectEditScreen from './screens/ProjectEditScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
+
+// Admin Screens
 import UserManagementScreen from './screens/admin/UserManagementScreen';
 import UserDetailPage from './screens/admin/UserDetailPage';
 import SettingsScreen from './screens/admin/SettingsScreen';
 import RequestManagementScreen from './screens/admin/RequestManagementScreen';
 import SchemeContractScreen from './screens/admin/SchemeContractScreen';
 import SchemeManagementScreen from './screens/admin/SchemeManagementScreen';
-import AdminPayrollScreen from './screens/admin/AdminPayrollScreen';
+import AdminTimesheetScreen from './screens/admin/AdminTimesheetScreen';
+
+// ✅ Payroll Screens (اصلاح شده)
+import PayrollListView from './screens/admin/PayrollListView';
+import PayrollDetailView from './screens/admin/PayrollDetailView';
+
+// Other Screens
 import MyTasksScreen from './screens/MyTasksScreen';
 
-import AdminTimesheetScreen from './screens/admin/AdminTimesheetScreen';
 function App() {
   const { userInfo } = useSelector((state) => state.userLogin);
 
@@ -32,7 +40,7 @@ function App() {
       className="bg-gray-900 text-white min-h-screen flex flex-col font-sans"
       style={{ direction: 'rtl' }}
     >
-      {/* ✅ فقط Header */}
+      {/* Header */}
       <Header />
 
       {/* محتوای اصلی */}
@@ -57,13 +65,17 @@ function App() {
           <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
           <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
           <Route path="/admin/scheme-contracts" element={<SchemeContractScreen />} />
-          <Route path="/admin/timesheet" element={<AdminTimesheetScreen />} />
-          <Route path="/admin/payroll" element={<AdminPayrollScreen />} />
           <Route path="/admin/scheme-contracts/:id" element={<SchemeContractScreen />} />
           <Route path="/admin/scheme-managements" element={<SchemeManagementScreen />} />
           <Route path="/admin/requests" element={<RequestManagementScreen />} />
+          <Route path="/admin/timesheet" element={<AdminTimesheetScreen />} />
+          
+          {/* ✅ Payroll Routes (اصلاح شده) */}
+          <Route path="/admin/payroll/list" element={<PayrollListView />} />
+          <Route path="/admin/payroll/detail" element={<PayrollDetailView />} />
+          
+          {/* Tasks */}
           <Route path="/tasks" element={<MyTasksScreen />} />
-
         </Routes>
       </main>
 

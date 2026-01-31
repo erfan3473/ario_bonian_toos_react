@@ -1,6 +1,6 @@
 // src/screens/admin/PayrollListView.jsx
-import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState ,useEffect} from 'react';
+import { useDispatch, useSelector  } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import moment from 'moment-jalaali';
 
@@ -9,7 +9,7 @@ import JalaliDatePicker from '../../components/JalaliDatePicker';
 import { formatJalaliDateLong } from '../../utils/dateUtils';
 
 // Redux Actions
-import { fetchPeriodPayroll } from '../../features/payroll/payrollSlice';
+import { fetchPeriodPayroll ,fetchAllPeriods,} from '../../features/payroll/payrollSlice';
 
 moment.loadPersian({ usePersianDigits: false });
 
@@ -43,11 +43,9 @@ const PayrollListView = () => {
 
   const handleOpenPeriod = async (period) => {
     try {
-      await dispatch(fetchPeriodPayroll({ 
-        start: period.start_date, 
-        end: period.end_date 
-      })).unwrap();
-      navigate('/admin/payroll/detail');
+      await dispatch(fetchPeriodPayroll({ start: period.start_date, end: period.end_date })).unwrap();
+      // ✅ ارسال start و end به URL
+      navigate(`/admin/payroll/detail?start=${period.start_date}&end=${period.end_date}`);
     } catch (e) {
       showSnackbar('error', e || 'خطا در باز کردن دوره');
     }
@@ -59,17 +57,20 @@ const PayrollListView = () => {
       return;
     }
     try {
-      await dispatch(fetchPeriodPayroll({ 
-        start: dateRange.start, 
-        end: dateRange.end 
-      })).unwrap();
+      await dispatch(fetchPeriodPayroll({ start: dateRange.start, end: dateRange.end })).unwrap();
       setShowCreateModal(false);
       showSnackbar('success', 'دوره ایجاد شد');
-      navigate('/admin/payroll/detail');
+      // ✅ ارسال params
+      navigate(`/admin/payroll/detail?start=${dateRange.start}&end=${dateRange.end}`);
     } catch (e) {
       showSnackbar('error', e || 'خطا در ایجاد دوره');
     }
   };
+
+  // در PayrollListView.jsx
+  useEffect(() => {
+    dispatch(fetchAllPeriods());
+  }, [dispatch]);
 
   return (
     <div className="container mx-auto px-4 py-8 rtl min-h-screen bg-white">
