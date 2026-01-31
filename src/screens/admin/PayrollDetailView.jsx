@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
+import PeriodStatusManager from '../../components/admin/PeriodStatusManager';
 
 import { useNavigate, useSearchParams } from 'react-router-dom';
 // Utils
@@ -251,23 +252,21 @@ const PayrollDetailView = () => {
     }
   };
 
-  const handleChangePeriodStatus = async (targetStatus) => {
+  const handleChangePeriodStatus = async (targetStatus, unlockOnly = false) => {
     if (!currentPeriod || !isManager) return;
 
-    
-  
-  const statusNames = {
-    DRAFT: 'پیش‌نویس',
-    SUPERVISOR_DONE: 'تکمیل سرپرست',  // ✅ برای period
-    FINANCE_CHECK: 'بررسی مالی',
-    FINAL: 'آماده پرداخت (قفل شده)',
-  };
+    const statusNames = {
+      DRAFT: 'پیش‌نویس',
+      SUPERVISOR_DONE: 'تکمیل سرپرست',
+      FINANCE_CHECK: 'بررسی مالی',
+      FINAL: 'آماده پرداخت',
+    };
 
-
-    const confirmMsg =
-      targetStatus === 'FINAL'
-        ? `⚠️ دوره به حالت نهایی قفل شود؟ (غیرقابل برگشت)`
-        : `دوره به ${statusNames[targetStatus]} تغییر یابد؟`;
+    const confirmMsg = unlockOnly 
+      ? '⚠️ قفل دوره باز شود؟ (خطرناک!)'
+      : targetStatus === 'FINAL'
+      ? `⚠️ دوره به حالت ${statusNames[targetStatus]} قفل شود؟ (غیرقابل برگشت)`
+      : `دوره به ${statusNames[targetStatus]} تغییر یابد؟`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -275,8 +274,8 @@ const PayrollDetailView = () => {
       await dispatch(
         changePeriodStatus({
           periodId: currentPeriod.id,
-          status: targetStatus,
-          is_final: targetStatus === 'FINAL',
+          status: unlockOnly ? currentPeriod.status : targetStatus,
+          is_final: unlockOnly ? false : (targetStatus === 'FINAL'),
         })
       ).unwrap();
 
@@ -287,11 +286,12 @@ const PayrollDetailView = () => {
         })
       ).unwrap();
 
-      showSnackbar('success', `دوره به ${statusNames[targetStatus]} تغییر یافت`);
+      showSnackbar('success', `دوره ${unlockOnly ? 'باز شد' : `به ${statusNames[targetStatus]} تغییر یافت`}`);
     } catch (e) {
       showSnackbar('error', e || 'خطا در تغییر وضعیت');
     }
   };
+
 
   const startEditRow = (row) => {
     if (row.stage === 'FINAL' && !isSuperUser) {
@@ -441,60 +441,46 @@ const PayrollDetailView = () => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header — ساده شده (فقط نقش) */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-gray-300 gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-black flex items-center gap-2">
-            <span className="text-gray-400 text-lg font-normal">لیست حقوق:</span>
-            {formatJalaliDateLong(currentPeriod.start_date)} تا{' '}
-            {formatJalaliDateLong(currentPeriod.end_date)}
-          </h1>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className="text-sm font-bold text-gray-500">وضعیت پرونده:</span>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-black border ${
-                currentPeriod.status === 'FINAL'
-                  ? 'bg-green-100 text-green-800 border-green-300'
-                  : currentPeriod.status === 'FINANCE_CHECK'
-                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                  : 'bg-yellow-100 text-yellow-800 border-yellow-300'
-              }`}
-            >
-              {currentPeriod.status_display || 'نامشخص'}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-500">نقش شما:</span>
+          <span className={`px-2 py-1 rounded text-xs font-bold border ${
+            userRole === 'PROJECT_MANAGER' || userRole === 'HR_MANAGER' || userRole === 'TECHNICAL_OFFICE'
+              ? 'bg-purple-100 text-purple-800 border-purple-200'
+              : userRole === 'ACCOUNTANT'
+              ? 'bg-green-100 text-green-800 border-green-200'
+              : userRole === 'WORKSHOP_SUPERVISOR'
+              ? 'bg-orange-100 text-orange-800 border-orange-200'
+              : 'bg-gray-100 text-gray-600 border-gray-200'
+          }`}>
+            {userRole}
+          </span>
+          {isSuperUser && (
+            <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">
+              👑 SUPER_ADMIN
             </span>
-
-            <span className="text-xs text-gray-400">|</span>
-            <span className="text-xs font-bold text-gray-500">نقش شما:</span>
-            <span
-              className={`px-2 py-1 rounded text-xs font-bold border ${
-                userRole === 'PROJECT_MANAGER' ||
-                userRole === 'HR_MANAGER' ||
-                userRole === 'TECHNICAL_OFFICE'
-                  ? 'bg-purple-100 text-purple-800 border-purple-200'
-                  : userRole === 'ACCOUNTANT'
-                  ? 'bg-green-100 text-green-800 border-green-200'
-                  : userRole === 'WORKSHOP_SUPERVISOR'
-                  ? 'bg-orange-100 text-orange-800 border-orange-200'
-                  : 'bg-gray-100 text-gray-600 border-gray-200'
-              }`}
-            >
-              {userRole}
-            </span>
-
-            {isSuperUser && (
-              <span className="px-2 py-1 rounded text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">
-                👑 SUPER_ADMIN
-              </span>
-            )}
-          </div>
+          )}
         </div>
+        
         <button
           onClick={handleBackToList}
-          className="text-black font-bold hover:text-blue-700 border-b border-transparent hover:border-blue-700 transition"
+          className="text-black font-bold hover:text-blue-700 border-b border-transparent hover:border-blue-700 transition text-sm"
         >
           بازگشت به لیست ➔
         </button>
       </div>
+
+
+      {/* ✅ PeriodStatusManager */}
+      <PeriodStatusManager
+        currentPeriod={currentPeriod}
+        isManager={isManager}
+        payrollLoading={payrollLoading}
+        onStatusChange={handleChangePeriodStatus}
+        showSnackbar={showSnackbar}
+      />
+
 
       {/* Period Status Management (Manager Only) */}
       {isManager && (
