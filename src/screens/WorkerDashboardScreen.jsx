@@ -69,7 +69,7 @@ const WorkerDashboardScreen = () => {
   const dashboardStats = useSelector(selectProjectDashboardStats);
 
   // استیت‌های لوکال
-  const [showOfflineWorkers, setShowOfflineWorkers] = useState(false);
+  const [showOfflineWorkers, setShowOfflineWorkers] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -188,40 +188,38 @@ const WorkerDashboardScreen = () => {
   // 4. فیلترینگ نهایی
   // 4. فیلترینگ نهایی
   const finalWorkers = useMemo(() => {
+    // اگر دیتایی نیست، آرایه خالی برگردان سریع
+    if (!visibleWorkers || visibleWorkers.length === 0) return [];
+
     let list = visibleWorkers;
     const q = search.trim().toLowerCase();
 
+    // فیلتر جستجو
     if (q) {
-      list = list.filter(w => {
-        return (
-          // ✅ استفاده از full_name به‌جای first_name/last_name
-          (w.full_name || '').toLowerCase().includes(q) ||
-          (w.position || '').toLowerCase().includes(q) ||
-          (w.current_project_name || '').toLowerCase().includes(q) ||
-          String(w.id).includes(q) ||
-          String(w.user_id || '').includes(q)
-        );
-      });
+      list = list.filter(w => 
+        (w.full_name || '').toLowerCase().includes(q) ||
+        (w.current_project_name || '').toLowerCase().includes(q) ||
+        String(w.user_id || '').includes(q)
+      );
     }
 
+    // فیلتر آفلاین
     if (!showOfflineWorkers) {
       list = list.filter(w => !w.stale);
     }
 
-    if (sortBy === 'recent') {
-      list = [...list].sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
-    } else {
-      // ✅ مرتب‌سازی با full_name
-      list = [...list].sort((a, b) => {
-        const nameA = a.full_name || '';
-        const nameB = b.full_name || '';
-        return nameA.localeCompare(nameB, 'fa');
-      });
-    }
+    // سورت (بهینه‌شده)
+    return list.sort((a, b) => {
+      // اولویت اول: آنلاین‌ها همیشه بالاتر باشند (اختیاری ولی برای مانیتورینگ عالیه)
+      if (a.stale !== b.stale) return a.stale ? 1 : -1;
 
-    return list;
+      if (sortBy === 'recent') {
+        return (b.lastUpdate || 0) - (a.lastUpdate || 0);
+      } else {
+        return (a.full_name || '').localeCompare(b.full_name || '', 'fa');
+      }
+    });
   }, [visibleWorkers, search, sortBy, showOfflineWorkers]);
-
 
   const currentProjectStats = useMemo(() => {
     if (selectedProjectId) {

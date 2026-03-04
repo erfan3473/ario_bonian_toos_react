@@ -14,7 +14,8 @@ import {
   FaCheckCircle,
   FaMobileAlt,
   FaRocket,
-  FaShieldAlt
+  FaShieldAlt,
+  FaComments // ✅ اضافه شد
 } from 'react-icons/fa';
 
 import bannerImage from '../assets/banner.webp';
@@ -132,6 +133,16 @@ const HomeScreen = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                 {/* ✅ پیام‌رسان (اضافه شد) */}
+                 <AdminButton
+                  to="/chat"
+                  icon={<FaComments />}
+                  title="پیام‌رسان"
+                  description="گفت‌وگو و مدیریت ماموریت‌ها"
+                  color="cyan"
+                />
+
                 {/* مدیریت کاربران */}
                 <AdminButton
                   to="/admin/users"
@@ -159,8 +170,6 @@ const HomeScreen = () => {
                   color="green"
                 />
 
-                
-
                 {/* خلاصه گزارش */}
                 <AdminButton
                   to="/admin/daily-summary"
@@ -186,6 +195,13 @@ const HomeScreen = () => {
                   title="تنظیمات"
                   description="مشاغل، نوع مرخصی و ..."
                   color="gray"
+                />
+                <AdminButton
+                  to="/tasks"
+                  icon={<FaClipboardList />}
+                  title="ماموریت‌ها"
+                  description="مدیریت و پیگیری ماموریت‌های اداری"
+                  color="orange"
                 />
               </div>
             </div>
@@ -283,7 +299,7 @@ const AdminButton = ({ to, icon, title, description, color }) => {
     indigo: 'from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800',
     pink: 'from-pink-500 to-pink-700 hover:from-pink-600 hover:to-pink-800',
     gray: 'from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800',
-    cyan: 'from-cyan-500 to-cyan-700 hover:from-cyan-600 hover:to-cyan-800',
+    cyan: 'from-cyan-500 to-cyan-700 hover:from-cyan-600 hover:to-cyan-800', // ✅ cyan اضافه شد
   };
 
   return (

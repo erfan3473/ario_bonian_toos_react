@@ -16,6 +16,7 @@ import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
 
+import PhonebookScreen from './screens/admin/PhonebookScreen';
 // Admin Screens
 import UserManagementScreen from './screens/admin/UserManagementScreen';
 import UserDetailPage from './screens/admin/UserDetailPage';
@@ -24,8 +25,9 @@ import RequestManagementScreen from './screens/admin/RequestManagementScreen';
 import SchemeContractScreen from './screens/admin/SchemeContractScreen';
 import SchemeManagementScreen from './screens/admin/SchemeManagementScreen';
 import AdminTimesheetScreen from './screens/admin/AdminTimesheetScreen';
+import ChatScreen from './screens/admin/ChatScreen'; // ✅ اضافه شد
 
-// ✅ Payroll Screens (اصلاح شده)
+// ✅ Payroll Screens
 import PayrollListView from './screens/admin/PayrollListView';
 import PayrollDetailView from './screens/admin/PayrollDetailView';
 
@@ -51,6 +53,9 @@ function App() {
           <Route path="/dashboard" element={<WorkerDashboardScreen />} />
           <Route path="/profile" element={<ProfileScreen />} />
           
+          {/* ✅ مسیر چت و پیام‌رسان */}
+          <Route path="/chat" element={<ChatScreen />} />
+
           {/* Projects Routes */}
           <Route path="/projects" element={<ProjectListScreen />} />
           <Route path="/admin/projects/create" element={<ProjectCreateScreen />} />
@@ -70,12 +75,14 @@ function App() {
           <Route path="/admin/requests" element={<RequestManagementScreen />} />
           <Route path="/admin/timesheet" element={<AdminTimesheetScreen />} />
           
-          {/* ✅ Payroll Routes (اصلاح شده) */}
+          {/* ✅ Payroll Routes */}
           <Route path="/admin/payroll/list" element={<PayrollListView />} />
           <Route path="/admin/payroll/detail" element={<PayrollDetailView />} />
           
           {/* Tasks */}
           <Route path="/tasks" element={<MyTasksScreen />} />
+
+          <Route path="/admin/phonebook" element={<PhonebookScreen />} />
         </Routes>
       </main>
 

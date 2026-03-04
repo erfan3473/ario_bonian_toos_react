@@ -1,0 +1,504 @@
+from datetime import date, timedelta, datetime, time
+from django.db.models import Q
+from django.utils.timezone import localtime  # <--- ایمپورت حیاتی برای تبدیل به شمسی/تهران
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from persiantools.jdatetime import JalaliDate
+from collections import defaultdict
+from base.models import Attendance, Worker, LeaveRequest
+from django.shortcuts import get_object_or_404
+from django.db import transaction
+
+WEEKDAY_NAMES = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه']
+
+HOLIDAYS = {
+    (1404, 1, 1): 'عید نوروز',
+    (1404, 1, 2): 'تعطیلات نوروز',
+    (1404, 1, 3): 'تعطیلات نوروز',
+    (1404, 1, 4): 'تعطیلات نوروز',
+    (1404, 1, 12): 'روز جمهوری اسلامی ایران',
+    (1404, 3, 14): 'رحلت امام خمینی (ره)',
+    (1404, 3, 15): 'قیام ۱۵ خرداد',
+    (1404, 10, 13): 'روز پدر',
+    (1404, 10, 27): 'مبعث پیامبر',
+    (1404, 11, 22): 'پیروزی انقلاب اسلامی',
+    (1404, 11, 15): 'ولادت امام زمان',
+    (1404, 12, 20): 'شهادت حضرت علی',
+    (1404, 12, 29): 'روز ملی شدن صنعت نفت',
+}
+
+def calculate_night_hours(start_dt, end_dt):
+    """
+    محاسبه ساعات شب‌کاری (بین ۲۲:۰۰ تا ۰۶:۰۰)
+    ورودی‌ها باید Timezone Aware و به وقت محلی باشند.
+    """
+    night_start = time(22, 0) # ۱۰ شب
+    night_end = time(6, 0)    # ۶ صبح
+    
+    total_seconds = 0.0
+    current = start_dt
+    
+    # پیمایش دقیقه به دقیقه برای سادگی و دقت
+    while current < end_dt:
+        c_time = current.time()
+        
+        # اگر ساعت بین ۲۲ تا ۲۴ است یا بین ۰۰ تا ۰۶
+        is_night = False
+        if c_time >= night_start or c_time < night_end:
+            is_night = True
+            
+        # پرش به دقیقه بعد
+        next_step = current + timedelta(minutes=1)
+        if next_step > end_dt:
+            next_step = end_dt
+            
+        if is_night:
+            total_seconds += (next_step - current).total_seconds()
+            
+        current = next_step
+        
+    return round(total_seconds / 3600.0, 2)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_timesheet_by_range(request):
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
+    if not start_date_str or not end_date_str:
+        return Response({'detail': 'تاریخ شروع و پایان الزامی است'}, status=400)
+
+    try:
+        start_date = date.fromisoformat(start_date_str)
+        end_date = date.fromisoformat(end_date_str)
+    except ValueError:
+        return Response({'detail': 'فرمت تاریخ نامعتبر است'}, status=400)
+
+    if start_date > end_date:
+        return Response({'detail': 'تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد'}, status=400)
+
+    max_days = 365
+    days_diff = (end_date - start_date).days + 1
+    if days_diff > max_days:
+        return Response({'detail': f'بازه زمانی نمی‌تواند بیشتر از {max_days} روز باشد'}, status=400)
+
+    project_id = request.GET.get('project_id')
+    position_id = request.GET.get('position_id')
+    worker_id = request.GET.get('worker_id')
+    search = request.GET.get('search')
+
+    # --- دریافت مرخصی‌ها ---
+    leave_map = defaultdict(list)
+    leave_qs = LeaveRequest.objects.filter(
+        start_date__lte=end_date,
+        end_date__gte=start_date,
+        employee__isnull=False
+    ).select_related('employee', 'leave_type')
+
+    for leave in leave_qs:
+        current = max(leave.start_date, start_date)
+        leave_end = min(leave.end_date, end_date)
+        
+        lt = leave.leave_type
+        leave_info = {
+            'id': leave.id,
+            'status': leave.status,
+            'leave_type_key': lt.key if lt else None,
+            'leave_type_name': lt.name if lt else None,
+            'leave_category': lt.category if lt else None,
+            'is_paid': (lt.category == 'PAID') if lt else False,
+            'color': lt.color_hex if lt else '#cccccc',
+        }
+
+        while current <= leave_end:
+            leave_map[(leave.employee_id, current)].append(leave_info)
+            current += timedelta(days=1)
+
+    # --- کوئری حضورها ---
+    qs = Attendance.objects.select_related(
+        'worker',
+        'worker__employee',
+        'worker__employee__user',
+        'project'
+    ).filter(
+        report_date__gte=start_date,
+        report_date__lte=end_date,
+    )
+
+    if project_id:
+        qs = qs.filter(project_id=project_id)
+    if position_id:
+        qs = qs.filter(worker__employee__position_id=position_id)
+    if worker_id:
+        qs = qs.filter(worker_id=worker_id)
+    if search:
+        qs = qs.filter(
+            Q(worker__employee__user__first_name__icontains=search) |
+            Q(worker__employee__user__last_name__icontains=search) |
+            Q(worker__employee__user__username__icontains=search)
+        )
+
+    # --- متادیتای روزها ---
+    days_meta = []
+    current_date = start_date
+    while current_date <= end_date:
+        jd = JalaliDate(current_date)
+        weekday = jd.weekday()
+        weekday_name = WEEKDAY_NAMES[weekday]
+        is_friday = weekday == 6
+
+        holiday_title = HOLIDAYS.get((jd.year, jd.month, jd.day))
+        is_official_holiday = holiday_title is not None
+
+        days_meta.append({
+            'day_number': len(days_meta) + 1,
+            'day': jd.day,
+            'month': jd.month,
+            'year': jd.year,
+            'gregorian_date': current_date.isoformat(),
+            'weekday_name': weekday_name,
+            'is_friday': is_friday,
+            'is_official_holiday': is_official_holiday,
+            'holiday_title': holiday_title,
+            'g_date': current_date,
+        })
+        current_date += timedelta(days=1)
+
+    # --- لیست کارگران ---
+    leave_employee_ids = leave_qs.values_list('employee_id', flat=True).distinct()
+    leave_worker_ids = Worker.objects.filter(employee_id__in=leave_employee_ids).values_list('id', flat=True)
+    attendance_worker_ids = qs.values_list('worker_id', flat=True)
+    worker_ids = set(attendance_worker_ids) | set(leave_worker_ids)
+
+    workers = Worker.objects.select_related('employee__position', 'employee__user').filter(id__in=worker_ids)
+
+    workers_info = []
+    worker_map = {}
+    for w in workers:
+        full_name = "Unknown"
+        if w.employee and w.employee.user:
+            u = w.employee.user
+            full_name = (u.first_name or '') + ' ' + (u.last_name or '')
+            full_name = full_name.strip() or u.username or f"Worker {w.id}"
+        elif w.employee:
+            full_name = w.employee.name
+        info = {
+            'worker_id': w.id,
+            'worker_code': w.worker_code,
+            'worker_name': full_name,
+            'employee_id': w.employee.id if w.employee else None,
+            'position_title': w.employee.position.title if w.employee and w.employee.position else None,
+        }
+        workers_info.append(info)
+        worker_map[w.id] = info
+
+    att_map = defaultdict(list)
+    for att in qs:
+        att_map[(att.worker_id, att.report_date)].append(att)
+
+    by_worker = {}
+    by_day = {d['gregorian_date']: {'meta': d, 'workers': []} for d in days_meta}
+
+    for w in workers:
+        w_data = {'summary': {
+            'total_present_days': 0, 
+            'total_absent_days': 0, 
+            'total_leave_days': 0,
+            'total_hours': 0.0, 
+            'total_overtime_hours': 0.0,
+            'total_calculated_overtime': 0.0,
+            'total_deficit_hours': 0.0,
+            'total_night_hours': 0.0,
+            'total_friday_hours': 0.0,
+            'total_days_in_range': len(days_meta)
+        }, 'days': []}
+        
+        for dmeta in days_meta:
+            g_date = dmeta['g_date']
+            leaves_for_day = leave_map.get((w.employee.id if w.employee else None, g_date), [])
+
+            final_status = 'ABSENT'
+            leave_status = None
+            daily_work_seconds = 0.0
+            daily_overtime = 0.0
+            day_attendance_logs = []
+            
+            daily_night_seconds = 0.0
+            daily_friday_seconds = 0.0 
+            
+            atts = att_map.get((w.id, g_date), [])
+            
+            # --- ۱. وضعیت حضور ---
+            if atts:
+                has_present = any(a.status.upper() == 'PRESENT' for a in atts)
+                has_leave = any(a.status == 'LEAVE' for a in atts)
+                
+                if has_present: final_status = 'PRESENT'
+                elif has_leave: final_status = 'LEAVE'
+                else: final_status = atts[0].status
+
+                for att in atts:
+                    # 🔹 تبدیل زمان UTC دیتابیس به زمان محلی (تهران)
+                    # اگر این کار را نکنیم، محاسبات شب‌کاری و نمایش ساعت غلط می‌شود
+                    local_in = localtime(att.time_in) if att.time_in else None
+                    local_out = localtime(att.time_out) if att.time_out else None
+                    
+                    current_duration = 0.0
+                    if local_in and local_out:
+                        delta = local_out - local_in
+                        current_duration = delta.total_seconds()
+                        daily_work_seconds += current_duration
+                        
+                        # محاسبه شب‌کاری با زمان محلی
+                        night_h = calculate_night_hours(local_in, local_out)
+                        daily_night_seconds += (night_h * 3600.0)
+
+                    if att.overtime_hours:
+                        daily_overtime += float(att.overtime_hours)
+
+                    day_attendance_logs.append({
+                        'id': att.id,
+                        # فرمت کردن ساعت به صورت محلی
+                        'time_in': local_in.strftime('%H:%M') if local_in else None,
+                        'time_out': local_out.strftime('%H:%M') if local_out else None,
+                        'status': att.status,
+                        'duration_hours': round(current_duration / 3600.0, 2)
+                    })
+
+                if final_status == 'PRESENT':
+                    w_data['summary']['total_present_days'] += 1
+                elif final_status == 'LEAVE':
+                    w_data['summary']['total_leave_days'] += 1
+                elif final_status == 'ABSENT':
+                    w_data['summary']['total_absent_days'] += 1
+                
+            elif leaves_for_day:
+                approved = [l for l in leaves_for_day if l['status'] == 'APPROVED']
+                pending = [l for l in leaves_for_day if l['status'] == 'PENDING']
+                rejected = [l for l in leaves_for_day if l['status'] == 'REJECTED']
+                
+                if approved:
+                    final_status = 'LEAVE'
+                    leave_status = 'APPROVED'
+                    w_data['summary']['total_leave_days'] += 1
+                elif pending:
+                    final_status = 'LEAVE'
+                    leave_status = 'PENDING'
+                elif rejected:
+                    final_status = 'REJECTED'
+                    leave_status = 'REJECTED'
+                    w_data['summary']['total_absent_days'] += 1
+                else:
+                    w_data['summary']['total_absent_days'] += 1
+            else:
+                w_data['summary']['total_absent_days'] += 1
+
+            # --- ۲. محاسبات مالی ---
+            total_hours_day = round(daily_work_seconds / 3600.0, 2)
+            night_hours_day = round(daily_night_seconds / 3600.0, 2)
+            
+            friday_hours_day = 0.0
+            if dmeta['is_friday']:
+                friday_hours_day = total_hours_day
+            
+            required_hours = 8.0
+            if dmeta['weekday_name'] == 'پنجشنبه': required_hours = 4.0
+            if dmeta['is_friday'] or dmeta['is_official_holiday']: required_hours = 0.0
+
+            calculated_overtime = 0.0
+            deficit_hours = 0.0
+
+            if final_status == 'PRESENT':
+                if total_hours_day > required_hours:
+                    calculated_overtime = total_hours_day - required_hours
+                elif total_hours_day < required_hours:
+                    deficit_hours = required_hours - total_hours_day
+            
+            elif (dmeta['is_friday'] or dmeta['is_official_holiday']) and total_hours_day > 0:
+                calculated_overtime = total_hours_day
+
+            w_data['summary']['total_hours'] += total_hours_day
+            w_data['summary']['total_overtime_hours'] += daily_overtime
+            w_data['summary']['total_calculated_overtime'] += calculated_overtime
+            w_data['summary']['total_deficit_hours'] += deficit_hours
+            w_data['summary']['total_night_hours'] += night_hours_day
+            w_data['summary']['total_friday_hours'] += friday_hours_day
+
+            row = {
+                'day_number': dmeta['day_number'],
+                'gregorian_date': dmeta['gregorian_date'],
+                'jalali_date': f"{dmeta['year']}/{dmeta['month']}/{dmeta['day']}",
+                'status': final_status,
+                'leave_status': leave_status,
+                'leave_requests': leaves_for_day,
+                'attendance_logs': day_attendance_logs,
+                'hours_worked': total_hours_day,
+                'overtime_hours': daily_overtime,
+                'calculated_overtime': round(calculated_overtime, 2),
+                'deficit_hours': round(deficit_hours, 2),
+                'night_hours': night_hours_day,
+                'friday_hours': friday_hours_day,
+                'required_hours': required_hours,
+                'is_friday': dmeta['is_friday'],
+                'weekday_name': dmeta['weekday_name'],
+                'is_official_holiday': dmeta['is_official_holiday'],
+                'holiday_title': dmeta['holiday_title'],
+            }
+
+            w_data['days'].append(row)
+
+            by_day[dmeta['gregorian_date']]['workers'].append({
+                'worker_id': w.id,
+                'worker_name': worker_map.get(w.id, {}).get('worker_name', f"Worker {w.id}"),
+                'status': row['status'],
+                'attendance_logs': day_attendance_logs, 
+                'hours_worked': row['hours_worked'],
+                # پاس دادن مقادیر جدید برای استفاده در فرانت
+                'night_hours': night_hours_day,
+                'deficit_hours': round(deficit_hours, 2),
+                'calculated_overtime': round(calculated_overtime, 2),
+                'friday_hours': friday_hours_day,
+                'overtime_hours': daily_overtime,
+            })
+
+        by_worker[w.id] = w_data
+
+    return Response({
+        'meta': {
+            'start_date': start_date_str,
+            'end_date': end_date_str,
+            'total_days': len(days_meta),
+            'days': days_meta,
+            'gregorian_start': days_meta[0]['gregorian_date'],
+            'gregorian_end': days_meta[-1]['gregorian_date'],
+        },
+        'workers': workers_info,
+        'by_worker': by_worker,
+        'by_day': by_day,
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def update_attendance_overtime(request, attendance_id):
+    """
+    📌 ویرایش دستی اضافه کار تایید شده برای یک رکورد خاص
+    Body: { "overtime_hours": 2.5 }
+    """
+    attendance = get_object_or_404(Attendance, id=attendance_id)
+    
+    new_overtime = request.data.get('overtime_hours')
+    
+    if new_overtime is None:
+        return Response({'detail': 'مقدار overtime_hours الزامی است'}, status=400)
+
+    try:
+        # تبدیل به عدد اعشاری و ذخیره
+        # نکته: اگر منفی فرستاد، صفر در نظر می‌گیریم
+        val = float(new_overtime)
+        attendance.overtime_hours = max(0.0, val)
+        attendance.save()
+        
+        return Response({
+            'message': 'اضافه کار با موفقیت بروزرسانی شد',
+            'id': attendance.id,
+            'overtime_hours': attendance.overtime_hours
+        })
+    except ValueError:
+        return Response({'detail': 'فرمت عدد صحیح نیست'}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def bulk_approve_overtime(request):
+    """
+    📌 تایید گروهی: کپی کردن اضافه کار سیستمی (Calculated) به اضافه کار تایید شده (Approved)
+    این تابع دقیقاً همان منطق محاسبه‌ای که در گزارش داشتیم را اجرا می‌کند
+    و نتیجه را در دیتابیس ذخیره می‌کند.
+    
+    Body: { 
+        "start_date": "2025-01-01", 
+        "end_date": "2025-01-31",
+        "worker_id": 12 (Optional - اگر بخواهیم فقط برای یک نفر تایید کنیم)
+    }
+    """
+    start_date_str = request.data.get('start_date')
+    end_date_str = request.data.get('end_date')
+    target_worker_id = request.data.get('worker_id')
+
+    if not start_date_str or not end_date_str:
+        return Response({'detail': 'تاریخ شروع و پایان الزامی است'}, status=400)
+
+    try:
+        start_date = date.fromisoformat(start_date_str)
+        end_date = date.fromisoformat(end_date_str)
+    except ValueError:
+        return Response({'detail': 'فرمت تاریخ نامعتبر است'}, status=400)
+
+    # کوئری برای گرفتن تمام رکوردهای حضور در این بازه
+    # فقط رکوردهای "حاضر" یا "جمعه‌کاری" که پتانسیل اضافه کار دارند
+    atts = Attendance.objects.filter(
+        report_date__gte=start_date,
+        report_date__lte=end_date
+    ).select_related('worker')
+
+    if target_worker_id:
+        atts = atts.filter(worker_id=target_worker_id)
+
+    updated_count = 0
+
+    with transaction.atomic():
+        for att in atts:
+            # 1. محاسبه ساعت کاری (دقیقاً مثل ویوی گزارش)
+            current_duration = 0.0
+            local_in = localtime(att.time_in) if att.time_in else None
+            local_out = localtime(att.time_out) if att.time_out else None
+            
+            if local_in and local_out:
+                delta = local_out - local_in
+                current_duration = delta.total_seconds()
+            
+            total_hours = round(current_duration / 3600.0, 2)
+            
+            # 2. تشخیص روز هفته برای محاسبه موظفی
+            # (نکته: اینجا از report_date استفاده می‌کنیم که Date object است)
+            # 0=Monday, ..., 5=Saturday, 6=Sunday in Python default
+            # اما ما جلالی تولز داریم، ولی اینجا ساده‌تر است از report_date میلادی استفاده کنیم
+            # برای سادگی، فرض میکنیم کلاینت تاریخ درست فرستاده.
+            # برای تشخیص پنجشنبه/جمعه باید تاریخ میلادی را چک کنیم یا تبدیل کنیم.
+            
+            jd = JalaliDate(att.report_date)
+            is_friday = (jd.weekday() == 6)
+            is_thursday = (jd.weekday() == 5)
+            
+            # (برای تعطیلات رسمی باید لیست HOLIDAYS را چک کنیم)
+            is_holiday = HOLIDAYS.get((jd.year, jd.month, jd.day)) is not None
+            
+            required_hours = 8.0
+            if is_thursday: required_hours = 4.0
+            if is_friday or is_holiday: required_hours = 0.0
+            
+            # 3. محاسبه اضافه کار سیستمی
+            calculated_overtime = 0.0
+            
+            if att.status == 'PRESENT':
+                if total_hours > required_hours:
+                    calculated_overtime = total_hours - required_hours
+            
+            # جمعه کاری یا تعطیل کاری (اگر کار کرده باشد)
+            elif (is_friday or is_holiday) and total_hours > 0:
+                calculated_overtime = total_hours
+            
+            # 4. آپدیت کردن فیلد تایید شده در دیتابیس
+            # فقط اگر تغییری لازم است آپدیت کن
+            new_val = round(calculated_overtime, 2)
+            if att.overtime_hours != new_val:
+                att.overtime_hours = new_val
+                att.save(update_fields=['overtime_hours'])
+                updated_count += 1
+
+    return Response({
+        'message': f'عملیات با موفقیت انجام شد. اضافه کار {updated_count} رکورد بروزرسانی شد.',
+        'updated_count': updated_count
+    })    

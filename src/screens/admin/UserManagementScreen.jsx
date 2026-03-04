@@ -67,7 +67,7 @@ const UserManagementScreen = () => {
 
   if (loading.users && users.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900  items-center justify-center">
         <div className="text-center">
           <div className="animate-spin text-6xl mb-4">⏳</div>
           <p className="text-white text-xl">در حال بارگذاری کاربران...</p>
@@ -77,7 +77,7 @@ const UserManagementScreen = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+    <div className="items-center justify-center  min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -97,7 +97,7 @@ const UserManagementScreen = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className=" grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 border border-blue-700 hover:scale-105 transition-transform cursor-pointer" onClick={() => setFilterRole('all')}>
             <div className="text-blue-300 text-sm mb-1">👥 کل کاربران</div>
             <div className="text-white text-3xl font-bold">{stats.total}</div>

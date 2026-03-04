@@ -10,6 +10,7 @@ const EmptyValue = () => <span className="text-gray-300 select-none">-</span>;
 const getStatusLabel = (status) => {
   switch (status) {
     case 'PRESENT': return 'حاضر';
+    case 'present': return 'حاضر';
     case 'ABSENT': return 'غایب';
     case 'LEAVE': return 'مرخصی';
     case 'REJECTED': return 'رد شده';
@@ -183,7 +184,7 @@ const TimesheetByDay = ({ meta, byDay }) => {
                                   ${
                                     isIncomplete
                                       ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                                      : w.status === 'PRESENT'
+                                      : w.status === 'PRESENT' || w.status === 'present' 
                                         ? (isDarkRow ? 'bg-green-900 text-green-300 border-green-700' : 'bg-green-50 text-green-700 border-green-200')
                                         : w.status === 'ABSENT'
                                         ? 'bg-red-50 text-red-700 border-red-100'

@@ -3,7 +3,8 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
-const MAX_IDLE_MS = 5 * 60 * 1000; // 5 دقیقه
+const MAX_IDLE_MS = 5 * 60 * 1000; // 5 دقیقه (تایمر آفلاین شدن سوکت)
+const GRACE_PERIOD_MS = 60 * 60 * 1000; // 1 ساعت (فرصت اولیه هنگام لود صفحه)
 
 export const fetchWorkers = createAsyncThunk(
   'workers/fetchWorkers',
@@ -47,6 +48,7 @@ export const fetchDailyAttendance = createAsyncThunk(
     }
   }
 );
+
 const processWorkerUpdate = (state, u) => {
   const workerId = u.id || u.worker_id;
   if (!workerId) return;
@@ -103,14 +105,13 @@ const workersSlice = createSlice({
   },
 
   reducers: {
-    // 🗑️ این متد تکی است (اگر جای دیگری استفاده میکنی نگه دار، ولی ما از پایینی استفاده میکنیم)
     updateWorkerLocation: (state, action) => {
       processWorkerUpdate(state, action.payload);
     },
 
-    // 🚀 [جدید] آپدیت دسته‌جمعی (Batch Update) - بهینه برای سوکت
+    // 🚀 آپدیت دسته‌جمعی (Batch Update) - بهینه برای سوکت
     updateWorkersBatch: (state, action) => {
-      const updates = action.payload; // آرایه‌ای از آپدیت‌ها
+      const updates = action.payload;
       if (Array.isArray(updates)) {
         updates.forEach(u => processWorkerUpdate(state, u));
       }
@@ -119,6 +120,7 @@ const workersSlice = createSlice({
     cleanupOldWorkers: (state) => {
       const cutoff = Date.now() - MAX_IDLE_MS;
       Object.values(state.allWorkers).forEach((worker) => {
+        // فقط اگر lastUpdate خیلی قدیمی باشد، استال می‌شود
         if ((worker.lastUpdate || 0) < cutoff) {
           worker.stale = true;
         }
@@ -131,24 +133,26 @@ const workersSlice = createSlice({
       .addCase(fetchWorkers.fulfilled, (state, action) => {
         state.status = 'succeeded';
         const workersMap = {};
+        const NOW = Date.now();
         
-        // ✅ Debug
         console.log('📥 [fetchWorkers] Total workers:', action.payload.length);
         
         action.payload.forEach((w) => {
-          const lastUpdate = w.last_location
+          // زمان واقعی آخرین لوکیشن ثبت شده در دیتابیس
+          const realLastUpdate = w.last_location
             ? new Date(w.last_location.timestamp).getTime()
             : null;
-          const isStale = !(lastUpdate && Date.now() - lastUpdate < MAX_IDLE_MS);
 
-          // ✅ Debug
-          console.log(`👤 Worker ${w.id} (${w.full_name}):`, {
-            latest_shift_in: w.latest_shift_in,
-            latest_shift_out: w.latest_shift_out,
-            shift_start: w.shift_start,
-            shift_end: w.shift_end,
-            stale: isStale,
-          });
+          // ✅ منطق Grace Period:
+          // آیا این دیتا مربوط به ۱ ساعت اخیر است؟
+          const isRecentEnough = realLastUpdate && (NOW - realLastUpdate < GRACE_PERIOD_MS);
+          
+          // ✅ جلوگیری از باگ پرپر زدن (Flickering):
+          // اگر دیتا "Recent" است، ما lastUpdate لوکال (داخل Redux) را به "الان" تغییر می‌دهیم.
+          // چرا؟ چون اگر این کار را نکنیم، تابع cleanupOldWorkers (که ۵ دقیقه مهلت می‌دهد)
+          // بلافاصله این کارگر را حذف می‌کند (چون دیتای دیتابیس مثلا ۲۰ دقیقه پیش بوده).
+          // با این کار، کارگر تا ۵ دقیقه آینده در لیست سبز می‌ماند تا سوکت وصل شود.
+          const effectiveLastUpdate = isRecentEnough ? NOW : realLastUpdate;
 
           workersMap[w.id] = {
             ...w,
@@ -156,8 +160,13 @@ const workersSlice = createSlice({
             user_id: w.user_id || null,
             latitude: w.last_location?.latitude ?? null,
             longitude: w.last_location?.longitude ?? null,
-            lastUpdate,
-            stale: isStale,
+            
+            // استفاده از زمان محاسبه شده برای جلوگیری از حذف زودهنگام
+            lastUpdate: effectiveLastUpdate, 
+            
+            // وضعیت آنلاین بودن اولیه بر اساس Grace Period
+            stale: !isRecentEnough, 
+            
             current_project_id: w.current_project_id || null,
             current_project_name: w.current_project_name || null,
             position_color_hex: w.position_color_hex || null,
@@ -169,6 +178,7 @@ const workersSlice = createSlice({
             latest_shift_out: w.latest_shift_out || null,
             is_shift_open: w.is_shift_open || false,
             gps_enabled: w.last_location?.gps_enabled ?? true,
+            source: 'API'
           };
         });
 
@@ -250,5 +260,5 @@ export const selectVisibleWorkers = createSelector(
   }
 );
 
-export const { updateWorkerLocation,updateWorkersBatch, cleanupOldWorkers, } = workersSlice.actions;
+export const { updateWorkerLocation, updateWorkersBatch, cleanupOldWorkers } = workersSlice.actions;
 export default workersSlice.reducer;

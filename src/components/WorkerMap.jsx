@@ -6,6 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { fetchWorkerHistory } from '../features/workers/workerSlice';
 
+// آیکون‌ها
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -31,22 +32,26 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
   const [timeRange, setTimeRange] = useState('24h');
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  // فچ تاریخچه وقتی یک کارگر انتخاب می‌شود
   useEffect(() => {
     if (selectedWorkerId) {
       dispatch(fetchWorkerHistory({ workerId: selectedWorkerId, timeRange }));
     }
   }, [selectedWorkerId, timeRange, dispatch]);
 
+  // ریست کردن اسلایدر وقتی کارگر عوض می‌شود
   useEffect(() => {
     setHistoryIndex(0);
   }, [selectedWorkerId, timeRange, workerHistory]);
 
+  // باز کردن پاپ‌آپ کارگر انتخاب شده
   useEffect(() => {
     if (selectedWorkerId && markerRefs.current[selectedWorkerId]) {
       markerRefs.current[selectedWorkerId].openPopup();
     }
   }, [selectedWorkerId]);
 
+  // فیت کردن نقشه روی فنس پروژه
   useEffect(() => {
     if (projectGeofence && projectGeofence.length > 0 && mapRef.current) {
         try {
@@ -58,6 +63,7 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
     }
   }, [projectGeofence]);
 
+  // محاسبات مسیر تاریخچه
   const historyPoints = useMemo(
     () => (workerHistory || []).filter((loc) => loc.latitude && loc.longitude),
     [workerHistory]
@@ -71,13 +77,12 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
   const currentPoint = historyPositions[clampedIndex] || null;
   const currentMeta = historyPoints[clampedIndex] || null;
 
-  // ✅ تشخیص حالت تاریخچه: اگر کاربری انتخاب شده و دیتای نقطه فعلی موجود است
   const isHistoryMode = selectedWorkerId && currentMeta;
 
   return (
     <div className="flex flex-col h-full relative">
       
-      {/* نوار کنترل بازه زمانی */}
+      {/* کنترل بازه زمانی */}
       <div className="flex items-center justify-between mb-2 px-2">
         <div className="flex gap-2">
           {['1h', '24h', '7d'].map((range) => (
@@ -94,24 +99,22 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
             </button>
           ))}
         </div>
-        {/* ساعت از اینجا حذف شد و به داخل بج منتقل شد */}
       </div>
 
-      {/* کانتینر نقشه */}
+      {/* نقشه */}
       <div className="relative w-full h-full z-0 isolate rounded-xl overflow-hidden border-2 border-gray-700 shadow-2xl">
         
-        {/* ✅ بج هوشمند (تلفیق وضعیت اتصال و ساعت تاریخچه) */}
+        {/* بج وضعیت */}
         <div 
             className={`absolute top-4 left-14 z-[400] backdrop-blur px-3 py-1.5 rounded-full flex items-center gap-2 text-xs border shadow-lg transition-colors duration-300 pointer-events-none
             ${isHistoryMode 
-                ? 'bg-blue-900/90 border-blue-400 text-blue-100' // استایل حالت تاریخچه (آبی)
+                ? 'bg-blue-900/90 border-blue-400 text-blue-100'
                 : connected 
-                    ? 'bg-gray-900/80 border-gray-700 text-gray-200' // استایل آنلاین (خاکستری)
-                    : 'bg-red-900/90 border-red-500 text-red-100' // استایل آفلاین (قرمز)
+                    ? 'bg-gray-900/80 border-gray-700 text-gray-200'
+                    : 'bg-red-900/90 border-red-500 text-red-100'
             }`}
         >
             {isHistoryMode ? (
-                // 🕒 حالت تاریخچه: نمایش ساعت
                 <>
                     <span className="text-lg">🕓</span>
                     <span className="font-mono font-bold text-sm pt-0.5">
@@ -119,7 +122,6 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
                     </span>
                 </>
             ) : (
-                // 📡 حالت زنده: نمایش وضعیت اتصال
                 <>
                     <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                     <span className="font-mono font-bold tracking-wider">
@@ -140,7 +142,6 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
             attribution="&copy; OpenStreetMap"
           />
 
-          {/* ✅ نمایش فنس پروژه */}
           {projectGeofence && projectGeofence.length > 2 && (
              <Polygon 
                 positions={projectGeofence}
@@ -155,7 +156,6 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
              </Polygon>
           )}
 
-          {/* مسیر تاریخچه - خط قرمز */}
           {visiblePath.length > 1 && (
             <Polyline
               pathOptions={{ color: '#EF4444', weight: 4, opacity: 0.8 }}
@@ -181,7 +181,6 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
                       </div>
                     </>
                   )}
-
                 </div>
               </Popup>
             </Marker>
@@ -191,22 +190,30 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
           {workers.map((worker) => {
             if (!worker.latitude || !worker.longitude) return null;
             
-            const positionColor = worker.position_color_hex || '#3B82F6';
-            const displayName = worker.full_name || 'اسم ثبت نشده';
+            // ✅ تعریف متغیر displayName که خطا می‌داد
+            const displayName = worker.full_name || 'کارگر ناشناس';
+            
+            const isOffline = worker.stale;
+            const positionColor = isOffline ? '#6B7280' : (worker.position_color_hex || '#3B82F6');
+            const opacity = isOffline ? 0.6 : 1; 
 
             const icon = L.divIcon({
               className: '',
               html: `
                 <div style="
                   background: ${positionColor};
-                  width: 22px;
-                  height: 22px;
+                  width: ${isOffline ? '18px' : '22px'};
+                  height: ${isOffline ? '18px' : '22px'};
                   border-radius: 50%;
-                  border: 3px solid white;
-                  box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 0 15px ${positionColor}60;
+                  border: 2px solid white;
+                  opacity: ${opacity};
+                  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
                   position: relative;
-                  animation: ${worker.stale ? 'none' : 'pulse 2s infinite'};
-                "></div>
+                  animation: ${isOffline ? 'none' : 'pulse 2s infinite'};
+                  display: flex; justify-content: center; align-items: center;
+                ">
+                  ${isOffline ? '<span style="position:absolute; top:-14px; right:-5px; font-size:12px;">💤</span>' : ''}
+                </div>
                 <style>
                   @keyframes pulse {
                     0%, 100% { transform: scale(1); }
@@ -232,7 +239,7 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
                     {worker.profile_image && (
                       <img 
                         src={worker.profile_image} 
-                        alt={displayName} 
+                        alt={displayName} // ✅ حالا این متغیر وجود دارد
                         className="w-14 h-14 rounded-full mx-auto mb-2 object-cover shadow-md"
                         style={{ border: `3px solid ${positionColor}` }}
                       />
@@ -269,7 +276,7 @@ const WorkerMap = ({ workers, selectedWorkerId, workerHistory, loadingHistory, p
         )}
       </div>
 
-      {/* 🎚️ اسلایدر تایم‌لاین */}
+      {/* اسلایدر */}
       <div className="mt-3 px-2">
         {historyPositions.length > 0 ? (
           <>

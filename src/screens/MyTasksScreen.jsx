@@ -1,155 +1,238 @@
-// src/screens/MyTasksScreen.jsx
-import React, { useEffect } from 'react';
+// src/screens/MyTasksScreen.jsx — کامل نهایی
+
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import {
+    fetchMyTaskInbox, fetchSentTasks,
+    fetchTaskDetail, clearActiveTask,
+} from '../features/task/taskSlice';
+import TaskCreateModal from '../components/Task/TaskCreateModal';
+import TaskDetailPanel from '../components/Task/TaskDetailPanel';
+import {
+    FaPlus, FaInbox, FaSpinner,
+    FaPaperPlane, FaClock,
+} from 'react-icons/fa';
 
-import { fetchMyTasks } from '../features/tasks/taskSlice';
-
-const getTaskTypeLabel = (type) => {
-  switch (type) {
-    case 'PAYROLL_FORM':
-      return 'تکمیل فرم حقوق';
-    case 'PURCHASE':
-      return 'خرید / تدارکات';
-    case 'REPORT':
-      return 'گزارش‌دهی';
-    default:
-      return type || 'نامشخص';
-  }
+const TASK_TYPE_LABELS = {
+    PAYROLL_FORM: 'فرم حقوق',
+    PURCHASE:     'خرید',
+    REPORT:       'گزارش',
 };
 
-const getStatusLabel = (status) => {
-  switch (status) {
-    case 'PENDING':
-      return 'در انتظار انجام';
-    case 'IN_PROGRESS':
-      return 'در حال انجام';
-    case 'DONE':
-      return 'انجام شده';
-    default:
-      return status || 'نامشخص';
-  }
+const STATUS_BADGE = {
+    PENDING:     'bg-yellow-500/20 text-yellow-400',
+    IN_PROGRESS: 'bg-blue-500/20 text-blue-400',
+    DONE:        'bg-green-500/20 text-green-400',
+    REJECTED:    'bg-red-500/20 text-red-400',
+    CANCELLED:   'bg-gray-500/20 text-gray-400',
 };
 
-const MyTasksScreen = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+const STATUS_LABEL = {
+    PENDING:     'در انتظار',
+    IN_PROGRESS: 'در جریان',
+    DONE:        'انجام شده',
+    REJECTED:    'رد شده',
+    CANCELLED:   'لغو شده',
+};
 
-  const { list, loading, error } = useSelector((state) => state.tasks);
-
-  useEffect(() => {
-    dispatch(fetchMyTasks());
-  }, [dispatch]);
-
-  const handleOpenTask = (task) => {
-    if (task.task_type === 'PAYROLL_FORM' && task.year && task.month) {
-      const year = task.year;
-      const month = task.month.toString().padStart(2, '0');
-      navigate(`/admin/payroll?year=${year}&month=${month}`);
-    } else {
-      alert('برای این نوع ماموریت هنوز صفحه‌ای تعریف نشده است.');
-    }
-  };
-
-  return (
-    <div className="container mx-auto px-4 py-6 rtl min-h-screen bg-white">
-      <div className="mb-6 border-b border-gray-200 pb-4 flex flex-col gap-1">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
-          📋 کارتابل ماموریت‌ها
-        </h1>
-        <p className="text-gray-500 text-sm md:text-base">
-          لیست ماموریت‌هایی که برای شما ارجاع شده است.
-        </p>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mb-4 text-sm">
-          {error}
+// ── کارت یک ماموریت ──
+const TaskCard = ({ task, selected, onClick }) => (
+    <div
+        onClick={onClick}
+        className={`p-4 border-b border-gray-700/60 cursor-pointer transition hover:bg-gray-700/40 ${
+            selected ? 'bg-gray-700/60 border-r-2 border-r-blue-500' : ''
+        }`}
+    >
+        <div className="text-white text-sm font-medium mb-1 truncate">
+            {task.title}
         </div>
-      )}
 
-      {loading && (
-        <div className="text-center py-8 text-sm text-blue-600">
-          در حال دریافت ماموریت‌ها...
+        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            <span className="text-xs text-gray-500">
+                {TASK_TYPE_LABELS[task.task_type] || task.task_type}
+            </span>
+            <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_BADGE[task.status] || ''}`}>
+                {STATUS_LABEL[task.status] || task.status}
+            </span>
         </div>
-      )}
 
-      {!loading && list.length === 0 && (
-        <div className="text-center text-gray-500 py-14 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50 mt-6">
-          <div className="text-5xl mb-3">✅</div>
-          <p className="text-base">
-            در حال حاضر ماموریت فعالی برای شما ثبت نشده است.
-          </p>
+        {task.active_assignees?.length > 0 && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+                {task.active_assignees.map((a) => (
+                    <span
+                        key={a.step_id}
+                        className="text-xs bg-gray-600/60 text-gray-300 px-2 py-0.5 rounded-full"
+                    >
+                        {a.name}
+                    </span>
+                ))}
+            </div>
+        )}
+
+        <div className="flex items-center gap-1 text-xs text-gray-600">
+            <FaClock size={10} />
+            <span>{new Date(task.updated_at).toLocaleDateString('fa-IR')}</span>
         </div>
-      )}
-
-      {!loading && list.length > 0 && (
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-xs md:text-sm border border-gray-200 rounded-lg overflow-hidden bg-white">
-            <thead>
-              <tr className="bg-gray-100 text-gray-700">
-                <th className="px-2 py-2 text-center">عنوان</th>
-                <th className="px-2 py-2 text-center">نوع ماموریت</th>
-                <th className="px-2 py-2 text-center">وضعیت</th>
-                <th className="px-2 py-2 text-center">دوره حقوق</th>
-                <th className="px-2 py-2 text-center">توضیح</th>
-                <th className="px-2 py-2 text-center">اقدام</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((task, idx) => {
-                const isAlt = idx % 2 === 0;
-                const hasPayrollPeriod =
-                  task.task_type === 'PAYROLL_FORM' && task.year && task.month;
-
-                return (
-                  <tr
-                    key={task.id}
-                    className={isAlt ? 'bg-white' : 'bg-gray-50'}
-                  >
-                    <td className="px-2 py-2 text-right text-gray-800">
-                      {task.title}
-                    </td>
-                    <td className="px-2 py-2 text-center text-gray-700">
-                      {getTaskTypeLabel(task.task_type)}
-                    </td>
-                    <td className="px-2 py-2 text-center text-gray-700">
-                      {getStatusLabel(task.status)}
-                    </td>
-                    <td className="px-2 py-2 text-center text-gray-700">
-                      {hasPayrollPeriod
-                        ? `${task.year}/${task.month
-                            .toString()
-                            .padStart(2, '0')}`
-                        : '-'}
-                    </td>
-                    <td className="px-2 py-2 text-right text-gray-600">
-                      {task.note || '-'}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {hasPayrollPeriod ? (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenTask(task)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold"
-                        >
-                          ورود به فرم
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-xs">
-                          فعلاً عمل خاصی ندارد
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
-  );
+);
+
+// ── صفحه اصلی ──
+const MyTasksScreen = () => {
+    const dispatch = useDispatch();
+    const {
+        inbox, loadingInbox,
+        sentTasks, loadingSent,
+        activeTask, loadingDetail,
+        needsInboxRefresh,
+    } = useSelector((s) => s.task);
+    const { userInfo } = useSelector((s) => s.userLogin);
+
+    const [tab,            setTab]            = useState('inbox'); // 'inbox' | 'sent'
+    const [showCreate,     setShowCreate]     = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState(null);
+
+    useEffect(() => {
+        dispatch(fetchMyTaskInbox());
+        dispatch(fetchSentTasks());
+        return () => { dispatch(clearActiveTask()); };
+    }, [dispatch]);
+
+    // وقتی WS رویداد ASSIGNED میزنه
+    useEffect(() => {
+        if (needsInboxRefresh) dispatch(fetchMyTaskInbox());
+    }, [needsInboxRefresh, dispatch]);
+
+    const handleSelectTask = (taskId) => {
+        if (taskId === selectedTaskId) return;
+        dispatch(clearActiveTask());
+        setSelectedTaskId(taskId);
+        dispatch(fetchTaskDetail(taskId));
+    };
+
+    const handleCreateSuccess = () => {
+        setShowCreate(false);
+        dispatch(fetchMyTaskInbox());
+        dispatch(fetchSentTasks());
+    };
+
+    const handleRefresh = () => {
+        dispatch(fetchTaskDetail(selectedTaskId));
+        dispatch(fetchMyTaskInbox());
+        dispatch(fetchSentTasks());
+    };
+
+    const currentList    = tab === 'inbox' ? inbox     : sentTasks;
+    const currentLoading = tab === 'inbox' ? loadingInbox : loadingSent;
+
+    return (
+        <div className="h-[calc(100vh-120px)] flex gap-4 overflow-hidden">
+
+            {/* ── ستون راست: لیست ── */}
+            <div className="w-80 flex-shrink-0 flex flex-col bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+
+                {/* تب‌ها */}
+                <div className="border-b border-gray-700">
+                    <div className="flex items-center justify-between px-3 pt-3 pb-0 gap-2">
+                        <div className="flex gap-0.5">
+                            <button
+                                onClick={() => setTab('inbox')}
+                                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition border-b-2 whitespace-nowrap ${
+                                    tab === 'inbox'
+                                        ? 'text-blue-400 border-blue-500'
+                                        : 'text-gray-400 border-transparent hover:text-gray-300'
+                                }`}
+                            >
+                                <FaInbox size={12} />
+                                صندوق ورودی
+                                {inbox.length > 0 && (
+                                    <span className="bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                                        {inbox.length}
+                                    </span>
+                                )}
+                            </button>
+
+                            <button
+                                onClick={() => setTab('sent')}
+                                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition border-b-2 whitespace-nowrap ${
+                                    tab === 'sent'
+                                        ? 'text-blue-400 border-blue-500'
+                                        : 'text-gray-400 border-transparent hover:text-gray-300'
+                                }`}
+                            >
+                                <FaPaperPlane size={11} />
+                                فرستاده‌ها
+                                {sentTasks.length > 0 && (
+                                    <span className="bg-gray-600 text-gray-300 text-xs rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                                        {sentTasks.length}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={() => setShowCreate(true)}
+                            className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1.5 rounded-lg transition mb-1 flex-shrink-0"
+                        >
+                            <FaPlus size={10} />
+                            جدید
+                        </button>
+                    </div>
+                </div>
+
+                {/* لیست */}
+                <div className="flex-1 overflow-y-auto">
+                    {currentLoading ? (
+                        <div className="flex items-center justify-center h-24 text-gray-500 text-sm gap-2">
+                            <FaSpinner className="animate-spin" /> بارگیری...
+                        </div>
+                    ) : currentList.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-24 text-gray-600 text-sm gap-2">
+                            {tab === 'inbox'
+                                ? <><FaInbox size={24} className="opacity-30" />ماموریت فعالی ندارید</>
+                                : <><FaPaperPlane size={20} className="opacity-30" />هنوز ماموریتی نفرستادید</>
+                            }
+                        </div>
+                    ) : (
+                        currentList.map((task) => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                selected={selectedTaskId === task.id}
+                                onClick={() => handleSelectTask(task.id)}
+                            />
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* ── ستون چپ: جزئیات ── */}
+            <div className="flex-1 bg-gray-800 rounded-2xl border border-gray-700 overflow-hidden">
+                {loadingDetail ? (
+                    <div className="flex items-center justify-center h-full text-gray-500 gap-2">
+                        <FaSpinner className="animate-spin" /> بارگیری جزئیات...
+                    </div>
+                ) : activeTask ? (
+                    <TaskDetailPanel
+                        taskData={activeTask}
+                        currentUserId={userInfo?.id}
+                        onRefresh={handleRefresh}
+                    />
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-600 gap-2">
+                        <FaInbox size={40} className="opacity-20" />
+                        <p className="text-sm">یک ماموریت انتخاب کنید</p>
+                    </div>
+                )}
+            </div>
+
+            {showCreate && (
+                <TaskCreateModal
+                    onClose={() => setShowCreate(false)}
+                    onSuccess={handleCreateSuccess}
+                />
+            )}
+        </div>
+    );
 };
 
 export default MyTasksScreen;

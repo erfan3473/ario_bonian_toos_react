@@ -530,77 +530,131 @@ const PayrollDetailView = () => {
         </div>
       )}
 
-      {/* Add Row Form */}
-        {canManageRows && !currentPeriod.is_final && (
-        <div className="bg-gray-100 p-5 rounded-xl border border-gray-300 mb-6 shadow-inner">
-          <p className="text-black font-bold mb-3 flex items-center gap-2">
-            <span className="bg-green-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">+</span>
-            افزودن دستی (پاداش / پیمانکار / خرید):
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-            <input
-              placeholder="نام و نام خانوادگی *"
-              value={newRow.full_name}
-              onChange={(e) => setNewRow({ ...newRow, full_name: e.target.value })}
-              className="md:col-span-2 border border-gray-400 p-2 rounded text-sm text-black placeholder-gray-500 font-medium focus:border-blue-600 outline-none"
-            />
+      {/* Add Row Form - Fixed Button */}
+      {canManageRows && !currentPeriod.is_final && (
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 mb-8 shadow-sm">
+          
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-4 border-b border-gray-100 pb-2">
+            <div className="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg">+</div>
+            <h3 className="text-gray-800 font-bold text-sm">افزودن ردیف دستی جدید</h3>
+            <span className="text-xs text-gray-400 mr-auto">(پاداش، پیمانکار، خرید و ...)</span>
+          </div>
 
-            <input
-              placeholder="کد ملی"
-              value={newRow.national_id}
-              onChange={(e) => setNewRow({ ...newRow, national_id: e.target.value })}
-              className="md:col-span-2 border border-gray-400 p-2 rounded text-sm text-center text-black placeholder-gray-500 font-medium focus:border-blue-600 outline-none"
-            />
-
-            {/* ✅ Dropdown نوع رابطه (جدید) */}
-            <select
-              value={newRow.relation_type}
-              onChange={(e) => setNewRow({ ...newRow, relation_type: e.target.value })}
-              className="md:col-span-2 border border-gray-400 p-2 rounded text-sm text-black font-medium focus:border-blue-600 outline-none bg-white"
-            >
-              <option value="EMPLOYEE">👷 کارمند / کارگر</option>
-              <option value="CONTRACTOR">📄 پیمانکار</option>
-              <option value="SUPPLIER">🏪 تامین‌کننده</option>
-              <option value="RETURN">↩️ برگشتی</option>
-            </select>
-
-            <div className="md:col-span-2 relative">
+          {/* Form Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            
+            {/* --- ردیف اول --- */}
+            
+            {/* نام و نام خانوادگی */}
+            <div className="md:col-span-3">
+              <label className="text-[11px] text-gray-500 font-bold mb-1 block">نام و نام خانوادگی <span className="text-red-500">*</span></label>
               <input
-                placeholder="شماره شبا (بدون IR)"
-                value={newRow.shaba_number}
-                onChange={(e) => setNewRow({ ...newRow, shaba_number: e.target.value })}
-                className="w-full border border-gray-400 p-2 pl-8 rounded text-sm text-center text-black placeholder-gray-500 font-medium focus:border-blue-600 outline-none"
+                placeholder="مثال: علی محمدی"
+                value={newRow.full_name}
+                onChange={(e) => setNewRow({ ...newRow, full_name: e.target.value })}
+                className="w-full border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg px-3 py-2 text-sm outline-none transition-all"
               />
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-bold">IR</span>
             </div>
 
-            <input
-              placeholder="شماره کارت"
-              value={newRow.card_number}
-              onChange={(e) => setNewRow({ ...newRow, card_number: e.target.value })}
-              className="md:col-span-2 border border-gray-400 p-2 rounded text-sm text-center text-black placeholder-gray-500 font-medium focus:border-blue-600 outline-none"
-            />
+            {/* نوع رابطه */}
+            <div className="md:col-span-2">
+              <label className="text-[11px] text-gray-500 font-bold mb-1 block">نوع رابطه</label>
+              <div className="relative">
+                <select
+                  value={newRow.relation_type}
+                  onChange={(e) => setNewRow({ ...newRow, relation_type: e.target.value })}
+                  className="w-full appearance-none border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 rounded-lg px-3 py-2 text-sm outline-none cursor-pointer"
+                >
+                  <option value="EMPLOYEE">👷 کارمند</option>
+                  <option value="CONTRACTOR">📄 پیمانکار</option>
+                  <option value="SUPPLIER">🏪 تامین‌کننده</option>
+                  <option value="RETURN">↩️ برگشتی</option>
+                </select>
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-xs">▼</div>
+              </div>
+            </div>
 
-            <input
-              placeholder="بابت / توضیحات"
-              value={newRow.description}
-              onChange={(e) => setNewRow({ ...newRow, description: e.target.value })}
-              className="md:col-span-2 border border-gray-400 p-2 rounded text-sm text-black placeholder-gray-500 font-medium focus:border-blue-600 outline-none"
-            />
+            {/* کد ملی */}
+            <div className="md:col-span-2">
+              <label className="text-[11px] text-gray-500 font-bold mb-1 block">کد ملی</label>
+              <input
+                placeholder="10 رقم"
+                value={newRow.national_id}
+                onChange={(e) => setNewRow({ ...newRow, national_id: e.target.value })}
+                className="w-full border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-center outline-none transition-all"
+              />
+            </div>
 
-            <input
-              placeholder="مبلغ (تومان)"
-              value={newRow.monthly_amount}
-              onChange={(e) => setNewRow({ ...newRow, monthly_amount: e.target.value })}
-              className="md:col-span-12 border border-gray-400 p-2 rounded text-sm text-left ltr text-black placeholder-gray-500 font-bold focus:border-blue-600 outline-none"
-            />
+            {/* شماره شبا */}
+            <div className="md:col-span-3">
+              <label className="text-[11px] text-gray-500 font-bold mb-1 block">شماره شبا (بدون IR)</label>
+              <div className="relative flex items-center direction-ltr">
+                <span className="absolute left-3 text-gray-400 font-bold text-xs select-none">IR</span>
+                <input
+                  placeholder="مثال: 1201..."
+                  value={newRow.shaba_number}
+                  onChange={(e) => setNewRow({ ...newRow, shaba_number: e.target.value })}
+                  className="w-full border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 rounded-lg pl-8 pr-3 py-2 text-sm text-left ltr outline-none transition-all font-mono"
+                />
+              </div>
+            </div>
 
-            <button
-              onClick={handleAddNewRow}
-              className="md:col-span-12 w-full mt-2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg text-sm font-bold shadow transition"
-            >
-              افزودن به لیست
-            </button>
+            {/* شماره کارت */}
+            <div className="md:col-span-2">
+              <label className="text-[11px] text-gray-500 font-bold mb-1 block">شماره کارت</label>
+              <input
+                placeholder="16 رقم"
+                value={newRow.card_number}
+                onChange={(e) => setNewRow({ ...newRow, card_number: e.target.value })}
+                className="w-full border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 rounded-lg px-3 py-2 text-sm text-center outline-none transition-all font-mono"
+              />
+            </div>
+
+
+            {/* --- ردیف دوم --- */}
+
+            {/* بابت / توضیحات */}
+            <div className="md:col-span-6">
+              <label className="text-[11px] text-gray-500 font-bold mb-1 block">بابت / توضیحات</label>
+              <input
+                placeholder="مثال: تسویه حساب فاکتور..."
+                value={newRow.description}
+                onChange={(e) => setNewRow({ ...newRow, description: e.target.value })}
+                className="w-full border border-gray-300 bg-gray-50 focus:bg-white focus:border-blue-500 rounded-lg px-3 py-2 text-sm outline-none transition-all"
+              />
+            </div>
+
+            {/* مبلغ */}
+            <div className="md:col-span-4">
+              <label className="text-[11px] text-blue-800 font-bold mb-1 block">مبلغ قابل پرداخت (تومان) <span className="text-red-500">*</span></label>
+              <div className="relative">
+                  <input
+                  type="number"
+                  placeholder="0"
+                  value={newRow.monthly_amount}
+                  onChange={(e) => setNewRow({ ...newRow, monthly_amount: e.target.value })}
+                  className="w-full border border-blue-300 bg-blue-50 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 rounded-lg px-3 py-2 text-sm text-left ltr font-bold text-blue-900 outline-none transition-all"
+                  />
+                  {newRow.monthly_amount > 0 && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 pointer-events-none">
+                          {Number(newRow.monthly_amount).toLocaleString()}
+                      </span>
+                  )}
+              </div>
+            </div>
+
+            {/* دکمه افزودن (اصلاح شده: همیشه فعال) */}
+            <div className="md:col-span-2 flex items-end">
+              <button
+                onClick={handleAddNewRow}
+                className="w-full py-2.5 rounded-lg text-sm font-bold shadow-md transition-all flex justify-center items-center gap-2 bg-green-600 hover:bg-green-700 hover:shadow-lg text-white"
+              >
+                <span>+</span>
+                افزودن
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -628,7 +682,7 @@ const PayrollDetailView = () => {
                 <th className="px-4 py-3 text-right">بابت</th>
                 <th className="px-4 py-3 text-center w-48">حساب / کارت</th>
                 {/* ✅ ستون ترکیبی جدید */}
-                <th className="px-4 py-3 text-left w-48">محاسبات (ماهانه / مانده)</th>
+                <th className="px-4 py-3 text-left w-48">مبالغ ماهانه</th>
                 <th className="px-4 py-3 text-left text-green-800">قابل پرداخت</th>
                 <th className="px-4 py-3 text-center">عملیات</th>
               </tr>
@@ -827,13 +881,13 @@ const PayrollDetailView = () => {
                         /* --- حالت نمایش --- */
                         <>
                           <div className="flex justify-between items-center w-full min-w-[140px]">
-                            <span className="text-[10px] text-gray-400">ماهانه:</span>
+                            <span className="text-[10px] text-gray-600">ماهانه:</span>
                             <span className="font-bold text-gray-800 text-sm">
                               {Number(row.monthly_amount).toLocaleString()}
                             </span>
                           </div>
                           <div className="flex justify-between items-center w-full min-w-[140px] border-t border-dashed border-gray-200 pt-1 mt-1">
-                            <span className="text-[10px] text-gray-400">مانده پیشین:</span>
+                            <span className="text-[10px] text-gray-600">مانده پیشین:</span>
                             <span
                               dir="ltr"
                               className={`font-mono text-xs font-bold ${

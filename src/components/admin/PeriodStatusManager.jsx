@@ -165,7 +165,7 @@ const PeriodStatusManager = ({
             className="flex-1 px-4 py-2.5 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg border border-gray-600 transition-colors text-sm h-11 flex items-center justify-center gap-2 shadow-sm"
           >
             <span>قدم قبلی</span>
-            <span>⬅️</span>
+            <span>➡️</span>
           </button>
 
           <button
@@ -174,7 +174,7 @@ const PeriodStatusManager = ({
             className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg border border-blue-700 transition-colors text-sm h-11 flex items-center justify-center gap-2 shadow-sm"
           >
             <span>قدم بعدی</span>
-            <span>➡️</span>
+            <span>⬅️</span>
           </button>
 
           {isLocked && (

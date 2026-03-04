@@ -449,6 +449,25 @@ export const recalculateSchemeContract = createAsyncThunk(
     return response.data;
   }
 );
+
+
+export const sendAdminFreeSms = createAsyncThunk(
+  'admin/sendFreeSms',
+  async ({ phone_number, text }, { rejectWithValue }) => {
+    try {
+      const { data } = await api.post('/admin/send-sms/', {
+        phone_number,
+        text
+      });
+      return data;
+    } catch (error) {
+      const message = error.response?.data?.detail || error.message;
+      return rejectWithValue(message);
+    }
+  }
+);
+
+
 // ═══════════════════════════════════════════════════════════
 // 📦 INITIAL STATE
 // ═══════════════════════════════════════════════════════════
@@ -571,6 +590,7 @@ const adminSlice = createSlice({
             };
         }
       })
+      
       .addCase(updateEmployee.rejected, (state, action) => {
         state.updateStatus = { loading: false, success: false, error: action.payload };
       })
@@ -585,7 +605,20 @@ const adminSlice = createSlice({
       .addCase(fetchEmployeeLeaveSummary.rejected, (state) => {
         state.loading.leaveSummary = false;
       });
-
+      // 📋 Dropdowns - Individual
+    builder
+      .addCase(fetchPositions.fulfilled, (state, action) => {
+        state.positions = action.payload;
+      })
+      .addCase(fetchSkillLevels.fulfilled, (state, action) => {
+        state.skillLevels = action.payload;
+      })
+      .addCase(fetchEmploymentTypes.fulfilled, (state, action) => {
+        state.employmentTypes = action.payload;
+      })
+      .addCase(fetchLeaveTypes.fulfilled, (state, action) => {
+        state.leaveTypes = action.payload;
+      });
     // 📝 Contracts
     builder
       .addCase(fetchContracts.pending, (state) => {
@@ -650,20 +683,7 @@ const adminSlice = createSlice({
         state.dropdownsError = action.payload;
       });
 
-    // 📋 Dropdowns - Individual
-    builder
-      .addCase(fetchPositions.fulfilled, (state, action) => {
-        state.positions = action.payload;
-      })
-      .addCase(fetchSkillLevels.fulfilled, (state, action) => {
-        state.skillLevels = action.payload;
-      })
-      .addCase(fetchEmploymentTypes.fulfilled, (state, action) => {
-        state.employmentTypes = action.payload;
-      })
-      .addCase(fetchLeaveTypes.fulfilled, (state, action) => {
-        state.leaveTypes = action.payload;
-      });
+    
 
     // 👔 Employment Types - CRUD
     builder
@@ -782,7 +802,20 @@ const adminSlice = createSlice({
       .addCase(recalculateSchemeContract.fulfilled, (state, action) => {
         const index = state.scheme.contracts.findIndex(c => c.id === action.payload.data.id);
         if (index !== -1) state.scheme.contracts[index] = action.payload.data;
+      })
+     
+      // ✉️ Admin Free SMS
+      .addCase(sendAdminFreeSms.pending, (state) => {
+        state.updateStatus = { loading: true, success: false, error: null };
+      })
+      .addCase(sendAdminFreeSms.fulfilled, (state) => {
+        state.updateStatus = { loading: false, success: true, error: null };
+      })
+      .addCase(sendAdminFreeSms.rejected, (state, action) => {
+        state.updateStatus = { loading: false, success: false, error: action.payload };
       });
+  
+
   },
 });
 

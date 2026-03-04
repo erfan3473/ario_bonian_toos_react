@@ -10,6 +10,8 @@ import { decimalHoursToHHMM } from '../utils/dateUtils';
 const getStatusLabel = (status) => {
   switch (status) {
     case 'PRESENT': return 'حاضر';
+    case 'present': return 'حاضر';
+
     case 'ABSENT': return 'غایب';
     case 'LEAVE': return 'مرخصی';
     case 'REJECTED': return 'رد شده';
@@ -226,7 +228,7 @@ const TimesheetByWorker = ({ workers, byWorker }) => {
                              ${
                                isIncomplete 
                                  ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                                 : d.status === 'PRESENT'
+                                 : d.status === 'PRESENT' || d.status === 'present'
                                    ? (isDarkRow ? 'bg-green-900 text-green-300 border-green-700' : 'bg-green-50 text-green-700 border-green-100')
                                    : d.status === 'ABSENT'
                                    ? 'bg-red-50 text-red-700 border-red-100'

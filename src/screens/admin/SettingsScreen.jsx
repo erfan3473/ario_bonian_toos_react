@@ -74,7 +74,8 @@ const SettingsScreen = () => {
         </div>
 
         <div className="bg-gray-800 rounded-xl border border-gray-700 mb-6 p-2">
-          <div className="flex flex-wrap gap-2">
+          {/* 👇 تغییر اصلی اینجاست: justify-center اضافه شد */}
+          <div className="flex flex-wrap justify-center gap-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}

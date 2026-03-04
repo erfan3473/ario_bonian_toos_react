@@ -16,7 +16,8 @@ import {
   FaCog,
   FaChevronDown,
   FaBriefcase,
-  FaIdBadge // ✅ NEW: For role badge
+  FaIdBadge,
+  FaComments // ✅ اضافه شد
 } from "react-icons/fa";
 
 const Header = () => {
@@ -25,18 +26,16 @@ const Header = () => {
   const location = useLocation();
 
   const { userInfo } = useSelector((state) => state.userLogin);
-  const { user: userProfile } = useSelector((state) => state.userDetails); // ✅ NEW
+  const { user: userProfile } = useSelector((state) => state.userDetails); 
   
   const isAdmin = userInfo?.is_admin;
   const userPosition = userInfo?.position;
   
-  // ✅ NEW: Get report_type from employee position
   const currentUser = (userProfile && Object.keys(userProfile).length > 0) ? userProfile : userInfo;
   const userRole =
-  currentUser?.employee?.position?.report_type ||    // ✅ اول snake_case (بک‌اند)
-  currentUser?.employee?.position?.reporttype ||     // ❌ دوم camelCase (fallback نادر)
+  currentUser?.employee?.position?.report_type ||   
+  currentUser?.employee?.position?.reporttype ||    
   'UNKNOWN';
-
 
   const isSuperUser = currentUser?.is_superuser || false;
 
@@ -58,6 +57,7 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
   useEffect(() => {
     if (userInfo && (!userProfile || Object.keys(userProfile).length === 0)) {
       dispatch(fetchUserProfile());
@@ -66,7 +66,6 @@ const Header = () => {
 
   const isActive = (path) => location.pathname === path;
 
-  // ✅ NEW: Role color mapping
   const getRoleStyle = (role) => {
     const styles = {
       'PROJECT_MANAGER': 'bg-purple-600/20 text-purple-400 border-purple-600/40',
@@ -102,7 +101,6 @@ const Header = () => {
       <div className="container mx-auto px-6">
         <div className="flex justify-between items-center py-4">
           
-          {/* لوگو */}
           <Link
             to="/"
             className="flex items-center gap-2 hover:opacity-90 transition"
@@ -114,10 +112,22 @@ const Header = () => {
             />
           </Link>
 
-          {/* ناوبری اصلی */}
           {userInfo && (
             <nav className="hidden lg:flex items-center gap-2">
               
+               {/* ✅ لینک پیام‌رسان (اضافه شد) */}
+               <Link 
+                to="/chat" 
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
+                  isActive('/chat') 
+                    ? 'bg-cyan-600 text-white' 
+                    : 'text-gray-200 hover:bg-cyan-700/50'
+                }`}
+              >
+               <FaComments className="text-cyan-300" />
+               <span>پیام‌رسان</span>
+              </Link>
+
               <Link 
                 to="/admin/timesheet" 
                 className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
@@ -165,17 +175,18 @@ const Header = () => {
                     <FaUsers className="text-green-300" />
                     <span>کاربران</span>
                   </Link>
-
+                  
+                  {/* ... بقیه لینک‌ها بدون تغییر ... */}
                   <Link
-                    to="/admin/scheme-managements"
+                    to="/admin/phonebook"
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      location.pathname.startsWith('/admin/scheme-managements')
+                      location.pathname.startsWith('/admin/phonebook')
                         ? 'bg-green-600 text-white'
                         : 'text-gray-200 hover:bg-green-700/50'
                     }`}
                   >
                     <FaUsers className="text-green-300" />
-                    <span>گروه شغلی</span>
+                    <span>دفترچه تلفن </span>
                   </Link>
 
                   <Link
@@ -265,7 +276,6 @@ const Header = () => {
                       </p>
                     )}
                     
-                    {/* ✅ NEW: Role badge */}
                     <div className="mt-2 flex flex-col gap-1">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border ${getRoleStyle(userRole)}`}>
                         <FaIdBadge />

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../../api/axiosInstance'; // اطمینان از مسیر صحیح api
+import api from '../../api/axiosInstance';
 
 // ----------------------------------------------------------------------
 // Async Thunks
@@ -10,7 +10,6 @@ export const fetchAllPeriods = createAsyncThunk(
   'payroll/fetchAllPeriods',
   async (_, { rejectWithValue }) => {
     try {
-      // url باید با urls.py جنگو هماهنگ باشد
       const { data } = await api.get('/admin/payroll/periods/');
       return data;
     } catch (error) {
@@ -22,7 +21,6 @@ export const fetchAllPeriods = createAsyncThunk(
 );
 
 // 2. دریافت جزئیات یک دوره خاص (با بازه زمانی)
-// اگر دوره وجود نداشته باشد، بک‌ند آن را می‌سازد (Get or Create)
 export const fetchPeriodPayroll = createAsyncThunk(
   'payroll/fetchPeriodPayroll',
   async ({ start, end }, { rejectWithValue }) => {
@@ -49,7 +47,7 @@ export const generatePeriodPayroll = createAsyncThunk(
       const params = new URLSearchParams();
       if (start) params.append('start', start);
       if (end) params.append('end', end);
-      params.append('generate', '1'); // فلگ تولید
+      params.append('generate', '1');
       
       const { data } = await api.post(`/admin/payroll/period/?${params.toString()}`);
       return data;
@@ -66,7 +64,7 @@ export const createManualPayrollItem = createAsyncThunk(
   'payroll/createManualPayrollItem',
   async ({ periodId, payload }, { rejectWithValue }) => {
     try {
-      const { data } = await api.post(`/admin/payroll/${periodId}/items/`, payload);
+      const { data } = await api.post(`/admin/payroll/periods/${periodId}/items/`, payload);
       return data;
     } catch (error) {
       return rejectWithValue(
@@ -97,7 +95,7 @@ export const deletePayrollItem = createAsyncThunk(
   async (itemId, { rejectWithValue }) => {
     try {
       await api.delete(`/admin/payroll/items/${itemId}/delete/`);
-      return itemId; // برگرداندن آیدی برای حذف از استیت
+      return itemId;
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.detail || 'خطا در حذف ردیف'
@@ -124,11 +122,27 @@ export const changeItemStage = createAsyncThunk(
   }
 );
 
+// 8. تغییر وضعیت دوره (نسخه جدید با پارامترهای کامل)
 export const changePeriodStatus = createAsyncThunk(
   'payroll/changePeriodStatus',
-  async ({ periodId, status, is_final }, { rejectWithValue }) => {
+  async ({ 
+    periodId, 
+    status, 
+    change_type = 'SEND', 
+    reason = '', 
+    correction_instructions = '', 
+    attachment_ids = [], 
+    is_final 
+  }, { rejectWithValue }) => {
     try {
-      const payload = { status };
+      const payload = { 
+        status, 
+        change_type,
+        reason,
+        correction_instructions,
+        attachment_ids,
+      };
+      
       if (typeof is_final !== 'undefined') payload.is_final = is_final;
 
       const { data } = await api.post(`/admin/payroll/periods/${periodId}/status/`, payload);
@@ -141,15 +155,73 @@ export const changePeriodStatus = createAsyncThunk(
   }
 );
 
+// 9. آپلود فایل ضمیمه
+export const uploadStatusAttachment = createAsyncThunk(
+  'payroll/uploadStatusAttachment',
+  async (file, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const { data } = await api.post('/admin/payroll/upload-attachment/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در آپلود فایل'
+      );
+    }
+  }
+);
+
+// 10. دریافت تاریخچه تغییرات وضعیت
+export const fetchPeriodStatusHistory = createAsyncThunk(
+  'payroll/fetchPeriodStatusHistory',
+  async (periodId, { rejectWithValue }) => {
+    try {
+      const { data } = await api.get(`/admin/payroll/periods/${periodId}/status/history/`);
+      return { periodId, data };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت تاریخچه تغییرات'
+      );
+    }
+  }
+);
+
+// 11. دریافت جزئیات کامل دوره
+export const fetchPeriodDetail = createAsyncThunk(
+  'payroll/fetchPeriodDetail',
+  async (periodId, { rejectWithValue }) => {
+    try {
+      const { data } = await api.get(`/admin/payroll/periods/${periodId}/detail/`);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت جزئیات دوره'
+      );
+    }
+  }
+);
 
 // ----------------------------------------------------------------------
 // Slice Definition
 // ----------------------------------------------------------------------
 
 const initialState = {
-  periodsList: [],   // لیست خلاصه برای صفحه اصلی
-  currentPeriod: null, // هدر دوره فعلی (شامل start, end, status)
-  items: [],         // لیست ردیف‌های دوره فعلی
+  periodsList: [],           // لیست خلاصه برای صفحه اصلی
+  currentPeriod: null,       // هدر دوره فعلی
+  items: [],                // لیست ردیف‌های دوره فعلی
+  periodDetail: null,       // جزئیات کامل دوره
+  statusHistory: [],        // تاریخچه تغییرات وضعیت
+  uploadAttachment: {       // وضعیت آپلود فایل
+    loading: false,
+    error: null,
+    data: null,
+  },
   loading: false,
   error: null,
 };
@@ -158,13 +230,15 @@ const payrollSlice = createSlice({
   name: 'payroll',
   initialState,
   reducers: {
-    // پاک کردن دیتای دوره جاری (هنگام بازگشت به داشبورد)
+    // پاک کردن دیتای دوره جاری
     clearCurrentPeriod(state) {
       state.currentPeriod = null;
       state.items = [];
+      state.periodDetail = null;
       state.error = null;
     },
-    // آپدیت لوکال برای اینپوت‌های جدول (Optimistic UI)
+    
+    // آپدیت لوکال برای اینپوت‌های جدول
     updateLocalPayrollItem(state, action) {
       const { id, changes } = action.payload;
       const idx = state.items.findIndex((i) => i.id === id);
@@ -172,11 +246,33 @@ const payrollSlice = createSlice({
         state.items[idx] = { ...state.items[idx], ...changes };
       }
     },
+    
+    // پاک کردن وضعیت آپلود فایل
+    clearUploadAttachment(state) {
+      state.uploadAttachment = {
+        loading: false,
+        error: null,
+        data: null,
+      };
+    },
+    
+    // پاک کردن تاریخچه تغییرات
+    clearStatusHistory(state) {
+      state.statusHistory = [];
+    },
+    
+    // حالت تست برای بررسی مسیرها
+    testEndpoint(state, action) {
+      console.log('آزمایش endpoint:', action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder
       // --- Fetch All Periods ---
-      .addCase(fetchAllPeriods.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchAllPeriods.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
       .addCase(fetchAllPeriods.fulfilled, (state, action) => {
         state.loading = false;
         state.periodsList = action.payload;
@@ -187,7 +283,10 @@ const payrollSlice = createSlice({
       })
 
       // --- Fetch Single Period ---
-      .addCase(fetchPeriodPayroll.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchPeriodPayroll.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
       .addCase(fetchPeriodPayroll.fulfilled, (state, action) => {
         state.loading = false;
         state.currentPeriod = action.payload.period;
@@ -199,7 +298,10 @@ const payrollSlice = createSlice({
       })
 
       // --- Generate From Attendance ---
-      .addCase(generatePeriodPayroll.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(generatePeriodPayroll.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
       .addCase(generatePeriodPayroll.fulfilled, (state, action) => {
         state.loading = false;
         state.currentPeriod = action.payload.period;
@@ -214,6 +316,9 @@ const payrollSlice = createSlice({
       .addCase(createManualPayrollItem.fulfilled, (state, action) => {
         state.items.push(action.payload);
       })
+      .addCase(createManualPayrollItem.rejected, (state, action) => {
+        state.error = action.payload;
+      })
       
       // --- Update Item ---
       .addCase(updatePayrollItem.fulfilled, (state, action) => {
@@ -222,50 +327,114 @@ const payrollSlice = createSlice({
           state.items[idx] = { ...state.items[idx], ...action.payload };
         }
       })
+      .addCase(updatePayrollItem.rejected, (state, action) => {
+        state.error = action.payload;
+      })
 
       // --- Delete Item ---
       .addCase(deletePayrollItem.fulfilled, (state, action) => {
         state.items = state.items.filter((i) => i.id !== action.payload);
       })
-            // --- Change Item Stage ---
+      .addCase(deletePayrollItem.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      
+      // --- Change Item Stage ---
       .addCase(changeItemStage.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(changeItemStage.fulfilled, (state, action) => {
         state.loading = false;
-        
-        // بروزرسانی local state برای آیتم‌های تغییر یافته
-        action.payload.updated_count; // برای UI feedback
-        
-        // اگر errors داریم، نمایش ندهیم ولی errors در payload موجود است
-        const updated_items = action.payload.updated_count;
-        
-        // TODO: اگر بخواهید دقیق‌تر بروزرسانی کنید، می‌توانید از backend item data استفاده کنید
-        // فعلاً فقط loading را خاموش می‌کنیم
+        // می‌توانیم آیتم‌های تغییر کرده را آپدیت کنیم
+        // اگر backend لیست آیتم‌های آپدیت شده را برنگرداند
+        // اینجا فقط پیام موفقیت را نشان می‌دهیم
+        console.log(`تعداد ${action.payload.updated_count} آیتم تغییر stage دادند`);
+      })
+      .addCase(changeItemStage.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // --- Change Period Status ---
+      .addCase(changePeriodStatus.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
       })
       .addCase(changePeriodStatus.fulfilled, (state, action) => {
         state.loading = false;
-
+        
+        // آپدیت دوره جاری
         if (state.currentPeriod) {
           state.currentPeriod = { ...state.currentPeriod, ...action.payload };
         }
-
+        
+        // آپدیت در لیست دوره‌ها
         const idx = state.periodsList.findIndex(p => p.id === action.payload.id);
         if (idx !== -1) {
           state.periodsList[idx] = { ...state.periodsList[idx], ...action.payload };
         }
+        
+        // آپدیت جزئیات دوره اگر وجود دارد
+        if (state.periodDetail && state.periodDetail.id === action.payload.id) {
+          state.periodDetail = { ...state.periodDetail, ...action.payload };
+        }
       })
-      .addCase(changePeriodStatus.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(changePeriodStatus.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
-
-      .addCase(changeItemStage.rejected, (state, action) => {
+      .addCase(changePeriodStatus.rejected, (state, action) => { 
+        state.loading = false; 
+        state.error = action.payload; 
+      })
+      
+      // --- Upload Attachment ---
+      .addCase(uploadStatusAttachment.pending, (state) => {
+        state.uploadAttachment.loading = true;
+        state.uploadAttachment.error = null;
+      })
+      .addCase(uploadStatusAttachment.fulfilled, (state, action) => {
+        state.uploadAttachment.loading = false;
+        state.uploadAttachment.data = action.payload;
+      })
+      .addCase(uploadStatusAttachment.rejected, (state, action) => {
+        state.uploadAttachment.loading = false;
+        state.uploadAttachment.error = action.payload;
+      })
+      
+      // --- Fetch Status History ---
+      .addCase(fetchPeriodStatusHistory.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
+      .addCase(fetchPeriodStatusHistory.fulfilled, (state, action) => {
+        state.loading = false;
+        state.statusHistory = action.payload.data;
+      })
+      .addCase(fetchPeriodStatusHistory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // --- Fetch Period Detail ---
+      .addCase(fetchPeriodDetail.pending, (state) => { 
+        state.loading = true; 
+        state.error = null; 
+      })
+      .addCase(fetchPeriodDetail.fulfilled, (state, action) => {
+        state.loading = false;
+        state.periodDetail = action.payload;
+      })
+      .addCase(fetchPeriodDetail.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
-
   },
 });
 
-export const { clearCurrentPeriod, updateLocalPayrollItem } = payrollSlice.actions;
+export const { 
+  clearCurrentPeriod, 
+  updateLocalPayrollItem,
+  clearUploadAttachment,
+  clearStatusHistory,
+  testEndpoint
+} = payrollSlice.actions;
+
 export default payrollSlice.reducer;
