@@ -1,270 +1,277 @@
 // src/screens/ProjectGeofenceScreen.jsx
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, FeatureGroup, useMap } from 'react-leaflet';
-import { EditControl } from 'react-leaflet-draw';
-import L from 'leaflet';
-import { useDispatch } from 'react-redux';
-import { 
-  fetchProjectGeofence,     // ✅ تغییر
-  updateProjectGeofence     // ✅ تغییر
-} from '../features/projects/projectSlice';  // ✅ تغییر
-import Loader from '../components/Loader';
-import Message from '../components/Message';
+import { useDispatch, useSelector } from 'react-redux';
+import L from '@neshan-maps-platform/leaflet';
+import '@neshan-maps-platform/leaflet/dist/leaflet.css';
+import { fetchProjectGeofence, updateProjectGeofence } from '../features/projects/projectSlice';
 
-// استایل‌ها
-import 'leaflet/dist/leaflet.css';
-import 'leaflet-draw/dist/leaflet.draw.css';
-
-// فیکس آیکون
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconAnchor: [12, 41]
+const vertexIcon = L.divIcon({
+  className: 'custom-vertex',
+  html: '<div style="width:16px;height:16px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8]
 });
-L.Marker.prototype.options.icon = DefaultIcon;
 
-// 🗑️ دکمه پاک‌سازی روی نقشه
-const ClearControl = ({ onClear }) => {
-    return (
-        <div className="leaflet-top leaflet-left mt-20 ml-3 pointer-events-auto z-[500]">
-            <div className="leaflet-control leaflet-bar">
-                <a 
-                    href="#" 
-                    title="پاک کردن نقشه" 
-                    role="button" 
-                    aria-label="Clear Map"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onClear();
-                    }}
-                    className="bg-white text-red-600 hover:bg-gray-100 w-8 h-8 flex items-center justify-center font-bold text-lg"
-                >
-                    🗑️
-                </a>
-            </div>
-        </div>
-    );
-};
-
-// 🗺️ زوم هوشمند
-const MapController = ({ geofence }) => {
-  const map = useMap();
-  const hasZoomed = useRef(false);
-
-  useEffect(() => {
-    if (geofence && geofence.length > 0 && !hasZoomed.current) {
-      try {
-        const polygon = L.polygon(geofence);
-        map.fitBounds(polygon.getBounds(), { padding: [50, 50] });
-        hasZoomed.current = true; 
-      } catch (e) {
-        console.warn("Invalid bounds", e);
-      }
-    }
-  }, [geofence, map]);
-  return null;
-};
+const midpointIcon = L.divIcon({
+  className: 'custom-midpoint',
+  html: '<div style="width:12px;height:12px;background:#10b981;border:2px solid #fff;border-radius:50%;opacity:0.9;box-shadow:0 0 4px rgba(0,0,0,0.4); cursor:pointer;"></div>',
+  iconSize: [12, 12],
+  iconAnchor: [6, 6]
+});
 
 const ProjectGeofenceScreen = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [project, setProject] = useState(null);
-  const [geofence, setGeofence] = useState([]); 
 
-  const featureGroupRef = useRef();
+  const { geofence, loading } = useSelector((state) => state.projects);
+  const geofenceData = geofence?.data;
+
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  
+  // لایه‌ها به صورت مجزا برای جلوگیری از افت فریم
+  const layerGroupRef = useRef(null); 
+  const shapeLayerRef = useRef(null); 
+
+  const isDrawingRef = useRef(false);
+  const pointsRef = useRef([]);
+
+  const [points, setPoints] = useState([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const result = await dispatch(fetchProjectGeofence(id)).unwrap();  // ✅ تغییر
-        setProject(result);
-        if (result.boundary_coordinates && result.boundary_coordinates.length > 0) {
-            setGeofence(result.boundary_coordinates);
-        }
-      } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    dispatch(fetchProjectGeofence(id));
   }, [dispatch, id]);
 
-  // پاک کردن کل نقشه
-  const handleClearMap = useCallback(() => {
-    if (featureGroupRef.current) {
-        featureGroupRef.current.clearLayers();
-    }
-    setGeofence([]);
-  }, []);
+  const drawLayers = () => {
+    const map = mapInstanceRef.current;
+    if (!map || !layerGroupRef.current) return;
 
-  const _onCreated = useCallback((e) => {
-    const layer = e.layer;
-    
-    // فقط ۱ فنس مجاز است
-    if (featureGroupRef.current) {
-        const layers = featureGroupRef.current.getLayers();
-        if (layers.length > 1) {
-            layers.forEach(l => {
-                if (l !== layer) featureGroupRef.current.removeLayer(l);
-            });
+    layerGroupRef.current.clearLayers();
+    const pts = pointsRef.current;
+
+    if (pts.length === 0) {
+      shapeLayerRef.current = null;
+      return;
+    }
+
+    // 1. رسم خط یا چندضلعی و ذخیره رفرنس آن
+    if (pts.length >= 3) {
+      shapeLayerRef.current = L.polygon(pts, {
+        color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2, weight: 3,
+      }).addTo(layerGroupRef.current);
+    } else if (pts.length === 2) {
+      shapeLayerRef.current = L.polyline(pts, { color: '#3b82f6', weight: 3 }).addTo(layerGroupRef.current);
+    }
+
+    // 2. رسم نقاط اصلی
+    pts.forEach((p, index) => {
+      const marker = L.marker(p, { icon: vertexIcon, draggable: true }).addTo(layerGroupRef.current);
+      
+      // آپدیت سریع چندضلعی بدون رسم مجدد بقیه نقاط (جلوگیری از جا ماندن موس)
+      marker.on('drag', (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        pointsRef.current[index] = [lat, lng];
+        if (shapeLayerRef.current) {
+          shapeLayerRef.current.setLatLngs(pointsRef.current);
         }
-    }
+      });
 
-    const latlngs = layer.getLatLngs()[0];
-    const coords = latlngs.map(ll => [ll.lat, ll.lng]);
-    setGeofence(coords);
-  }, []);
-
-  const _onEdited = useCallback((e) => {
-    e.layers.eachLayer((layer) => {
-        const latlngs = layer.getLatLngs()[0];
-        const coords = latlngs.map(ll => [ll.lat, ll.lng]);
-        setGeofence(coords);
+      // رسم مجدد نقاط میانی فقط وقتی درگ تمام شد
+      marker.on('dragend', () => {
+        setPoints([...pointsRef.current]);
+        drawLayers(); 
+      });
     });
-  }, []);
 
-  const _onDeleted = useCallback((e) => {
-    setGeofence([]);
-  }, []);
+    // 3. رسم نقاط میانی
+    if (pts.length >= 2) {
+      for (let i = 0; i < pts.length; i++) {
+        if (pts.length === 2 && i === 1) break;
 
-  const handleSave = async () => {
-    if (geofence.length < 3) {
-        alert("❌ لطفاً یک محدوده معتبر رسم کنید (حداقل ۳ نقطه).");
-        return;
-    }
-    try {
-        setSaving(true);
-        await dispatch(updateProjectGeofence({ 
-        projectId: id, 
-        coordinates: geofence 
-        })).unwrap();
+        const nextI = (i + 1) % pts.length;
+        const p1 = pts[i];
+        const p2 = pts[nextI];
         
-        alert("✅ محدوده با موفقیت ذخیره شد.");
-        navigate('/projects');  // ✅ تغییر از '/admin/projects' به '/projects'
-    } catch (err) {
-        alert("خطا: " + err);
-    } finally {
-        setSaving(false);
-    }
-    };
+        const midLat = (p1[0] + p2[0]) / 2;
+        const midLng = (p1[1] + p2[1]) / 2;
 
-  // لود کردن فنس اولیه برای ادیت
-  const LoadInitialShape = () => {
-      const loadedRef = useRef(false);
-      useEffect(() => {
-          if (!loadedRef.current && geofence.length > 0 && featureGroupRef.current) {
-              featureGroupRef.current.clearLayers();
-              const polygon = L.polygon(geofence, { color: '#3b82f6' });
-              featureGroupRef.current.addLayer(polygon);
-              loadedRef.current = true;
-          }
-      }, []);
-      return null;
+        const midMarker = L.marker([midLat, midLng], { icon: midpointIcon }).addTo(layerGroupRef.current);
+        
+        midMarker.on('click', (e) => {
+          L.DomEvent.stopPropagation(e); // جلوگیری از ثبت نقطه جدید توسط نقشه
+          pointsRef.current.splice(i + 1, 0, [midLat, midLng]);
+          setPoints([...pointsRef.current]);
+          drawLayers();
+        });
+      }
+    }
   };
 
-  if (loading) return <Loader />;
-  if (error) return <Message variant="danger">{error}</Message>;
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
+
+    const map = new L.Map(mapContainerRef.current, {
+      key: "web.83d364e4d58e4b1e966567753524cdf8",
+      maptype: "neshan",
+      poi: false,
+      traffic: false,
+      center: [35.6892, 51.389],
+      zoom: 13,
+    });
+
+    mapInstanceRef.current = map;
+    layerGroupRef.current = L.layerGroup().addTo(map);
+
+    map.on('click', (e) => {
+      if (!isDrawingRef.current) return;
+      const { lat, lng } = e.latlng;
+      pointsRef.current.push([lat, lng]);
+      setPoints([...pointsRef.current]);
+      drawLayers();
+    });
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || loading?.geofence || !geofenceData?.boundary_coordinates?.length) return;
+
+    const coords = geofenceData.boundary_coordinates;
+    pointsRef.current = [...coords];
+    setPoints([...coords]);
+    
+    drawLayers();
+
+    try {
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [50, 50] });
+    } catch (e) {}
+
+  }, [geofenceData, loading?.geofence]);
+
+  const handleStart = () => {
+    pointsRef.current = [];
+    setPoints([]);
+    if (layerGroupRef.current) layerGroupRef.current.clearLayers();
+    isDrawingRef.current = true;
+    setIsDrawing(true);
+  };
+
+  const handleFinish = () => {
+    if (pointsRef.current.length < 3) {
+      alert('حداقل ۳ نقطه لازمه');
+      return;
+    }
+    isDrawingRef.current = false;
+    setIsDrawing(false);
+  };
+
+  const handleClear = () => {
+    pointsRef.current = [];
+    setPoints([]);
+    if (layerGroupRef.current) layerGroupRef.current.clearLayers();
+    isDrawingRef.current = false;
+    setIsDrawing(false);
+  };
+
+  const handleSave = async () => {
+    if (pointsRef.current.length < 3) {
+      alert('حداقل ۳ نقطه لازمه');
+      return;
+    }
+    try {
+      setSaving(true);
+      await dispatch(updateProjectGeofence({
+        projectId: id,
+        coordinates: pointsRef.current,
+      })).unwrap();
+      alert('✅ محدوده با موفقیت ذخیره شد');
+      navigate(-1);
+    } catch (err) {
+      alert('خطا: ' + (err.message || err));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] bg-gray-900 text-white">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-center p-4 bg-gray-800 shadow-md z-10 border-b border-gray-700">
-            <div className="mb-3 md:mb-0">
-                <h1 className="text-xl font-bold flex items-center gap-2">
-                    <span className="text-blue-400">📍 فنس‌کشی:</span> 
-                    {project?.name}
-                </h1>
-                <p className="text-xs text-gray-400 mt-1">
-                   ابزار رسم (چندضلعی) را انتخاب کنید و محدوده را مشخص نمایید.
-                </p>
-            </div>
-            
-            <div className="flex gap-3">
-                <button 
-                    onClick={() => navigate(-1)}
-                    className="px-4 py-2 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700 transition text-sm"
-                    disabled={saving}
-                >
-                    انصراف
-                </button>
-                <button 
-                    onClick={handleSave}
-                    disabled={saving}
-                    className={`px-6 py-2 rounded-lg font-bold shadow-lg transition flex items-center gap-2 ${saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-green-600 hover:bg-green-500 text-white'}`}
-                >
-                    {saving ? 'در حال ذخیره...' : 'ذخیره نهایی'}
-                </button>
-            </div>
+    // z-index: 50 برای قرار گرفتن روی هدر و منوها
+    <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: 50, backgroundColor: '#111827' }}>
+
+      {loading?.geofence && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 2000,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'white', fontSize: 18,
+        }}>
+          در حال بارگذاری...
         </div>
+      )}
 
-        {/* Map Area */}
-        <div className="flex-grow relative w-full isolate">
-            <MapContainer 
-                center={[35.6892, 51.389]} 
-                zoom={14} 
-                style={{ height: '100%', width: '100%', zIndex: 0 }}
-                className="bg-gray-800"
-            >
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; OpenStreetMap'
-                />
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-                <MapController geofence={geofence} />
-                
-                <ClearControl onClear={handleClearMap} />
+      {/* انتقال دکمه‌ها به پایین (Bottom) صفحه تا زیر هدر نروند */}
+      <div style={{
+        position: 'absolute', bottom: 24, left: 24, right: 24, zIndex: 1000,
+        display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center'
+      }}>
+        <button onClick={() => navigate(-1)} style={btnStyle('#374151')}>
+          ← بازگشت
+        </button>
 
-                <FeatureGroup ref={featureGroupRef}>
-                    <EditControl
-                        position="topright"
-                        onCreated={_onCreated}
-                        onEdited={_onEdited}
-                        onDeleted={_onDeleted}
-                        draw={{
-                            rectangle: false,
-                            circle: false,
-                            circlemarker: false,
-                            marker: false,
-                            polyline: false,
-                            polygon: {
-                                allowIntersection: true,
-                                showArea: true,
-                                shapeOptions: { 
-                                    color: '#3b82f6',
-                                    fillOpacity: 0.2,
-                                    weight: 4
-                                }
-                            },
-                        }}
-                    />
-                </FeatureGroup>
-                
-                <LoadInitialShape />
+        {!isDrawing ? (
+          <button onClick={handleStart} style={btnStyle('#2563eb')}>
+            ✏️ رسم مجدد
+          </button>
+        ) : (
+          <button onClick={handleFinish} style={btnStyle('#16a34a')}>
+            ✅ اتمام رسم
+          </button>
+        )}
 
-            </MapContainer>
+        <button onClick={handleClear} style={btnStyle('#dc2626')}>
+          🗑️ پاک کردن
+        </button>
 
-            <div className="absolute bottom-8 left-8 bg-gray-900/90 backdrop-blur p-4 rounded-xl border border-gray-600 shadow-2xl max-w-xs z-[400] pointer-events-none">
-                <h4 className="font-bold text-blue-400 text-sm mb-2">📘 راهنما:</h4>
-                <ul className="list-disc list-inside space-y-1 text-xs text-gray-300">
-                    <li>ابزار چندضلعی (Pentagon) بالا سمت راست را بزنید.</li>
-                    <li>نقاط را بدون محدودیت کلیک کنید.</li>
-                    <li>برای بستن، روی <b>نقطه اول</b> کلیک کنید.</li>
-                    <li>برای شروع مجدد دکمه 🗑️ را بزنید.</li>
-                </ul>
-            </div>
+        {!isDrawing && points.length >= 3 && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={btnStyle(saving ? '#6b7280' : '#15803d')}
+          >
+            {saving ? 'در حال ذخیره...' : `💾 ذخیره (${points.length} نقطه)`}
+          </button>
+        )}
+      </div>
+
+      {isDrawing && (
+        <div style={{
+          position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+          background: 'rgba(0,0,0,0.8)', color: '#86efac',
+          padding: '10px 16px', borderRadius: 8, fontSize: 14, textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+        }}>
+          🟢 روی نقشه کلیک کنید ({points.length} نقطه)
         </div>
+      )}
     </div>
   );
 };
+
+const btnStyle = (bg) => ({
+  background: bg, color: '#fff', border: 'none',
+  padding: '12px 20px', borderRadius: 8,
+  fontSize: 15, fontWeight: 'bold', cursor: 'pointer',
+  boxShadow: '0 4px 10px rgba(0,0,0,0.3)', fontFamily: 'inherit',
+  minWidth: '120px'
+});
 
 export default ProjectGeofenceScreen;

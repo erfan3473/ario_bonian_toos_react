@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import moment from 'moment-jalaali';
-import './JalaliDatePicker.css'; // فایل CSS شما
+import './JalaliDatePicker.css';
 
 const JalaliDatePicker = ({
   name,
@@ -11,7 +11,7 @@ const JalaliDatePicker = ({
   label,
   disabled = false,
   className = '',
-  modal = false, // اگر true باشد، از کلاس‌های مودال CSS استفاده می‌کند
+  modal = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(moment().jMonth());
@@ -34,6 +34,12 @@ const JalaliDatePicker = ({
     return years;
   };
 
+  // ✅ تبدیل روز هفته میلادی به شمسی
+  const getPersianWeekdayIndex = (m) => {
+    const g = m.day();       // 0..6  (Sunday..Saturday)
+    return (g + 1) % 7;      // 0..6  (Saturday..Friday)
+  };
+
   useEffect(() => {
     if (value) {
       const m = moment(value, 'YYYY-MM-DD');
@@ -47,7 +53,6 @@ const JalaliDatePicker = ({
     }
   }, [value]);
 
-  // بستن با کلیک خارج (فقط اگر مودال نباشد)
   useEffect(() => {
     if (!isOpen || modal) return;
     const handleClickOutside = (event) => {
@@ -64,10 +69,20 @@ const JalaliDatePicker = ({
   const getDaysInMonth = () => {
     const days = [];
     const daysInMonth = moment.jDaysInMonth(currentYear, currentMonth);
-    const firstDayOfMonth = moment(`${currentYear}/${currentMonth + 1}/1`, 'jYYYY/jM/jD').day();
+    
+    const firstDayMoment = moment(`${currentYear}/${currentMonth + 1}/1`, 'jYYYY/jM/jD');
+    const firstDayPersianIndex = getPersianWeekdayIndex(firstDayMoment);
 
-    for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
-    for (let day = 1; day <= daysInMonth; day++) days.push(day);
+    // خالی‌های ابتدای ماه
+    for (let i = 0; i < firstDayPersianIndex; i++) {
+      days.push(null);
+    }
+
+    // روزهای واقعی
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+
     return days;
   };
 
@@ -108,9 +123,15 @@ const JalaliDatePicker = ({
     return day === selectedDate.jDate() && currentMonth === selectedDate.jMonth() && currentYear === selectedDate.jYear();
   };
 
+  // ✅ تشخیص جمعه برای هر روز
+  const isFriday = (day) => {
+    if (!day) return false;
+    const dateMoment = moment(`${currentYear}/${currentMonth + 1}/${day}`, 'jYYYY/jM/jD');
+    return getPersianWeekdayIndex(dateMoment) === 6;
+  };
+
   const displayValue = selectedDate ? selectedDate.format('jYYYY/jMM/jDD') : '';
 
-  // محتوای اصلی تقویم (بدون فریم مودال یا پاپ‌آپ)
   const calendarContent = (
     <div className="jalali-datepicker-content">
       {/* Header */}
@@ -151,7 +172,10 @@ const JalaliDatePicker = ({
               ${!day ? 'jalali-datepicker-day-empty' : ''}
               ${isToday(day) ? 'jalali-datepicker-day-today' : ''}
               ${isSelected(day) ? 'jalali-datepicker-day-selected' : ''}
-              ${i % 7 === 6 ? 'jalali-datepicker-day-friday' : ''}
+              ${day && getPersianWeekdayIndex(
+                  moment(`${currentYear}/${currentMonth + 1}/${day}`, 'jYYYY/jM/jD')
+              ) === 6 ? 'jalali-datepicker-day-friday' : ''}
+
             `}
           >
             {day}

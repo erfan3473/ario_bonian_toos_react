@@ -27,8 +27,8 @@ import WorkerCard from '../components/WorkerCard';
 import Loader from '../components/Loader';
 
 // 🌐 تنظیمات سوکت
-const WS_URL = 'wss://ariobonyantoos.com/ws/worker/updates/';
-
+const WS_URL = 'wss://www.ariobonyantoos.com/ws/worker/updates/';
+// const WS_URL = 'ws://87.107.108.222/ws/worker/updates/';
 // تابع کمکی برای نمایش زمان
 const formatTimeAgo = (ts) => {
   if (!ts) return '—';
@@ -77,6 +77,7 @@ const WorkerDashboardScreen = () => {
   const [sortBy, setSortBy] = useState('name');
   const [highlightId, setHighlightId] = useState(null);
   const [mapSelectedWorkerId, setMapSelectedWorkerId] = useState(null);
+  const [zoomTrigger, setZoomTrigger] = useState(0);
 
   // رفرنس‌های سوکت و زمان
   const socketRef = useRef(null);
@@ -330,12 +331,13 @@ const WorkerDashboardScreen = () => {
         <WorkerMap
           workers={finalWorkers}
           selectedWorkerId={mapSelectedWorkerId}
+          zoomTrigger={zoomTrigger}           // ✅ اضافه شد
           workerHistory={historyData[mapSelectedWorkerId] || []}
           loadingHistory={historyStatus === 'loading'}
           projectGeofence={geofenceData?.boundary_coordinates}
-          // ✅ اضافه شد: وضعیت اتصال را به نقشه پاس می‌دهیم
           connected={connected}
         />
+
         
       </div>
 
@@ -443,7 +445,15 @@ const WorkerDashboardScreen = () => {
                     worker={w}
                     highlight={highlightId === w.id}
                     selected={mapSelectedWorkerId === w.id}
-                    onClick={(id) => setMapSelectedWorkerId(id === mapSelectedWorkerId ? null : id)}
+                    // جایگزین onClick روی WorkerCard
+                    onClick={(id) => {
+                      const newId = id === mapSelectedWorkerId ? null : id;
+                      setMapSelectedWorkerId(newId);
+                      if (newId) {
+                        setZoomTrigger(prev => prev + 1); // هر بار عدد جدید → useEffect اجرا میشه
+                      }
+                    }}
+
                     lastSeen={formatTimeAgo(w.lastUpdate)}
                   />
                 ))

@@ -1,0 +1,120 @@
+/* src/components/PersianCalendarFrame.css */
+
+.persian-calendar-frame {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+  direction: rtl;
+  font-family: 'Vazir', 'Tahoma', sans-serif;
+  max-width: 400px;
+  margin: 0 auto 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.persian-calendar-frame::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  transform: rotate(35deg);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) );
+}
+
+.calendar-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.calendar-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 8px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  padding: 6px 0;
+  color: #e5e7eb;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  background: #ffffff20;
+  border-radius: 10px;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.calendar-day-in-range {
+  background: #ffffff40;
+  box-shadow: 0 0 0 2px #ffffff50 inset;
+}
+
+.calendar-day-today {
+  background: #fffae6;
+  color: #b45309;
+  font-weight: 800;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px #facc15 inset;
+}
+
+.calendar-day-friday {
+  color: #fecaca;
+}
+
+.calendar-day-empty {
+  background: transparent;
+}
+
+.calendar-legend {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #f1f5f9;
+}
+
+.legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.legend-today {
+  background: #fffae6;
+  box-shadow: 0 0 0 2px #facc15 inset;
+}
+
+.legend-range {
+  background: #ffffff40;
+  box-shadow: 0 0 0 2px #ffffff60 inset;
+}

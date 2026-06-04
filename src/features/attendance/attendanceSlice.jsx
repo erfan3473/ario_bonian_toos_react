@@ -26,14 +26,16 @@ export const fetchTimesheetByRange = createAsyncThunk(
 // 🆕 آپدیت تکی اضافه کار
 export const updateOvertime = createAsyncThunk(
   'attendance/updateOvertime',
-  async ({ attendanceId, hours }, { rejectWithValue }) => {
+  async ({ overtimeId, hours }, { rejectWithValue }) => {
     try {
-      const response = await api.post(`/attendance/update-overtime/${attendanceId}/`, {
+      const response = await api.post(`/attendance/update-overtime/${overtimeId}/`, {
         overtime_hours: hours,
       });
-      return response.data; // { id, overtime_hours, message }
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.detail || 'خطا در ویرایش اضافه کار');
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در ویرایش اضافه کار'
+      );
     }
   }
 );
@@ -104,12 +106,9 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
       
-      // Update Single Overtime (Optimistic Update Logic can be added here)
+    
       .addCase(updateOvertime.fulfilled, (state, action) => {
-         // نکته: برای سادگی، معمولاً بعد از آپدیت موفق، لیست را دوباره فچ نمی‌کنیم
-         // بلکه در UI مقدار را آپدیت می‌کنیم. اما چون ساختار byWorker پیچیده است
-         // بهتر است فعلاً فقط نوتیفیکیشن بدهیم یا کاربر رفرش کند.
-         // اگر بخواهیم استیت را آپدیت کنیم باید byWorker را پیمایش کنیم.
+        
       })
       
       // Bulk Approve

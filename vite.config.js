@@ -5,15 +5,28 @@ export default defineConfig({
   plugins: [react()],
   assetsInclude: ['**/*.riv'], 
   server: {
+    port: 5173,
+    historyApiFallback: true, 
     proxy: {
       '/api': {
-        // 🔴 تغییر مهم: آدرس سرور واقعی (با https)
-        target: 'https://ariobonyantoos.com',
-        
-        // این یعنی هدر Host را به نام دامنه تغییر بده (برای Nginx حیاتی است)
+        target: 'https://www.ariobonyantoos.com', // 👈 حتماً https:// داشته باشد
         changeOrigin: true,
-        
-        // اگر SSL مشکلی داشت (که الان ندارد)، خطا ندهد. برای راحتی بگذار false بماند
+        secure: false,
+      },
+      '/media': {
+        target: 'https://www.ariobonyantoos.com', // 👈 حتماً https:// داشته باشد
+        changeOrigin: true,
+        secure: false,
+      },
+      '/ws': {
+        target: 'wss://www.ariobonyantoos.com', // 👈 این درست است
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+      },
+      '/static': {
+        target: 'https://www.ariobonyantoos.com', // 👈 به https:// تغییر کرد
+        changeOrigin: true,
         secure: false,
       }
     }

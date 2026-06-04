@@ -20,6 +20,7 @@ import attendanceReducer   from './features/attendance/attendanceSlice';
 import taskReducer         from './features/task/taskSlice';
 import payrollReducer      from './features/payroll/payrollSlice';
 import chatReducer         from './features/chat/chatSlice';
+import notebookReducer from './features/notebook/notebookSlice'; 
 
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -57,6 +58,7 @@ const store = configureStore({
     payroll:        payrollReducer,
     task:           taskReducer,
     chat:           chatReducer,
+    notebook:       notebookReducer, 
   },
   preloadedState,
 });

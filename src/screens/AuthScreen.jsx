@@ -36,7 +36,7 @@ const AuthScreen = () => {
   // تغییر مسیر پس از ورود موفق
   useEffect(() => {
     if (userInfo) {
-      const redirect = new URLSearchParams(location.search).get('redirect') || '/dashboard';
+      const redirect = new URLSearchParams(location.search).get('redirect') || '/profile';
       navigate(redirect);
     }
   }, [userInfo, navigate, location.search]);

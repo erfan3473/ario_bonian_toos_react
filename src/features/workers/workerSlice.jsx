@@ -79,6 +79,9 @@ const processWorkerUpdate = (state, u) => {
   if (u.longitude !== undefined) worker.longitude = u.longitude;
   if (u.accuracy !== undefined) worker.accuracy = u.accuracy;
   if (u.speed !== undefined) worker.speed = u.speed;
+  if (u.location_enabled !== undefined) worker.location_enabled = u.location_enabled;
+  if (u.permission_granted !== undefined) worker.permission_granted = u.permission_granted;
+
 
   // 🆕 وضعیت GPS
   if (u.gps_enabled !== undefined) {
@@ -160,7 +163,8 @@ const workersSlice = createSlice({
             user_id: w.user_id || null,
             latitude: w.last_location?.latitude ?? null,
             longitude: w.last_location?.longitude ?? null,
-            
+            location_enabled: w.last_location?.location_enabled ?? true,
+            permission_granted: w.last_location?.permission_granted ?? true,
             // استفاده از زمان محاسبه شده برای جلوگیری از حذف زودهنگام
             lastUpdate: effectiveLastUpdate, 
             

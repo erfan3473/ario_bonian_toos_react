@@ -1,10 +1,8 @@
-// src/screens/admin/UserDetailPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchUserDetail } from '../../features/admin/adminSlice';
 import PersonalInfoTab from '../../components/admin/tabs/PersonalInfoTab';
-import OrganizationalTab from '../../components/admin/tabs/OrganizationalTab';
 import ContractsTab from '../../components/admin/tabs/ContractsTab';
 import FinancialTab from '../../components/admin/tabs/FinancialTab';
 import LeaveTab from '../../components/admin/tabs/LeaveTab';
@@ -19,18 +17,16 @@ const UserDetailPage = () => {
 
   const [activeTab, setActiveTab] = useState('personal');
 
+  // تب سازمانی حذف شد
   const tabs = [
-    { id: 'personal', label: ' سیستمی', icon: '👤' },
-    { id: 'organizational', label: 'سازمانی', icon: '👔' },
+    { id: 'personal', label: 'سیستمی', icon: '👤' },
     { id: 'contracts', label: 'قراردادها', icon: '📋' },
     { id: 'financial', label: 'مالی', icon: '💰' },
     { id: 'leave', label: 'مرخصی', icon: '🏖️' },
   ];
 
   useEffect(() => {
-   
-      dispatch(fetchUserDetail(userId));
-    
+    dispatch(fetchUserDetail(userId));
   }, [userId, dispatch]);
 
   const handleTabChange = (tabId) => {
@@ -39,12 +35,10 @@ const UserDetailPage = () => {
 
   const handleBack = () => {
     navigate('/admin/users');
-    
   };
 
-  
-if (userLoading ) {
-  return (
+  if (userLoading) {
+    return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-8">
         <div className="bg-gray-900 rounded-2xl p-12 text-center border-4 border-gray-700 max-w-4xl w-full animate-pulse">
           <div className="animate-spin text-6xl mb-8 text-blue-500">⏳</div>
@@ -57,33 +51,29 @@ if (userLoading ) {
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8 w-full">
         
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
             <button
               onClick={handleBack}
               className="flex items-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold transition-all shadow-lg border border-gray-600 hover:shadow-xl hover:scale-105 w-fit"
             >
               ← بازگشت به لیست
             </button>
-            
-            
-            <div className="flex-1 ">
-              <h1 className=" text-4xl font-bold text-white mb-2">
-               
-                 
-                    👤 {selectedUser?.first_name} {selectedUser?.last_name}
-                   
-                 
-                
-              </h1>
-             
-            </div>
-            
-           
+            <h1 className="text-4xl font-bold text-white">
+              👤 {selectedUser?.first_name} {selectedUser?.last_name}
+            </h1>
           </div>
+
+          {/* دکمه ورود به صفحه مجزای سازمانی */}
+          <button
+            onClick={() => navigate(`/admin/users/${userId}/organizational`)}
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-500 hover:to-blue-700 text-white rounded-xl font-bold transition-all shadow-lg border border-blue-500 hover:scale-105"
+          >
+            👔 ورود به صفحه سازمانی
+          </button>
         </div>
 
         {/* Tabs */}
@@ -109,7 +99,6 @@ if (userLoading ) {
         {/* Content */}
         <div className="bg-gray-900/70 border-2 border-gray-700 rounded-xl p-8 shadow-2xl backdrop-blur-sm min-h-[600px]">
           {activeTab === 'personal' && <PersonalInfoTab user={selectedUser || {}}  />}
-          {activeTab === 'organizational' && <OrganizationalTab user={selectedUser || {}} />}
           {activeTab === 'contracts' && <ContractsTab user={selectedUser || {}} />}
           {activeTab === 'financial' && <FinancialTab user={selectedUser || {}} />}
           {activeTab === 'leave' && <LeaveTab user={selectedUser || {}} />}

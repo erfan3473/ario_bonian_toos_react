@@ -1,7 +1,6 @@
-// src/screens/admin/ChatScreen.jsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchMyChats } from '../../features/chat/chatSlice';
+import { fetchMyChats, setActiveChat } from '../../features/chat/chatSlice';
 import ChatHistory from '../../components/Chat/ChatHistory';
 import ChatWindow from '../../components/Chat/ChatWindow';
 import UserList from '../../components/Chat/UserList';
@@ -9,37 +8,51 @@ import UserList from '../../components/Chat/UserList';
 const ChatScreen = () => {
   const dispatch = useDispatch();
   const { activeChatId } = useSelector((state) => state.chat);
+  
+  // مدیریت ویو در موبایل: 'history' | 'chat' | 'users'
+  const [mobileView, setMobileView] = useState('history');
 
-  // وقتی صفحه باز میشه، لیست چت‌های من رو بگیر
   useEffect(() => {
     dispatch(fetchMyChats());
   }, [dispatch]);
 
+  // وقتی چتی انتخاب می‌شود، در موبایل به صفحه چت برو
+  useEffect(() => {
+    if (activeChatId) {
+      setMobileView('chat');
+    }
+  }, [activeChatId]);
+
+  const handleBackToHistory = () => {
+    dispatch(setActiveChat(null));
+    setMobileView('history');
+  };
+
   return (
-    <div className="h-[calc(100vh-100px)] flex gap-4 p-4 overflow-hidden">
+    <div className="h-[calc(100vh-[120px])] md:h-[calc(100vh-100px)] flex bg-[#131314] overflow-hidden md:rounded-2xl md:border border-gray-800 -mx-4 md:mx-0 shadow-2xl">
       
-      {/* ستون راست: تاریخچه چت‌ها (30%) */}
-      <div className="w-1/4 hidden lg:block h-full">
-        <ChatHistory />
+      {/* ستون راست: تاریخچه چت‌ها */}
+      <div className={`${mobileView === 'history' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 flex-col border-l border-gray-800 bg-[#1e1f20] h-full transition-all shrink-0`}>
+        <ChatHistory onOpenUsers={() => setMobileView('users')} />
       </div>
 
-      {/* ستون وسط: پنجره چت (45%) */}
-      <div className="flex-grow h-full bg-gray-800 rounded-2xl shadow-2xl overflow-hidden border border-gray-700 relative">
+      {/* ستون وسط: پنجره چت */}
+      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex flex-grow flex-col h-full bg-[#131314] relative min-w-0`}>
         {activeChatId ? (
-          <ChatWindow chatId={activeChatId} />
+          <ChatWindow chatId={activeChatId} onBack={handleBackToHistory} />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-20 h-20 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <p className="text-lg font-medium">یک گفت‌وگو را انتخاب کنید</p>
+          <div className="hidden lg:flex h-full flex-col items-center justify-center text-gray-500 gap-4">
+            <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center">
+              <i className="fas fa-comments text-4xl text-gray-600"></i>
+            </div>
+            <p className="text-lg font-medium">یک گفت‌وگو را برای شروع انتخاب کنید</p>
           </div>
         )}
       </div>
 
-      {/* ستون چپ: لیست کاربران برای شروع (25%) */}
-      <div className="w-1/4 hidden xl:block h-full">
-        <UserList />
+      {/* ستون چپ: مخاطبین / کاربران */}
+      <div className={`${mobileView === 'users' ? 'flex' : 'hidden'} xl:flex w-full lg:w-72 flex-col border-r border-gray-800 bg-[#1e1f20] h-full shrink-0 transition-all z-10 lg:z-auto`}>
+        <UserList onBack={() => setMobileView('history')} />
       </div>
       
     </div>

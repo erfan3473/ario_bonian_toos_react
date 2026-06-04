@@ -1,5 +1,5 @@
 // src/components/admin/tabs/OrganizationalTab.jsx
-// ⚠️ فایل کامل و اصلاح شده
+// ⚠️ فایل کامل و اصلاح شده - با تاریخ تولد به جای سن
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
@@ -9,6 +9,8 @@ import {
   fetchSkillLevels,
   resetUpdateStatus 
 } from '../../../features/admin/adminSlice';
+import JalaliDatePicker from '../../JalaliDatePicker';
+import { formatJalaliDate } from '../../../utils/dateUtils';
 
 const OrganizationalTab = ({ user }) => {
   const dispatch = useDispatch();
@@ -28,7 +30,7 @@ const OrganizationalTab = ({ user }) => {
   const [formData, setFormData] = useState({
     code_meli: '',
     father_name: '',
-    age: '',
+    birth_date: '', // ✅ تغییر از age به birth_date
     position_id: '',
     skill_level_id: '',
     insurance_code: '',
@@ -57,7 +59,7 @@ const OrganizationalTab = ({ user }) => {
       setFormData({
         code_meli: employee.code_meli || '',
         father_name: employee.father_name || '',
-        age: employee.age || '',
+        birth_date: employee.birth_date || '', // ✅ تغییر از age به birth_date
         // هندل کردن آبجکت‌های تو در تو برای position و skill_level
         position_id: employee.position?.id || '',
         skill_level_id: employee.skill_level?.id || '',
@@ -87,7 +89,7 @@ const OrganizationalTab = ({ user }) => {
       // تبدیل رشته خالی به null برای فیلدهای اختیاری
       skill_level_id: formData.skill_level_id ? Number(formData.skill_level_id) : null,
       position_id: Number(formData.position_id),
-      age: formData.age ? Number(formData.age) : null,
+      birth_date: formData.birth_date || null, // ✅ ارسال تاریخ تولد
     };
 
     dispatch(updateEmployee({ employeeId: employee.id, data: payload }));
@@ -134,6 +136,8 @@ const OrganizationalTab = ({ user }) => {
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
           <h4 className="text-blue-400 font-bold mb-4 text-sm">📌 مشخصات فردی</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* کدملی */}
             <div>
               <label className="block text-gray-300 mb-2 font-bold text-sm">
                 کدملی <span className="text-red-500">*</span>
@@ -146,11 +150,13 @@ const OrganizationalTab = ({ user }) => {
                 required
                 maxLength={10}
                 pattern="[0-9]{10}"
-                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono tracking-widest text-center"
+                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 
+                focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono tracking-widest text-center"
                 placeholder="0000000000"
               />
             </div>
 
+            {/* نام پدر */}
             <div>
               <label className="block text-gray-300 mb-2 font-bold text-sm">نام پدر</label>
               <input
@@ -158,23 +164,33 @@ const OrganizationalTab = ({ user }) => {
                 name="father_name"
                 value={formData.father_name}
                 onChange={handleChange}
-                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 
+                focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
 
+            {/* تاریخ تولد (جایگزین سن) */}
             <div>
-              <label className="block text-gray-300 mb-2 font-bold text-sm">سن</label>
-              <input
-                type="number"
-                name="age"
-                value={formData.age}
+              <label className="block text-gray-300 mb-2 font-bold text-sm">تاریخ تولد</label>
+
+          
+              <JalaliDatePicker
+                name="birth_date"
+                value={formData.birth_date}
                 onChange={handleChange}
-                min="18"
-                max="80"
-                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none text-center"
+                label=""
               />
+
+
+
+              {formData.birth_date && (
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {formatJalaliDate(formData.birth_date)}
+                </p>
+              )}
             </div>
 
+            {/* کد بیمه */}
             <div>
               <label className="block text-gray-300 mb-2 font-bold text-sm">
                 کد بیمه <span className="text-red-500">*</span>
@@ -185,9 +201,11 @@ const OrganizationalTab = ({ user }) => {
                 value={formData.insurance_code}
                 onChange={handleChange}
                 required
-                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono tracking-widest text-center"
+                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 
+                focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono tracking-widest text-center"
               />
             </div>
+
           </div>
         </div>
 
@@ -195,6 +213,8 @@ const OrganizationalTab = ({ user }) => {
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
           <h4 className="text-blue-400 font-bold mb-4 text-sm">🏢 جایگاه سازمانی</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* سمت سازمانی */}
             <div>
               <label className="block text-gray-300 mb-2 font-bold text-sm">
                 سمت سازمانی <span className="text-red-500">*</span>
@@ -205,7 +225,8 @@ const OrganizationalTab = ({ user }) => {
                   value={formData.position_id}
                   onChange={handleChange}
                   required
-                  className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
+                  className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 
+                  focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
                 >
                   <option value="">-- انتخاب کنید --</option>
                   {positions.map((pos) => (
@@ -218,11 +239,9 @@ const OrganizationalTab = ({ user }) => {
                   ▼
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                * تعیین سمت برای محاسبه حقوق و دسترسی‌ها الزامی است.
-              </p>
             </div>
 
+            {/* سطح مهارت */}
             <div>
               <label className="block text-gray-300 mb-2 font-bold text-sm">سطح مهارت</label>
               <div className="relative">
@@ -230,7 +249,8 @@ const OrganizationalTab = ({ user }) => {
                   name="skill_level_id"
                   value={formData.skill_level_id}
                   onChange={handleChange}
-                  className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
+                  className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 
+                  focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none"
                 >
                   <option value="">-- انتخاب کنید (اختیاری) --</option>
                   {sortedSkillLevels.map((skill) => (
@@ -244,6 +264,7 @@ const OrganizationalTab = ({ user }) => {
                 </div>
               </div>
             </div>
+
           </div>
         </div>
 
@@ -251,65 +272,80 @@ const OrganizationalTab = ({ user }) => {
         <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50">
           <h4 className="text-green-400 font-bold mb-4 text-sm">💳 اطلاعات بانکی</h4>
           <div className="space-y-4">
+            
+            {/* شماره شبا */}
             <div>
               <label className="block text-gray-300 mb-2 font-bold text-sm">
                 شماره شبا (بدون IR) <span className="text-red-500">*</span>
               </label>
+
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 font-bold select-none">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 font-bold">
                   IR
                 </span>
+
                 <input
                   type="text"
                   name="shaba_number"
-                  value={formData.shaba_number.replace(/^IR/i, '')} // نمایش بدون IR برای راحتی کاربر
+                  value={formData.shaba_number.replace(/^IR/i, '')}
                   onChange={(e) => {
-                    // ذخیره با IR اگر کاربر پاکش کرد یا فقط عدد وارد کرد
                     let val = e.target.value.toUpperCase();
-                    if (!val.startsWith('IR')) val = 'IR' + val.replace(/[^0-9]/g, ''); 
-                    setFormData(prev => ({ ...prev, shaba_number: val }));
+                    if (!val.startsWith('IR'))
+                      val = 'IR' + val.replace(/[^0-9]/g, '');
+                    setFormData((prev) => ({ ...prev, shaba_number: val }));
                   }}
                   required
-                  maxLength={26} // IR + 24 digits
-                  className="w-full bg-gray-900 text-white pl-12 pr-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono tracking-widest text-left"
+                  maxLength={26}
+                  className="w-full bg-gray-900 text-white pl-12 pr-4 py-3 rounded-lg border border-gray-600 
+                  focus:ring-2 focus:ring-green-500 focus:outline-none font-mono tracking-widest"
                   placeholder="000000000000000000000000"
                 />
               </div>
+
               <p className="text-gray-500 text-xs mt-1 text-left" dir="ltr">
                 {formData.shaba_number} :پیش‌نمایش
               </p>
             </div>
 
+            {/* شماره حساب / کارت */}
             <div>
-              <label className="block text-gray-300 mb-2 font-bold text-sm">شماره کارت / حساب</label>
+              <label className="block text-gray-300 mb-2 font-bold text-sm">
+                شماره کارت / حساب
+              </label>
               <input
                 type="text"
                 name="bank_account_number"
                 value={formData.bank_account_number}
                 onChange={handleChange}
-                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono tracking-widest text-left"
-                placeholder="6037-9971-..."
+                className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 
+                focus:ring-2 focus:ring-green-500 focus:outline-none font-mono tracking-widest"
+                placeholder="6037-****-****-****"
               />
             </div>
+
           </div>
         </div>
 
         {/* دکمه ذخیره */}
-        <div className="flex justify-end pt-4 border-t border-gray-700">
+        <div className="flex justify-end pt-4 border-t border-gray-700 mt-8">
           <button
             type="submit"
             disabled={loading || !employee?.id}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-900/30 transform hover:-translate-y-1"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed 
+            text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-900/30 
+            transform hover:-translate-y-1"
           >
             {loading ? (
               <span className="flex items-center gap-2">
-                <span className="animate-spin text-xl">⏳</span> در حال ذخیره...
+                <span className="animate-spin text-xl">⏳</span>
+                در حال ذخیره...
               </span>
             ) : (
               '💾 ذخیره تغییرات'
             )}
           </button>
         </div>
+
       </form>
     </div>
   );

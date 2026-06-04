@@ -3,7 +3,7 @@ import logo from "../assets/ario.png";
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { logout , fetchUserProfile } from "../features/users/userSlice";
+import { logout, fetchUserProfile } from "../features/users/userSlice";
 import { 
   FaUser, 
   FaSignOutAlt, 
@@ -17,7 +17,9 @@ import {
   FaChevronDown,
   FaBriefcase,
   FaIdBadge,
-  FaComments // ✅ اضافه شد
+  FaComments,
+  FaBars, // ✅ اضافه شد برای منوی موبایل
+  FaTimes // ✅ اضافه شد برای بستن منوی موبایل
 } from "react-icons/fa";
 
 const Header = () => {
@@ -40,6 +42,7 @@ const Header = () => {
   const isSuperUser = currentUser?.is_superuser || false;
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // ✅ استیت منوی موبایل
   const userMenuRef = useRef(null);
 
   const logoutHandler = () => {
@@ -62,7 +65,9 @@ const Header = () => {
     if (userInfo && (!userProfile || Object.keys(userProfile).length === 0)) {
       dispatch(fetchUserProfile());
     }
-  }, [dispatch, userInfo, userProfile]);
+    // بستن منوی موبایل هنگام تغییر مسیر
+    setMobileMenuOpen(false);
+  }, [dispatch, userInfo, userProfile, location.pathname]);
 
   const isActive = (path) => location.pathname === path;
 
@@ -96,247 +101,158 @@ const Header = () => {
     return labels[role] || role;
   };
 
-  return (
-    <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-[1002] w-full">
-      <div className="container mx-auto px-6">
-        <div className="flex justify-between items-center py-4">
-          
-          <Link
-            to="/"
-            className="flex items-center gap-2 hover:opacity-90 transition"
-          >
-            <img
-              src={logo}
-              alt="Ariobonyan Toos"
-              className="h-16 w-auto object-contain"
-            />
+  // کامپوننت مشترک برای لینک‌ها تا هم در موبایل هم دسکتاپ استفاده شود
+  const NavLinks = () => (
+    <>
+      <Link to="/chat" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/chat') ? 'bg-cyan-600 text-white' : 'text-gray-200 hover:bg-cyan-700/50'}`}>
+        <FaComments className="text-cyan-300" />
+        <span>پیام‌رسان</span>
+      </Link>
+
+      <Link to="/tasks" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/chat') ? 'bg-cyan-600 text-white' : 'text-gray-200 hover:bg-cyan-700/50'}`}>
+        <FaComments className="text-cyan-300" />
+        <span>ماموریت</span>
+      </Link>
+
+      <Link to="/notebooks" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/notebooks') ? 'bg-orange-600 text-white' : 'text-gray-200 hover:bg-orange-700/50'}`}>
+        <FaClipboardList className="text-orange-300" />
+        <span>دفترچه‌ها</span>
+      </Link>
+
+      <Link to="/admin/timesheet" className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/admin/timesheet') ? 'bg-blue-600 text-white' : 'text-gray-200 hover:bg-blue-700/50'}`}>لیست حضور</Link>
+      
+      <Link to="/admin/payroll/list" className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/admin/payroll/list') ? 'bg-blue-600 text-white' : 'text-gray-200 hover:bg-blue-700/50'}`}>لیست حقوق</Link>
+
+      {isAdmin && (
+        <>
+          <Link to="/dashboard" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/dashboard') ? 'bg-sky-600 text-white' : 'text-gray-200 hover:bg-sky-700/50'}`}>
+            <FaChartLine className="text-sky-300" /> <span>مانیتور نیروها</span>
           </Link>
 
+          <Link to="/admin/users" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${location.pathname.startsWith('/admin/users') ? 'bg-green-600 text-white' : 'text-gray-200 hover:bg-green-700/50'}`}>
+            <FaUsers className="text-green-300" /> <span>کاربران</span>
+          </Link>
+
+          <Link to="/projects" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${location.pathname.startsWith('/projects') || location.pathname.includes('/admin/projects') ? 'bg-purple-600 text-white' : 'text-gray-200 hover:bg-purple-700/50'}`}>
+            <FaBuilding className="text-purple-300" /> <span>پروژه‌ها</span>
+          </Link>
+
+          <Link to="/admin/requests" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/admin/requests') ? 'bg-pink-600 text-white' : 'text-gray-200 hover:bg-pink-700/50'}`}>
+            <FaCheckCircle className="text-pink-300" /> <span>درخواست‌ها</span>
+          </Link>
+
+          <Link to="/admin/daily-summary" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/admin/daily-summary') ? 'bg-indigo-600 text-white' : 'text-gray-200 hover:bg-indigo-700/50'}`}>
+            <FaClipboardList className="text-indigo-300" /> <span>گزارش‌ها</span>
+          </Link>
+
+          <Link to="/admin/settings" className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${isActive('/admin/settings') ? 'bg-gray-600 text-white' : 'text-gray-200 hover:bg-gray-700/50'}`}>
+            <FaCog className="text-gray-300" /> <span>تنظیمات</span>
+          </Link>
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <header className="bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900 shadow-lg sticky top-0 z-[1002] w-full">
+      <div className="container mx-auto px-4 md:px-6">
+        <div className="flex justify-between items-center py-3 md:py-4">
+          
+          <div className="flex items-center gap-3">
+            {/* دکمه همبرگری فقط در موبایل */}
+            {userInfo && (
+              <button 
+                className="lg:hidden text-white text-xl p-2 hover:bg-white/10 rounded-md transition"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <FaTimes /> : <FaBars />}
+              </button>
+            )}
+
+            <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition">
+              <img src={logo} alt="Ariobonyan Toos" className="h-12 md:h-16 w-auto object-contain" />
+            </Link>
+          </div>
+
+          {/* لینک‌های دسکتاپ */}
           {userInfo && (
             <nav className="hidden lg:flex items-center gap-2">
-              
-               {/* ✅ لینک پیام‌رسان (اضافه شد) */}
-               <Link 
-                to="/chat" 
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                  isActive('/chat') 
-                    ? 'bg-cyan-600 text-white' 
-                    : 'text-gray-200 hover:bg-cyan-700/50'
-                }`}
-              >
-               <FaComments className="text-cyan-300" />
-               <span>پیام‌رسان</span>
-              </Link>
-
-              <Link 
-                to="/admin/timesheet" 
-                className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                  isActive('/admin/timesheet') 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-200 hover:bg-blue-700/50'
-                }`}
-              >
-               لیست حضور
-              </Link>
-              
-              <Link 
-                to="/admin/payroll/list" 
-                className={`px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                  isActive('/admin/payroll/list') 
-                    ? 'bg-blue-600 text-white' 
-                    : 'text-gray-200 hover:bg-blue-700/50'
-                }`}
-              >
-               لیست حقوق
-              </Link>
-
-              {isAdmin && (
-                <>
-                  <Link
-                    to="/dashboard"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      isActive('/dashboard')
-                        ? 'bg-sky-600 text-white'
-                        : 'text-gray-200 hover:bg-sky-700/50'
-                    }`}
-                  >
-                    <FaChartLine className="text-sky-300" />
-                    <span>مانیتور نیروها</span>
-                  </Link>
-
-                  <Link
-                    to="/admin/users"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      location.pathname.startsWith('/admin/users')
-                        ? 'bg-green-600 text-white'
-                        : 'text-gray-200 hover:bg-green-700/50'
-                    }`}
-                  >
-                    <FaUsers className="text-green-300" />
-                    <span>کاربران</span>
-                  </Link>
-                  
-                  {/* ... بقیه لینک‌ها بدون تغییر ... */}
-                  <Link
-                    to="/admin/phonebook"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      location.pathname.startsWith('/admin/phonebook')
-                        ? 'bg-green-600 text-white'
-                        : 'text-gray-200 hover:bg-green-700/50'
-                    }`}
-                  >
-                    <FaUsers className="text-green-300" />
-                    <span>دفترچه تلفن </span>
-                  </Link>
-
-                  <Link
-                    to="/projects"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      location.pathname.startsWith('/projects') || location.pathname.includes('/admin/projects')
-                        ? 'bg-purple-600 text-white'
-                        : 'text-gray-200 hover:bg-purple-700/50'
-                    }`}
-                  >
-                    <FaBuilding className="text-purple-300" />
-                    <span>پروژه‌ها</span>
-                  </Link>
-
-                  <Link
-                    to="/admin/requests"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      isActive('/admin/requests')
-                        ? 'bg-pink-600 text-white'
-                        : 'text-gray-200 hover:bg-pink-700/50'
-                    }`}
-                  >
-                    <FaCheckCircle className="text-pink-300" />
-                    <span>درخواست‌ها</span>
-                  </Link>
-
-                  <Link
-                    to="/admin/daily-summary"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      isActive('/admin/daily-summary')
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-gray-200 hover:bg-indigo-700/50'
-                    }`}
-                  >
-                    <FaClipboardList className="text-indigo-300" />
-                    <span>گزارش‌ها</span>
-                  </Link>
-
-                  <Link
-                    to="/admin/settings"
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-sm font-semibold ${
-                      isActive('/admin/settings')
-                        ? 'bg-gray-600 text-white'
-                        : 'text-gray-200 hover:bg-gray-700/50'
-                    }`}
-                  >
-                    <FaCog className="text-gray-300" />
-                    <span>تنظیمات</span>
-                  </Link>
-                </>
-              )}
+              <NavLinks />
             </nav>
           )}
 
-          {/* منوی کاربر */}
+          {/* منوی کاربر (هم موبایل هم دسکتاپ) */}
           {userInfo ? (
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
-                className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-full transition text-sm"
+                className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-3 md:px-4 py-2 rounded-full transition text-sm"
               >
-                <FaUser />
-                <div className="text-right hidden md:block">
-                  <div className="font-semibold">
+                <FaUser className="text-gray-300" />
+                <div className="text-right max-w-[100px] sm:max-w-none truncate">
+                  <div className="font-semibold text-white truncate">
                     {userInfo.first_name || userInfo.username || 'کاربر'}
                   </div>
-                  {userPosition && (
-                    <div className="text-xs text-gray-400 flex items-center gap-1">
-                      <FaBriefcase className="text-sky-400" />
-                      {userPosition}
-                    </div>
-                  )}
                 </div>
-                <FaChevronDown className={`text-xs transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                <FaChevronDown className={`text-xs text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {userMenuOpen && (
-                <div className="absolute left-0 mt-2 w-64 bg-gray-700 rounded-md shadow-xl py-1 z-50">
+                <div className="absolute left-0 mt-2 w-56 md:w-64 bg-gray-700 rounded-md shadow-xl py-1 z-50">
                   <div className="px-4 py-3 border-b border-gray-600">
                     <p className="text-sm font-semibold text-white">
                       {userInfo.first_name || userInfo.username}
                     </p>
                     {userPosition && (
                       <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                        <FaBriefcase className="text-sky-400" />
-                        {userPosition}
+                        <FaBriefcase className="text-sky-400" /> {userPosition}
                       </p>
                     )}
                     
                     <div className="mt-2 flex flex-col gap-1">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full border ${getRoleStyle(userRole)}`}>
-                        <FaIdBadge />
-                        <span className="font-bold">نقش: {getRoleLabel(userRole)}</span>
+                      <span className={`inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs rounded-full border ${getRoleStyle(userRole)}`}>
+                        <FaIdBadge /> <span className="font-bold">نقش: {getRoleLabel(userRole)}</span>
                       </span>
-                      
                       {isSuperUser && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-600/40">
+                        <span className="inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-600/40">
                           👑 <span className="font-bold">ادمین سیستم</span>
-                        </span>
-                      )}
-                      
-                      {isAdmin && !isSuperUser && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-red-600/20 text-red-400 rounded-full border border-red-600/40">
-                          🔑 <span className="font-bold">مدیر</span>
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <Link
-                    to="/profile"
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <FaUser className="text-sky-400" />
-                    <span>پروفایل من</span>
+                  <Link to="/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600" onClick={() => setUserMenuOpen(false)}>
+                    <FaUser className="text-sky-400" /> <span>پروفایل من</span>
                   </Link>
 
-                  <Link
-                    to="/tasks"
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                    onClick={() => setUserMenuOpen(false)}
-                  >
-                    <FaUser className="text-sky-400" />
-                    <span>ماموریت های من</span>
+                  <Link to="/tasks" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600" onClick={() => setUserMenuOpen(false)}>
+                    <FaClipboardList className="text-sky-400" /> <span>ماموریت های من</span>
                   </Link>
                   
                   <div className="border-t border-gray-600 my-1"></div>
                   
-                  <button
-                    onClick={logoutHandler}
-                    className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center gap-2"
-                  >
-                    <FaSignOutAlt />
-                    <span>خروج از حساب</span>
+                  <button onClick={logoutHandler} className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center gap-2">
+                    <FaSignOutAlt /> <span>خروج از حساب</span>
                   </button>
                 </div>
               )}
             </div>
           ) : (
-            <Link
-              to="/auth"
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg transition text-sm font-semibold"
-            >
-              <FaSignInAlt />
-              <span>ورود / ثبت‌نام</span>
+            <Link to="/auth" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 md:px-5 py-2 rounded-lg transition text-sm font-semibold">
+              <FaSignInAlt /> <span className="hidden sm:inline">ورود / ثبت‌نام</span>
             </Link>
           )}
         </div>
       </div>
+
+      {/* منوی بازشونده موبایل */}
+      {userInfo && mobileMenuOpen && (
+        <div className="lg:hidden bg-gray-800 border-t border-gray-700 max-h-[70vh] overflow-y-auto">
+          <nav className="flex flex-col p-4 gap-2">
+            <NavLinks />
+          </nav>
+        </div>
+      )}
     </header>
   );
 };

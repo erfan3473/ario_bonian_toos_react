@@ -12,6 +12,7 @@ import TimesheetByWorker from '../../components/TimesheetByWorker';
 import TimesheetByDay from '../../components/TimesheetByDay';
 import TimesheetSummary from '../../components/TimesheetSummary';
 import { formatJalaliDateLong } from '../../utils/dateUtils';
+import PersianCalendarFrame from '../../components/PersianCalendarFrame';
 
 import moment from 'moment-jalaali';
 moment.loadPersian({ usePersianDigits: false });
@@ -119,23 +120,10 @@ const AdminTimesheetScreen = () => {
   return (
     <div className="container mx-auto px-4 py-6 rtl min-h-screen bg-white rounded">
       {/* هدر و تاریخ امروز */}
-      <div className="mb-6 border-b border-gray-200 pb-4 flex flex-col gap-2 items-center text-center">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
-          📊 گزارش حضور دوره‌ای
-        </h1>
-        <p className="text-gray-500 text-sm md:text-base">
-          مشاهده حضور و غیاب کارکنان در بازه زمانی دلخواه
-        </p>
-        <p className="text-gray-600 text-sm">
-          امروز: <span className="font-semibold">{todayJalali}</span>
-        </p>
-        {meta?.start_date && meta?.end_date && (
-          <p className="text-gray-600 text-xs mt-1">
-            بازه انتخاب‌شده: از {formatJalaliDateLong(meta.start_date)} تا {formatJalaliDateLong(meta.end_date)}
-            {meta.total_days && ` (${meta.total_days} روز)`}
-          </p>
-        )}
-      </div>
+        <PersianCalendarFrame
+          startDate={startDate}
+          endDate={endDate}
+        />
 
       {/* فیلترها */}
       <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-6">

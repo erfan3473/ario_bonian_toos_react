@@ -3,7 +3,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Header from './components/Header';
-
+import NotebookScreen from './screens/NotebookScreen';
 // Screens
 import HomeScreen from './screens/HomeScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
@@ -15,6 +15,7 @@ import ProjectEditScreen from './screens/ProjectEditScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
 import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
+import ProtectedRoute from './components/ProtectedRoute'; // آدرس را بر اساس پوشه‌بندی خودتان تنظیم کنید
 
 import PhonebookScreen from './screens/admin/PhonebookScreen';
 // Admin Screens
@@ -26,6 +27,7 @@ import SchemeContractScreen from './screens/admin/SchemeContractScreen';
 import SchemeManagementScreen from './screens/admin/SchemeManagementScreen';
 import AdminTimesheetScreen from './screens/admin/AdminTimesheetScreen';
 import ChatScreen from './screens/admin/ChatScreen'; // ✅ اضافه شد
+import OrganizationalPage from './screens/admin/OrganizationalPage';
 
 // ✅ Payroll Screens
 import PayrollListView from './screens/admin/PayrollListView';
@@ -48,10 +50,18 @@ function App() {
       {/* محتوای اصلی */}
       <main className="flex-grow container mx-auto p-4">
         <Routes>
+          <Route path="/admin/users/:userId/organizational" element={<OrganizationalPage />} />
           <Route path="/" element={<HomeScreen />} />
           <Route path="/auth" element={<AuthScreen />} />
           <Route path="/dashboard" element={<WorkerDashboardScreen />} />
-          <Route path="/profile" element={<ProfileScreen />} />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <ProfileScreen />
+              </ProtectedRoute>
+            } 
+          />
           
           {/* ✅ مسیر چت و پیام‌رسان */}
           <Route path="/chat" element={<ChatScreen />} />
@@ -61,7 +71,7 @@ function App() {
           <Route path="/admin/projects/create" element={<ProjectCreateScreen />} />
           <Route path="/admin/projects/:id/edit" element={<ProjectEditScreen />} />
           <Route path="/admin/projects/:id/geofence" element={<ProjectGeofenceScreen />} />
-          
+          <Route path="/notebooks" element={<NotebookScreen />} />
           {/* Admin Routes */}
           <Route path="/admin/users" element={<UserManagementScreen />} />
           <Route path="/admin/users/:userId" element={<UserDetailPage />} />
@@ -83,6 +93,7 @@ function App() {
           <Route path="/tasks" element={<MyTasksScreen />} />
 
           <Route path="/admin/phonebook" element={<PhonebookScreen />} />
+
         </Routes>
       </main>
 
