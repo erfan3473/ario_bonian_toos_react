@@ -22,7 +22,7 @@ const ContractorInfoSection = ({ isViewMode = true }) => {
   return (
     <section className="border border-gray-300 rounded-sm p-4 relative bg-amber-50/30">
       <div className="absolute -top-3 right-4 bg-white px-2 text-xs font-bold text-gray-700">
-        ب) مشخصات پیمانکار
+         مشخصات پیمانکار
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">

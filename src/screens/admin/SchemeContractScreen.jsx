@@ -7,7 +7,9 @@ import {
   createSchemeContract, updateSchemeContract, recalculateSchemeContract,
   clearError
 } from '../../features/admin/adminSchemeSlice';
-import { fetchContracts, fetchUserDetail, updateContract } from '../../features/admin/adminSlice';
+import { fetchContracts, updateContract } from '../../features/admin/contractsSlice';
+import { fetchUserDetail } from '../../features/admin/usersSlice';
+
 import { fetchProjects } from '../../features/projects/projectSlice';
 import EmployeeInfoSection from '../../components/admin/EmployeeInfoSection';
 import ContractorInfoSection from '../../components/admin/ContractorInfoSection';
@@ -41,15 +43,28 @@ const SchemeContractScreen = () => {
   const employeeId = searchParams.get('employee');
   const contractId = searchParams.get('contract');
 
-  const { contracts, jobClasses, jobGroups, loading: schemeLoading, error } = useSelector(
-    (state) => state.adminScheme
-  );
-  const { selectedUser, contracts: adminContracts, loading: adminLoading } = useSelector((state) => state.admin);
-  const { list: projects } = useSelector((state) => state.projects);
+  // ✅ اضافه شدن Null Safety و مقادیر پیش‌فرض برای جلوگیری از خطای .find و .map
+  const { 
+    contracts = [], 
+    jobClasses = [], 
+    jobGroups = [], 
+    loading: schemeLoading, 
+    error 
+  } = useSelector((state) => state.adminScheme || {});
+  // دریافت اطلاعات کاربر از usersSlice
+  const { selectedUser = null, loading: userLoading } = useSelector((state) => state.admin.users || {});
+
+  // دریافت قراردادها از contractsSlice 
+  // (هر دو حالت contracts و list را پوشش دادم تا بسته به نام‌گذاری داخل contractsSlice کرش نکند)
+  const { contracts: stateContracts = [], list: stateList = [], loading: contractsLoading } = useSelector((state) => state.admin.contracts || {});
+  const adminContracts = stateContracts.length > 0 ? stateContracts : stateList;
+
+  const { list: projects = [] } = useSelector((state) => state.projects || {});
 
   const [isViewMode, setIsViewMode] = useState(true);
   const [loadingForm, setLoadingForm] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     contract: contractId || null,
@@ -75,7 +90,7 @@ const SchemeContractScreen = () => {
     contract_end_date: '',
   });
 
-  const baseContract = adminContracts?.find(c => c.id == contractId);
+  const baseContract = adminContracts.find(c => c.id == contractId);
   
   const contractDuration = calculateDuration(
     formData.contract_start_date || baseContract?.start_date, 
@@ -84,22 +99,28 @@ const SchemeContractScreen = () => {
 
   useEffect(() => {
     const loadData = async () => {
+        setIsPageLoading(true); // شروع لودینگ
         try {
+            // نکته مهم: unwrap حذف شد تا در صورت خطای یک API، بقیه درخواست‌ها لغو نشوند
             await Promise.all([
-                dispatch(getJobClasses()).unwrap(),
-                dispatch(getJobGroups({ year: 1404 })).unwrap(),
-                dispatch(fetchContracts()).unwrap(),
-                dispatch(fetchProjects()).unwrap(),
-                contractId ? dispatch(getSchemeContracts({ contractId })).unwrap() : Promise.resolve(),
-                employeeId ? dispatch(fetchUserDetail(employeeId)).unwrap() : Promise.resolve()
+                dispatch(getJobClasses()),
+                dispatch(getJobGroups({ year: 1404 })),
+                dispatch(fetchContracts()),
+                dispatch(fetchProjects()),
+                contractId ? dispatch(getSchemeContracts({ contractId })) : Promise.resolve(),
+                employeeId ? dispatch(fetchUserDetail(employeeId)) : Promise.resolve()
             ]);
-            setDataLoaded(true);
         } catch (error) {
             console.error("Error loading data:", error);
+        } finally {
+            setDataLoaded(true);
+            setIsPageLoading(false); // پایان قطعی لودینگ
         }
     };
     loadData();
   }, [dispatch, employeeId, contractId]);
+
+
 
   useEffect(() => {
     if (!dataLoaded) return;
@@ -379,7 +400,9 @@ const SchemeContractScreen = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 py-6 relative">
-      {(loadingForm || schemeLoading || adminLoading?.userDetail || !dataLoaded) && <LoadingOverlay />}
+      {(isPageLoading || loadingForm) && <LoadingOverlay />}
+
+
 
       <div className="max-w-4xl mx-auto px-4">
         <div className="bg-white border border-gray-300 shadow-sm rounded-sm px-8 py-6">

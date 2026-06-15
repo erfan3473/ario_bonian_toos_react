@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 
 const SkillLevelsSettings = () => {
-  const { skillLevels } = useSelector((state) => state.admin);
+  const { skillLevels = [] } = useSelector((state) => state.admin.dropdowns || {});
 
   // ✅ استفاده از useMemo برای جلوگیری از sort مکرر
   const sortedSkillLevels = useMemo(() => {

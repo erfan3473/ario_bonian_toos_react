@@ -23,8 +23,17 @@ export const fetchWorkerHistory = createAsyncThunk(
   async ({ workerId, timeRange = '24h' }, { rejectWithValue }) => {
     try {
       const end = new Date();
-      const ranges = { '1h': 3600000, '24h': 86400000, '7d': 604800000 };
+      // مقادیر جدید برای 1m (یک ماه = 30 روز) و 1y (یک سال = 365 روز) اضافه شدند
+      const ranges = { 
+        '1h': 3600000, 
+        '24h': 86400000, 
+        '7d': 604800000,
+        '1m': 2592000000,  // 30 * 24 * 60 * 60 * 1000
+        '1y': 31536000000  // 365 * 24 * 60 * 60 * 1000
+      };
+      
       const start = new Date(end.getTime() - (ranges[timeRange] || ranges['24h']));
+      
       const { data } = await axiosInstance.get(`/workers/${workerId}/history/`, {
         params: { start: start.toISOString(), end: end.toISOString() }
       });
@@ -84,7 +93,7 @@ const processWorkerUpdate = (state, u) => {
 
 
   // 🆕 وضعیت GPS
-  if (u.gps_enabled !== undefined) {
+ if (u.gps_enabled !== undefined) {
     worker.gps_enabled = u.gps_enabled;
   }
 
@@ -92,6 +101,9 @@ const processWorkerUpdate = (state, u) => {
   if (u.full_name !== undefined) worker.full_name = u.full_name;
   if (u.current_project_id !== undefined) worker.current_project_id = u.current_project_id;
   if (u.current_project_name !== undefined) worker.current_project_name = u.current_project_name;
+  
+  // 👇 این خط را به متادیتا اضافه کنید
+  if (u.position_color_hex !== undefined) worker.position_color_hex = u.position_color_hex;
 
   worker.lastUpdate = lastUpdate;
   worker.stale = false;
@@ -145,18 +157,8 @@ const workersSlice = createSlice({
           const realLastUpdate = w.last_location
             ? new Date(w.last_location.timestamp).getTime()
             : null;
-
-          // ✅ منطق Grace Period:
-          // آیا این دیتا مربوط به ۱ ساعت اخیر است؟
           const isRecentEnough = realLastUpdate && (NOW - realLastUpdate < GRACE_PERIOD_MS);
-          
-          // ✅ جلوگیری از باگ پرپر زدن (Flickering):
-          // اگر دیتا "Recent" است، ما lastUpdate لوکال (داخل Redux) را به "الان" تغییر می‌دهیم.
-          // چرا؟ چون اگر این کار را نکنیم، تابع cleanupOldWorkers (که ۵ دقیقه مهلت می‌دهد)
-          // بلافاصله این کارگر را حذف می‌کند (چون دیتای دیتابیس مثلا ۲۰ دقیقه پیش بوده).
-          // با این کار، کارگر تا ۵ دقیقه آینده در لیست سبز می‌ماند تا سوکت وصل شود.
           const effectiveLastUpdate = isRecentEnough ? NOW : realLastUpdate;
-
           workersMap[w.id] = {
             ...w,
             full_name: w.full_name || 'اسم ثبت نشده',
@@ -165,15 +167,12 @@ const workersSlice = createSlice({
             longitude: w.last_location?.longitude ?? null,
             location_enabled: w.last_location?.location_enabled ?? true,
             permission_granted: w.last_location?.permission_granted ?? true,
-            // استفاده از زمان محاسبه شده برای جلوگیری از حذف زودهنگام
             lastUpdate: effectiveLastUpdate, 
-            
-            // وضعیت آنلاین بودن اولیه بر اساس Grace Period
             stale: !isRecentEnough, 
-            
             current_project_id: w.current_project_id || null,
             current_project_name: w.current_project_name || null,
             position_color_hex: w.position_color_hex || null,
+            speed: w.last_location?.speed || 0, // 👈 این خط را اضافه کنید
             today_attendance_status: w.today_attendance_status || 'NOT_STARTED',
             shift_start: w.shift_start || null,
             shift_end: w.shift_end || null,

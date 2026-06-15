@@ -1,17 +1,17 @@
-// src/components/admin/settings/LeaveTypesSettings.jsx
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+
+// ✅ تغییر مسیر ایمپورت به dropdownsSlice و حذف resetUpdateStatus
 import {
   createLeaveType,
   updateLeaveType,
   deleteLeaveType,
-  resetUpdateStatus,
-} from '../../../features/admin/adminSlice';
+} from '../../../features/admin/dropdownsSlice';
 
 const LeaveTypesSettings = () => {
   const dispatch = useDispatch();
-  const { leaveTypes, updateStatus } = useSelector((state) => state.admin);
+  // ✅ اصلاح آدرس استیت
+  const { leaveTypes, updateStatus } = useSelector((state) => state.admin.dropdowns);
 
   const formRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,9 +37,9 @@ const LeaveTypesSettings = () => {
     }
   }, [showForm]);
 
-  // ✅ فیلتر با useMemo
+  // ✅ فیلتر با useMemo و محافظت در برابر null
   const filteredLeaveTypes = useMemo(() => {
-    return leaveTypes.filter((lt) =>
+    return (leaveTypes || []).filter((lt) =>
       lt.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lt.key?.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -189,12 +189,12 @@ const LeaveTypesSettings = () => {
     }));
   };
 
+  // ✅ حذف اکشن ناموجود و اصلاح منطق موفقیت
   useEffect(() => {
-    if (updateStatus.success) {
+    if (updateStatus?.success) {
       resetForm();
-      dispatch(resetUpdateStatus());
     }
-  }, [updateStatus.success, dispatch]);
+  }, [updateStatus?.success]);
 
   return (
     <div className="space-y-6">
@@ -215,7 +215,7 @@ const LeaveTypesSettings = () => {
       </div>
 
       {/* Error Display */}
-      {updateStatus.error && (
+      {updateStatus?.error && (
         <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
           <p className="text-red-400">❌ {updateStatus.error}</p>
         </div>
@@ -425,17 +425,17 @@ const LeaveTypesSettings = () => {
             <button
               type="button"
               onClick={resetForm}
-              disabled={updateStatus.loading}
+              disabled={updateStatus?.loading}
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition disabled:opacity-50"
             >
               انصراف
             </button>
             <button
               type="submit"
-              disabled={updateStatus.loading}
+              disabled={updateStatus?.loading}
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold transition disabled:opacity-50"
             >
-              {updateStatus.loading
+              {updateStatus?.loading
                 ? '⏳ در حال ذخیره...'
                 : editingId
                 ? '💾 ذخیره تغییرات'
@@ -459,24 +459,24 @@ const LeaveTypesSettings = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-gray-800 rounded-lg p-4 text-center">
-          <p className="text-3xl font-bold text-white">{leaveTypes.length}</p>
+          <p className="text-3xl font-bold text-white">{(leaveTypes || []).length}</p>
           <p className="text-gray-400 text-sm">کل انواع مرخصی</p>
         </div>
         <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 text-center">
           <p className="text-3xl font-bold text-green-400">
-            {leaveTypes.filter((l) => l.category === 'PAID').length}
+            {(leaveTypes || []).filter((l) => l.category === 'PAID').length}
           </p>
           <p className="text-gray-400 text-sm">با حقوق</p>
         </div>
         <div className="bg-red-900/30 border border-red-700 rounded-lg p-4 text-center">
           <p className="text-3xl font-bold text-red-400">
-            {leaveTypes.filter((l) => l.category === 'UNPAID').length}
+            {(leaveTypes || []).filter((l) => l.category === 'UNPAID').length}
           </p>
           <p className="text-gray-400 text-sm">بدون حقوق</p>
         </div>
         <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4 text-center">
           <p className="text-3xl font-bold text-blue-400">
-            {leaveTypes.filter((l) => l.category === 'SICK').length}
+            {(leaveTypes || []).filter((l) => l.category === 'SICK').length}
           </p>
           <p className="text-gray-400 text-sm">استعلاجی</p>
         </div>

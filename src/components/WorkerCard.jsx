@@ -1,21 +1,9 @@
 import React from 'react';
 
 const statusMap = {
-  NOT_STARTED: {
-    label: 'بدون شیفت',
-    className: 'bg-gray-700/20 text-gray-400 border-gray-600/30',
-    dotColor: 'bg-gray-500',
-  },
-  WORKING: {
-    label: 'کار',
-    className: 'bg-green-900/20 text-green-300 border-green-500/30',
-    dotColor: 'bg-green-500 animate-pulse',
-  },
-  FINISHED: {
-    label: 'پایان',
-    className: 'bg-blue-900/20 text-blue-300 border-blue-500/30',
-    dotColor: 'bg-blue-500',
-  },
+  NOT_STARTED: { label: 'بدون شیفت', className: 'bg-gray-700/20 text-gray-400 border-gray-600/30', dotColor: 'bg-gray-500' },
+  WORKING: { label: 'کار', className: 'bg-green-900/20 text-green-300 border-green-500/30', dotColor: 'bg-green-500 animate-pulse' },
+  FINISHED: { label: 'پایان', className: 'bg-blue-900/20 text-blue-300 border-blue-500/30', dotColor: 'bg-blue-500' },
 };
 
 const getGpsIssue = (worker) => {
@@ -38,7 +26,10 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
 
   const latestDate = worker.latest_attendance_date_jalali;
   const latestShiftIn = worker.latest_shift_in;
-  const isShiftOpen = worker.is_shift_open;
+  
+  // محاسبه سرعت (کیلومتر بر ساعت)
+  const speedKmh = Math.round((worker.speed || 0) * 3.6);
+  const isMoving = speedKmh > 2 && isOnline; // اگر سرعت بیشتر از 2 کیلومتر بر ساعت است
 
   return (
     <div
@@ -54,21 +45,12 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
         }
       `}
     >
-      {/* ردیف بالا: آواتار + مشخصات */}
       <div className="flex items-center gap-3">
         <div className="relative shrink-0">
           {worker.profile_image ? (
-            <img
-              src={worker.profile_image}
-              alt={displayName}
-              className="w-10 h-10 rounded-full object-cover border-2"
-              style={{ borderColor: positionColor }}
-            />
+            <img src={worker.profile_image} alt={displayName} className="w-10 h-10 rounded-full object-cover border-2" style={{ borderColor: positionColor }} />
           ) : (
-            <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm border-2"
-              style={{ backgroundColor: positionColor, borderColor: positionColor }}
-            >
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm border-2" style={{ backgroundColor: positionColor, borderColor: positionColor }}>
               {displayName.charAt(0)}
             </div>
           )}
@@ -81,19 +63,11 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
               {displayName}
             </h3>
             <div className="flex items-center gap-1 shrink-0">
-              {/* badge هشدار GPS */}
               {gpsIssue && (
-                <span
-                  title={gpsIssue}
-                  className="text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 px-1.5 py-0.5 rounded-full font-bold"
-                >
-                  ⚠️
-                </span>
+                <span title={gpsIssue} className="text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 px-1.5 py-0.5 rounded-full font-bold">⚠️</span>
               )}
               {worker.user_id && (
-                <span className="text-[10px] font-mono text-gray-500 bg-black/20 px-1.5 rounded">
-                  #{worker.user_id}
-                </span>
+                <span className="text-[10px] font-mono text-gray-500 bg-black/20 px-1.5 rounded">#{worker.user_id}</span>
               )}
             </div>
           </div>
@@ -106,18 +80,21 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
             </span>
           </div>
 
-          {/* متن توضیح مشکل GPS زیر سمت */}
-          {gpsIssue && (
-            <span className="text-[10px] text-yellow-400 mt-0.5">{gpsIssue}</span>
-          )}
+          {gpsIssue && <span className="text-[10px] text-yellow-400 mt-0.5">{gpsIssue}</span>}
         </div>
       </div>
 
-      {/* ردیف پایین: وضعیت و ساعت‌ها */}
       <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border ${statusConf.className}`}>
         <div className="flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full ${statusConf.dotColor}`}></span>
           <span className="text-xs font-bold">{statusConf.label}</span>
+          
+          {/* نمایش سرعت زنده در صورت حرکت */}
+          {isMoving && (
+             <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono animate-pulse">
+               💨 {speedKmh} km/h
+             </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-[11px] font-mono">

@@ -1,11 +1,15 @@
-// src/screens/admin/UserManagementScreen.jsx - جایگزین کامل (فقط کاربران)
+// src/screens/admin/UserManagementScreen.jsx
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import {
-  fetchUsers, fetchPositions, fetchSkillLevels, fetchEmploymentTypes, 
-  fetchLeaveTypes
-} from '../../features/admin/adminSlice';
+
+import { fetchUsers } from '../../features/admin/usersSlice';
+import { 
+  fetchPositions, 
+  fetchSkillLevels, 
+  fetchEmploymentTypes,
+  fetchLeaveTypes 
+} from '../../features/admin/dropdownsSlice';
 import { fetchProjects } from '../../features/projects/projectSlice';
 import UserCard from '../../components/admin/UserCard';
 import UserTableRow from '../../components/admin/UserTableRow';
@@ -18,7 +22,7 @@ const UserManagementScreen = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
 
-  const { users, loading } = useSelector((state) => state.admin);
+  const { list: users, loading } = useSelector((state) => state.admin.users);
   const projects = useSelector((state) => state.projects.list);
 
   useEffect(() => {
@@ -65,9 +69,9 @@ const UserManagementScreen = () => {
     dispatch(fetchLeaveTypes());
   };
 
-  if (loading.users && users.length === 0) {
+  if (loading.list && users.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900  items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin text-6xl mb-4">⏳</div>
           <p className="text-white text-xl">در حال بارگذاری کاربران...</p>
@@ -77,9 +81,8 @@ const UserManagementScreen = () => {
   }
 
   return (
-    <div className="items-center justify-center  min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+    <div className="items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -88,16 +91,15 @@ const UserManagementScreen = () => {
             </div>
             <button
               onClick={handleRefresh}
-              disabled={loading.users}
+              disabled={loading.list}
               className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
             >
-              {loading.users ? '⏳' : '🔄'} بروزرسانی
+              {loading.list ? '⏳' : '🔄'} بروزرسانی
             </button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className=" grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-4 border border-blue-700 hover:scale-105 transition-transform cursor-pointer" onClick={() => setFilterRole('all')}>
             <div className="text-blue-300 text-sm mb-1">👥 کل کاربران</div>
             <div className="text-white text-3xl font-bold">{stats.total}</div>
@@ -116,7 +118,6 @@ const UserManagementScreen = () => {
           </div>
         </div>
 
-        {/* Filters + New User */}
         <div className="bg-gray-800 rounded-xl p-4 mb-6 border border-gray-700 shadow-lg">
           <div className="flex flex-col lg:flex-row gap-4">
             <input
@@ -144,7 +145,6 @@ const UserManagementScreen = () => {
           </div>
         </div>
 
-        {/* Users List */}
         {filteredUsers.length === 0 ? (
           <div className="bg-gray-800 rounded-xl p-12 text-center border border-gray-700 shadow-lg">
             <div className="text-6xl mb-4">🔍</div>

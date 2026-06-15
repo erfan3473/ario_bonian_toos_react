@@ -1,7 +1,7 @@
 // src/screens/admin/PhonebookScreen.jsx
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUsers } from '../../features/admin/adminSlice';
+import { fetchUsers } from '../../features/admin/usersSlice';
 import { FaSearch, FaSms, FaPhone, FaUserTie, FaSpinner } from 'react-icons/fa';
 import AdminSmsModal from '../../components/admin/AdminSmsModal';
 

@@ -1,17 +1,16 @@
-// src/components/admin/settings/EmploymentTypesSettings.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   createEmploymentType, 
   updateEmploymentType,
-  deleteEmploymentType,
-  resetUpdateStatus,
-} from '../../../features/admin/adminSlice';
+  deleteEmploymentType
+} from '../../../features/admin/dropdownsSlice';
 
 const EmploymentTypesSettings = () => {
   const dispatch = useDispatch();
-  const { employmentTypes, updateStatus } = useSelector((state) => state.admin);
+  
+  const { employmentTypes, updateStatus } = useSelector((state) => state.admin.dropdowns);
+  
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
@@ -28,11 +27,11 @@ const EmploymentTypesSettings = () => {
   });
 
   useEffect(() => {
-    if (updateStatus.success) {
+    // وقتی عملیات موفق بود فقط فرم رو می‌بندیم
+    if (updateStatus?.success) {
       resetForm();
-      dispatch(resetUpdateStatus());
     }
-  }, [updateStatus.success, dispatch]);
+  }, [updateStatus?.success]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -100,7 +99,7 @@ const EmploymentTypesSettings = () => {
       </div>
 
       {/* Error Display */}
-      {updateStatus.error && (
+      {updateStatus?.error && (
         <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
           <p className="text-red-400">❌ {updateStatus.error}</p>
         </div>
@@ -205,17 +204,17 @@ const EmploymentTypesSettings = () => {
             <button
               type="button"
               onClick={resetForm}
-              disabled={updateStatus.loading}
+              disabled={updateStatus?.loading}
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition disabled:opacity-50"
             >
               انصراف
             </button>
             <button
               type="submit"
-              disabled={updateStatus.loading}
+              disabled={updateStatus?.loading}
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-bold transition disabled:opacity-50"
             >
-              {updateStatus.loading ? '⏳ در حال ذخیره...' : editingId ? '💾 ذخیره تغییرات' : '➕ ایجاد'}
+              {updateStatus?.loading ? '⏳ در حال ذخیره...' : editingId ? '💾 ذخیره تغییرات' : '➕ ایجاد'}
             </button>
           </div>
         </form>
@@ -223,7 +222,7 @@ const EmploymentTypesSettings = () => {
 
       {/* List */}
       <div className="space-y-3">
-        {employmentTypes.length === 0 ? (
+        {!employmentTypes || employmentTypes.length === 0 ? (
           <div className="bg-gray-900 rounded-lg p-12 text-center border border-gray-700">
             <div className="text-5xl mb-3">👔</div>
             <p className="text-gray-400">هیچ نوع استخدامی تعریف نشده است</p>

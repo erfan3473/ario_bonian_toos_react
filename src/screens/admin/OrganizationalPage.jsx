@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { 
-  fetchUserDetail,
-  updateEmployee, 
-  fetchPositions, 
-  fetchSkillLevels,
-  resetUpdateStatus 
-} from '../../features/admin/adminSlice';
+
+import { fetchUserDetail, updateEmployee, resetUpdateStatus } from '../../features/admin/usersSlice';
+import { fetchPositions, fetchSkillLevels } from '../../features/admin/dropdownsSlice';
+
+
 import JalaliDatePicker from '../../components/JalaliDatePicker';
 import { formatJalaliDate } from '../../utils/dateUtils';
 
@@ -17,8 +15,13 @@ const OrganizationalPage = () => {
   const dispatch = useDispatch();
   
   // استیت‌های ریداکس
-  const { selectedUser, loading, positions, skillLevels, updateStatus } = useSelector((state) => state.admin);
-  const userLoading = loading.userDetail;
+  // استیت‌های ریداکس (از اسلایس‌های مجزا)
+  const { selectedUser, loading, updateStatus = {} } = useSelector((state) => state.admin.users || {});
+  // خواندن دقیق وضعیت لودینگِ جزئیات کاربر
+  const userLoading = typeof loading === 'object' ? loading?.userDetail : loading;
+
+  const { positions = [], skillLevels = [] } = useSelector((state) => state.admin.dropdowns || {});
+  
   const { loading: updateLoading, success, error } = updateStatus;
 
   // اطلاعات کارمند

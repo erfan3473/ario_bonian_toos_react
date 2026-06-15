@@ -1,9 +1,10 @@
-// src/screens/admin/SettingsScreen.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchDropdowns } from '../../features/admin/adminSlice';
+
+// ✅ تغییر مسیر ایمپورت به dropdownsSlice
+import { fetchDropdowns } from '../../features/admin/dropdownsSlice';
 import { fetchProjects } from '../../features/projects/projectSlice';
+
 import EmploymentTypesSettings from '../../components/admin/settings/EmploymentTypesSettings';
 import PositionsSettings from '../../components/admin/settings/PositionsSettings';
 import SkillLevelsSettings from '../../components/admin/settings/SkillLevelsSettings';
@@ -13,8 +14,11 @@ const SettingsScreen = () => {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('employment-types');
   
-  const { dropdownsLoading, dropdownsError } = useSelector((state) => state.admin);
-  const projectsLoading = useSelector((state) => state.projects.loading);
+  // ✅ اصلاح مسیر خواندن استیت و انطباق با متغیرهای اسلایس جدید
+  const { loading: dropdownsLoading, error: dropdownsError } = useSelector(
+    (state) => state.admin.dropdowns || {}
+  );
+  const projectsLoading = useSelector((state) => state.projects?.loading);
 
   const tabs = [
     { id: 'employment-types', label: 'انواع حقوق و پرداخت', icon: '👔' },
@@ -74,7 +78,7 @@ const SettingsScreen = () => {
         </div>
 
         <div className="bg-gray-800 rounded-xl border border-gray-700 mb-6 p-2">
-          {/* 👇 تغییر اصلی اینجاست: justify-center اضافه شد */}
+          {/* justify-center برای قرارگیری منظم تب‌ها در مرکز */}
           <div className="flex flex-wrap justify-center gap-2">
             {tabs.map((tab) => (
               <button

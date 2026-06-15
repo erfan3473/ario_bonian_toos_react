@@ -1,5 +1,3 @@
-// src/components/admin/settings/PositionsSettings.jsx
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import ReactFlow, {
@@ -15,12 +13,13 @@ import ReactFlow, {
   getBezierPath,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+
+// ✅ تغییر مسیر ایمپورت به dropdownsSlice و حذف resetUpdateStatus
 import {
   createPosition,
   updatePosition,
   deletePosition,
-  resetUpdateStatus,
-} from '../../../features/admin/adminSlice';
+} from '../../../features/admin/dropdownsSlice';
 
 // ═══════════════════════════════════════════════════════════
 // 🔴 CUSTOM EDGE — دکمه حذف وسط خط
@@ -35,10 +34,9 @@ const DeletableEdge = ({
     targetX, targetY, targetPosition,
   });
 
-  // ✅ فقط id در dep — نه data (جلوگیری از re-render loop)
   const handleClick = useCallback(() => {
     data?.onDelete(id);
-  }, [id]);
+  }, [id, data]);
 
   return (
     <>
@@ -152,7 +150,8 @@ const nodeTypes = { customPosition: CustomPositionNode };
 // ═══════════════════════════════════════════════════════════
 const PositionsSettings = () => {
   const dispatch = useDispatch();
-  const { positions, updateStatus } = useSelector((state) => state.admin);
+  // ✅ اصلاح استیت به admin.dropdowns
+  const { positions, updateStatus } = useSelector((state) => state.admin.dropdowns);
 
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
@@ -168,17 +167,18 @@ const PositionsSettings = () => {
     can_enter_boq_items: false, description: '',
   });
 
-  const maxLevel = positions.reduce((max, p) => Math.max(max, p.hierarchy_level || 0), 3);
+  // ✅ جلوگیری از کرش کردن در صورتی که positions هنوز لود نشده باشد
+  const maxLevel = (positions || []).reduce((max, p) => Math.max(max, p.hierarchy_level || 0), 3);
   const dynamicLevelOptions = Array.from({ length: maxLevel + 2 }, (_, i) => i);
 
   // ═══════════════════════════════════════════════════════════
   // ✅ handleDeleteEdge با useRef — هیچ‌وقت reference عوض نمی‌شه
   // ═══════════════════════════════════════════════════════════
   const edgesRef = useRef(edges);
-  const positionsRef = useRef(positions);
+  const positionsRef = useRef(positions || []);
 
   useEffect(() => { edgesRef.current = edges; }, [edges]);
-  useEffect(() => { positionsRef.current = positions; }, [positions]);
+  useEffect(() => { positionsRef.current = positions || []; }, [positions]);
 
   const handleDeleteEdge = useCallback((edgeId) => {
     const edge = edgesRef.current.find((e) => e.id === edgeId);
@@ -199,7 +199,7 @@ const PositionsSettings = () => {
         title: childData.title,
         code: childData.code,
         hierarchy_level: childData.hierarchy_level,
-        parent_positions: newParents,           // ✅
+        parent_positions: newParents,           
         report_type: childData.report_type,
         color_hex: childData.color_hex,
         can_enter_boq_items: childData.can_enter_boq_items,
@@ -249,20 +249,17 @@ const PositionsSettings = () => {
         animated: true,
         interactionWidth: 20,
         data: { onDelete: handleDeleteEdge },
-        className: flowMode === 'approval' ? 'edge-report' : '',  // ✅ این یه خط
+        className: flowMode === 'approval' ? 'edge-report' : '',
         style: {
           stroke: flowMode === 'mission' ? '#3B82F6' : '#10B981',
           strokeWidth: 4,
         },
       }));
-
     });
-
 
     setNodes(newNodes);
     setEdges(newEdges);
-    // ✅ handleDeleteEdge اینجا نیست — loop نمی‌زنه
-  }, [positions, searchTerm, flowMode, pendingLevelChange]);
+  }, [positions, searchTerm, flowMode, pendingLevelChange, handleDeleteEdge]);
 
   // ── onNodesChange ──
   const onNodesChange = useCallback(
@@ -280,7 +277,6 @@ const PositionsSettings = () => {
         setEdges((eds) => applyEdgeChanges(otherChanges, eds));
       }
 
-      // حذف با keyboard → همان منطق handleDeleteEdge
       removeChanges.forEach((change) => {
         handleDeleteEdge(change.id);
       });
@@ -305,7 +301,7 @@ const PositionsSettings = () => {
         title: childData.title,
         code: childData.code,
         hierarchy_level: childData.hierarchy_level,
-        parent_positions: newParents,           // ✅
+        parent_positions: newParents,
         report_type: childData.report_type,
         color_hex: childData.color_hex,
         can_enter_boq_items: childData.can_enter_boq_items,
@@ -391,13 +387,13 @@ const PositionsSettings = () => {
     else dispatch(createPosition(formData));
   };
 
+  // ✅ پاک شدن وابستگی به اکشن حذف شده و تصحیح وضعیت
   useEffect(() => {
-    if (updateStatus.success) {
+    if (updateStatus?.success) {
       setPendingLevelChange(null);
       resetForm();
-      dispatch(resetUpdateStatus());
     }
-  }, [updateStatus.success, dispatch]);
+  }, [updateStatus?.success]);
 
   // ═══════════════════════════════════════════════════════════
   // RENDER
@@ -420,7 +416,6 @@ const PositionsSettings = () => {
           animation-direction: reverse;
        }
     `}</style>
-
 
       {/* ── Top Bar ── */}
       <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none gap-4">
@@ -467,7 +462,7 @@ const PositionsSettings = () => {
       </div>
 
       {/* error */}
-      {updateStatus.error && (
+      {updateStatus?.error && (
         <div className="absolute bottom-4 left-4 right-4 z-50 bg-red-900/90 border border-red-600 rounded-xl p-3 text-red-300 text-sm font-bold text-center">
           ❌ {updateStatus.error}
         </div>
@@ -588,8 +583,8 @@ const PositionsSettings = () => {
               <button type="button" onClick={resetForm} className="px-4 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition">
                 انصراف
               </button>
-              <button type="submit" disabled={updateStatus.loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold transition disabled:opacity-50">
-                {updateStatus.loading ? '⏳ صبر کنید...' : editingId ? '💾 ذخیره تغییرات' : '➕ ایجاد سمت'}
+              <button type="submit" disabled={updateStatus?.loading} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold transition disabled:opacity-50">
+                {updateStatus?.loading ? '⏳ صبر کنید...' : editingId ? '💾 ذخیره تغییرات' : '➕ ایجاد سمت'}
               </button>
             </div>
           </form>

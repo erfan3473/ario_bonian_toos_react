@@ -4,7 +4,8 @@ import { useDispatch } from 'react-redux';
 import { FaTimes, FaPaperPlane, FaSpinner } from 'react-icons/fa';
 
 // ⚠️ تغییر: اکشن sendAdminFreeSms باید از adminSlice ایمپورت شود
-import { sendAdminFreeSms } from '../../features/admin/adminSlice'; 
+import { sendAdminFreeSms } from '../../features/admin/usersSlice';
+
 
 const AdminSmsModal = ({ isOpen, onClose, targetPhone, targetName }) => {
   const [text, setText] = useState('');

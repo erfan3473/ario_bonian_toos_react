@@ -1,4 +1,4 @@
-// src/components/admin/UserCard.jsx - نسخه نهایی با ارتفاع دینامیک
+// src/components/admin/UserCard.jsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,15 +15,12 @@ const UserCard = ({ user, onClick }) => {
   const skillLevel = employee?.skill_level;
   const skillLevelDisplay = skillLevel ? `سطح ${skillLevel.level_number}` : null;
 
-  // هندلر دکمه طرح (زیر پروژه)
   const handleSchemeClick = (e, contract) => {
     e.stopPropagation();
-    
     if (!contract) {
       alert("قرارداد یافت نشد!");
       return;
     }
-
     navigate(`/admin/scheme-contracts?employee=${user.id}&contract=${contract.id}`);
   };
 
@@ -36,13 +33,11 @@ const UserCard = ({ user, onClick }) => {
       style={{ 
         boxShadow: `0 10px 30px ${positionColor}20`,
         borderColor: `${positionColor}40`,
-        minHeight: activeContracts.length === 0 ? '340px' : 'auto', // ✅ ارتفاع دینامیک
+        minHeight: activeContracts.length === 0 ? '340px' : 'auto', 
       }}
     >
-      {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-2.5 flex-shrink-0">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          {/* عکس */}
           <div 
             className="w-16 h-16 rounded-2xl flex-shrink-0 shadow-xl border-3 relative overflow-hidden ring-2 ring-white/20"
             style={{ 
@@ -71,7 +66,6 @@ const UserCard = ({ user, onClick }) => {
           </div>
         </div>
 
-        {/* Badge وضعیت */}
         <div 
            className="flex rounded-2xs flex-shrink-0 shadow-xl border-3 relative overflow-hidden ring-2 ring-white/20"
             style={{ 
@@ -93,13 +87,11 @@ const UserCard = ({ user, onClick }) => {
         </div>
       </div>
 
-      {/* Badges + Info */}
       <div className="flex items-center justify-between mb-3 px-1 flex-shrink-0">
         <div className="flex flex-wrap gap-1">
           {user.is_superuser && (
             <span className="bg-purple-900/80 text-purple-200 px-2 py-0.5 rounded-full text-xs font-bold border border-purple-400/50 shadow-md">👑</span>
           )}
-          
           {employee?.is_worker && (
             <span className="bg-orange-900/80 text-orange-200 px-2 py-0.5 rounded-full text-xs font-bold border border-orange-400/50 shadow-md">👷</span>
           )}
@@ -112,7 +104,6 @@ const UserCard = ({ user, onClick }) => {
         )}
       </div>
 
-      {/* اطلاعات کلیدی */}
       <div className="grid grid-cols-2 gap-2 mb-3 text-xs bg-black/40 rounded-xl p-3 backdrop-blur-sm border border-gray-700/50 flex-shrink-0">
         <div className="space-y-0.5">
           <span className="text-gray-500 text-[10px]">کد ملی</span>
@@ -124,7 +115,6 @@ const UserCard = ({ user, onClick }) => {
         </div>
       </div>
 
-      {/* قراردادهای فعال - ✅ بدون اسکرول */}
       <div className="space-y-2 flex-shrink-0">
         {activeContracts.length > 0 ? (
           <>
@@ -135,21 +125,18 @@ const UserCard = ({ user, onClick }) => {
               </span>
             </div>
 
-            {/* ✅ حذف overflow و max-height - همه دیده میشن */}
             <div className="space-y-2">
               {activeContracts.map((contract) => (
                 <div 
                   key={contract.id}
                   className="bg-gray-800/60 rounded-lg p-2.5 border border-gray-700/50 hover:border-gray-600/80 transition-all"
                 >
-                  {/* نام پروژه */}
                   <div className="flex items-center gap-1 mb-2">
                     <span className="text-blue-300 text-xs font-bold truncate" title={contract.project_name}>
                       📍 {contract.project_name}
                     </span>
                   </div>
 
-                  {/* دکمه طرح */}
                   <button
                     onClick={(e) => handleSchemeClick(e, contract)}
                     className={`w-full py-1.5 px-2 rounded-md text-xs font-bold transition-all hover:scale-[1.02] shadow-sm ${
@@ -174,7 +161,6 @@ const UserCard = ({ user, onClick }) => {
         )}
       </div>
 
-      {/* Footer */}
       {contracts.length > 0 && (
         <div className="mt-3 pt-2 border-t border-gray-700/50 flex items-center justify-between flex-shrink-0 text-xs">
           <span className="text-gray-400">کل قراردادها</span>
