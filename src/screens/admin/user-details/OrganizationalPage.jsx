@@ -2,12 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { fetchUserDetail, updateEmployee, resetUpdateStatus } from '../../features/admin/usersSlice';
-import { fetchPositions, fetchSkillLevels } from '../../features/admin/dropdownsSlice';
+import { fetchUserDetail, updateEmployee, resetUpdateStatus } from '../../../features/admin/usersSlice';
+import { fetchPositions, fetchSkillLevels } from '../../../features/admin/dropdownsSlice';
 
-
-import JalaliDatePicker from '../../components/JalaliDatePicker';
-import { formatJalaliDate } from '../../utils/dateUtils';
+import JalaliDatePicker from '../../../components/JalaliDatePicker';
+import { formatJalaliDate } from '../../../utils/dateUtils';
 
 const OrganizationalPage = () => {
   const { userId } = useParams();
@@ -15,19 +14,15 @@ const OrganizationalPage = () => {
   const dispatch = useDispatch();
   
   // استیت‌های ریداکس
-  // استیت‌های ریداکس (از اسلایس‌های مجزا)
   const { selectedUser, loading, updateStatus = {} } = useSelector((state) => state.admin.users || {});
-  // خواندن دقیق وضعیت لودینگِ جزئیات کاربر
   const userLoading = typeof loading === 'object' ? loading?.userDetail : loading;
 
   const { positions = [], skillLevels = [] } = useSelector((state) => state.admin.dropdowns || {});
-  
   const { loading: updateLoading, success, error } = updateStatus;
 
-  // اطلاعات کارمند
   const employee = selectedUser?.employee_details;
 
-  // استیت فرم
+  // استیت فرم (اطلاعات بانکی حذف شد)
   const [formData, setFormData] = useState({
     code_meli: '',
     father_name: '',
@@ -35,30 +30,24 @@ const OrganizationalPage = () => {
     position_id: '',
     skill_level_id: '',
     insurance_code: '',
-    shaba_number: '',
-    bank_account_number: '',
   });
 
-  // مرتب‌سازی سطوح مهارت
   const sortedSkillLevels = useMemo(() => {
     return [...(skillLevels || [])].sort((a, b) => a.level_number - b.level_number);
   }, [skillLevels]);
 
-  // ۱. دریافت اطلاعات اولیه هنگام ورود به صفحه
+  // دریافت اطلاعات اولیه
   useEffect(() => {
-    // اگر کاربر وجود نداشت یا آیدی آن با URL فرق داشت، کاربر را بگیر
     if (!selectedUser || selectedUser.id !== parseInt(userId)) {
       dispatch(fetchUserDetail(userId));
     }
-    // دریافت لیست سمت‌ها و مهارت‌ها
     if (!positions || positions.length === 0) dispatch(fetchPositions());
     if (!skillLevels || skillLevels.length === 0) dispatch(fetchSkillLevels());
     
-    // ریست کردن وضعیت آپدیت
     dispatch(resetUpdateStatus());
   }, [dispatch, userId, selectedUser, positions, skillLevels]);
 
-  // ۲. مقداردهی فرم وقتی اطلاعات کارمند لود شد
+  // مقداردهی فرم
   useEffect(() => {
     if (employee) {
       setFormData({
@@ -68,19 +57,15 @@ const OrganizationalPage = () => {
         position_id: employee.position?.id || '',
         skill_level_id: employee.skill_level?.id || '',
         insurance_code: employee.insurance_code || '',
-        shaba_number: employee.shaba_number || '',
-        bank_account_number: employee.bank_account_number || '',
       });
     }
   }, [employee]);
 
-  // هندل کردن تغییرات فرم
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ارسال فرم
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!employee?.id) {
@@ -88,17 +73,17 @@ const OrganizationalPage = () => {
       return;
     }
 
+    // اصلاح کستینگ آیدی‌ها برای جلوگیری از ارسال 0 به بک‌اند
     const payload = {
       ...formData,
       skill_level_id: formData.skill_level_id ? Number(formData.skill_level_id) : null,
-      position_id: Number(formData.position_id),
+      position_id: formData.position_id ? Number(formData.position_id) : null,
       birth_date: formData.birth_date || null,
     };
 
     dispatch(updateEmployee({ employeeId: employee.id, data: payload }));
   };
 
-  // صفحه لودینگ اولیه
   if (userLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-8">
@@ -114,7 +99,7 @@ const OrganizationalPage = () => {
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       <div className="max-w-5xl mx-auto w-full">
         
-        {/* هدر ناوبری (Breadcrumb) */}
+        {/* هدر */}
         <div className="mb-8 bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col sm:flex-row justify-between items-center shadow-lg gap-4">
           <div className="text-gray-400 font-bold flex flex-wrap items-center gap-2">
             <span className="cursor-pointer hover:text-white" onClick={() => navigate('/admin/users')}>کاربران</span>
@@ -134,11 +119,9 @@ const OrganizationalPage = () => {
           </button>
         </div>
 
-        {/* بدنه فرم (دقیقا همان کدهای تب سازمانی) */}
         <div className="bg-gray-900/70 border-2 border-gray-700 rounded-xl p-8 shadow-2xl backdrop-blur-sm">
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* هدر و وضعیت */}
             <div className="flex justify-between items-center border-b border-gray-700 pb-4 mb-6">
               <h3 className="text-2xl font-bold text-white flex items-center gap-2">
                 👔 اطلاعات شغلی و پرسنلی
@@ -154,7 +137,6 @@ const OrganizationalPage = () => {
               )}
             </div>
 
-            {/* پیغام‌های موفقیت و خطا */}
             {success && (
               <div className="bg-green-900/30 border border-green-600 rounded-xl p-4 flex items-center gap-3 animate-pulse">
                 <span className="text-2xl">✅</span>
@@ -188,6 +170,7 @@ const OrganizationalPage = () => {
                 </div>
                 <div>
                   <label className="block text-gray-300 mb-2 font-bold text-sm">کد بیمه <span className="text-red-500">*</span></label>
+                  {/* کد بیمه در اینجا required است ولی در دیتابیس میتواند خالی بماند */}
                   <input type="text" name="insurance_code" value={formData.insurance_code} onChange={handleChange} required className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono tracking-widest text-center" />
                 </div>
               </div>
@@ -220,28 +203,6 @@ const OrganizationalPage = () => {
                     </select>
                     <div className="absolute inset-y-0 left-0 flex items-center px-3 pointer-events-none text-gray-400">▼</div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* بخش 3: اطلاعات بانکی */}
-            <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700/50 hover:border-gray-500 transition-colors">
-              <h4 className="text-green-400 font-bold mb-4 text-sm">💳 اطلاعات بانکی</h4>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-gray-300 mb-2 font-bold text-sm">شماره شبا (بدون IR) <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 font-bold">IR</span>
-                    <input type="text" name="shaba_number" value={formData.shaba_number.replace(/^IR/i, '')} onChange={(e) => {
-                        let val = e.target.value.toUpperCase();
-                        if (!val.startsWith('IR')) val = 'IR' + val.replace(/[^0-9]/g, '');
-                        setFormData((prev) => ({ ...prev, shaba_number: val }));
-                      }} required maxLength={26} className="w-full bg-gray-900 text-white pl-12 pr-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono tracking-widest" placeholder="000000000000000000000000" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-2 font-bold text-sm">شماره کارت / حساب</label>
-                  <input type="text" name="bank_account_number" value={formData.bank_account_number} onChange={handleChange} className="w-full bg-gray-900 text-white px-4 py-3 rounded-lg border border-gray-600 focus:ring-2 focus:ring-green-500 focus:outline-none font-mono tracking-widest" placeholder="6037-****-****-****" />
                 </div>
               </div>
             </div>

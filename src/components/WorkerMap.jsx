@@ -1,11 +1,12 @@
+// src/components/WorkerMap.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import L from '@neshan-maps-platform/leaflet';
 import '@neshan-maps-platform/leaflet/dist/leaflet.css';
 import { fetchWorkerHistory } from '../features/workers/workerSlice';
 
 // ----------------------------------------------------------------------
-// توابع کمکی
+// توابعه کمکی
 // ----------------------------------------------------------------------
 const formatHistoryTime = (isoTs) => {
   if (!isoTs) return '—';
@@ -13,7 +14,6 @@ const formatHistoryTime = (isoTs) => {
   return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
-// محاسبه فاصله بین دو مختصات جغرافیایی به متر (فرمول Haversine)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; 
   const p1 = (lat1 * Math.PI) / 180;
@@ -45,11 +45,42 @@ const getWorkerGpsStatus = (worker) => {
   };
 };
 
+// --- تابع ساخت آیکون عارضه‌ها ---
+const createFeatureIcon = (svgString) => {
+  return L.divIcon({
+    className: 'custom-feature-icon',
+    html: `
+      <div style="
+        background-color: white; 
+        width: 28px; 
+        height: 28px; 
+        border: 2px solid #3B82F6; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      ">
+        ${
+          svgString 
+            ? `<div style="width: 16px; height: 16px; display:flex; justify-content:center; align-items:center;">${svgString}</div>` 
+            : `<span style="font-size: 14px;">📍</span>`
+        }
+      </div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -28]
+  });
+};
+
 // ----------------------------------------------------------------------
 // کامپوننت اصلی
 // ----------------------------------------------------------------------
-const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, loadingHistory, projectGeofence, connected }) => {
+const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, loadingHistory, projectGeofence, connected, selectedProjectId }) => {
   const dispatch = useDispatch();
+
+  // خواندن مسیرها و عارضه‌ها از ریداکس
+  const { routeTemplates, projectFeatures } = useSelector((state) => state.mapRoutes);
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -57,32 +88,70 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
   const geofenceLayerRef = useRef(null);
   const historyLineRef = useRef(null);
   const historyMarkerRef = useRef(null);
+  const satelliteLayerRef = useRef(null);
+  
+  // لایه گروهی برای مسیرها و عارضه‌ها
+  const routesAndFeaturesLayerRef = useRef(null);
 
   const [timeRange, setTimeRange] = useState('24h');
   const [historyIndex, setHistoryIndex] = useState(0);
-  // استیت جدید برای پاک کردن کامل مسیر و مسافت هنگام ریست
   const [isHistoryCleared, setIsHistoryCleared] = useState(false);
+  
+  const [currentZoom, setCurrentZoom] = useState(10);
+  const [isSatelliteEnabled, setIsSatelliteEnabled] = useState(false);
 
   // ۱. مقداردهی اولیه نقشه
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (mapContainerRef.current && !mapInstanceRef.current) {
+      const map = new L.Map(mapContainerRef.current, {
+        key: "web.83d364e4d58e4b1e966567753524cdf8",
+        maptype: "neshan",
+        poi: false,
+        traffic: false,
+        center: [36.2974, 59.6062],
+        zoom: 10,
+        zoomControl: false,
+      });
 
-    const map = new L.Map(mapContainerRef.current, {
-      key: "web.83d364e4d58e4b1e966567753524cdf8",
-      maptype: "neshan",
-      poi: false,
-      traffic: false,
-      center: [36.2974, 59.6062],
-      zoom: 13,
-    });
+      const googleOfflineLayer = L.tileLayer(
+        `/media/tiles/{z}/{x}/{y}.png`,
+        {
+          minZoom: 10,
+          maxZoom: 19,
+          attribution: "نقشه ماهواره‌ای گوگل (آفلاین)",
+          errorTileUrl: 'data:application/octet-stream;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+        }
+      );
+      satelliteLayerRef.current = googleOfflineLayer;
 
-    mapInstanceRef.current = map;
+      map.on('zoomend', () => {
+        setCurrentZoom(map.getZoom());
+      });
+
+      // مقداردهی لایه گروهی عارضه‌ها
+      routesAndFeaturesLayerRef.current = L.featureGroup().addTo(map);
+
+      mapInstanceRef.current = map;
+    }
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current && mapContainerRef.current === null) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !satelliteLayerRef.current) return;
+
+    if (isSatelliteEnabled) {
+      map.addLayer(satelliteLayerRef.current);
+    } else {
+      map.removeLayer(satelliteLayerRef.current);
+    }
+  }, [isSatelliteEnabled]);
 
   useEffect(() => {
     if (selectedWorkerId && !isHistoryCleared) {
@@ -90,13 +159,11 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
     }
   }, [selectedWorkerId, timeRange, isHistoryCleared, dispatch]);
 
-  // وقتی کارگر جدیدی انتخاب می‌شود یا روی آن فوکوس می‌شود، حالت ریست لغو شود
   useEffect(() => {
     setIsHistoryCleared(false);
     setHistoryIndex(0);
   }, [selectedWorkerId, zoomTrigger]);
 
-  // وقتی دیتای جدید مسیر از سرور می‌رسد، ایندکس اسلایدر صفر شود
   useEffect(() => {
     setHistoryIndex(0);
   }, [workerHistory]);
@@ -119,6 +186,95 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
       map.fitBounds(geofenceLayerRef.current.getBounds(), { padding: [50, 50] });
     }
   }, [projectGeofence]);
+
+  // --- رسم مسیرها و عارضه‌های پروژه‌ها ---
+  useEffect(() => {
+    const layerGroup = routesAndFeaturesLayerRef.current;
+    if (!layerGroup) return;
+
+    layerGroup.clearLayers();
+
+    let filteredTemplates = [];
+    let filteredFeatures = [];
+
+    if (!selectedProjectId) {
+      // حالت: نمای کلی سازمان (null یا '') -> نمایش همه
+      filteredTemplates = routeTemplates;
+      filteredFeatures = projectFeatures;
+    } else if (selectedProjectId === 'uncategorized') {
+      // حالت: بدون پروژه -> فقط آنهایی که project ندارند (null هستند)
+      filteredTemplates = routeTemplates.filter(rt => !rt.project);
+      filteredFeatures = projectFeatures.filter(pf => !pf.project);
+    } else {
+      // حالت: یک پروژه خاص انتخاب شده (مثلا عدد 1)
+      const targetId = String(selectedProjectId);
+      
+      filteredTemplates = routeTemplates.filter(rt => {
+        const pId = (rt.project && typeof rt.project === 'object') ? rt.project.id : rt.project;
+        return String(pId) === targetId;
+      });
+
+      filteredFeatures = projectFeatures.filter(pf => {
+        const pId = (pf.project && typeof pf.project === 'object') ? pf.project.id : pf.project;
+        return String(pId) === targetId;
+      });
+    }
+
+    // رسم مسیرها با معکوس کردن [lng, lat] به [lat, lng] برای نمایش صحیح روی نقشه وب
+    filteredTemplates.forEach((template) => {
+      const popupContent = `
+        <div style="font-family: Tahoma; font-size: 13px; text-align: right; min-width: 140px;">
+          <strong style="color: #2563EB; font-size: 13px;">${template.name}</strong>
+          ${template.description ? `<div style="margin-top: 4px; font-size: 11px; color:#4B5563;">${template.description}</div>` : ''}
+        </div>
+      `;
+
+      if (template.polygon_coordinates && template.polygon_coordinates.length > 0) {
+        const correctedPolygon = template.polygon_coordinates.map(pt => [pt[1], pt[0]]);
+        L.polygon(correctedPolygon, { color: '#8B5CF6', weight: 2, fillOpacity: 0.2 })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      } 
+      else if (template.line_coordinates && template.line_coordinates.length > 0) {
+        const correctedLine = template.line_coordinates.map(pt => [pt[1], pt[0]]);
+        L.polyline(correctedLine, { color: '#10B981', weight: 3 })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      }
+      else if (template.multi_line_coordinates && template.multi_line_coordinates.length > 0) {
+        const correctedMultiLine = template.multi_line_coordinates.map(line => line.map(pt => [pt[1], pt[0]]));
+        L.polyline(correctedMultiLine, { color: '#F59E0B', weight: 3 })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      }
+    });
+
+    // رسم عارضه‌ها (نقاط)
+    filteredFeatures.forEach((feature) => {
+      if (feature.location_coordinates && feature.location_coordinates.length === 2) {
+        const svgIcon = feature.icon_detail?.icon_svg || null;
+        const popupContent = `
+          <div style="font-family: Tahoma; font-size: 13px; text-align: right; min-width: 140px;">
+            <strong style="color: #EF4444; font-size: 13px;">${feature.name}</strong>
+            ${feature.icon_detail?.name ? `<div style="color: #059669; margin-top: 2px; font-size: 11px;">نوع: ${feature.icon_detail.name}</div>` : ''}
+            ${feature.description ? `<div style="margin-top: 4px; font-size: 11px; color:#4B5563;">${feature.description}</div>` : ''}
+          </div>
+        `;
+
+        L.marker(feature.location_coordinates, { icon: createFeatureIcon(svgIcon) })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      }
+    });
+
+    // جابجایی خودکار دوربین مپ روی مسیرها و قالب‌ها وقتی فنس پروژه وجود نداره
+    if (layerGroup.getLayers().length > 0) {
+      if (!projectGeofence || projectGeofence.length < 3) {
+        mapInstanceRef.current.fitBounds(layerGroup.getBounds(), { padding: [50, 50], maxZoom: 15 });
+      }
+    }
+
+  }, [routeTemplates, projectFeatures, selectedProjectId, projectGeofence]);
 
   // ۳. رسم مارکر زنده کارگران
   useEffect(() => {
@@ -188,7 +344,7 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
         </div>
       `;
 
-      const marker = L.marker([worker.latitude, worker.longitude], { icon })
+      const marker = L.marker([worker.latitude, worker.longitude], { icon, zIndexOffset: 1000 })
         .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
         .addTo(map);
 
@@ -221,7 +377,6 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
   // ۴. محاسبات تاریخچه و فواصل
   const GAP_THRESHOLD_MS = 10 * 60 * 1000;
 
-  // وقتی ریست زده شود یا دیتای جدید در حال لود باشد، مسیر کاملاً پاک می‌شود
   const historyPoints = useMemo(() => {
     if (!selectedWorkerId || isHistoryCleared || loadingHistory) return [];
     return (workerHistory || []).filter((loc) => loc.latitude && loc.longitude);
@@ -276,22 +431,18 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
 
   const currentPoint = historyPoints[clampedIndex] ? [historyPoints[clampedIndex].latitude, historyPoints[clampedIndex].longitude] : null;
   const currentMeta = historyPoints[clampedIndex] || null;
-  
-  // بررسی وضعیت لودینگ یا نمایش مسیر
   const isHistoryMode = selectedWorkerId && !isHistoryCleared && (currentMeta || loadingHistory);
 
-  // ۵. رسم مسیر تاریخچه و حرکت هوشمند پاپ‌آپ
+  // ۵. رسم مسیر تاریخچه
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // پاک‌سازی کامل خط مسیر قبلی
     if (historyLineRef.current) {
       map.removeLayer(historyLineRef.current);
       historyLineRef.current = null;
     }
     
-    // رسم مجدد خط
     if (visiblePathSegments.length > 0) {
       historyLineRef.current = L.polyline(visiblePathSegments, {
         color: '#EF4444',
@@ -328,7 +479,7 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
       `;
 
       if (!historyMarkerRef.current) {
-        historyMarkerRef.current = L.marker(currentPoint, { icon: historyPointIcon })
+        historyMarkerRef.current = L.marker(currentPoint, { icon: historyPointIcon, zIndexOffset: 2000 })
           .bindPopup(L.popup({ className: 'sharp-popup', autoPan: false }).setContent(popupContent))
           .addTo(map);
       } else {
@@ -347,13 +498,10 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
     }
   }, [visiblePathSegments, currentPoint, currentMeta, currentDistanceMeters, historyPoints, clampedIndex]);
 
-  // ۶. تابع بازنشانی فیلتر بهبود یافته
   const handleResetFilter = () => {
     setTimeRange('24h');
     setHistoryIndex(0);
-    setIsHistoryCleared(true); // این استیت باعث محو شدن فوری تمام المان‌های تاریخچه روی نقشه می‌شود
-
-
+    setIsHistoryCleared(true);
   };
 
   return (
@@ -362,40 +510,45 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
         .sharp-popup .leaflet-popup-content-wrapper { border-radius: 4px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .sharp-popup .leaflet-popup-tip { display: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .custom-feature-icon svg { width: 100%; height: 100%; }
       `}</style>
 
       <div className="relative w-full h-full z-0 isolate">
 
         {/* کنترلرهای فیلتر */}
-        <div className="absolute top-4 right-4 z-[400] flex shadow-2xl border border-gray-700">
-          {['1h', '24h', '7d', '1m', '1y'].map((range) => {
-            const labels = { '1h': '۱ ساعت', '24h': '۱ روز', '7d': '۱ هفته', '1m': '۱ ماه', '1y': '۱ سال' };
-            return (
-              <button
-                key={range}
-                onClick={() => {
-                  setTimeRange(range);
-                  setIsHistoryCleared(false); // خروج از حالت ریست
-                }}
-                className={`px-4 py-2 text-xs font-bold transition-all border-l border-gray-700 ${
-                  timeRange === range && !isHistoryCleared ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {labels[range]}
-              </button>
-            );
-          })}
+        <div className="absolute top-4 right-4 z-[400] flex shadow-2xl border border-gray-700 rounded-lg overflow-hidden max-w-[85vw] bg-gray-800">
+          <div className="flex overflow-x-auto scrollbar-hide">
+            {['1h', '24h', '7d', '1m', '1y'].map((range) => {
+              const labels = { '1h': '۱ س', '24h': '۱ ر', '7d': '۱ ه', '1m': '۱ م', '1y': '۱ س' };
+              return (
+                <button
+                  key={range}
+                  onClick={() => {
+                    setTimeRange(range);
+                    setIsHistoryCleared(false);
+                  }}
+                  className={`px-3 py-2 text-xs font-bold transition-all border-l border-gray-700 whitespace-nowrap ${
+                    timeRange === range && !isHistoryCleared ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {labels[range]}
+                </button>
+              );
+            })}
+          </div>
           <button
             onClick={handleResetFilter}
-            className="px-4 py-2 text-xs font-bold transition-all bg-red-600 text-white hover:bg-red-700"
+            className="px-3 py-2 text-xs font-bold transition-all bg-red-600 text-white hover:bg-red-700 shrink-0"
             title="بازگشت به نقشه زنده و بستن مسیر"
           >
-            ریست فیلتر
+            بستن
           </button>
         </div>
 
         {/* وضعیت بالا سمت چپ */}
-        <div className={`absolute top-4 left-14 z-[400] backdrop-blur px-3 py-2 flex items-center gap-2 text-xs shadow-lg transition-colors duration-300 pointer-events-none
+        <div className={`absolute top-4 left-14 z-[400] backdrop-blur px-3 py-2 flex items-center gap-2 text-xs shadow-lg transition-colors duration-300 pointer-events-none rounded
             ${isHistoryMode ? 'bg-blue-900/90 border border-blue-400 text-blue-100' : connected ? 'bg-gray-900/80 border border-gray-700 text-gray-200' : 'bg-red-900/90 border border-red-500 text-red-100'}`}>
           {isHistoryMode ? (
             <><span className="text-lg">🕓</span><span className="font-mono font-bold text-sm pt-0.5">{loadingHistory ? 'در حال دریافت...' : formatHistoryTime(currentMeta?.timestamp)}</span></>
@@ -404,38 +557,71 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
           )}
         </div>
 
+        {/* دکمه سوئیچ ماهواره */}
+        <button
+          onClick={() => setIsSatelliteEnabled(!isSatelliteEnabled)}
+          className={`absolute bottom-28 left-4 z-[400] px-3 py-2 rounded shadow-xl font-bold text-xs flex items-center gap-2 transition-all ${
+            isSatelliteEnabled ? 'bg-blue-600 text-white border-2 border-blue-400' : 'bg-white text-gray-800 border-2 border-gray-300'
+          }`}
+        >
+          {isSatelliteEnabled ? '🗺️ بستن ماهواره' : '🛰️ نقشه ماهواره'}
+        </button>
+
+        {/* نمایشگر زوم فعلی */}
+        <div className="absolute bottom-28 right-4 z-[400] bg-white/90 text-gray-800 px-2 py-1 border border-gray-300 rounded text-xs font-mono font-bold shadow-md">
+          Zoom: {currentZoom}
+        </div>
+        
+        {/* دکمه‌های کنترل زوم دستی */}
+        <div className="absolute bottom-40 right-4 z-[400] flex flex-col shadow-xl rounded overflow-hidden border border-gray-300">
+          <button 
+            onClick={() => mapInstanceRef.current?.zoomIn()} 
+            className="w-8 h-8 bg-white text-gray-800 border-b border-gray-200 font-bold text-xl hover:bg-gray-100 flex justify-center items-center focus:outline-none"
+            title="بزرگنمایی"
+          >
+            +
+          </button>
+          <button 
+            onClick={() => mapInstanceRef.current?.zoomOut()} 
+            className="w-8 h-8 bg-white text-gray-800 font-bold text-2xl hover:bg-gray-100 flex justify-center items-center focus:outline-none pb-1"
+            title="کوچکنمایی"
+          >
+            -
+          </button>
+        </div>
+
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%', zIndex: 0, backgroundColor: '#f3f4f6' }} />
 
         {loadingHistory && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[400] bg-black/80 text-white py-3 px-6 shadow-2xl text-sm flex items-center gap-3 backdrop-blur-sm border border-gray-600">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-none animate-spin" />
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[400] bg-black/80 text-white py-3 px-6 shadow-2xl text-sm flex items-center gap-3 backdrop-blur-sm border border-gray-600 rounded">
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             <span className="font-bold">در حال بارگذاری مسیر...</span>
           </div>
         )}
 
         {/* اسلایدر تاریخچه */}
         {historyPoints.length > 0 && (
-          <div className="absolute bottom-0 left-0 w-full z-[400] bg-gray-900/95 backdrop-blur border-t border-gray-700 px-4 py-3">
+          <div className="absolute bottom-0 left-0 w-full z-[400] bg-gray-900/95 backdrop-blur border-t border-gray-700 px-4 py-3 pb-6 md:pb-3">
             <div className="max-w-4xl mx-auto w-full">
               
               <div className="flex justify-between items-center mb-2 px-1">
                  <div className="text-xs text-gray-300">
-                    کل مسافت در این بازه: <span className="font-mono font-bold text-green-400">{Math.round(totalDistanceMeters)} متر</span>
+                    مسافت: <span className="font-mono font-bold text-green-400">{Math.round(totalDistanceMeters)} m</span>
                  </div>
                  <div className="text-xs text-gray-300">
-                    تعداد کل قدم‌ها: <span className="font-mono font-bold text-amber-500">{Math.round(totalDistanceMeters / 0.75)}</span>
+                    قدم‌ها: <span className="font-mono font-bold text-amber-500">{Math.round(totalDistanceMeters / 0.75)}</span>
                  </div>
               </div>
 
               <input
                 type="range" min={0} max={maxIndex} value={clampedIndex}
                 onChange={(e) => setHistoryIndex(Number(e.target.value))}
-                className="w-full h-1.5 bg-gray-700 appearance-none cursor-pointer accent-red-500"
+                className="w-full h-1.5 bg-gray-700 appearance-none cursor-pointer accent-red-500 rounded"
                 style={{ background: `linear-gradient(to left, #EF4444 0%, #EF4444 ${(clampedIndex / maxIndex) * 100}%, #374151 ${(clampedIndex / maxIndex) * 100}%, #374151 100%)` }}
               />
-              <div className="flex justify-between text-xs text-gray-400 mt-2 font-mono">
+              <div className="flex justify-between text-[10px] sm:text-xs text-gray-400 mt-2 font-mono">
                 <span>🏁 شروع</span>
-                <span className="font-bold text-white bg-gray-800 px-2 py-1 border border-gray-600">{clampedIndex + 1} / {historyPoints.length}</span>
+                <span className="font-bold text-white bg-gray-800 px-2 py-0.5 rounded border border-gray-600">{clampedIndex + 1} / {historyPoints.length}</span>
                 <span>انتها 🏁</span>
               </div>
             </div>

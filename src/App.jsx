@@ -26,7 +26,8 @@ import SchemeContractScreen from './screens/admin/SchemeContractScreen';
 import SchemeManagementScreen from './screens/admin/SchemeManagementScreen';
 import AdminTimesheetScreen from './screens/admin/AdminTimesheetScreen';
 import ChatScreen from './screens/admin/ChatScreen'; 
-import OrganizationalPage from './screens/admin/OrganizationalPage';
+import OrganizationalPage from './screens/admin/user-details/OrganizationalPage';
+import UserLocationHistory from './screens/admin/user-details/UserLocationHistory';
 
 // Layout و صفحات جدید مربوط به کاربر
 import SystemInfoPage from './screens/admin/user-details/SystemInfoPage';
@@ -68,7 +69,8 @@ function App() {
           
           {/* Admin Routes */}
           <Route path="/admin/users" element={<UserManagementScreen />} />
-          
+          <Route path="/admin/users/:userId/location-history" element={<UserLocationHistory />} />
+
           {/* مسیر مجزا برای صفحه سازمانی */}
           <Route path="/admin/users/:userId" element={<UserDashboard />} />
           {/* مسیر لایوت و تب‌های کاربری */}

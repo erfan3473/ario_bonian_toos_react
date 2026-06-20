@@ -1,5 +1,4 @@
 // src/screens/WorkerDashboardScreen.jsx
-
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import QRCode from "react-qr-code";
@@ -18,6 +17,13 @@ import {
   fetchProjectGeofence,
   clearGeofence
 } from '../features/projects/projectSlice';
+
+// === اضافه شدن اکشن‌های مربوط به مسیرها و عارضه‌ها ===
+import {
+  fetchFeatureIcons,
+  fetchRouteTemplates,
+  fetchProjectFeatures
+} from '../features/routeMaps/mapRoutesSlice';
 
 import WorkerMap from '../components/WorkerMap';
 import WorkerCard from '../components/WorkerCard';
@@ -47,6 +53,13 @@ const WorkerDashboardScreen = () => {
       loading: projectsLoading,
       geofence: { data: geofenceData }
   } = useSelector((state) => state.projects);
+
+  // === دریافت آیکون‌ها، مسیرها و عارضه‌ها در ابتدای ورود به داشبورد ===
+  useEffect(() => {
+    dispatch(fetchFeatureIcons());
+    dispatch(fetchRouteTemplates());
+    dispatch(fetchProjectFeatures());
+  }, [dispatch]);
 
   useEffect(() => {
     if (selectedProjectId && typeof selectedProjectId === 'number') {
@@ -230,7 +243,6 @@ const WorkerDashboardScreen = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 flex flex-col">
       
-      {/* 🚨 هشدار قطع اتصال - تمام عرض در بالا */}
       {!connected && !paused && (
         <div className="bg-yellow-600 border-b border-yellow-500 text-white px-4 py-2 flex justify-center items-center gap-3 animate-pulse">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -240,7 +252,7 @@ const WorkerDashboardScreen = () => {
         </div>
       )}
 
-      {/* 🗺️ نقشه - تمام عرض، چسبیده به بالا، گوشه‌های تیز */}
+      {/* 🗺️ نقشه */}
       <div className="w-full h-[50vh] min-h-[400px] border-b-2 border-gray-700 bg-gray-800 z-10 relative">
         <WorkerMap
           workers={finalWorkers}
@@ -250,13 +262,11 @@ const WorkerDashboardScreen = () => {
           loadingHistory={historyStatus === 'loading'}
           projectGeofence={geofenceData?.boundary_coordinates}
           connected={connected}
+          selectedProjectId={selectedProjectId} // <--- پاس دادن ID پروژه برای فیلتر عارضه‌ها
         />
       </div>
 
-      {/* بخش پایین نقشه شامل کنترل‌ها و لیست (محدود در کانتینر) */}
       <div className="flex-1 p-4 md:p-6 container mx-auto">
-        
-        {/* 🎛️ نوار کنترل */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4 bg-gray-800 p-4 border border-gray-700">
           <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
             <div className="relative flex-grow xl:flex-grow-0">
@@ -304,6 +314,8 @@ const WorkerDashboardScreen = () => {
               onClick={() => { 
                 dispatch(fetchWorkers()); 
                 dispatch(fetchProjects()); 
+                dispatch(fetchRouteTemplates()); // رفرش مسیرها
+                dispatch(fetchProjectFeatures()); // رفرش عارضه‌ها
               }}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold transition-colors"
             >
@@ -312,7 +324,6 @@ const WorkerDashboardScreen = () => {
           </div>
         </div>
 
-        {/* لیست و آمار */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 space-y-4">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-800 p-3 border border-gray-700">
@@ -393,7 +404,6 @@ const WorkerDashboardScreen = () => {
         </div>
       </div>
 
-      {/* مودال QR Code */}
       {showQRModal && selectedProjectId && selectedProjectId !== 'uncategorized' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"

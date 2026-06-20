@@ -1,11 +1,11 @@
 // src/screens/ProjectGeofenceScreen.jsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import L from '@neshan-maps-platform/leaflet';
 import '@neshan-maps-platform/leaflet/dist/leaflet.css';
 import { fetchProjectGeofence, updateProjectGeofence } from '../features/projects/projectSlice';
+import { fetchRouteTemplates, fetchProjectFeatures } from '../features/routeMaps/mapRoutesSlice';
 
 const vertexIcon = L.divIcon({
   className: 'custom-vertex',
@@ -21,6 +21,34 @@ const midpointIcon = L.divIcon({
   iconAnchor: [6, 6]
 });
 
+// --- تابع ساخت آیکون عارضه‌ها با همان استایل دقیق داشبورد کارگران ---
+const createFeatureIcon = (svgString) => {
+  return L.divIcon({
+    className: 'custom-feature-icon',
+    html: `
+      <div style="
+        background-color: white; 
+        width: 28px; 
+        height: 28px; 
+        border: 2px solid #3B82F6; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      ">
+        ${
+          svgString 
+            ? `<div style="width: 16px; height: 16px; display:flex; justify-content:center; align-items:center;">${svgString}</div>` 
+            : `<span style="font-size: 14px;">📍</span>`
+        }
+      </div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -28]
+  });
+};
+
 const ProjectGeofenceScreen = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,12 +57,18 @@ const ProjectGeofenceScreen = () => {
   const { geofence, loading } = useSelector((state) => state.projects);
   const geofenceData = geofence?.data;
 
+  // خواندن مسیرها و عارضه‌ها از ریداکس
+  const { routeTemplates, projectFeatures } = useSelector((state) => state.mapRoutes);
+
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   
   // لایه‌ها به صورت مجزا برای جلوگیری از افت فریم
   const layerGroupRef = useRef(null); 
   const shapeLayerRef = useRef(null); 
+  
+  // لایه گروهی اختصاصی برای عارضه‌ها و مسیرها تا با ترسیم Geofence قاطی نشن
+  const routesFeaturesGroupRef = useRef(null);
 
   const isDrawingRef = useRef(false);
   const pointsRef = useRef([]);
@@ -43,8 +77,11 @@ const ProjectGeofenceScreen = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // ۱. دریافت اطلاعات ژئوفنس، مسیرها و عارضه‌ها در ابتدای ورود به صفحه
   useEffect(() => {
     dispatch(fetchProjectGeofence(id));
+    dispatch(fetchRouteTemplates());
+    dispatch(fetchProjectFeatures());
   }, [dispatch, id]);
 
   const drawLayers = () => {
@@ -112,6 +149,7 @@ const ProjectGeofenceScreen = () => {
     }
   };
 
+  // ۲. مقداردهی اولیه نقشه و ساختن لایه‌های گروهی
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
@@ -126,6 +164,9 @@ const ProjectGeofenceScreen = () => {
 
     mapInstanceRef.current = map;
     layerGroupRef.current = L.layerGroup().addTo(map);
+    
+    // فعال‌سازی لایه عارضه‌ها و مسیرها روی مپ
+    routesFeaturesGroupRef.current = L.featureGroup().addTo(map);
 
     map.on('click', (e) => {
       if (!isDrawingRef.current) return;
@@ -141,6 +182,7 @@ const ProjectGeofenceScreen = () => {
     };
   }, []);
 
+  // ۳. لود کردن دیتای Geofence از دیتابیس روی نقشه
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || loading?.geofence || !geofenceData?.boundary_coordinates?.length) return;
@@ -157,6 +199,75 @@ const ProjectGeofenceScreen = () => {
     } catch (e) {}
 
   }, [geofenceData, loading?.geofence]);
+
+  // 🌟 ۴. افکت جدید: فیلتر کردن مسیرها و عارضه‌ها و رسم دقیق آن‌ها روی این صفحه 🌟
+  useEffect(() => {
+    const layerGroup = routesFeaturesGroupRef.current;
+    if (!layerGroup || !mapInstanceRef.current) return;
+
+    layerGroup.clearLayers();
+
+    // فیلتر کردن قالب‌ها و عارضه‌ها فقط و فقط برای همین پروژه‌ای که وارد صفحه‌اش شدیم
+    const targetId = String(id);
+    
+    const filteredTemplates = routeTemplates.filter(rt => {
+      const pId = (rt.project && typeof rt.project === 'object') ? rt.project.id : rt.project;
+      return String(pId) === targetId;
+    });
+
+    const filteredFeatures = projectFeatures.filter(pf => {
+      const pId = (pf.project && typeof pf.project === 'object') ? pf.project.id : pf.project;
+      return String(pId) === targetId;
+    });
+
+    // رسم مسیرها (با سیستم برعکس کردن مختصات برای وب جهت جلوگیری از خطا روسیه!)
+    filteredTemplates.forEach((template) => {
+      const popupContent = `
+        <div style="font-family: Tahoma; font-size: 13px; text-align: right; min-width: 140px;">
+          <strong style="color: #2563EB; font-size: 13px;">${template.name}</strong>
+          ${template.description ? `<div style="margin-top: 4px; font-size: 11px; color:#4B5563;">${template.description}</div>` : ''}
+        </div>
+      `;
+
+      if (template.polygon_coordinates && template.polygon_coordinates.length > 0) {
+        const correctedPolygon = template.polygon_coordinates.map(pt => [pt[1], pt[0]]);
+        L.polygon(correctedPolygon, { color: '#8B5CF6', weight: 2, fillOpacity: 0.2 })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      } 
+      else if (template.line_coordinates && template.line_coordinates.length > 0) {
+        const correctedLine = template.line_coordinates.map(pt => [pt[1], pt[0]]);
+        L.polyline(correctedLine, { color: '#10B981', weight: 3 })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      }
+      else if (template.multi_line_coordinates && template.multi_line_coordinates.length > 0) {
+        const correctedMultiLine = template.multi_line_coordinates.map(line => line.map(pt => [pt[1], pt[0]]));
+        L.polyline(correctedMultiLine, { color: '#F59E0B', weight: 3 })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      }
+    });
+
+    // رسم عارضه‌ها (نقاط ثابت)
+    filteredFeatures.forEach((feature) => {
+      if (feature.location_coordinates && feature.location_coordinates.length === 2) {
+        const svgIcon = feature.icon_detail?.icon_svg || null;
+        const popupContent = `
+          <div style="font-family: Tahoma; font-size: 13px; text-align: right; min-width: 140px;">
+            <strong style="color: #EF4444; font-size: 13px;">${feature.name}</strong>
+            ${feature.icon_detail?.name ? `<div style="color: #059669; margin-top: 2px; font-size: 11px;">نوع: ${feature.icon_detail.name}</div>` : ''}
+            ${feature.description ? `<div style="margin-top: 4px; font-size: 11px; color:#4B5563;">${feature.description}</div>` : ''}
+          </div>
+        `;
+
+        L.marker(feature.location_coordinates, { icon: createFeatureIcon(svgIcon) })
+          .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
+          .addTo(layerGroup);
+      }
+    });
+
+  }, [routeTemplates, projectFeatures, id]);
 
   const handleStart = () => {
     pointsRef.current = [];
@@ -204,8 +315,14 @@ const ProjectGeofenceScreen = () => {
   };
 
   return (
-    // z-index: 50 برای قرار گرفتن روی هدر و منوها
     <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: 50, backgroundColor: '#111827' }}>
+      
+      {/* استایل‌های اختصاصی پاپ‌آپ و آیکون‌های SVG عارضه‌ها */}
+      <style>{`
+        .sharp-popup .leaflet-popup-content-wrapper { border-radius: 4px !important; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .sharp-popup .leaflet-popup-tip { display: none; }
+        .custom-feature-icon svg { width: 100%; height: 100%; }
+      `}</style>
 
       {loading?.geofence && (
         <div style={{
@@ -219,7 +336,6 @@ const ProjectGeofenceScreen = () => {
 
       <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* انتقال دکمه‌ها به پایین (Bottom) صفحه تا زیر هدر نروند */}
       <div style={{
         position: 'absolute', bottom: 24, left: 24, right: 24, zIndex: 1000,
         display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center'

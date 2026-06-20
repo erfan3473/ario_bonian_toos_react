@@ -30,6 +30,7 @@ const UserDashboard = () => {
     { path: `/admin/users/${userId}/contracts`, label: 'قراردادها', icon: '📋', color: 'from-purple-600 to-purple-800' },
     { path: `/admin/users/${userId}/financial`, label: 'اطلاعات مالی', icon: '💰', color: 'from-amber-600 to-amber-800' },
     { path: `/admin/users/${userId}/leave`, label: 'مدیریت مرخصی', icon: '🏖️', color: 'from-rose-600 to-rose-800' },
+    { path: `/admin/users/${userId}/location-history`, label: 'تاریخچه موقعیت', icon: '📍', color: 'from-cyan-600 to-cyan-800' },
   ];
 
   return (
