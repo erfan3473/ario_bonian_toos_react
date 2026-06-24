@@ -6,7 +6,7 @@ import axiosInstance from '../../api/axiosInstance';
 // ═══════════════════════════════════════════════════════════
 // Thunks
 // ═══════════════════════════════════════════════════════════
-
+//  1  //
 export const fetchMyTaskInbox = createAsyncThunk(
     'task/fetchMyTaskInbox',
     async (_, { rejectWithValue }) => {
@@ -18,6 +18,7 @@ export const fetchMyTaskInbox = createAsyncThunk(
         }
     }
 );
+// 2 //
 
 export const fetchSentTasks = createAsyncThunk(
     'task/fetchSentTasks',
@@ -30,6 +31,7 @@ export const fetchSentTasks = createAsyncThunk(
         }
     }
 );
+// 3 //
 
 export const fetchTaskDetail = createAsyncThunk(
     'task/fetchTaskDetail',
@@ -42,7 +44,7 @@ export const fetchTaskDetail = createAsyncThunk(
         }
     }
 );
-
+// 4 // 
 export const fetchSubordinates = createAsyncThunk(
     'task/fetchSubordinates',
     async (_, { rejectWithValue }) => {
@@ -54,7 +56,7 @@ export const fetchSubordinates = createAsyncThunk(
         }
     }
 );
-
+// 5 //
 export const createTask = createAsyncThunk(
     'task/createTask',
     async (payload, { rejectWithValue }) => {
@@ -89,6 +91,7 @@ export const createTask = createAsyncThunk(
     }
 );
 
+// 6 //
 
 export const uploadTaskFile = createAsyncThunk(
     'task/uploadTaskFile',
@@ -107,6 +110,8 @@ export const uploadTaskFile = createAsyncThunk(
         }
     }
 );
+
+// 7 //
 
 export const forwardStep = createAsyncThunk(
     'task/forwardStep',

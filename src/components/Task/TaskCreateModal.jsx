@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import JalaliDatePicker from '../JalaliDatePicker';     
+import JalaliDatePicker from '../JalaliDatePicker';
 import { formatJalaliDateLong } from '../../utils/dateUtils';
 import {
     fetchSubordinates, createTask,
@@ -18,7 +18,15 @@ const TASK_TYPE_OPTIONS = [
 
 const TaskCreateModal = ({ onClose, onSuccess }) => {
     const dispatch = useDispatch();
-    const { subordinates, loadingSubordinates, creating, createSuccess, error } = useSelector(s => s.task);
+
+    // ✅ selectorهای جداگانه:
+    // هر کدام مستقل subscribe می‌شوند، پس تغییر یک فیلد دیگرِ state.task
+    // باعث re-render این کامپوننت نمی‌شود.
+    const subordinates       = useSelector(s => s.task.subordinates);
+    const loadingSubordinates = useSelector(s => s.task.loadingSubordinates);
+    const creating           = useSelector(s => s.task.creating);
+    const createSuccess      = useSelector(s => s.task.createSuccess);
+    const error              = useSelector(s => s.task.error);
 
     const [title, setTitle] = useState('');
     const [taskType, setTaskType] = useState('');
@@ -28,7 +36,7 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
     const [pickerOpen, setPickerOpen] = useState(false);
     const [files, setFiles] = useState([]);
     const [deadline, setDeadline] = useState('');
-    const [deadlineTime, setDeadlineTime] = useState(''); 
+    const [deadlineTime, setDeadlineTime] = useState('');
 
     useEffect(() => {
         dispatch(fetchSubordinates());
@@ -37,9 +45,14 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
 
     useEffect(() => { if (createSuccess) onSuccess(); }, [createSuccess, onSuccess]);
 
-    const selectedEmps = subordinates.filter(e => selectedIds.includes(e.user_id));
+    // ✅ فقط وقتی subordinates یا selectedIds عوض شود دوباره محاسبه می‌شود،
+    // نه با هر keystroke در title/note/...
+    const selectedEmps = useMemo(
+        () => subordinates.filter(e => selectedIds.includes(e.user_id)),
+        [subordinates, selectedIds]
+    );
 
-    const handleSubmit = e => {
+    const handleSubmit = useCallback((e) => {
         e.preventDefault();
         if (!title.trim() || !taskType || selectedIds.length === 0) return;
 
@@ -58,20 +71,42 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
             files,
             deadline: deadlineIso,
         }));
-    };
+    }, [dispatch, title, taskType, selectedIds, deadline, deadlineTime, note, sendSms, files]);
+
+    // ✅ هندلرهای پایدار تا به فرزندان (chip / picker) reference جدید ندهند
+    const handleRemoveAssignee = useCallback(
+        (id) => setSelectedIds(p => p.filter(i => i !== id)),
+        []
+    );
+
+    const handleRemoveFile = useCallback(
+        (index) => setFiles(prev => prev.filter((_, j) => j !== index)),
+        []
+    );
+
+    const handleFilesChange = useCallback(
+        (e) => setFiles(Array.from(e.target.files)),
+        []
+    );
+
+    const handleDeadlineChange = useCallback(
+        (e) => setDeadline(e.target.value),
+        []
+    );
+
+    const closePicker = useCallback(() => setPickerOpen(false), []);
 
     return (
-        // استفاده از p-4 برای جلوگیری از چسبیدن به لبه‌های موبایل و dدايه max-height مطمئن
         <div className="fixed inset-0 flex items-center justify-center p-4 z-[9999]" dir="rtl">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" />
 
             {/* Modal Container */}
             <div className="relative flex w-full sm:w-auto h-full max-h-[90dvh] bg-[#1e1f20] rounded-2xl overflow-hidden shadow-2xl border border-gray-700 transition-all duration-300">
-                
+
                 {/* ══ پنل راست: فرم ══ */}
                 <div className={`flex flex-col w-full sm:w-[460px] h-full transition-all overflow-hidden ${pickerOpen ? 'hidden sm:flex' : 'flex'}`}>
-                    
+
                     {/* هدر */}
                     <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 bg-[#1e1f20] shrink-0">
                         <h2 className="text-white font-bold text-base flex items-center gap-2">
@@ -85,9 +120,8 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                         </button>
                     </div>
 
-                    {/* استفاده از min-h-0 بسیار مهم است تا اسکرول داخلی به درستی کار کند و فوتر بیرون نزند */}
                     <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 bg-[#131314]">
-                        
+
                         {/* محتوای قابل اسکرول */}
                         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
 
@@ -131,7 +165,7 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                                 {selectedEmps.length > 0 && (
                                     <div className="flex flex-wrap gap-2 mb-3">
                                         {selectedEmps.map(emp => (
-                                            <AssigneeChip key={emp.user_id} emp={emp} onRemove={id => setSelectedIds(p => p.filter(i => i !== id))} />
+                                            <AssigneeChip key={emp.user_id} emp={emp} onRemove={handleRemoveAssignee} />
                                         ))}
                                     </div>
                                 )}
@@ -150,30 +184,30 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                                 </button>
                             </div>
 
-                            {/* فیلد مهلت (اصلاح شده به صورت ردیف‌های مجزا) */}
+                            {/* فیلد مهلت */}
                             <div className="bg-[#1e1f20] p-4 rounded-xl border border-gray-800 shadow-sm">
                                 <label className="flex items-center gap-2 text-gray-300 text-xs mb-4 font-medium">
                                     <FaCalendarAlt className="text-blue-400" />
                                     مهلت نهایی انجام کار
                                 </label>
-                                
+
                                 <div className="flex flex-col gap-4">
                                     {/* ردیف اول: تقویم */}
                                     <div className="w-full">
                                         <JalaliDatePicker
                                             name="deadline"
                                             value={deadline}
-                                            onChange={e => setDeadline(e.target.value)}
+                                            onChange={handleDeadlineChange}
                                             className="w-full text-sm bg-[#131314] border border-gray-700 rounded-xl px-3 py-2"
                                             placeholder="انتخاب تاریخ"
-                                            modal={true} 
+                                            modal={true}
                                         />
                                     </div>
-                                    
+
                                     {/* ردیف دوم: ساعت */}
                                     <div className="w-full bg-[#131314] rounded-xl border border-gray-700 p-3 flex flex-col gap-2">
                                         <span className="text-[11px] text-gray-500 block text-center">انتخاب زمان (ساعت و دقیقه)</span>
-                                        <div 
+                                        <div
                                             className="w-full flex items-center justify-center overflow-hidden"
                                             dir="ltr"
                                         >
@@ -208,7 +242,7 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                                         type="file"
                                         multiple
                                         accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xlsx"
-                                        onChange={e => setFiles(Array.from(e.target.files))}
+                                        onChange={handleFilesChange}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                     />
                                     <div className="w-full bg-[#1e1f20] border border-dashed border-gray-600 rounded-xl px-4 py-4 text-sm flex flex-col items-center justify-center gap-2 text-gray-400 group-hover:border-blue-500 group-hover:text-blue-400 transition-colors">
@@ -221,7 +255,7 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                                         {files.map((f, i) => (
                                             <div key={i} className="text-xs bg-[#2a2b2f] border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">
                                                 <span className="truncate max-w-[120px]">{f.name}</span>
-                                                <button type="button" onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="text-gray-500 hover:text-red-400 transition-colors"><FaTimes size={10} /></button>
+                                                <button type="button" onClick={() => handleRemoveFile(i)} className="text-gray-500 hover:text-red-400 transition-colors"><FaTimes size={10} /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -255,7 +289,7 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                 {/* ══ پنل چپ: Picker انتخاب کارمند ══ */}
                 <div className={`flex-col w-full sm:w-[360px] h-full border-r border-gray-800 bg-[#1a1b1e] transition-all duration-300 ease-out z-10 ${pickerOpen ? 'flex' : 'hidden'}`}>
                     <div className="sm:hidden p-3 border-b border-gray-800 bg-[#1e1f20] flex items-center gap-2 shrink-0">
-                        <button type="button" onClick={() => setPickerOpen(false)} className="flex items-center gap-1.5 text-blue-400 text-sm font-medium px-3 py-2 hover:bg-blue-900/30 bg-blue-900/20 rounded-lg transition-colors">
+                        <button type="button" onClick={closePicker} className="flex items-center gap-1.5 text-blue-400 text-sm font-medium px-3 py-2 hover:bg-blue-900/30 bg-blue-900/20 rounded-lg transition-colors">
                             <FaChevronLeft size={10} className="rotate-180" /> بازگشت به فرم
                         </button>
                     </div>
@@ -265,7 +299,7 @@ const TaskCreateModal = ({ onClose, onSuccess }) => {
                             loading={loadingSubordinates}
                             selectedIds={selectedIds}
                             onChange={setSelectedIds}
-                            onClose={() => setPickerOpen(false)}
+                            onClose={closePicker}
                         />
                     </div>
                 </div>

@@ -186,7 +186,7 @@ const TimesheetByDay = ({ meta, byDay }) => {
                         return (
                           <div key={log.id || i} className="flex items-center gap-1.5 text-xs">
                             <span className="font-mono font-bold text-red-600">{log.time_out || '--:--'}</span>
-                            <span className="text-gray-400">←</span>
+                            <span className="text-gray-400">→</span>
                             <span className="font-mono font-bold text-green-700">{log.time_in || '--:--'}</span>
                             {nextDay && <span className="text-red-400 font-bold text-[10px]">(+۱)</span>}
                           </div>
@@ -195,13 +195,14 @@ const TimesheetByDay = ({ meta, byDay }) => {
                     </div>
                   )}
                 </td>
+                {/* ستون ۷: اضافه‌کاری */}
                 <td className="p-4 border-l border-gray-200 text-center">
                   {overtimeLogs.length === 0 ? <span className="text-gray-400 text-xs">-</span> : (
                     <div className="flex flex-col gap-2 items-center">
                       {overtimeLogs.map((otLog, i) => (
                         <div key={otLog.id || i} className="flex items-center gap-1.5 text-xs">
                           <span className="font-mono font-bold text-purple-600">{otLog.time_out || '--:--'}</span>
-                          <span className="text-gray-400">←</span>
+                          <span className="text-gray-400">→</span>
                           <span className="font-mono font-bold text-blue-600">{otLog.time_in || '--:--'}</span>
                         </div>
                       ))}
@@ -212,6 +213,20 @@ const TimesheetByDay = ({ meta, byDay }) => {
                   )}
                 </td>
 
+                {/* --- این بخش جا افتاده بود! (ستون ۸: مراحل تأیید اضافه‌کاری) --- */}
+                <td className="p-4 border-l border-gray-200">
+                  <div className="flex flex-col gap-3">
+                    {overtimeLogs.length > 0 ? overtimeLogs.map((log) => {
+                      const approvalRecord = overtimeApprovals.find(oa => oa.overtime_id === log.id);
+                      const steps = approvalRecord ? approvalRecord.steps : [];
+                      
+                      return <ApprovalStepsMiniTable key={log.id} steps={steps} />;
+                    }) : <span className="text-gray-400 text-xs text-center block">-</span>}
+                  </div>
+                </td>
+                {/* ----------------------------------------------------------- */}
+
+                {/* ستون ۹: سایر (شب/جمعه/کل) */}
                 <td className="p-4 text-center">
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                     {worker.night_hours > 0 && (
@@ -238,6 +253,7 @@ const TimesheetByDay = ({ meta, byDay }) => {
         </tbody>
       </table>
     </div>
+
   );
 };
 

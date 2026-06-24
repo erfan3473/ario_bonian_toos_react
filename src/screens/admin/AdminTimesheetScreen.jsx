@@ -41,6 +41,11 @@ const AdminTimesheetScreen = () => {
   const [startDate, setStartDate] = useState(todayGregorian);
   const [endDate, setEndDate] = useState(todayGregorian);
 
+  // ---------- تغییرات جدید: حالت‌های ساعت شب‌کاری ----------
+  const [nightStart, setNightStart] = useState('22:00');
+  const [nightEnd, setNightEnd] = useState('06:00');
+  // ---------------------------------------------------------
+
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
@@ -86,6 +91,8 @@ const AdminTimesheetScreen = () => {
         positionId: filters.positionId || null,
         workerId: filters.workerId || null,
         search: filters.search || '',
+        night_start: nightStart, // <--- ارسال شروع شب‌کاری
+        night_end: nightEnd,     // <--- ارسال پایان شب‌کاری
       })
     );
 
@@ -97,6 +104,8 @@ const AdminTimesheetScreen = () => {
         position_id: filters.positionId || null,
         worker_id: filters.workerId || null,
         search: filters.search || '',
+        night_start: nightStart, // <--- ارسال شروع شب‌کاری به بک‌اند
+        night_end: nightEnd,     // <--- ارسال پایان شب‌کاری به بک‌اند
       })
     );
   };
@@ -161,7 +170,7 @@ const AdminTimesheetScreen = () => {
 
         <div className="flex flex-wrap gap-4 items-end">
           {/* انتخاب تاریخ شروع */}
-          <div className="min-w-[220px]">
+          <div className="min-w-[180px]">
             <JalaliDatePicker
               name="start_date"
               label="تاریخ شروع"
@@ -172,7 +181,7 @@ const AdminTimesheetScreen = () => {
           </div>
 
           {/* انتخاب تاریخ پایان */}
-          <div className="min-w-[220px]">
+          <div className="min-w-[180px]">
             <JalaliDatePicker
               name="end_date"
               label="تاریخ پایان"
@@ -182,8 +191,34 @@ const AdminTimesheetScreen = () => {
             />
           </div>
 
+          {/* ---------- فیلدهای جدید: زمان شروع و پایان شب‌کاری ---------- */}
+          <div className="min-w-[120px]">
+            <label className="text-gray-600 text-sm mb-1 block">
+              شروع شب
+            </label>
+            <input
+              type="time"
+              value={nightStart}
+              onChange={(e) => setNightStart(e.target.value)}
+              className="w-full bg-white text-gray-800 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-mono dir-ltr text-center"
+            />
+          </div>
+
+          <div className="min-w-[120px]">
+            <label className="text-gray-600 text-sm mb-1 block">
+              پایان شب
+            </label>
+            <input
+              type="time"
+              value={nightEnd}
+              onChange={(e) => setNightEnd(e.target.value)}
+              className="w-full bg-white text-gray-800 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-mono dir-ltr text-center"
+            />
+          </div>
+          {/* ------------------------------------------------------------- */}
+
           {/* انتخاب پروژه */}
-          <div className="min-w-[220px]">
+          <div className="min-w-[180px]">
             <label className="text-gray-600 text-sm mb-1 block">
               پروژه
             </label>
@@ -208,7 +243,7 @@ const AdminTimesheetScreen = () => {
           </div>
 
           {/* سرچ نام کارگر */}
-          <div className="min-w-[220px]">
+          <div className="min-w-[180px]">
             <label className="text-gray-600 text-sm mb-1 block">
               جستجو (نام کارگر)
             </label>
@@ -228,7 +263,7 @@ const AdminTimesheetScreen = () => {
             <button
               onClick={handleSearch}
               disabled={!startDate || !endDate || loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-2"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold text-sm transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center gap-2 h-[38px]"
             >
               {loading ? 'در حال بارگذاری...' : 'نمایش تایم‌شیت'}
             </button>
@@ -244,6 +279,9 @@ const AdminTimesheetScreen = () => {
             </span>
             <span className="mr-2">
               ({moment(endDate).diff(moment(startDate), 'days') + 1} روز)
+            </span>
+            <span className="mr-4 px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs border border-indigo-100">
+              مبنای شب‌کاری: {nightStart} الی {nightEnd}
             </span>
           </div>
         )}

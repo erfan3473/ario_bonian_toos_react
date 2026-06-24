@@ -376,6 +376,7 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
 
   // ۴. محاسبات تاریخچه و فواصل
   const GAP_THRESHOLD_MS = 10 * 60 * 1000;
+  const MAX_SPEED_KMH = 150; // هم‌سان با بک‌اند، یا هر مقداری که منطقیه
 
   const historyPoints = useMemo(() => {
     if (!selectedWorkerId || isHistoryCleared || loadingHistory) return [];
@@ -413,18 +414,23 @@ const WorkerMap = ({ workers, selectedWorkerId, zoomTrigger, workerHistory, load
 
     for (let i = 0; i <= clampedIndex; i++) {
       const pt = historyPoints[i];
+
       if (i > 0) {
-        const prevPt = historyPoints[i-1];
-        const timeDiff = new Date(pt.timestamp).getTime() - new Date(prevPt.timestamp).getTime();
-        
-        if (timeDiff > GAP_THRESHOLD_MS) {
+        const prevPt = historyPoints[i - 1];
+        const timeDiffMs = new Date(pt.timestamp).getTime() - new Date(prevPt.timestamp).getTime();
+
+        const dist = calculateDistance(prevPt.latitude, prevPt.longitude, pt.latitude, pt.longitude);
+        const speedKmh = timeDiffMs > 0 ? (dist / (timeDiffMs / 1000)) * 3.6 : 0;
+
+        if (timeDiffMs > GAP_THRESHOLD_MS || speedKmh > MAX_SPEED_KMH) {
           if (currentSegment.length > 0) segments.push(currentSegment);
           currentSegment = [];
         }
       }
+
       currentSegment.push([pt.latitude, pt.longitude]);
     }
-    
+
     if (currentSegment.length > 0) segments.push(currentSegment);
     return segments;
   }, [historyPoints, clampedIndex]);

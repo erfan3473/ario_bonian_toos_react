@@ -39,8 +39,9 @@ import UserDashboard from './screens/admin/UserDashboard';
 import PayrollListView from './screens/admin/PayrollListView';
 import PayrollDetailView from './screens/admin/PayrollDetailView';
 
-// Other Screens
-import MyTasksScreen from './screens/MyTasksScreen';
+// Task Pages (جدید)
+import TaskListPage from './pages/TaskListPage';
+import TaskViewPage from './pages/TaskViewPage';
 
 function App() {
   const { userInfo } = useSelector((state) => state.userLogin);
@@ -80,7 +81,7 @@ function App() {
           <Route path="/admin/users/:userId/financial" element={<FinancialPage />} />
           <Route path="/admin/users/:userId/leave" element={<LeavePage />} />
           
-          <Route path="/admin/users/new" element={<Navigate to="/admin/users" />} /> {/* موقت تا ساخت صفحه افزودن کاربر مجزا */}
+          <Route path="/admin/users/new" element={<Navigate to="/admin/users" />} />
           
           <Route path="/admin/settings" element={<SettingsScreen />} />
           <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
@@ -95,8 +96,10 @@ function App() {
           <Route path="/admin/payroll/list" element={<PayrollListView />} />
           <Route path="/admin/payroll/detail" element={<PayrollDetailView />} />
           
-          {/* Tasks & Phonebook */}
-          <Route path="/tasks" element={<MyTasksScreen />} />
+          {/* Tasks Routes (جدید - دو صفحه مجزا) */}
+          <Route path="/tasks" element={<TaskListPage />} />
+          <Route path="/tasks/:id" element={<TaskViewPage />} />
+          
           <Route path="/admin/phonebook" element={<PhonebookScreen />} />
 
         </Routes>

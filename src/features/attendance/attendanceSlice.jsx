@@ -1,3 +1,4 @@
+// src/features/attendance/attendanceSlice
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../../api/axiosInstance';
 
@@ -6,7 +7,7 @@ export const fetchTimesheetByRange = createAsyncThunk(
   'attendance/fetchTimesheetByRange',
   async (params, { rejectWithValue }) => {
     try {
-      const { start_date, end_date, project_id, position_id, worker_id, search } = params;
+      const { start_date, end_date, project_id, position_id, worker_id, search, night_start, night_end } = params;
       const query = new URLSearchParams();
       if (start_date) query.append('start_date', start_date);
       if (end_date) query.append('end_date', end_date);
@@ -14,11 +15,13 @@ export const fetchTimesheetByRange = createAsyncThunk(
       if (position_id) query.append('position_id', position_id);
       if (worker_id) query.append('worker_id', worker_id);
       if (search) query.append('search', search);
+      if (night_start) query.append('night_start', night_start);
+      if (night_end) query.append('night_end', night_end);
 
       const response = await api.get(`/attendance/timesheet-range/?${query.toString()}`);
-      return response.data;
+       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت گزارش');
+       return rejectWithValue(error.response?.data?.detail || 'خطا در دریافت گزارش');
     }
   }
 );
@@ -57,6 +60,29 @@ export const approveBulkOvertime = createAsyncThunk(
   }
 );
 
+// 🆕 دریافت آمار و تحلیل GPS کارگر
+export const fetchWorkerLocationStats = createAsyncThunk(
+  'attendance/fetchWorkerLocationStats',
+  async (params, { rejectWithValue }) => {
+    try {
+      const { start_date, end_date, project_id, worker_id } = params;
+      const query = new URLSearchParams();
+      if (start_date) query.append('start_date', start_date);
+      if (end_date) query.append('end_date', end_date);
+      if (project_id) query.append('project_id', project_id);
+      if (worker_id) query.append('worker_id', worker_id);
+
+      const response = await api.get(`/attendance/worker-location-stats/?${query.toString()}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت آمار موقعیت مکانی'
+      );
+    }
+  }
+);
+
+
 const attendanceSlice = createSlice({
   name: 'attendance',
   initialState: {
@@ -66,6 +92,12 @@ const attendanceSlice = createSlice({
     workers: [],
     byWorker: {},
     byDay: {},
+    
+    // 👇 استیت‌های مربوط به آمار GPS اضافه شد
+    locationStatsLoading: false,
+    locationStats: null,
+    locationStatsError: null,
+
     filters: {
       start_date: null,
       end_date: null,
@@ -73,8 +105,11 @@ const attendanceSlice = createSlice({
       positionId: null,
       workerId: null,
       search: '',
+      night_start: '22:00', 
+      night_end: '06:00', 
     },
   },
+
   reducers: {
     setTimesheetFilters(state, action) {
       state.filters = { ...state.filters, ...action.payload };
@@ -85,6 +120,9 @@ const attendanceSlice = createSlice({
       state.byWorker = {};
       state.byDay = {};
       state.error = null;
+      // 👇 ریست کردن دیتای نقشه
+      state.locationStats = null;
+      state.locationStatsError = null;
     },
   },
   extraReducers: (builder) => {
@@ -109,6 +147,20 @@ const attendanceSlice = createSlice({
     
       .addCase(updateOvertime.fulfilled, (state, action) => {
         
+      })
+
+      // Fetch Worker Location Stats
+      .addCase(fetchWorkerLocationStats.pending, (state) => {
+        state.locationStatsLoading = true;
+        state.locationStatsError = null;
+      })
+      .addCase(fetchWorkerLocationStats.fulfilled, (state, action) => {
+        state.locationStatsLoading = false;
+        state.locationStats = action.payload; // دیتای آماده برای چارت
+      })
+      .addCase(fetchWorkerLocationStats.rejected, (state, action) => {
+        state.locationStatsLoading = false;
+        state.locationStatsError = action.payload;
       })
       
       // Bulk Approve
