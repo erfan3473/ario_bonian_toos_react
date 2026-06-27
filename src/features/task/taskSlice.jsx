@@ -71,6 +71,8 @@ export const createTask = createAsyncThunk(
                 form.append('task_type', payload.task_type);
                 form.append('note',      payload.note || '');
                 form.append('send_sms',  payload.send_sms ? 'true' : 'false');
+                if (payload.deadline) form.append('deadline', payload.deadline);
+                if (payload.urgency) form.append('urgency', payload.urgency);
                 payload.assignee_ids.forEach(id => form.append('assignee_ids', id));
                 payload.files.forEach(f => form.append('files', f));
                 if (payload.project_id) form.append('project_id', payload.project_id);
@@ -129,6 +131,20 @@ export const forwardStep = createAsyncThunk(
     }
 );
 
+// 8 //
+
+export const refreshSmsStatus = createAsyncThunk(
+    'task/refreshSmsStatus',
+    async (logId, { rejectWithValue }) => {
+        try {
+            // آپدیت مسیر بر اساس بک‌اند جدید شما
+            const response = await axiosInstance.post(`tasks/sms-logs/${logId}/refresh/`);
+            return response.data; // دیتای یک لاگ پیامک برمی‌گردد
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.detail || 'خطا در بروزرسانی وضعیت پیامک');
+        }
+    }
+);
 // ═══════════════════════════════════════════════════════════
 // Slice
 // ═══════════════════════════════════════════════════════════
@@ -156,6 +172,7 @@ const taskSlice = createSlice({
         error:               null,
         needsInboxRefresh:   false,
         forwarding: false,
+        refreshingSms: false,
     },
     reducers: {
         clearActiveTask: (state) => {
@@ -279,6 +296,27 @@ const taskSlice = createSlice({
             .addCase(forwardStep.rejected, (state, action) => {
                 state.forwarding = false;
                 state.error      = action.payload;
+            })
+            .addCase(refreshSmsStatus.pending, (state) => {
+                state.refreshingSms = true;
+            })
+            .addCase(refreshSmsStatus.fulfilled, (state, action) => {
+                state.refreshingSms = false;
+                
+                // بک‌اند یک آبجکت تکی پیامک را برگردانده است
+                const updatedSms = action.payload; 
+                
+                if (state.activeTask && state.activeTask.sms_logs) {
+                    // پیدا کردن پیامک در لیست و آپدیت کردن آن
+                    const index = state.activeTask.sms_logs.findIndex(sms => sms.id === updatedSms.id);
+                    if (index !== -1) {
+                        state.activeTask.sms_logs[index] = updatedSms;
+                    }
+                }
+            })
+            .addCase(refreshSmsStatus.rejected, (state, action) => {
+                state.refreshingSms = false;
+                // در صورت نیاز نمایش ارور
             });
     },
 });

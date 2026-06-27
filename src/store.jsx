@@ -23,6 +23,8 @@ import payrollReducer      from './features/payroll/payrollSlice';
 import chatReducer         from './features/chat/chatSlice';
 import notebookReducer     from './features/notebook/notebookSlice'; 
 import mapRoutesReducer from './features/routeMaps/mapRoutesSlice';
+import themeReducer from "./features/theme/themeSlice"; 
+
 
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -64,6 +66,7 @@ const store = configureStore({
     chat:           chatReducer,
     notebook:       notebookReducer, 
     mapRoutes:      mapRoutesReducer,
+    theme: themeReducer,
   },
   preloadedState,
 });

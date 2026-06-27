@@ -1,28 +1,61 @@
-/* src/components/JalaliDatePicker.css */
+/* Root */
+.jalali-datepicker {
+  direction: rtl;
+  font-family: 'Vazir', 'Tahoma', sans-serif;
+}
 
-/* ---------- Popup کوچک زیر اینپوت (اگر modal=false) ---------- */
+.jalali-datepicker-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+/* Input */
+.jalali-datepicker-input {
+  width: 100%;
+  border-radius: 10px;
+  padding: 8px 32px 8px 12px;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid;
+  outline: none;
+}
+
+.jalali-datepicker-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.jalali-datepicker-input-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 14px;
+}
+
+/* ---------- Popup ---------- */
 .jalali-datepicker-popup {
   position: absolute;
   top: 100%;
   right: 0;
   margin-top: 4px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
   border-radius: 10px;
-  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.18);
   z-index: 1000;
   padding: 12px;
-  direction: rtl;
-  font-family: 'Vazir', 'Tahoma', sans-serif;
   width: 280px;
   max-width: 90vw;
+  border: 1px solid;
 }
 
-/* ---------- مودال مرکزی (اگر modal=true) ---------- */
+/* ---------- Modal ---------- */
 .jalali-datepicker-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.35);
   z-index: 2000;
   display: flex;
   align-items: center;
@@ -30,15 +63,11 @@
 }
 
 .jalali-datepicker-modal {
-  background: #ffffff;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.35);
   padding: 16px 16px 12px;
   width: 320px;
   max-width: 95vw;
-  direction: rtl;
-  font-family: 'Vazir', 'Tahoma', sans-serif;
+  border: 1px solid;
 }
 
 .jalali-datepicker-modal-header {
@@ -47,71 +76,49 @@
   justify-content: space-between;
   margin-bottom: 6px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid;
 }
 
 .jalali-datepicker-modal-header-title {
   font-size: 13px;
   font-weight: 600;
-  color: #111827;
 }
 
 .jalali-datepicker-modal-close {
   border: none;
   background: transparent;
-  color: #9ca3af;
   font-size: 20px;
   line-height: 1;
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
-.jalali-datepicker-modal-close:hover {
-  color: #4b5563;
-}
+/* ---------- Shared Calendar ---------- */
+.jalali-datepicker-content { direction: rtl; }
 
-/* ---------- محتوای مشترک تقویم ---------- */
-.jalali-datepicker-content {
-  direction: rtl;
-}
-
-/* Header (ماه/سال + ناوبری) */
 .jalali-datepicker-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid;
   gap: 8px;
 }
 
 .jalali-datepicker-select {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  border: 1px solid;
   border-radius: 6px;
   padding: 5px 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #111827;
   cursor: pointer;
   transition: all 0.15s ease;
   font-family: inherit;
-}
-
-.jalali-datepicker-select:hover {
-  border-color: #3b82f6;
-  background: #ffffff;
-}
-
-.jalali-datepicker-select:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
 }
 
 .jalali-datepicker-nav-btn {
-  background: #f3f4f6;
   border: none;
   width: 28px;
   height: 28px;
@@ -122,16 +129,9 @@
   justify-content: center;
   transition: all 0.15s ease;
   font-size: 13px;
-  color: #6b7280;
   flex-shrink: 0;
 }
 
-.jalali-datepicker-nav-btn:hover {
-  background: #2563eb;
-  color: #ffffff;
-}
-
-/* Weekdays */
 .jalali-datepicker-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -143,11 +143,9 @@
   text-align: center;
   font-size: 11px;
   font-weight: 600;
-  color: #9ca3af;
   padding: 4px 0;
 }
 
-/* Days grid */
 .jalali-datepicker-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -163,26 +161,13 @@
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
-  color: #111827;
   font-weight: 500;
-}
-
-.jalali-datepicker-day:hover:not(.jalali-datepicker-day-empty) {
-  background: #e0edff;
-  color: #1d4ed8;
 }
 
 .jalali-datepicker-day-empty {
   cursor: default;
   pointer-events: none;
-  background: transparent;
-}
-
-.jalali-datepicker-day-today {
-  background: #fef3c7;
-  color: #92400e;
-  font-weight: 700;
-  box-shadow: 0 0 0 1px #fbbf24 inset;
+  background: transparent !important;
 }
 
 .jalali-datepicker-day-selected {
@@ -192,15 +177,10 @@
   box-shadow: 0 0 0 1px #1d4ed8 inset;
 }
 
-.jalali-datepicker-day-friday {
-  color: #dc2626;
-}
-
-/* Footer */
 .jalali-datepicker-footer {
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid;
   display: flex;
   justify-content: center;
   gap: 8px;
@@ -208,30 +188,174 @@
 
 .jalali-datepicker-today-btn,
 .jalali-datepicker-clear-btn {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  border: 1px solid;
   padding: 5px 14px;
   border-radius: 999px;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
-  color: #374151;
   font-weight: 500;
 }
 
-.jalali-datepicker-today-btn:hover {
+/* ---------- LIGHT THEME ---------- */
+.jalali-datepicker--light .jalali-datepicker-label { color: #1f2937; }
+.jalali-datepicker--light .jalali-datepicker-input {
+  background: #ffffff;
+  color: #111827;
+  border-color: #d1d5db;
+}
+.jalali-datepicker--light .jalali-datepicker-input:focus { border-color: #3b82f6; }
+.jalali-datepicker--light .jalali-datepicker-input-icon { color: #9ca3af; }
+
+.jalali-datepicker--light .jalali-datepicker-popup,
+.jalali-datepicker--light .jalali-datepicker-modal {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.18);
+}
+.jalali-datepicker--light .jalali-datepicker-modal-overlay { background: rgba(15, 23, 42, 0.35); }
+.jalali-datepicker--light .jalali-datepicker-modal-header,
+.jalali-datepicker--light .jalali-datepicker-header,
+.jalali-datepicker--light .jalali-datepicker-footer { border-color: #e5e7eb; }
+
+.jalali-datepicker--light .jalali-datepicker-modal-header-title { color: #111827; }
+.jalali-datepicker--light .jalali-datepicker-modal-close { color: #9ca3af; }
+.jalali-datepicker--light .jalali-datepicker-modal-close:hover { color: #4b5563; }
+
+.jalali-datepicker--light .jalali-datepicker-select {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+.jalali-datepicker--light .jalali-datepicker-select:hover {
+  border-color: #3b82f6;
+  background: #ffffff;
+}
+.jalali-datepicker--light .jalali-datepicker-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.jalali-datepicker--light .jalali-datepicker-nav-btn {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+.jalali-datepicker--light .jalali-datepicker-nav-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.jalali-datepicker--light .jalali-datepicker-weekday { color: #9ca3af; }
+.jalali-datepicker--light .jalali-datepicker-day { color: #111827; }
+.jalali-datepicker--light .jalali-datepicker-day:hover:not(.jalali-datepicker-day-empty) {
+  background: #e0edff;
+  color: #1d4ed8;
+}
+.jalali-datepicker--light .jalali-datepicker-day-today {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px #fbbf24 inset;
+}
+.jalali-datepicker--light .jalali-datepicker-day-friday { color: #dc2626; }
+
+.jalali-datepicker--light .jalali-datepicker-today-btn,
+.jalali-datepicker--light .jalali-datepicker-clear-btn {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+.jalali-datepicker--light .jalali-datepicker-today-btn:hover {
   background: #2563eb;
   color: #ffffff;
   border-color: #2563eb;
 }
-
-.jalali-datepicker-clear-btn:hover {
+.jalali-datepicker--light .jalali-datepicker-clear-btn:hover {
   background: #ef4444;
   color: #ffffff;
   border-color: #ef4444;
 }
 
-/* ریسپانسیو مودال */
+/* ---------- DARK THEME ---------- */
+.jalali-datepicker--dark .jalali-datepicker-label { color: #e5e7eb; }
+.jalali-datepicker--dark .jalali-datepicker-input {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
+}
+.jalali-datepicker--dark .jalali-datepicker-input:focus { border-color: #3b82f6; }
+.jalali-datepicker--dark .jalali-datepicker-input-icon { color: #94a3b8; }
+
+.jalali-datepicker--dark .jalali-datepicker-popup,
+.jalali-datepicker--dark .jalali-datepicker-modal {
+  background: #0f172a;
+  border-color: #334155;
+  box-shadow: 0 18px 30px rgba(2, 6, 23, 0.55);
+}
+.jalali-datepicker--dark .jalali-datepicker-modal-overlay { background: rgba(2, 6, 23, 0.65); }
+.jalali-datepicker--dark .jalali-datepicker-modal-header,
+.jalali-datepicker--dark .jalali-datepicker-header,
+.jalali-datepicker--dark .jalali-datepicker-footer { border-color: #334155; }
+
+.jalali-datepicker--dark .jalali-datepicker-modal-header-title { color: #e2e8f0; }
+.jalali-datepicker--dark .jalali-datepicker-modal-close { color: #94a3b8; }
+.jalali-datepicker--dark .jalali-datepicker-modal-close:hover { color: #e2e8f0; }
+
+.jalali-datepicker--dark .jalali-datepicker-select {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+.jalali-datepicker--dark .jalali-datepicker-select:hover {
+  border-color: #3b82f6;
+  background: #0f172a;
+}
+.jalali-datepicker--dark .jalali-datepicker-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.jalali-datepicker--dark .jalali-datepicker-nav-btn {
+  background: #1e293b;
+  color: #94a3b8;
+}
+.jalali-datepicker--dark .jalali-datepicker-nav-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.jalali-datepicker--dark .jalali-datepicker-weekday { color: #94a3b8; }
+.jalali-datepicker--dark .jalali-datepicker-day { color: #e2e8f0; }
+.jalali-datepicker--dark .jalali-datepicker-day:hover:not(.jalali-datepicker-day-empty) {
+  background: #1e3a8a;
+  color: #dbeafe;
+}
+.jalali-datepicker--dark .jalali-datepicker-day-today {
+  background: #78350f;
+  color: #fde68a;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px #f59e0b inset;
+}
+.jalali-datepicker--dark .jalali-datepicker-day-friday { color: #f87171; }
+
+.jalali-datepicker--dark .jalali-datepicker-today-btn,
+.jalali-datepicker--dark .jalali-datepicker-clear-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+.jalali-datepicker--dark .jalali-datepicker-today-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+.jalali-datepicker--dark .jalali-datepicker-clear-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+/* Responsive */
 @media (max-width: 640px) {
   .jalali-datepicker-modal {
     width: 90vw;

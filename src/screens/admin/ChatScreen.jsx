@@ -8,19 +8,17 @@ import UserList from '../../components/Chat/UserList';
 const ChatScreen = () => {
   const dispatch = useDispatch();
   const { activeChatId } = useSelector((state) => state.chat);
-  
-  // مدیریت ویو در موبایل: 'history' | 'chat' | 'users'
+  const mode = useSelector((state) => state.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
+
   const [mobileView, setMobileView] = useState('history');
 
   useEffect(() => {
     dispatch(fetchMyChats());
   }, [dispatch]);
 
-  // وقتی چتی انتخاب می‌شود، در موبایل به صفحه چت برو
   useEffect(() => {
-    if (activeChatId) {
-      setMobileView('chat');
-    }
+    if (activeChatId) setMobileView('chat');
   }, [activeChatId]);
 
   const handleBackToHistory = () => {
@@ -29,32 +27,39 @@ const ChatScreen = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-[120px])] md:h-[calc(100vh-100px)] flex bg-[#131314] overflow-hidden md:rounded-2xl md:border border-gray-800 -mx-4 md:mx-0 shadow-2xl">
-      
-      {/* ستون راست: تاریخچه چت‌ها */}
-      <div className={`${mobileView === 'history' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 flex-col border-l border-gray-800 bg-[#1e1f20] h-full transition-all shrink-0`}>
+    <div
+      className={`h-[calc(100vh-120px)] md:h-[calc(100vh-100px)] flex overflow-hidden md:rounded-2xl md:border -mx-4 md:mx-0 shadow-2xl
+      ${isDark ? 'bg-blue-800 border-blue-700' : 'bg-white border-gray-200'}`}
+    >
+      <div
+        className={`${mobileView === 'history' ? 'flex' : 'hidden'} lg:flex w-full lg:w-80 flex-col border-l h-full transition-all shrink-0
+        ${isDark ? 'bg-[#1e1f20] border-gray-800' : 'bg-white border-gray-200'}`}
+      >
         <ChatHistory onOpenUsers={() => setMobileView('users')} />
       </div>
 
-      {/* ستون وسط: پنجره چت */}
-      <div className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex flex-grow flex-col h-full bg-[#131314] relative min-w-0`}>
+      <div
+        className={`${mobileView === 'chat' ? 'flex' : 'hidden'} lg:flex flex-grow flex-col h-full relative min-w-0
+        ${isDark ? 'bg-blue-800' : 'bg-white'}`}
+      >
         {activeChatId ? (
           <ChatWindow chatId={activeChatId} onBack={handleBackToHistory} />
         ) : (
-          <div className="hidden lg:flex h-full flex-col items-center justify-center text-gray-500 gap-4">
-            <div className="w-24 h-24 rounded-full bg-gray-800 flex items-center justify-center">
-              <i className="fas fa-comments text-4xl text-gray-600"></i>
+          <div className={`hidden lg:flex h-full flex-col items-center justify-center gap-4 ${isDark ? 'text-blue-100/70' : 'text-gray-400'}`}>
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center ${isDark ? 'bg-blue-700' : 'bg-gray-200'}`}>
+              <i className={`fas fa-comments text-4xl ${isDark ? 'text-blue-200/70' : 'text-gray-500'}`}></i>
             </div>
             <p className="text-lg font-medium">یک گفت‌وگو را برای شروع انتخاب کنید</p>
           </div>
         )}
       </div>
 
-      {/* ستون چپ: مخاطبین / کاربران */}
-      <div className={`${mobileView === 'users' ? 'flex' : 'hidden'} xl:flex w-full lg:w-72 flex-col border-r border-gray-800 bg-[#1e1f20] h-full shrink-0 transition-all z-10 lg:z-auto`}>
+      <div
+        className={`${mobileView === 'users' ? 'flex' : 'hidden'} xl:flex w-full lg:w-72 flex-col border-r h-full shrink-0 transition-all z-10 lg:z-auto
+        ${isDark ? 'bg-[#1e1f20] border-gray-800' : 'bg-white border-gray-200'}`}
+      >
         <UserList onBack={() => setMobileView('history')} />
       </div>
-      
     </div>
   );
 };
