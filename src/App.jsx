@@ -1,6 +1,6 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
 import Header from './components/Header';
 import NotebookScreen from './screens/NotebookScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -33,10 +33,144 @@ import PayrollListView from './screens/admin/PayrollListView';
 import PayrollDetailView from './screens/admin/PayrollDetailView';
 import TaskListPage from './pages/TaskListPage';
 import TaskViewPage from './pages/TaskViewPage';
+import { Toaster, toast } from 'react-hot-toast'; 
+import { fetchNotifications, addNotificationFromWS } from './features/notifications/notificationSlice';
+
 
 function App() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const mode = useSelector((state) => state.theme?.mode || "dark");
   const isDark = mode === "dark";
+  const { userInfo } = useSelector((state) => state.userLogin);
+
+  useEffect(() => {
+    if (!userInfo?.token && !userInfo?.access) return; 
+
+    const token = userInfo.access || userInfo.token;
+    
+    // دریافت تعداد اولیه هنگام لود سایت
+    dispatch(fetchNotifications());
+
+    // 🔴 اگر بک‌اند روی پورت دیگری است (مثلا 8000)، این را به ws://127.0.0.1:8000/ws/inbox/ تغییر دهید
+    // در حالت پروداکشن معمولا از window.location.host استفاده می‌شود
+    const wsUrl = `wss://www.ariobonyantoos.com/ws/inbox/?token=${token}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => console.log('🟢 WebSocket Inbox Connected!');
+    ws.onerror = (e) => console.error('🔴 WebSocket Inbox Error: ', e);
+    ws.onclose = (e) => console.warn(`🟠 WebSocket Inbox Closed (Code: ${e.code})`);
+
+    ws.onmessage = (event) => {
+      console.log('🔔 Raw Socket Message:', event.data);
+      const data = JSON.parse(event.data);
+      
+      const notifData = data.payload || data;
+
+      // آپدیت عدد زنگوله برای تمام رویدادهای چت و تسک
+      if (notifData.type !== 'connection' && notifData.type !== 'pong') {
+          dispatch(addNotificationFromWS(notifData)); 
+      }
+
+      // شرط نمایش پاپ‌آپ: فقط برای notification ها و task_inbox (برای جلوگیری از پاپ‌آپ تکراری پیام چت)
+      if (
+        notifData.type === 'notification' || 
+        notifData.type === 'task_inbox'
+      ) {
+        
+        // 🔹 تشخیص دقیق نوع نوتیفیکیشن
+        const isChat = notifData.notif_type === 'CHAT_MESSAGE';
+        
+        const isTask = 
+          notifData.type === 'task_inbox' || 
+          (notifData.notif_type && notifData.notif_type.startsWith('TASK_'));
+
+        // اگر نه چت بود نه تسک (سیستمی بود)، یک حالت پیش‌فرض در نظر می‌گیریم
+        const icon = isChat ? '💬' : (isTask ? '📋' : '🔔');
+        const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : 'اعلان جدید');
+        const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : 'مشاهده');
+
+        toast.custom((t) => (
+          <div
+            dir="rtl"
+            className={`${
+              t.visible ? 'animate-enter' : 'animate-leave'
+            } max-w-sm w-full shadow-2xl rounded-2xl pointer-events-auto flex flex-col border ${
+              isChat ? 'border-green-500' : (isTask ? 'border-blue-500' : 'border-gray-500')
+            } overflow-hidden ${
+              isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+            }`}
+          >
+            {/* هدر دیالوگ */}
+            <div className={`p-4 flex items-start gap-4 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+              <div className="flex-1">
+                <h3 className="font-bold text-base flex items-center gap-2 mb-2">
+                  <span className="text-xl">{icon}</span>
+                  <span className={isChat ? 'text-green-500' : (isTask ? 'text-blue-500' : '')}>
+                    {notifData.title || defaultTitle}
+                  </span>
+                </h3>
+                <p className="text-sm opacity-90 leading-relaxed font-medium">
+                  {notifData.body || 'شما یک اعلان جدید دارید.'}
+                </p>
+              </div>
+            </div>
+
+            {/* دکمه‌های اکشن دیالوگ */}
+            <div className={`flex border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  
+                  // 🔹 مسیریابی دقیق بر اساس دیتاهای بک‌اند
+                  if (isChat) {
+                    // در نوتیفیکیشن‌های چت که از _create_db_notification_for_chat می‌آیند، آیدی چت در object_id است
+                    const targetChatId = notifData.object_id || notifData.chat_id;
+                    if (targetChatId) {
+                      navigate(`/chat?active=${targetChatId}`);
+                    } else {
+                      navigate('/chat');
+                    }
+                  } else if (isTask) {
+                    // در آفلاین object_id و در آنلاین task_id داریم
+                    const targetTaskId = notifData.object_id || notifData.task_id;
+                    if (targetTaskId) {
+                      navigate(`/tasks/${targetTaskId}`);
+                    } else {
+                      navigate('/tasks'); 
+                    }
+                  }
+                }}
+                className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors ${
+                  isDark 
+                    ? (isChat ? 'text-green-400 hover:bg-gray-700' : 'text-blue-400 hover:bg-gray-700') 
+                    : (isChat ? 'text-green-600 hover:bg-gray-100' : 'text-blue-600 hover:bg-gray-100')
+                } border-l ${isDark ? 'border-gray-700' : 'border-gray-200'}`}
+              >
+                {buttonLabel}
+              </button>
+              <button
+                onClick={() => toast.dismiss(t.id)}
+                className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors opacity-80 ${
+                  isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                }`}
+              >
+                بستن
+              </button>
+            </div>
+          </div>
+        ), { 
+          duration: 10000, 
+          position: 'top-center', 
+        });
+      }
+    };
+
+
+    return () => {
+      if (ws.readyState === 1) ws.close();
+    };
+  }, [dispatch, userInfo, isDark, navigate]);
 
   return (
     <div
@@ -45,8 +179,10 @@ function App() {
       } min-h-screen flex flex-col font-sans transition-colors duration-300`}
       style={{ direction: "rtl" }}
     >
+      <Toaster /> 
       <Header />
       <main className="flex-grow container mx-auto px-3 sm:px-4 pt-0 pb-4">
+        {/* بقیه کدهای روت‌های شما مثل قبل */}
         <div
           className={`${
             isDark

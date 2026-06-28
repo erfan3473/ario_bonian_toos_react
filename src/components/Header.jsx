@@ -4,24 +4,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { logout, fetchUserProfile } from "../features/users/userSlice";
 import { toggleTheme } from "../features/theme/themeSlice";
+import { markNotificationsRead } from "../features/notifications/notificationSlice";
+
 import {
-  FaUser,
-  FaSignOutAlt,
-  FaSignInAlt,
-  FaUsers,
-  FaBuilding,
-  FaChartLine,
-  FaClipboardList,
-  FaCheckCircle,
-  FaCog,
-  FaChevronDown,
-  FaBriefcase,
-  FaIdBadge,
-  FaComments,
-  FaBars,
-  FaTimes,
-  FaMoon,
-  FaSun,
+  FaUser, FaSignOutAlt, FaSignInAlt, FaUsers, FaBuilding,
+  FaChartLine, FaClipboardList, FaCheckCircle, FaCog,
+  FaChevronDown, FaBriefcase, FaIdBadge, FaComments,
+  FaBars, FaTimes, FaMoon, FaSun, FaBell, FaCircle
 } from "react-icons/fa";
 
 const Header = () => {
@@ -33,6 +22,9 @@ const Header = () => {
   const { user: userProfile } = useSelector((state) => state.userDetails);
   const mode = useSelector((state) => state.theme?.mode || "dark");
   const isDark = mode === "dark";
+
+  // ✅ گرفتن استیت نوتیفیکیشن‌ها
+  const { unreadCount, notifications } = useSelector((state) => state.notifications); 
 
   const isAdmin = userInfo?.is_admin;
   const userPosition = userInfo?.position;
@@ -49,7 +41,9 @@ const Header = () => {
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifMenuOpen, setNotifMenuOpen] = useState(false); // استیت دراپ‌داون نوتیف
   const userMenuRef = useRef(null);
+  const notifMenuRef = useRef(null); // رفرنس دراپ‌داون نوتیف
 
   const logoutHandler = () => {
     dispatch(logout());
@@ -57,10 +51,14 @@ const Header = () => {
     navigate("/auth");
   };
 
+  // بستن منوها هنگام کلیک بیرون
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
         setUserMenuOpen(false);
+      }
+      if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) {
+        setNotifMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -77,6 +75,34 @@ const Header = () => {
   const isActive = (path) => location.pathname === path;
   const startsWith = (path) => location.pathname.startsWith(path);
 
+  // ✅ فانکشن برای کلیک روی زنگوله
+  const handleBellClick = () => {
+    setNotifMenuOpen(!notifMenuOpen);
+    setUserMenuOpen(false); // بستن منوی کاربر اگر باز بود
+  };
+
+   // کلیک روی یک نوتیفیکیشن خاص
+  const handleNotifClick = (notif) => {
+    if (!notif.is_read) {
+      dispatch(markNotificationsRead([notif.id]));
+    }
+    setNotifMenuOpen(false);
+
+    // مسیریابی بر اساس نوع نوتیف
+    const isChat = notif.notif_type === 'CHAT_MESSAGE';
+    const isTask = notif.notif_type?.startsWith('TASK_') || notif.type === 'task_inbox';
+    
+    if (isChat) {
+      const chatId = notif.object_id || notif.extra_data?.chat_id;
+      if (chatId) navigate(`/chat?active=${chatId}`);
+      else navigate('/chat');
+    } else if (isTask) {
+      const taskId = notif.object_id || notif.extra_data?.task_id;
+      if (taskId) navigate(`/tasks/${taskId}`);
+      else navigate('/tasks');
+    }
+  };
+    
   const getRoleStyle = (role) => {
     const styles = {
       PROJECT_MANAGER: "bg-purple-600/20 text-purple-400 border-purple-600/40",
@@ -167,7 +193,6 @@ const Header = () => {
         <span>بایگانی</span>
       </Link>
 
-      {/* ✅ برگشت لینک‌های حذف‌شده */}
       <Link
         to="/admin/timesheet"
         className={
@@ -300,7 +325,78 @@ const Header = () => {
             )}
 
             {userInfo ? (
-              <div className="relative flex items-center gap-2" ref={userMenuRef}>
+              <div className="relative flex items-center gap-2">
+                
+                {/* 🔴 دراپ داون نوتیفیکیشن */}
+                <div className="relative" ref={notifMenuRef}>
+                  <button
+                    onClick={handleBellClick}
+                    className={`relative p-2 rounded-full transition ${
+                      isDark ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-white/20 hover:bg-white/30 text-white"
+                    }`}
+                  >
+                    <FaBell />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-transparent">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* پنجره دراپ داون */}
+                  {notifMenuOpen && (
+                    <div className={`absolute left-0 top-full mt-2 w-72 md:w-80 rounded-md shadow-xl py-1 z-50 border ${
+                      isDark ? "bg-gray-800 border-gray-600" : "bg-white border-gray-200"
+                    }`}>
+                      <div className={`px-4 py-3 border-b flex justify-between items-center ${isDark ? "border-gray-600" : "border-gray-200"}`}>
+                        <span className={`font-semibold text-sm ${isDark ? "text-white" : "text-gray-800"}`}>
+                          اعلانات
+                        </span>
+                        {unreadCount > 0 && (
+                          <button 
+                            onClick={() => dispatch(markNotificationsRead([]))} // آرایه خالی یعنی همه را خوانده شده کن
+                            className="text-[11px] text-blue-500 hover:text-blue-400"
+                          >
+                            خواندن همه
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications && notifications.length > 0 ? (
+                          notifications.map((notif) => (
+                            <div 
+                              key={notif.id}
+                              onClick={() => handleNotifClick(notif)}
+                              className={`p-3 border-b cursor-pointer transition-colors ${
+                                isDark 
+                                  ? (notif.is_read ? 'border-gray-700 hover:bg-gray-700' : 'bg-gray-700/50 border-gray-700 hover:bg-gray-700') 
+                                  : (notif.is_read ? 'border-gray-100 hover:bg-gray-50' : 'bg-blue-50 border-gray-100 hover:bg-blue-100/50')
+                              }`}
+                            >
+                              <div className="flex gap-2 items-start">
+                                {!notif.is_read && <FaCircle className="text-[8px] text-blue-500 mt-1.5 shrink-0" />}
+                                <div>
+                                  <h4 className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                    {notif.title}
+                                  </h4>
+                                  <p className={`text-xs mt-1 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {notif.body}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className={`p-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                            اعلان جدیدی ندارید.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+            
                 <button
                   onClick={() => dispatch(toggleTheme())}
                   className={`p-2 rounded-full transition ${
@@ -312,7 +408,6 @@ const Header = () => {
                 >
                   {isDark ? <FaSun /> : <FaMoon />}
                 </button>
-
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-3 md:px-4 py-2 rounded-full transition text-sm"

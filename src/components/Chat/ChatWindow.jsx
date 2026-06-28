@@ -100,8 +100,9 @@ const ChatWindow = ({ chatId, onBack }) => {
       {/* Messages */}
       <div className="flex-grow overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {chatMessages.map((msg, index) => {
-          // جلوگیری از رندر پیام‌های کاملا خالی
-          if (msg.message_type !== 'TASK' && (!msg.text || msg.text.trim() === '')) return null;
+          // 🔴 جلوگیری از رندر پیام‌های ماموریت و پیام‌های خالی
+          if (msg.message_type === 'TASK') return null;
+          if (!msg.text || msg.text.trim() === '') return null;
 
           const isMe = msg.sender_id === userInfo?.id;
           return (
@@ -117,16 +118,8 @@ const ChatWindow = ({ chatId, onBack }) => {
                    <span className="text-xs text-blue-400 font-bold mb-1.5 opacity-90">{msg.sender_name}</span>
                 )}
                 
-                {msg.message_type === 'TASK' ? (
-                  <div className={`border-r-2 pr-2 p-2 rounded flex flex-col gap-1 ${isMe ? 'border-blue-300 bg-blue-700/50' : 'border-yellow-500 bg-yellow-900/20'}`}>
-                    <span className={`text-xs font-bold ${isMe ? 'text-blue-200' : 'text-yellow-500'}`}>
-                      <i className="fas fa-clipboard-list ml-1"></i> ماموریت
-                    </span>
-                    <span className="text-sm">{msg.task_event?.note || 'رویداد سیستم'}</span>
-                  </div>
-                ) : (
-                  <span className="whitespace-pre-wrap break-words">{msg.text}</span>
-                )}
+                {/* 🔴 بخش مربوط به دیزاین ماموریت حذف شد و فقط متن چت نمایش داده می‌شود */}
+                <span className="whitespace-pre-wrap break-words">{msg.text}</span>
 
                 <span className={`text-[10px] mt-1.5 flex ${isMe ? 'justify-end text-blue-200' : 'justify-end text-gray-500'}`}>
                   {new Date(msg.created_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'})}
@@ -137,6 +130,7 @@ const ChatWindow = ({ chatId, onBack }) => {
         })}
         <div ref={messagesEndRef} />
       </div>
+
 
       {/* Input */}
       <div className="p-3 md:p-4 bg-[#1e1f20] shrink-0 border-t border-gray-800">
