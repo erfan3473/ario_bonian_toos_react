@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { uploadTaskFile } from '../../features/task/taskSlice';
+import { uploadTaskFile, addTaskComment } from '../../features/task/taskSlice';
 import axiosInstance from '../../api/axiosInstance';
 import {
     FaCheckCircle, FaTimesCircle, FaArrowLeft, FaClock, FaUser,
-    FaPaperclip, FaUpload, FaSpinner, FaDownload, FaChevronRight
+    FaPaperclip, FaUpload, FaSpinner, FaDownload, FaChevronRight,
+    FaRegComment, FaPaperPlane
 } from 'react-icons/fa';
 
 // وارد کردن ماژول‌های جدا شده
@@ -17,7 +18,13 @@ import TaskSmsSection from './TaskSmsSection';
 
 const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const dispatch = useDispatch();
-    const { uploadingFile } = useSelector(s => s.task);
+    const { uploadingFile, addingComment } = useSelector(s => s.task);
+
+    const [commentNote, setCommentNote] = useState('');
+    const [commentFiles, setCommentFiles] = useState([]);
+    const [commentError, setCommentError] = useState('');
+    const [commentSuccess, setCommentSuccess] = useState(false); 
+    const commentFileRef = useRef();
     const mode = useSelector((s) => s.theme?.mode || 'dark');
     const isDark = mode === 'dark';
     const fileInputRef = useRef();
@@ -26,9 +33,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
 
     const { task, steps, logs, files = [] } = taskData;
 
-    const myPendingStep = steps?.find(
-        s => s.to_user_id === currentUserId && s.state === 'PENDING'
-    );
+    const myPendingStep = steps?.find(s => Number(s.to_user_id) === Number(currentUserId) && s.state === 'PENDING');
 
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
@@ -47,6 +52,27 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
         await axiosInstance.post(`/tasks/${task.id}/reject/`, { note });
         setModal(null);
         onRefresh();
+    };
+
+    const handleAddComment = async () => {
+        if (!commentNote.trim() && commentFiles.length === 0) return;
+        setCommentError('');
+        setCommentSuccess(false);
+
+        const result = await dispatch(addTaskComment({
+            taskId: task.id,
+            note: commentNote.trim(),
+            files: commentFiles,
+        }));
+
+        if (addTaskComment.fulfilled.match(result)) {
+            setCommentNote('');
+            setCommentFiles([]);
+            setCommentSuccess(true);
+            setTimeout(() => setCommentSuccess(false), 4000); // محو خودکار پیام موفقیت بعد از ۴ ثانیه
+        } else {
+            setCommentError(result.payload || 'خطا در ثبت یادداشت');
+        }
     };
 
     return (
@@ -127,7 +153,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
             {/* ── محتوا ── */}
             <div className="flex-1 overflow-y-auto p-5 space-y-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
 
-                {/* فایل‌های ضمیمه */}
+                {/* فایل‌های ضمیمه عمومی تسک */}
                 <div className={`rounded-2xl p-4 border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
                     <div className="flex items-center justify-between mb-4">
                         <h3 className={`text-sm font-bold flex items-center gap-2 ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>
@@ -184,7 +210,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                             <div className="space-y-4">
                                 {steps.map(step => {
                                     const cfg = STEP_STATE_CONFIG[step.state] || { label: step.state, color: 'text-gray-500', icon: <FaUser /> };
-                                    const isMe = step.to_user_id === currentUserId;
+                                    const isMe = Number(step.to_user_id) === Number(currentUserId);
                                     return (
                                         <div key={step.id} className="flex items-start gap-4 pr-9 relative">
                                             <div className={`absolute right-1.5 top-4 w-4 h-4 rounded-full border-4 ${stepDotColor(step.state, isDark)} z-10 shadow-sm`} />
@@ -253,6 +279,26 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                         {' '}
                                         <span className="text-blue-500">{ACTION_LABELS[log.action] || log.action}</span>
                                         {log.note && <span className="text-gray-500 italic"> — "{log.note}"</span>}
+                                        
+                                        {/* ── نمایش فایل‌های ضمیمه‌شده به این کامنت خاص ── */}
+                                        {log.files && log.files.length > 0 && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                                                {log.files.map(f => (
+                                                    <div key={f.id} className={`flex items-center justify-between p-2 rounded-xl border text-xs transition-colors ${isDark ? 'bg-slate-950 border-slate-800 hover:border-slate-700' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
+                                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                            <FaPaperclip size={10} className="text-blue-400 shrink-0" />
+                                                            <span className={`truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                {f.file?.split('/').pop() || 'فایل ضمیمه'}
+                                                            </span>
+                                                        </div>
+                                                        <a href={f.file} target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-600 font-medium shrink-0 mr-2 flex items-center gap-1">
+                                                            <FaDownload size={10} /> دریافت
+                                                        </a>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         <div className="text-[11px] text-gray-500 mt-1">
                                             {new Date(log.created_at).toLocaleString('fa-IR', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'numeric', day: 'numeric' })}
                                         </div>
@@ -263,8 +309,86 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     )}
                 </div>
 
+                {/* ── ثبت یادداشت جدید ── */}
+                <div className={`rounded-2xl p-4 border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+                    <h3 className={`text-sm font-bold flex items-center gap-2 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>
+                        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
+                            <FaRegComment size={12} className="text-indigo-400" />
+                        </div>
+                        ثبت یادداشت
+                    </h3>
+
+                    <textarea
+                        value={commentNote}
+                        onChange={e => setCommentNote(e.target.value)}
+                        placeholder="یادداشت، توضیح یا سؤال..."
+                        rows={3}
+                        className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:border-blue-500 resize-none mb-3 ${isDark ? 'bg-slate-950 text-white border-slate-700 placeholder-gray-500' : 'bg-gray-50 text-gray-900 border-gray-300 placeholder-gray-400'}`}
+                    />
+
+                    {/* فایل‌های انتخاب‌شده قبل از آپلود */}
+                    {commentFiles.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            {commentFiles.map((f, i) => (
+                                <div key={i} className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border ${isDark ? 'bg-slate-800 border-slate-700 text-gray-300' : 'bg-gray-100 border-gray-300 text-gray-700'}`}>
+                                    <FaPaperclip size={10} className="text-blue-400" />
+                                    <span className="max-w-[120px] truncate">{f.name}</span>
+                                    <button onClick={() => setCommentFiles(prev => prev.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-300 ml-1">
+                                        <FaTimesCircle size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {commentSuccess && (
+                        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 text-green-500 text-xs p-3 rounded-lg mb-3">
+                            <FaCheckCircle size={13} />
+                            یادداشت با موفقیت ثبت شد.
+                        </div>
+                    )}
+                    {commentError && (
+                        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-500 text-xs p-3 rounded-lg mb-3">
+                            <FaTimesCircle size={13} />
+                            {commentError}
+                        </div>
+                    )}
+
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => commentFileRef.current?.click()}
+                            className={`flex items-center gap-2 text-xs border px-3 py-2.5 rounded-xl transition-colors font-medium ${isDark ? 'bg-slate-950 border-slate-700 hover:border-blue-500 text-gray-400' : 'bg-white border-gray-300 hover:border-blue-400 text-gray-600'}`}
+                        >
+                            <FaPaperclip size={12} /> ضمیمه
+                        </button>
+                        {/* 🔴 فیکس: صفت accept کاملاً حذف شد تا هر نوع فرمتی بدون محدودیت قابل انتخاب باشد */}
+                        <input
+                            ref={commentFileRef}
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={e => {
+                                setCommentFiles(prev => [...prev, ...Array.from(e.target.files)]);
+                                e.target.value = '';
+                            }}
+                        />
+                        <button
+                            onClick={handleAddComment}
+                            disabled={addingComment || (!commentNote.trim() && commentFiles.length === 0)}
+                            className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2"
+                        >
+                            {addingComment ? <FaSpinner className="animate-spin" size={14} /> : <FaPaperPlane size={12} />}
+                            ثبت یادداشت
+                        </button>
+                    </div>
+                </div>
+
                 {/* فراخوانی کامپوننت وضعیت پیامک */}
-                <TaskSmsSection smsLogs={taskData.sms_logs} onRefresh={onRefresh} />
+                <TaskSmsSection 
+                    assignLogs={taskData.assign_sms_logs} 
+                    reminderLogs={taskData.reminder_sms_logs} 
+                    onRefresh={onRefresh} 
+                />
                 
             </div>
 

@@ -138,13 +138,83 @@ export const refreshSmsStatus = createAsyncThunk(
     async (logId, { rejectWithValue }) => {
         try {
             // آپدیت مسیر بر اساس بک‌اند جدید شما
-            const response = await axiosInstance.post(`tasks/sms-logs/${logId}/refresh/`);
+            const response = await axiosInstance.post(`/tasks/sms-logs/${logId}/refresh/`);
             return response.data; // دیتای یک لاگ پیامک برمی‌گردد
         } catch (error) {
             return rejectWithValue(error.response?.data?.detail || 'خطا در بروزرسانی وضعیت پیامک');
         }
     }
 );
+
+// 9 // دریافت تنظیمات یادآوری
+export const fetchReminderSettings = createAsyncThunk(
+    'task/fetchReminderSettings',
+    async (_, { rejectWithValue }) => {
+        try {
+            // ⚠️ مسیر زیر را با URL دقیق urls.py خود هماهنگ کنید
+            const { data } = await axiosInstance.get('/tasks/reminder-settings/');
+            return data; // آرایه‌ای از تنظیمات برمی‌گردد
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
+
+// 10 // به‌روزرسانی گروهی تنظیمات یادآوری
+export const updateReminderSettings = createAsyncThunk(
+    'task/updateReminderSettings',
+    async (payload, { rejectWithValue }) => {
+        try {
+            // payload باید یک آرایه از آبجکت‌های تنظیمات باشد
+            // ⚠️ مسیر زیر را با URL دقیق urls.py خود هماهنگ کنید
+            const { data } = await axiosInstance.put('/tasks/reminder-settings/', payload);
+            return data; // پیام موفقیت برمی‌گردد
+        } catch (err) {
+            return rejectWithValue(
+                err.response?.data?.error || 
+                err.response?.data?.detail || 
+                'خطا در ذخیره تنظیمات'
+            );
+        }
+    }
+);
+//11//ثبت یادداشت / فایل روی task
+//11//ثبت یادداشت / فایل روی task
+export const addTaskComment = createAsyncThunk(
+    'task/addTaskComment',
+    async ({ taskId, note, files }, { rejectWithValue }) => {
+        try {
+            let body;
+            let config = {}; // هدرها بر اساس وجود یا عدم وجود فایل تنظیم می‌شوند
+
+            const hasFiles = files && files.length > 0;
+
+            if (hasFiles) {
+                body = new FormData();
+                if (note) body.append('note', note);
+                files.forEach(f => body.append('files', f));
+                
+                // تنظیم هدر مالتی‌پارت برای ارسال صحیح فایل‌ها به جنگو
+                config = { headers: { 'Content-Type': 'multipart/form-data' } };
+            } else {
+                body = { note };
+            }
+
+            const { data } = await axiosInstance.post(
+                `/tasks/${taskId}/comment/`,
+                body,
+                config // پاس دادن هدرها و تنظیمات به ریکوئست
+            );
+            return data; // { log, files }
+        } catch (err) {
+            return rejectWithValue(
+                err.response?.data?.detail || 'خطا در ثبت یادداشت'
+            );
+        }
+    }
+);
+
+
 // ═══════════════════════════════════════════════════════════
 // Slice
 // ═══════════════════════════════════════════════════════════
@@ -173,6 +243,11 @@ const taskSlice = createSlice({
         needsInboxRefresh:   false,
         forwarding: false,
         refreshingSms: false,
+
+        reminderSettings: [],
+        loadingReminderSettings: false,
+        updatingReminderSettings: false,
+        addingComment: false,
     },
     reducers: {
         clearActiveTask: (state) => {
@@ -306,18 +381,79 @@ const taskSlice = createSlice({
                 // بک‌اند یک آبجکت تکی پیامک را برگردانده است
                 const updatedSms = action.payload; 
                 
-                if (state.activeTask && state.activeTask.sms_logs) {
-                    // پیدا کردن پیامک در لیست و آپدیت کردن آن
-                    const index = state.activeTask.sms_logs.findIndex(sms => sms.id === updatedSms.id);
-                    if (index !== -1) {
-                        state.activeTask.sms_logs[index] = updatedSms;
+                if (state.activeTask) {
+                    // ۱. جستجو و آپدیت در پیامک‌های ارجاع/ایجاد
+                    if (state.activeTask.assign_sms_logs) {
+                        const idx = state.activeTask.assign_sms_logs.findIndex(sms => sms.id === updatedSms.id);
+                        if (idx !== -1) state.activeTask.assign_sms_logs[idx] = updatedSms;
+                    }
+                    // ۲. جستجو و آپدیت در پیامک‌های یادآوری
+                    if (state.activeTask.reminder_sms_logs) {
+                        const idx = state.activeTask.reminder_sms_logs.findIndex(sms => sms.id === updatedSms.id);
+                        if (idx !== -1) state.activeTask.reminder_sms_logs[idx] = updatedSms;
                     }
                 }
             })
             .addCase(refreshSmsStatus.rejected, (state, action) => {
                 state.refreshingSms = false;
                 // در صورت نیاز نمایش ارور
+            })
+            // ── Reminder Settings ──
+            .addCase(fetchReminderSettings.pending, (state) => {
+                state.loadingReminderSettings = true;
+                state.error = null;
+            })
+            .addCase(fetchReminderSettings.fulfilled, (state, action) => {
+                state.loadingReminderSettings = false;
+                state.reminderSettings = action.payload;
+            })
+            .addCase(fetchReminderSettings.rejected, (state, action) => {
+                state.loadingReminderSettings = false;
+                state.error = action.payload;
+            })
+            
+            .addCase(updateReminderSettings.pending, (state) => {
+                state.updatingReminderSettings = true;
+                state.error = null;
+            })
+            .addCase(updateReminderSettings.fulfilled, (state) => {
+                state.updatingReminderSettings = false;
+                // ویوی بک‌اند شما بعد از آپدیت، یک آبجکت message برمی‌گرداند.
+                // آپدیت شدن لیست معمولاً با فراخوانی مجدد fetchReminderSettings در خود کامپوننت انجام می‌شود.
+            })
+            .addCase(updateReminderSettings.rejected, (state, action) => {
+                state.updatingReminderSettings = false;
+                state.error = action.payload;
+            })
+            //── comment──
+            .addCase(addTaskComment.pending, (state) => {
+                state.addingComment = true;
+                state.error = null;
+            })
+            .addCase(addTaskComment.fulfilled, (state, action) => {
+                state.addingComment = false;
+                if (state.activeTask) {
+                    // ادغام فایل‌های جدید برگشتی از بک‌اند با آبجکت لاگِ سیستم
+                    const newLogWithFiles = {
+                        ...action.payload.log,
+                        files: action.payload.files || []
+                    };
+
+                    // اضافه کردن لاگ جدیدِ حاوی فایل به آرایه تاریخچه‌ها
+                    state.activeTask.logs = [
+                        ...(state.activeTask.logs || []),
+                        newLogWithFiles,
+                    ];
+
+                    // توجه: فایل‌ها رو به state.activeTask.files اضافه نمی‌کنیم، 
+                    // چون این فایل‌ها متعلق به کامنت هستند و باید اختصاصی زیر خودِ یادداشت نمایش داده بشن.
+                }
+            })
+            .addCase(addTaskComment.rejected, (state, action) => {
+                state.addingComment = false;
+                state.error = action.payload;
             });
+
     },
 });
 
@@ -327,5 +463,6 @@ export const {
     clearTaskError,
     handleTaskInboxEvent,
 } = taskSlice.actions;
+
 
 export default taskSlice.reducer;

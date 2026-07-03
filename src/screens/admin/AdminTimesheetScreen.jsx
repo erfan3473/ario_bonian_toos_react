@@ -1,6 +1,7 @@
 // src/screens/admin/AdminTimesheetScreen.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useReactToPrint } from 'react-to-print';
 import {
   fetchTimesheetByRange,
   setTimesheetFilters,
@@ -31,26 +32,47 @@ const AdminTimesheetScreen = () => {
 
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'worker' | 'day'
 
-  // تاریخ امروز میلادی
   const todayGregorian = new Date().toISOString().split('T')[0];
   const todayJalali = formatJalaliDateLong(todayGregorian);
 
   const { list: projects } = useSelector((state) => state.projects);
 
-  // حالت‌های تاریخ شروع و پایان (میلادی)
   const [startDate, setStartDate] = useState(todayGregorian);
   const [endDate, setEndDate] = useState(todayGregorian);
 
-  // ---------- تغییرات جدید: حالت‌های ساعت شب‌کاری ----------
   const [nightStart, setNightStart] = useState('22:00');
   const [nightEnd, setNightEnd] = useState('06:00');
-  // ---------------------------------------------------------
+
+  // ---------- تغییرات جدید: چاپ / PDF ----------
+  const printRef = useRef(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `تایم‌شیت-${startDate}-تا-${endDate}`,
+    pageStyle: `
+      @page { size: A3 landscape; margin: 10mm; }
+      html, body {
+        direction: rtl !important;
+        text-align: right !important;
+      }
+      * {
+        direction: rtl !important;
+      }
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        table { font-size: 9px !important; direction: rtl !important; }
+        th, td { text-align: right !important; }
+        .no-print { display: none !important; }
+        .print-row-avoid-break { break-inside: avoid; }
+      }
+    `,
+  });
+  // -----------------------------------------------
 
   useEffect(() => {
     dispatch(fetchProjects());
   }, [dispatch]);
 
-  // مقدار اولیه فیلترها براساس امروز (یک روز)
   useEffect(() => {
     const m = moment(todayGregorian, 'YYYY-MM-DD');
     dispatch(
@@ -61,23 +83,19 @@ const AdminTimesheetScreen = () => {
     );
   }, [dispatch, todayGregorian]);
 
-  // وقتی کاربر تاریخ شروع را تغییر می‌دهد
   const handleStartDateChange = (e) => {
-    const gDate = e.target.value; // "YYYY-MM-DD"
+    const gDate = e.target.value;
     setStartDate(gDate || todayGregorian);
   };
 
-  // وقتی کاربر تاریخ پایان را تغییر می‌دهد
   const handleEndDateChange = (e) => {
-    const gDate = e.target.value; // "YYYY-MM-DD"
+    const gDate = e.target.value;
     setEndDate(gDate || todayGregorian);
   };
 
-  // بزن و تایم‌شیت بگیر (بر اساس بازه)
   const handleSearch = () => {
     if (!startDate || !endDate) return;
-    
-    // اعتبارسنجی: تاریخ پایان نباید قبل از تاریخ شروع باشد
+
     if (moment(endDate).isBefore(startDate)) {
       alert('تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد');
       return;
@@ -91,8 +109,8 @@ const AdminTimesheetScreen = () => {
         positionId: filters.positionId || null,
         workerId: filters.workerId || null,
         search: filters.search || '',
-        night_start: nightStart, // <--- ارسال شروع شب‌کاری
-        night_end: nightEnd,     // <--- ارسال پایان شب‌کاری
+        night_start: nightStart,
+        night_end: nightEnd,
       })
     );
 
@@ -104,20 +122,19 @@ const AdminTimesheetScreen = () => {
         position_id: filters.positionId || null,
         worker_id: filters.workerId || null,
         search: filters.search || '',
-        night_start: nightStart, // <--- ارسال شروع شب‌کاری به بک‌اند
-        night_end: nightEnd,     // <--- ارسال پایان شب‌کاری به بک‌اند
+        night_start: nightStart,
+        night_end: nightEnd,
       })
     );
   };
 
-  // دکمه‌های سریع برای انتخاب بازه
   const handleQuickRange = (days) => {
     const end = new Date().toISOString().split('T')[0];
     const start = moment(end).subtract(days, 'days').format('YYYY-MM-DD');
-    
+
     setStartDate(start);
     setEndDate(end);
-    
+
     dispatch(
       setTimesheetFilters({
         start_date: start,
@@ -128,15 +145,13 @@ const AdminTimesheetScreen = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 rtl min-h-screen bg-white rounded">
-      {/* هدر و تاریخ امروز */}
-        <PersianCalendarFrame
-          startDate={startDate}
-          endDate={endDate}
-        />
+      <PersianCalendarFrame
+        startDate={startDate}
+        endDate={endDate}
+      />
 
-      {/* فیلترها */}
-      <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
-        {/* دکمه‌های سریع */}
+      {/* فیلترها - در چاپ مخفی می‌شود */}
+      <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200 mb-6 no-print">
         <div className="flex flex-wrap gap-2 mb-4">
           <button
             onClick={() => handleQuickRange(7)}
@@ -169,7 +184,6 @@ const AdminTimesheetScreen = () => {
         </div>
 
         <div className="flex flex-wrap gap-4 items-end">
-          {/* انتخاب تاریخ شروع */}
           <div className="min-w-[180px]">
             <JalaliDatePicker
               name="start_date"
@@ -180,7 +194,6 @@ const AdminTimesheetScreen = () => {
             />
           </div>
 
-          {/* انتخاب تاریخ پایان */}
           <div className="min-w-[180px]">
             <JalaliDatePicker
               name="end_date"
@@ -191,11 +204,8 @@ const AdminTimesheetScreen = () => {
             />
           </div>
 
-          {/* ---------- فیلدهای جدید: زمان شروع و پایان شب‌کاری ---------- */}
           <div className="min-w-[120px]">
-            <label className="text-gray-600 text-sm mb-1 block">
-              شروع شب
-            </label>
+            <label className="text-gray-600 text-sm mb-1 block">شروع شب</label>
             <input
               type="time"
               value={nightStart}
@@ -205,9 +215,7 @@ const AdminTimesheetScreen = () => {
           </div>
 
           <div className="min-w-[120px]">
-            <label className="text-gray-600 text-sm mb-1 block">
-              پایان شب
-            </label>
+            <label className="text-gray-600 text-sm mb-1 block">پایان شب</label>
             <input
               type="time"
               value={nightEnd}
@@ -215,13 +223,9 @@ const AdminTimesheetScreen = () => {
               className="w-full bg-white text-gray-800 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-mono dir-ltr text-center"
             />
           </div>
-          {/* ------------------------------------------------------------- */}
 
-          {/* انتخاب پروژه */}
           <div className="min-w-[180px]">
-            <label className="text-gray-600 text-sm mb-1 block">
-              پروژه
-            </label>
+            <label className="text-gray-600 text-sm mb-1 block">پروژه</label>
             <select
               value={filters.projectId || ''}
               onChange={(e) =>
@@ -242,11 +246,8 @@ const AdminTimesheetScreen = () => {
             </select>
           </div>
 
-          {/* سرچ نام کارگر */}
           <div className="min-w-[180px]">
-            <label className="text-gray-600 text-sm mb-1 block">
-              جستجو (نام کارگر)
-            </label>
+            <label className="text-gray-600 text-sm mb-1 block">جستجو (نام کارگر)</label>
             <input
               type="text"
               value={filters.search || ''}
@@ -258,7 +259,6 @@ const AdminTimesheetScreen = () => {
             />
           </div>
 
-          {/* دکمه نمایش */}
           <div className="flex items-end">
             <button
               onClick={handleSearch}
@@ -270,7 +270,6 @@ const AdminTimesheetScreen = () => {
           </div>
         </div>
 
-        {/* نمایش بازه انتخاب شده */}
         {startDate && endDate && (
           <div className="mt-3 text-sm text-gray-600">
             <span>بازه انتخابی: </span>
@@ -287,8 +286,8 @@ const AdminTimesheetScreen = () => {
         )}
       </div>
 
-      {/* تب‌ها */}
-      <div className="flex border-b border-gray-200 mt-2">
+      {/* تب‌ها - در چاپ مخفی می‌شود */}
+      <div className="flex border-b border-gray-200 mt-2 no-print">
         <button
           onClick={() => setActiveTab('summary')}
           className={`px-4 py-2 text-sm flex items-center gap-1 ${
@@ -321,21 +320,32 @@ const AdminTimesheetScreen = () => {
         </button>
       </div>
 
-      {/* خطا / لودینگ */}
+      {/* دکمه چاپ / ذخیره PDF - در چاپ خودش هم مخفی می‌شود */}
+      {meta && (
+        <div className="flex justify-end mt-3 no-print">
+          <button
+            onClick={() => handlePrint()}
+            className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+          >
+            🖨️ چاپ / ذخیره PDF
+          </button>
+        </div>
+      )}
+
       {error && (
-        <div className="flex bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mt-4 text-sm">
+        <div className="flex bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mt-4 text-sm no-print">
           {error}
         </div>
       )}
       {loading && (
-        <div className="flex text-center py-10 text-sm text-blue-600">
+        <div className="flex text-center py-10 text-sm text-blue-600 no-print">
           در حال بارگذاری تایم‌شیت...
         </div>
       )}
 
-      {/* محتوا */}
-      {!loading && meta && (
-        <>
+      {/* محتوای قابل چاپ */}
+        {!loading && meta && (
+        <div ref={printRef} dir="rtl" lang="fa">
           {activeTab === 'summary' && (
             <TimesheetSummary meta={meta} workers={workers} byWorker={byWorker} loading={loading} />
           )}
@@ -345,7 +355,7 @@ const AdminTimesheetScreen = () => {
           {activeTab === 'day' && (
             <TimesheetByDay meta={meta} byDay={byDay} />
           )}
-        </>
+        </div>
       )}
 
       {!loading && !meta && (

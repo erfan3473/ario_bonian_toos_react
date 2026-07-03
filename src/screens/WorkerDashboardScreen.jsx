@@ -252,7 +252,7 @@ const WorkerDashboardScreen = () => {
         </div>
       )}
 
-      <div className={`w-full h-[38vh] sm:h-[44vh] md:h-[50vh] min-h-[250px] border-b z-10 relative ${
+      <div className={`w-full h-[55vh] sm:h-[65vh] md:h-[75vh] min-h-[400px] border-b z-10 relative ${
         isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-300 bg-white'
       }`}>
         <WorkerMap

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+// src/screens/admin/SettingsScreen.jsx
+import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 
-// ✅ تغییر مسیر ایمپورت به dropdownsSlice
+// ✅ تغییر مسیر ایمپورت‌ها بر اساس ساختار شما
 import { fetchDropdowns } from '../../features/admin/dropdownsSlice';
 import { fetchProjects } from '../../features/projects/projectSlice';
 
@@ -9,12 +11,19 @@ import EmploymentTypesSettings from '../../components/admin/settings/EmploymentT
 import PositionsSettings from '../../components/admin/settings/PositionsSettings';
 import SkillLevelsSettings from '../../components/admin/settings/SkillLevelsSettings';
 import LeaveTypesSettings from '../../components/admin/settings/LeaveTypesSettings';
+import ReminderSettings from '../../components/admin/settings/ReminderSettings'; // کامپوننت جدید
 
 const SettingsScreen = () => {
   const dispatch = useDispatch();
-  const [activeTab, setActiveTab] = useState('employment-types');
   
-  // ✅ اصلاح مسیر خواندن استیت و انطباق با متغیرهای اسلایس جدید
+  // ✅ استفاده از useSearchParams برای حفظ تب پس از رفرش
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'employment-types';
+  
+  const handleTabChange = (tabId) => {
+    setSearchParams({ tab: tabId });
+  };
+
   const { loading: dropdownsLoading, error: dropdownsError } = useSelector(
     (state) => state.admin.dropdowns || {}
   );
@@ -25,7 +34,7 @@ const SettingsScreen = () => {
     { id: 'positions', label: 'سمت‌های سازمانی', icon: '🎯' },
     { id: 'skill-levels', label: 'سطوح مهارت', icon: '⭐' },
     { id: 'leave-types', label: 'انواع مرخصی', icon: '🏖️' },
-    { id: 'system', label: 'تنظیمات سیستم', icon: '⚙️' },
+    { id: 'reminders', label: 'یادآوری پیامک', icon: '🔔' }, // ✅ تب جدید اضافه شد
   ];
 
   useEffect(() => {
@@ -78,12 +87,11 @@ const SettingsScreen = () => {
         </div>
 
         <div className="bg-gray-800 rounded-xl border border-gray-700 mb-6 p-2">
-          {/* justify-center برای قرارگیری منظم تب‌ها در مرکز */}
           <div className="flex flex-wrap justify-center gap-2">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold whitespace-nowrap transition-all ${
                   activeTab === tab.id
                     ? 'bg-blue-600 text-white shadow-lg scale-105'
@@ -103,19 +111,12 @@ const SettingsScreen = () => {
             {activeTab === 'positions' && <PositionsSettings />}
             {activeTab === 'skill-levels' && <SkillLevelsSettings />}
             {activeTab === 'leave-types' && <LeaveTypesSettings />}
-            
-            {activeTab === 'system' && (
-              <div className="text-center py-20">
-                <div className="text-6xl mb-4">⚙️</div>
-                <p className="text-gray-400 text-xl mb-2">تنظیمات پیشرفته سیستم</p>
-                <p className="text-gray-500">🚧 این بخش در دست توسعه است</p>
-              </div>
-            )}
+            {activeTab === 'reminders' && <ReminderSettings />}
           </div>
         </div>
 
         <div className="mt-6 text-center text-gray-500 text-sm">
-          <p>💡 نکته: تغییرات در این بخش بر روی کل سیستم تأثیرگذار است</p>
+          <p>💡 نکته: تغییرات در این بخش بر روی کل سیستم تأثیرگذار است و در لحظه اعمال می‌شود.</p>
         </div>
       </div>
     </div>

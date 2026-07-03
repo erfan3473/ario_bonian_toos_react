@@ -25,6 +25,7 @@ import notebookReducer     from './features/notebook/notebookSlice';
 import mapRoutesReducer from './features/routeMaps/mapRoutesSlice';
 import themeReducer from "./features/theme/themeSlice"; 
 import notificationReducer from './features/notifications/notificationSlice';
+import routineReducer from './features/routine/routineSlice';
 
 const userInfoFromStorage = localStorage.getItem('userInfo')
   ? JSON.parse(localStorage.getItem('userInfo'))
@@ -68,6 +69,7 @@ const store = configureStore({
     mapRoutes:      mapRoutesReducer,
     theme: themeReducer,
     notifications: notificationReducer, 
+    routine: routineReducer, 
   },
   preloadedState,
 });

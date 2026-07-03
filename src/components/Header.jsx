@@ -10,7 +10,8 @@ import {
   FaUser, FaSignOutAlt, FaSignInAlt, FaUsers, FaBuilding,
   FaChartLine, FaClipboardList, FaCheckCircle, FaCog,
   FaChevronDown, FaBriefcase, FaIdBadge, FaComments,
-  FaBars, FaTimes, FaMoon, FaSun, FaBell, FaCircle
+  FaBars, FaTimes, FaMoon, FaSun, FaBell, FaCircle, 
+  FaSyncAlt // 👈 این را اضافه کنید
 } from "react-icons/fa";
 
 const Header = () => {
@@ -215,6 +216,17 @@ const Header = () => {
       >
         <FaClipboardList className="text-blue-300" />
         <span>لیست حقوق</span>
+      </Link>
+      <Link
+        to="/routines"
+        className={
+          mobile
+            ? mobileItemClass(isActive("/routines"), "bg-teal-600", "hover:bg-teal-700/50")
+            : navLinkClass(isActive("/routines"))
+        }
+      >
+        <FaSyncAlt className="text-teal-300" />
+        <span>وظایف ثابت</span>
       </Link>
 
       {isAdmin && (

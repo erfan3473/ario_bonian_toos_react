@@ -31,6 +31,7 @@ const STATUS_MAP = {
   REJECTED: { label: 'رد شده',    color: 'text-red-700 bg-red-200 border-red-400' },
   RETURNED: { label: 'برگشتی',    color: 'text-purple-700 bg-purple-100 border-purple-300' },
   SKIPPED:  { label: 'رد مرحله',  color: 'text-gray-500 bg-gray-100 border-gray-300' },
+  NO_CONTRACT: { label: 'بدون قرارداد',       color: 'text-slate-600 bg-slate-100 border-slate-300' }, // <--- این خط اضافه شد
 };
 
 const getStatusInfo = (status) =>

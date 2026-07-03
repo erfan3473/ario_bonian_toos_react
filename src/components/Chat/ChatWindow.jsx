@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchChatMessages, addMessage, setSocketConnected } from '../../features/chat/chatSlice';
+import { markModelNotificationsRead } from '../../features/notifications/notificationSlice';
 
 const ChatWindow = ({ chatId, onBack }) => {
   const dispatch = useDispatch();
@@ -12,7 +13,7 @@ const ChatWindow = ({ chatId, onBack }) => {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   
-  const chatMessages = messages[chatId] || [];
+  const chatMessages = (messages[chatId] || []).slice().reverse();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -20,8 +21,14 @@ const ChatWindow = ({ chatId, onBack }) => {
 
   useEffect(() => { scrollToBottom(); }, [chatMessages]);
 
-  useEffect(() => { dispatch(fetchChatMessages(chatId)); }, [dispatch, chatId]);
-
+  useEffect(() => { dispatch(fetchChatMessages(chatId)); }, [dispatch, chatId]);  useEffect(() => { 
+    // دریافت تاریخچه پیام‌ها
+    dispatch(fetchChatMessages(chatId)); 
+    
+    // 🔴 سینک کردن خوانده‌شدن نوتیفیکیشن‌های این چت به محض ورود
+    dispatch(markModelNotificationsRead({ model: 'chat', objectId: chatId }));
+  }, [dispatch, chatId]);
+  
   useEffect(() => {
     const token = userInfo?.access;
     if (!token) return;
