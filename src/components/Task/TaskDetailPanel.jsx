@@ -160,7 +160,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                             <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
                                 <FaPaperclip size={12} className="text-blue-500" />
                             </div>
-                            فایل‌های ضمیمه ({files.length})
+                            فایل‌های ضمیمه اصلی ({files.length})
                         </h3>
                         <button onClick={() => fileInputRef.current?.click()} disabled={uploadingFile} className={`flex items-center gap-2 text-xs border px-3 py-2 rounded-lg transition-colors disabled:opacity-50 font-medium ${isDark ? 'bg-slate-950 border-slate-700 hover:border-blue-500 text-gray-300' : 'bg-white border-gray-300 hover:border-blue-400 text-gray-700'}`}>
                             {uploadingFile ? <><FaSpinner className="animate-spin" size={12} /> در حال آپلود...</> : <><FaUpload size={12} /> افزودن فایل</>}

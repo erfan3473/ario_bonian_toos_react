@@ -11,7 +11,7 @@ import {
   FaChartLine, FaClipboardList, FaCheckCircle, FaCog,
   FaChevronDown, FaBriefcase, FaIdBadge, FaComments,
   FaBars, FaTimes, FaMoon, FaSun, FaBell, FaCircle, 
-  FaSyncAlt // 👈 این را اضافه کنید
+  FaSyncAlt, FaHome
 } from "react-icons/fa";
 
 const Header = () => {
@@ -24,7 +24,6 @@ const Header = () => {
   const mode = useSelector((state) => state.theme?.mode || "dark");
   const isDark = mode === "dark";
 
-  // ✅ گرفتن استیت نوتیفیکیشن‌ها
   const { unreadCount, notifications } = useSelector((state) => state.notifications); 
 
   const isAdmin = userInfo?.is_admin;
@@ -42,9 +41,30 @@ const Header = () => {
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notifMenuOpen, setNotifMenuOpen] = useState(false); // استیت دراپ‌داون نوتیف
+  const [notifMenuOpen, setNotifMenuOpen] = useState(false);
+  
   const userMenuRef = useRef(null);
-  const notifMenuRef = useRef(null); // رفرنس دراپ‌داون نوتیف
+  const notifMenuRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+  const hamburgerBtnRef = useRef(null);
+
+  const getPageName = (path) => {
+    if (path.startsWith("/tasks")) return "ماموریت";
+    if (path.startsWith("/routines")) return "وظایف ثابت";
+    if (path.startsWith("/chat")) return "پیام‌رسان";
+    if (path.startsWith("/notebooks")) return "بایگانی";
+    if (path.startsWith("/admin/timesheet")) return "لیست حضور";
+    if (path.startsWith("/admin/payroll/list")) return "لیست حقوق";
+    if (path.startsWith("/dashboard")) return "مانیتور نیروها";
+    if (path.startsWith("/admin/users")) return "کاربران";
+    if (path.startsWith("/projects") || path.startsWith("/admin/projects")) return "پروژه‌ها";
+    if (path.startsWith("/admin/requests")) return "درخواست‌ها";
+    if (path.startsWith("/admin/daily-summary")) return "گزارش‌ها";
+    if (path.startsWith("/admin/settings")) return "تنظیمات";
+    if (path.startsWith("/profile")) return "پروفایل من";
+    if (path === "/" || path === "") return "خانه";
+    return "";
+  };
 
   const logoutHandler = () => {
     dispatch(logout());
@@ -52,7 +72,6 @@ const Header = () => {
     navigate("/auth");
   };
 
-  // بستن منوها هنگام کلیک بیرون
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -60,6 +79,14 @@ const Header = () => {
       }
       if (notifMenuRef.current && !notifMenuRef.current.contains(e.target)) {
         setNotifMenuOpen(false);
+      }
+      if (
+        mobileMenuRef.current && 
+        !mobileMenuRef.current.contains(e.target) &&
+        hamburgerBtnRef.current &&
+        !hamburgerBtnRef.current.contains(e.target)
+      ) {
+        setMobileMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -76,20 +103,17 @@ const Header = () => {
   const isActive = (path) => location.pathname === path;
   const startsWith = (path) => location.pathname.startsWith(path);
 
-  // ✅ فانکشن برای کلیک روی زنگوله
   const handleBellClick = () => {
     setNotifMenuOpen(!notifMenuOpen);
-    setUserMenuOpen(false); // بستن منوی کاربر اگر باز بود
+    setUserMenuOpen(false);
   };
 
-   // کلیک روی یک نوتیفیکیشن خاص
   const handleNotifClick = (notif) => {
     if (!notif.is_read) {
       dispatch(markNotificationsRead([notif.id]));
     }
     setNotifMenuOpen(false);
 
-    // مسیریابی بر اساس نوع نوتیف
     const isChat = notif.notif_type === 'CHAT_MESSAGE';
     const isTask = notif.notif_type?.startsWith('TASK_') || notif.type === 'task_inbox';
     
@@ -159,15 +183,15 @@ const Header = () => {
   const NavLinks = ({ mobile = false }) => (
     <>
       <Link
-        to="/chat"
+        to="/"
         className={
           mobile
-            ? mobileItemClass(isActive("/chat"), "bg-cyan-600", "hover:bg-cyan-700/50")
-            : navLinkClass(isActive("/chat"))
+            ? mobileItemClass(isActive("/"), "bg-blue-600", "hover:bg-blue-700/50")
+            : navLinkClass(isActive("/"))
         }
       >
-        <FaComments className="text-cyan-300" />
-        <span>پیام‌رسان</span>
+        <FaHome className="text-blue-300" />
+        <span>خانه</span>
       </Link>
 
       <Link
@@ -183,41 +207,6 @@ const Header = () => {
       </Link>
 
       <Link
-        to="/notebooks"
-        className={
-          mobile
-            ? mobileItemClass(isActive("/notebooks"), "bg-orange-600", "hover:bg-orange-700/50")
-            : navLinkClass(isActive("/notebooks"))
-        }
-      >
-        <FaClipboardList className="text-orange-300" />
-        <span>بایگانی</span>
-      </Link>
-
-      <Link
-        to="/admin/timesheet"
-        className={
-          mobile
-            ? mobileItemClass(isActive("/admin/timesheet"), "bg-blue-600", "hover:bg-blue-700/50")
-            : navLinkClass(isActive("/admin/timesheet"))
-        }
-      >
-        <FaClipboardList className="text-blue-300" />
-        <span>لیست حضور</span>
-      </Link>
-
-      <Link
-        to="/admin/payroll/list"
-        className={
-          mobile
-            ? mobileItemClass(isActive("/admin/payroll/list"), "bg-blue-600", "hover:bg-blue-700/50")
-            : navLinkClass(isActive("/admin/payroll/list"))
-        }
-      >
-        <FaClipboardList className="text-blue-300" />
-        <span>لیست حقوق</span>
-      </Link>
-      <Link
         to="/routines"
         className={
           mobile
@@ -231,6 +220,54 @@ const Header = () => {
 
       {isAdmin && (
         <>
+          <Link
+            to="/chat"
+            className={
+              mobile
+                ? mobileItemClass(isActive("/chat"), "bg-cyan-600", "hover:bg-cyan-700/50")
+                : navLinkClass(isActive("/chat"))
+            }
+          >
+            <FaComments className="text-cyan-300" />
+            <span>پیام‌رسان</span>
+          </Link>
+
+          <Link
+            to="/notebooks"
+            className={
+              mobile
+                ? mobileItemClass(isActive("/notebooks"), "bg-orange-600", "hover:bg-orange-700/50")
+                : navLinkClass(isActive("/notebooks"))
+            }
+          >
+            <FaClipboardList className="text-orange-300" />
+            <span>بایگانی</span>
+          </Link>
+
+          <Link
+            to="/admin/timesheet"
+            className={
+              mobile
+                ? mobileItemClass(isActive("/admin/timesheet"), "bg-blue-600", "hover:bg-blue-700/50")
+                : navLinkClass(isActive("/admin/timesheet"))
+            }
+          >
+            <FaClipboardList className="text-blue-300" />
+            <span>لیست حضور</span>
+          </Link>
+
+          <Link
+            to="/admin/payroll/list"
+            className={
+              mobile
+                ? mobileItemClass(isActive("/admin/payroll/list"), "bg-blue-600", "hover:bg-blue-700/50")
+                : navLinkClass(isActive("/admin/payroll/list"))
+            }
+          >
+            <FaClipboardList className="text-blue-300" />
+            <span>لیست حقوق</span>
+          </Link>
+
           <Link
             to="/dashboard"
             className={
@@ -316,16 +353,26 @@ const Header = () => {
       <div className={`${headerBg} shadow-none transition-colors duration-300`}>
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex justify-between items-center pt-3 md:pt-4 pb-0">
-            <div className="flex items-center gap-3">
+            
+            {/* قسمت تغییر یافته: نمایش دکمه همبرگری + نام صفحه */}
+            <div className="flex items-center gap-2">
               {userInfo && (
                 <button
+                  ref={hamburgerBtnRef}
                   className="lg:hidden text-white text-xl p-2 hover:bg-white/10 rounded-md transition"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 >
                   {mobileMenuOpen ? <FaTimes /> : <FaBars />}
                 </button>
               )}
-              <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition">
+              
+              {userInfo && (
+                <span className="lg:hidden text-white font-bold text-sm bg-black/20 px-3 py-1.5 rounded-lg whitespace-nowrap">
+                  {getPageName(location.pathname)}
+                </span>
+              )}
+
+              <Link to="/" className="hidden lg:flex items-center gap-2 hover:opacity-90 transition">
                 <img src={logo} alt="Ariobonyan Toos" className="h-12 md:h-16 w-auto object-contain" />
               </Link>
             </div>
@@ -338,8 +385,6 @@ const Header = () => {
 
             {userInfo ? (
               <div className="relative flex items-center gap-2">
-                
-                {/* 🔴 دراپ داون نوتیفیکیشن */}
                 <div className="relative" ref={notifMenuRef}>
                   <button
                     onClick={handleBellClick}
@@ -355,9 +400,8 @@ const Header = () => {
                     )}
                   </button>
 
-                  {/* پنجره دراپ داون */}
                   {notifMenuOpen && (
-                    <div className={`absolute left-0 top-full mt-2 w-72 md:w-80 rounded-md shadow-xl py-1 z-50 border ${
+                    <div className={`absolute left-0 md:auto md:right-0 top-full mt-2 w-72 md:w-80 rounded-md shadow-xl py-1 z-50 border ${
                       isDark ? "bg-gray-800 border-gray-600" : "bg-white border-gray-200"
                     }`}>
                       <div className={`px-4 py-3 border-b flex justify-between items-center ${isDark ? "border-gray-600" : "border-gray-200"}`}>
@@ -366,7 +410,7 @@ const Header = () => {
                         </span>
                         {unreadCount > 0 && (
                           <button 
-                            onClick={() => dispatch(markNotificationsRead([]))} // آرایه خالی یعنی همه را خوانده شده کن
+                            onClick={() => dispatch(markNotificationsRead([]))}
                             className="text-[11px] text-blue-500 hover:text-blue-400"
                           >
                             خواندن همه
@@ -420,72 +464,75 @@ const Header = () => {
                 >
                   {isDark ? <FaSun /> : <FaMoon />}
                 </button>
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-3 md:px-4 py-2 rounded-full transition text-sm"
-                >
-                  <FaUser className="text-gray-300" />
-                  <div className="text-right max-w-[100px] sm:max-w-none truncate">
-                    <div className="font-semibold text-white truncate">
-                      {userInfo.first_name || userInfo.username || "کاربر"}
-                    </div>
-                  </div>
-                  <FaChevronDown
-                    className={`text-xs text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {userMenuOpen && (
-                  <div className="absolute left-0 top-full mt-2 w-56 md:w-64 bg-gray-700 rounded-md shadow-xl py-1 z-50">
-                    <div className="px-4 py-3 border-b border-gray-600">
-                      <p className="text-sm font-semibold text-white">
-                        {userInfo.first_name || userInfo.username}
-                      </p>
-                      {userPosition && (
-                        <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                          <FaBriefcase className="text-sky-400" /> {userPosition}
-                        </p>
-                      )}
-                      <div className="mt-2 flex flex-col gap-1">
-                        <span
-                          className={`inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs rounded-full border ${getRoleStyle(
-                            userRole
-                          )}`}
-                        >
-                          <FaIdBadge />
-                          <span className="font-bold">نقش: {getRoleLabel(userRole)}</span>
-                        </span>
-                        {isSuperUser && (
-                          <span className="inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-600/40">
-                            👑 <span className="font-bold">ادمین سیستم</span>
-                          </span>
-                        )}
+                
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 px-3 md:px-4 py-2 rounded-full transition text-sm"
+                  >
+                    <FaUser className="text-gray-300" />
+                    <div className="text-right max-w-[80px] sm:max-w-none truncate">
+                      <div className="font-semibold text-white truncate">
+                        {userInfo.first_name || userInfo.username || "کاربر"}
                       </div>
                     </div>
+                    <FaChevronDown
+                      className={`text-xs text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
 
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <FaUser className="text-sky-400" /> <span>پروفایل من</span>
-                    </Link>
-                    <Link
-                      to="/tasks"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <FaClipboardList className="text-sky-400" /> <span>ماموریت های من</span>
-                    </Link>
-                    <div className="border-t border-gray-600 my-1" />
-                    <button
-                      onClick={logoutHandler}
-                      className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center gap-2"
-                    >
-                      <FaSignOutAlt /> <span>خروج از حساب</span>
-                    </button>
-                  </div>
-                )}
+                  {userMenuOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-56 md:w-64 bg-gray-700 rounded-md shadow-xl py-1 z-50">
+                      <div className="px-4 py-3 border-b border-gray-600">
+                        <p className="text-sm font-semibold text-white">
+                          {userInfo.first_name || userInfo.username}
+                        </p>
+                        {userPosition && (
+                          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                            <FaBriefcase className="text-sky-400" /> {userPosition}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-col gap-1">
+                          <span
+                            className={`inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs rounded-full border ${getRoleStyle(
+                              userRole
+                            )}`}
+                          >
+                            <FaIdBadge />
+                            <span className="font-bold">نقش: {getRoleLabel(userRole)}</span>
+                          </span>
+                          {isSuperUser && (
+                            <span className="inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-600/40">
+                              👑 <span className="font-bold">ادمین سیستم</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <FaUser className="text-sky-400" /> <span>پروفایل من</span>
+                      </Link>
+                      <Link
+                        to="/tasks"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <FaClipboardList className="text-sky-400" /> <span>ماموریت های من</span>
+                      </Link>
+                      <div className="border-t border-gray-600 my-1" />
+                      <button
+                        onClick={logoutHandler}
+                        className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-600 flex items-center gap-2"
+                      >
+                        <FaSignOutAlt /> <span>خروج از حساب</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <Link
@@ -501,7 +548,7 @@ const Header = () => {
       </div>
 
       {userInfo && mobileMenuOpen && (
-        <div className="lg:hidden bg-gray-800 border-t border-gray-700 max-h-[70vh] overflow-y-auto">
+        <div ref={mobileMenuRef} className="lg:hidden bg-gray-800 border-t border-gray-700 max-h-[70vh] overflow-y-auto shadow-lg">
           <nav className="flex flex-col p-4 gap-2">
             <NavLinks mobile />
           </nav>
