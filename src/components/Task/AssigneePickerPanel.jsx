@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { useSelector } from 'react-redux';
-import { FaSearch, FaTimes, FaCheck } from 'react-icons/fa';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { FaSearch, FaTimes, FaCheck, FaGripVertical } from 'react-icons/fa';
+import { fetchProjects } from '../../features/projects/projectSlice'; 
 
 const getInitials = (name = '') => {
     const parts = name.trim().split(' ');
@@ -18,7 +19,6 @@ const AVATAR_COLORS = [
 export const Avatar = ({ emp, size = 'md' }) => {
     const mode = useSelector((s) => s.theme?.mode || 'dark');
     const isDark = mode === 'dark';
-
     const sz = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-10 h-10 text-sm';
 
     if (emp.avatar_url) {
@@ -30,7 +30,6 @@ export const Avatar = ({ emp, size = 'md' }) => {
             />
         );
     }
-
     const color = AVATAR_COLORS[emp.user_id % AVATAR_COLORS.length];
     return (
         <div className={`${sz} ${color} rounded-full flex-shrink-0 flex items-center justify-center font-bold text-white`}>
@@ -51,33 +50,62 @@ export const AssigneeChip = ({ emp, onRemove }) => {
             <span className={`text-xs truncate ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 {emp.name.split(' ')[0]}
             </span>
-            <button
-                type="button"
-                onClick={e => { e.stopPropagation(); onRemove(emp.user_id); }}
-                className={`transition flex-shrink-0 mr-0.5 ${
-                    isDark ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-500'
-                }`}
-            >
-                <FaTimes size={10} />
-            </button>
+            {onRemove && (
+                <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); onRemove(emp.user_id); }}
+                    className={`transition flex-shrink-0 mr-0.5 ${
+                        isDark ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-500'
+                    }`}
+                >
+                    <FaTimes size={10} />
+                </button>
+            )}
         </div>
     );
 };
 
-const AssigneePickerPanel = ({ subordinates, loading, selectedIds, onChange, onClose }) => {
+const AssigneePickerPanel = ({ subordinates, loading, selectedIds, onChange, activeStageName }) => {
+    const dispatch = useDispatch();
     const mode = useSelector((s) => s.theme?.mode || 'dark');
     const isDark = mode === 'dark';
+    
+    // دریافت اطلاعات کاربر فعلی برای نمایش برچسب "شما"
+    const userInfo = useSelector((state) => state.userLogin?.userInfo);
+    const currentUserId = userInfo?.id;
+    
+    const projectsList = useSelector((state) => state.projects?.list || []);
 
     const [search, setSearch] = useState('');
+    const [selectedProject, setSelectedProject] = useState('');
+    const [selectedPosition, setSelectedPosition] = useState('');
+   
+    useEffect(() => {
+        if (projectsList.length === 0) {
+            dispatch(fetchProjects());
+        }
+    }, [dispatch, projectsList.length]);
+
+    const uniquePositions = useMemo(() => {
+        const positions = subordinates.map(e => e.position_title).filter(Boolean);
+        return [...new Set(positions)];
+    }, [subordinates]);
 
     const filtered = useMemo(() => {
-        if (!search.trim()) return subordinates;
-        const q = search.trim().toLowerCase();
-        return subordinates.filter(e =>
-            e.name.toLowerCase().includes(q) ||
-            (e.position_title || '').toLowerCase().includes(q)
-        );
-    }, [subordinates, search]);
+        return subordinates.filter(emp => {
+            const q = search.trim().toLowerCase();
+            const matchesSearch = !q || 
+                emp.name.toLowerCase().includes(q) || 
+                (emp.position_title || '').toLowerCase().includes(q);
+            
+            const matchesPosition = !selectedPosition || emp.position_title === selectedPosition;
+            
+            const matchesProject = !selectedProject || 
+                (emp.active_project && emp.active_project.id === parseInt(selectedProject));
+
+            return matchesSearch && matchesPosition && matchesProject;
+        });
+    }, [subordinates, search, selectedPosition, selectedProject]);
 
     const grouped = useMemo(() => filtered.reduce((acc, emp) => {
         const level = emp.hierarchy_level ?? 99;
@@ -92,157 +120,125 @@ const AssigneePickerPanel = ({ subordinates, loading, selectedIds, onChange, onC
             : [...selectedIds, userId]
     );
 
+    const handleDragStart = (e, userId) => {
+        e.dataTransfer.setData('empId', userId.toString());
+    };
+
     return (
-        <div
-            className={`h-full flex flex-col ${
-                isDark ? 'bg-slate-900/90' : 'bg-white/95'
-            }`}
-        >
-            {/* هدر */}
-            <div className={`flex items-center justify-between px-4 py-4 border-b ${
-                isDark ? 'border-slate-700' : 'border-gray-200'
-            }`}>
-                <div>
-                    <h3 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        انتخاب مسئولان
-                    </h3>
-                    {selectedIds.length > 0 && (
-                        <p className="text-blue-500 text-xs mt-0.5">{selectedIds.length} نفر انتخاب شده</p>
-                    )}
-                </div>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className={`transition p-1 rounded-lg ${
-                        isDark
-                            ? 'text-gray-400 hover:text-white hover:bg-slate-700'
-                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                >
-                    <FaTimes size={15} />
-                </button>
-            </div>
+        <div className={`h-full flex flex-col ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+            <div className={`px-4 py-4 border-b shrink-0 ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+                <h3 className={`font-semibold text-sm mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    لیست پرسنل
+                </h3>
+                <p className="text-[10px] text-gray-500 mb-3">(بکشید و در مراحل رها کنید یا کلیک کنید)</p>
+                
+                {activeStageName && (
+                    <div className="bg-blue-500/10 border border-blue-500/30 text-blue-500 text-[11px] font-medium px-2 py-1.5 rounded-lg mb-3">
+                        انتخاب برای: {activeStageName}
+                    </div>
+                )}
 
-            {/* سرچ */}
-            <div className={`px-3 py-3 border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-                <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 border ${
-                    isDark
-                        ? 'bg-slate-800/80 border-slate-700'
-                        : 'bg-gray-50 border-gray-300'
-                }`}>
-                    <FaSearch className={`${isDark ? 'text-gray-400' : 'text-gray-500'} flex-shrink-0`} size={12} />
-                    <input
-                        autoFocus
-                        type="text"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="جستجو نام یا سمت..."
-                        className={`bg-transparent text-sm flex-1 outline-none ${
-                            isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
-                        }`}
-                    />
-                    {search && (
-                        <button
-                            onClick={() => setSearch('')}
-                            className={isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}
+                <div className="flex flex-col gap-2">
+                    <div className={`flex items-center gap-2 rounded-xl px-3 py-2 border w-full ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-300'}`}>
+                        <FaSearch className={`${isDark ? 'text-gray-400' : 'text-gray-500'} flex-shrink-0`} size={12} />
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="جستجو نام یا سمت..."
+                            className={`bg-transparent text-sm w-full outline-none ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
+                        />
+                    </div>
+
+                    <div className="flex gap-2">
+                        <select 
+                            value={selectedProject} 
+                            onChange={e => setSelectedProject(e.target.value)}
+                            className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] border outline-none ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 text-gray-700 border-gray-300'}`}
                         >
-                            <FaTimes size={11} />
-                        </button>
-                    )}
+                            <option value="">همه پروژه‌ها</option>
+                            {projectsList.map(p => (
+                                <option key={p.id} value={p.id}>{p.name}</option>
+                            ))}
+                        </select>
+                        <select 
+                            value={selectedPosition} 
+                            onChange={e => setSelectedPosition(e.target.value)}
+                            className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] border outline-none ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 text-gray-700 border-gray-300'}`}
+                        >
+                            <option value="">همه سمت‌ها</option>
+                            {uniquePositions.map(pos => (
+                                <option key={pos} value={pos}>{pos}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            {/* لیست */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden">
                 {loading ? (
-                    <div className={`flex justify-center items-center h-32 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                        در حال بارگیری...
-                    </div>
+                    <div className={`flex justify-center items-center h-full text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>در حال بارگیری...</div>
                 ) : !Object.keys(grouped).length ? (
-                    <div className={`flex justify-center items-center h-32 text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                        نتیجه‌ای یافت نشد
-                    </div>
+                    <div className={`flex justify-center items-center h-full text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>نتیجه‌ای یافت نشد</div>
                 ) : (
                     Object.entries(grouped)
                         .sort(([a], [b]) => Number(a) - Number(b))
                         .map(([level, emps]) => (
-                            <div key={level}>
-                                <div
-                                    className={`px-4 py-1.5 text-xs sticky top-0 backdrop-blur-sm ${
-                                        isDark ? 'text-gray-400 bg-slate-900/95' : 'text-gray-500 bg-white/95'
-                                    }`}
-                                >
+                            <div key={level} className="mb-5">
+                                <div className={`inline-block px-3 py-1 mb-2 rounded-lg text-xs font-bold ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-gray-100 text-gray-600'}`}>
                                     سطح سازمانی {level}
                                 </div>
-
-                                {emps.map(emp => {
-                                    const selected = selectedIds.includes(emp.user_id);
-                                    return (
-                                        <div
-                                            key={emp.user_id}
-                                            onClick={() => toggle(emp.user_id)}
-                                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition border-b ${
-                                                isDark ? 'border-slate-700/40' : 'border-gray-200'
-                                            } ${
-                                                selected
-                                                    ? 'bg-blue-500/10'
-                                                    : isDark
-                                                        ? 'hover:bg-slate-700/40'
-                                                        : 'hover:bg-gray-50'
-                                            }`}
-                                        >
-                                            <div className="relative flex-shrink-0">
-                                                <Avatar emp={emp} size="md" />
-                                                {selected && (
-                                                    <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center border-2 ${
-                                                        isDark ? 'border-slate-900' : 'border-white'
-                                                    }`}>
-                                                        <FaCheck size={8} className="text-white" />
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="flex-1 min-w-0">
-                                                <div className={`text-sm font-medium truncate ${
-                                                    selected
-                                                        ? 'text-blue-500'
-                                                        : isDark ? 'text-white' : 'text-gray-900'
-                                                }`}>
-                                                    {emp.name}
+                                <div className="flex flex-col gap-2">
+                                    {emps.map(emp => {
+                                        const selected = selectedIds.includes(emp.user_id);
+                                        const isMe = emp.user_id === currentUserId; // بررسی کاربر فعلی
+                                        
+                                        return (
+                                            <div
+                                                key={emp.user_id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, emp.user_id)}
+                                                onClick={() => toggle(emp.user_id)}
+                                                className={`flex items-center gap-3 p-2 pr-3 w-full rounded-xl cursor-grab active:cursor-grabbing transition border shadow-sm ${
+                                                    isDark ? 'border-slate-700 hover:bg-slate-800' : 'border-gray-200 hover:bg-gray-50'
+                                                } ${
+                                                    selected ? (isDark ? 'bg-blue-900/30 border-blue-500' : 'bg-blue-50 border-blue-400') : ''
+                                                }`}
+                                            >
+                                                <FaGripVertical className={`flex-shrink-0 ${isDark ? 'text-slate-600' : 'text-gray-400'}`} size={10}/>
+                                                <div className="relative flex-shrink-0">
+                                                    <Avatar emp={emp} size="sm" />
+                                                    {selected && (
+                                                        <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center border-2 ${isDark ? 'border-slate-900' : 'border-white'}`}>
+                                                            <FaCheck size={7} className="text-white" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {emp.position_title && (
-                                                    <div className={`text-xs truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                        {emp.position_title}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className={`text-xs font-semibold truncate flex items-center gap-1.5 ${selected ? 'text-blue-500' : isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                        {emp.name}
+                                                        {isMe && (
+                                                            <span className="bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded text-[9px] border border-blue-500/20">
+                                                                شما
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                )}
+                                                    <div className={`text-[10px] truncate mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        {emp.position_title || 'بدون سمت'}
+                                                        {emp.active_project?.name && (
+                                                            <span className="mr-1 opacity-80">
+                                                                • {emp.active_project.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
-
-                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition ${
-                                                selected
-                                                    ? 'bg-blue-500 border-blue-500'
-                                                    : isDark
-                                                        ? 'border-gray-500'
-                                                        : 'border-gray-400'
-                                            }`}>
-                                                {selected && <FaCheck size={9} className="text-white" />}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
                         ))
                 )}
-            </div>
-
-            {/* فوتر */}
-            <div className={`p-4 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-2.5 text-sm font-semibold transition"
-                >
-                    {selectedIds.length > 0 ? `تأیید — ${selectedIds.length} نفر` : 'بستن'}
-                </button>
             </div>
         </div>
     );

@@ -61,7 +61,6 @@ export const createTask = createAsyncThunk(
     'task/createTask',
     async (payload, { rejectWithValue }) => {
         try {
-            // ✅ اگه files داشت FormData بساز، وگرنه JSON معمولی
             let body = payload;
             let headers = {};
 
@@ -71,14 +70,25 @@ export const createTask = createAsyncThunk(
                 form.append('task_type', payload.task_type);
                 form.append('note',      payload.note || '');
                 form.append('send_sms',  payload.send_sms ? 'true' : 'false');
+                
                 if (payload.deadline) form.append('deadline', payload.deadline);
                 if (payload.urgency) form.append('urgency', payload.urgency);
-                payload.assignee_ids.forEach(id => form.append('assignee_ids', id));
-                payload.files.forEach(f => form.append('files', f));
                 if (payload.project_id) form.append('project_id', payload.project_id);
-                body = form;
-                headers = {};
 
+                // هندل کردن منطق قدیم (آرایه آیدی‌ها)
+                if (payload.assignee_ids) {
+                    payload.assignee_ids.forEach(id => form.append('assignee_ids', id));
+                }
+
+                // هندل کردن منطق جدید گردش کار (تبدیل به استرینگ برای FormData)
+                if (payload.workflow_stages && payload.workflow_stages.length > 0) {
+                    form.append('workflow_stages', JSON.stringify(payload.workflow_stages));
+                }
+
+                payload.files.forEach(f => form.append('files', f));
+                
+                body = form;
+                // در Axios وقتی body از نوع FormData باشد، هدر multipart به صورت خودکار ست می‌شود
             }
 
             const { data } = await axiosInstance.post('/tasks/create/', body, { headers });
@@ -92,6 +102,7 @@ export const createTask = createAsyncThunk(
         }
     }
 );
+
 
 // 6 //
 

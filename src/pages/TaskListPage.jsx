@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchMyTaskInbox, fetchSentTasks } from '../features/task/taskSlice';
-import TaskCreateModal from '../components/Task/TaskCreateModal';
+import TaskWorkflowCreateModal from '../components/Task/TaskWorkflowCreateModal';
 import {
   FaInbox,
   FaPaperPlane,
@@ -272,7 +272,10 @@ const TaskListPage = () => {
       </div>
 
       {showCreateModal && (
-        <TaskCreateModal onClose={() => setShowCreateModal(false)} onSuccess={handleCreateSuccess} />
+        <TaskWorkflowCreateModal 
+            onClose={() => setShowCreateModal(false)} 
+            onSuccess={handleCreateSuccess} 
+        />
       )}
     </div>
   );

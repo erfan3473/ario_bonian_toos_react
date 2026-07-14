@@ -592,7 +592,9 @@ const WorkerMap = ({
                   </button>
                   <span>مسافت: <b className="text-emerald-400">{Math.round(totalDistanceMeters)} m</b></span>
                 </span>
+                <span>زمان: <b className="text-#059669">{formatHistoryTime(currentMeta.timestamp)}</b></span>
                 <span>قدم‌ها: <b className="text-amber-400">{Math.round(totalDistanceMeters / 0.75)}</b></span>
+
               </div>
 
               {/* ردیف دوم: اسلایدر */}
