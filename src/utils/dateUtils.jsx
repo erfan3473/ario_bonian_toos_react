@@ -1,77 +1,144 @@
-// src/utils/dateUtils.js
-import moment from 'moment-jalaali';
+import moment from "moment-jalaali";
 
 moment.loadPersian({ usePersianDigits: false });
 
 export const gregorianToJalali = (gregorianDate) => {
-  if (!gregorianDate) return '';
+  if (!gregorianDate) return "";
+
   try {
-    return moment(gregorianDate, 'YYYY-MM-DD').format('jYYYY/jMM/jDD');
+    const date = moment(gregorianDate);
+
+    if (!date.isValid()) return "";
+
+    return date.format("jYYYY/jMM/jDD");
   } catch {
-    return '';
+    return "";
   }
 };
 
 export const jalaliToGregorian = (jalaliDate) => {
-  if (!jalaliDate) return '';
+  if (!jalaliDate) return "";
+
   try {
-    return moment(jalaliDate, 'jYYYY/jMM/jDD').format('YYYY-MM-DD');
+    const date = moment(jalaliDate, "jYYYY/jMM/jDD", true);
+
+    if (!date.isValid()) return "";
+
+    return date.format("YYYY-MM-DD");
   } catch {
-    return '';
+    return "";
   }
 };
 
 export const formatJalaliDate = (gregorianDate) => {
-  if (!gregorianDate) return '-';
+  if (!gregorianDate) return "-";
+
   try {
-    return moment(gregorianDate, 'YYYY-MM-DD').format('jYYYY/jMM/jDD');
+    const date = moment(gregorianDate);
+
+    if (!date.isValid()) return "-";
+
+    return date.format("jYYYY/jMM/jDD");
   } catch {
-    return '-';
+    return "-";
+  }
+};
+
+export const formatJalaliDateTime = (gregorianDate) => {
+  if (!gregorianDate) return "-";
+
+  try {
+    const date = moment(gregorianDate);
+
+    if (!date.isValid()) return "-";
+
+    return date.format("jYYYY/jMM/jDD - HH:mm");
+  } catch {
+    return "-";
   }
 };
 
 export const formatJalaliDateLong = (gregorianDate) => {
-  if (!gregorianDate) return '-';
+  if (!gregorianDate) return "-";
+
   try {
-    const m = moment(gregorianDate, 'YYYY-MM-DD');
+    const date = moment(gregorianDate);
+
+    if (!date.isValid()) return "-";
+
     const monthNames = [
-      'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
-      'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+      "فروردین",
+      "اردیبهشت",
+      "خرداد",
+      "تیر",
+      "مرداد",
+      "شهریور",
+      "مهر",
+      "آبان",
+      "آذر",
+      "دی",
+      "بهمن",
+      "اسفند",
     ];
-    return `${m.jDate()} ${monthNames[m.jMonth()]} ${m.jYear()}`;
+
+    return `${date.jDate()} ${monthNames[date.jMonth()]} ${date.jYear()}`;
   } catch {
-    return '-';
+    return "-";
   }
 };
 
 export const calculateDuration = (startDate, endDate) => {
-  if (!startDate) return { days: 0, months: 0, years: 0, text: '-' };
-  
-  const start = moment(startDate, 'YYYY-MM-DD');
-  const end = endDate ? moment(endDate, 'YYYY-MM-DD') : moment();
-  
-  const diffDays = end.diff(start, 'days');
+  if (!startDate) {
+    return {
+      days: 0,
+      months: 0,
+      years: 0,
+      text: "-",
+    };
+  }
+
+  const start = moment(startDate);
+  const end = endDate ? moment(endDate) : moment();
+
+  if (!start.isValid() || !end.isValid()) {
+    return {
+      days: 0,
+      months: 0,
+      years: 0,
+      text: "-",
+    };
+  }
+
+  const diffDays = end.diff(start, "days");
   const years = Math.floor(diffDays / 365);
   const remainingAfterYears = diffDays % 365;
   const months = Math.floor(remainingAfterYears / 30);
   const days = remainingAfterYears % 30;
-  
-  let text = '';
+
+  let text = "";
+
   if (years > 0) text += `${years} سال`;
-  if (months > 0) text += `${text ? ' و ' : ''}${months} ماه`;
-  if (days > 0 || !text) text += `${text ? ' و ' : ''}${days} روز`;
-  
+  if (months > 0) text += `${text ? " و " : ""}${months} ماه`;
+  if (days > 0 || !text) text += `${text ? " و " : ""}${days} روز`;
+
   return {
     days: diffDays,
     months: Math.floor(diffDays / 30),
     years,
-    text: text || '-'
+    text: text || "-",
   };
 };
 
 export const decimalHoursToHHMM = (value) => {
-  if (value === null || value === undefined || isNaN(value)) return '00:00';
+  if (value === null || value === undefined || isNaN(value)) {
+    return "00:00";
+  }
+
   const hours = Math.floor(value);
   const minutes = Math.round((value - hours) * 60);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0"
+  )}`;
 };

@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import moment from 'moment-jalaali'; // <-- Import moment-jalaali
+import moment from 'moment-jalaali';
 import { fetchSubordinates, createTask, clearCreateSuccess, clearTaskError } from '../../features/task/taskSlice';
 import AssigneePickerPanel, { AssigneeChip } from './AssigneePickerPanel';
-import JalaliDatePicker from '../common/JalaliDatePicker'; // <-- Import the new component
+import JalaliDatePicker from '../common/JalaliDatePicker';
 import { FaTimes, FaSpinner, FaArrowLeft, FaPlus, FaCheckCircle, FaTrash, FaSitemap, FaPaperclip, FaClock, FaAlignRight } from 'react-icons/fa';
 
-// ... (TASK_TYPE_OPTIONS, URGENCY_OPTIONS, APPROVAL_RULES remain the same) ...
 const TASK_TYPE_OPTIONS = [
   { value: 'PAYROLL_FORM', label: 'تکمیل فرم حقوق' },
   { value: 'PURCHASE', label: 'خرید/تدارکات' },
@@ -27,7 +26,6 @@ const APPROVAL_RULES = [
 
 const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   const dispatch = useDispatch();
-  // ... (all other hooks and state declarations remain the same) ...
   const subordinates = useSelector(s => s.task.subordinates);
   const loadingSubordinates = useSelector(s => s.task.loadingSubordinates);
   const creating = useSelector(s => s.task.creating);
@@ -40,8 +38,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   const [note, setNote] = useState('');
   const [sendSms, setSendSms] = useState(false);
   const [files, setFiles] = useState([]);
-  const [deadline, setDeadline] = useState('');
-  const [deadlineTime, setDeadlineTime] = useState('');
   const [urgency, setUrgency] = useState('MEDIUM');
   const [validationErrors, setValidationErrors] = useState({});
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
@@ -62,9 +58,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   ]);
   
   const [activeElement, setActiveElement] = useState({ id: stages[0].id, type: 'STAGE' }); 
-
-  // ... (useEffect and all handler functions like handleAddStage, handleSubmit etc remain exactly the same) ...
-  // No change is needed in the logic, only in the JSX part.
 
   useEffect(() => {
     dispatch(fetchSubordinates());
@@ -186,23 +179,22 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    // پیدا کردن آخرین ددلاین از بین تمامی مراحل به صورت خودکار
     const allStageDeadlines = stages
         .filter(s => s.deadlineDate)
-        .map(s => `${s.deadlineDate}T${s.deadlineTime || '23:59'}`)
-        .sort(); // چون فرمت YYYY-MM-DD است، با sort به راحتی مرتب می‌شوند
+        .map(s => `${s.deadlineDate}T${s.deadlineTime || '23:59'}:00`)
+        .sort();
     
     const finalTaskDeadline = allStageDeadlines.length > 0 ? allStageDeadlines[allStageDeadlines.length - 1] : null;
 
     const payload = {
       title: title.trim(), task_type: taskType, urgency, note: note.trim(), send_sms: sendSms, files,
-      deadline: finalTaskDeadline, // <--- استفاده از ددلاین نهایی محاسبه شده
+      deadline: finalTaskDeadline,
       save_as_template: saveAsTemplate, template_title: templateTitle,
       workflow_stages: stages.map((s, idx) => ({
           step_index: idx + 1, 
           stage_name: s.stageName, 
           description: s.description,
-          deadline: s.deadlineDate ? `${s.deadlineDate}T${s.deadlineTime || '23:59'}` : null,
+          deadline: s.deadlineDate ? `${s.deadlineDate}T${s.deadlineTime || '23:59'}:00` : null,
           require_file: s.requireFile,
           assignee_ids: s.assignees, 
           approval_rule: s.approvalRule,
@@ -213,30 +205,31 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   }, [dispatch, title, taskType, stages, note, sendSms, files, urgency, saveAsTemplate, templateTitle, validateForm]);
  
   return (
-    <div className="fixed inset-0 flex items-center justify-center p-4 z-[9999]" dir="rtl">
-      {/* ... (Modal backdrop and main container structure) ... */}
+    <div className="fixed inset-0 flex items-center justify-center p-2 md:p-4 z-[9999]" dir="rtl">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative flex w-full max-w-[95vw] h-full max-h-[95dvh] rounded-2xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-950 border-blue-700' : 'bg-gray-50 border-gray-200'}`}>
-          {/* ... (Left side: Main content) ... */}
+      
+      {/* تغییر طرح به flex-col برای موبایل و flex-row برای دسکتاپ */}
+      <div className={`relative flex flex-col md:flex-row w-full max-w-[95vw] lg:max-w-[1200px] h-[95dvh] rounded-2xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-950 border-blue-700' : 'bg-gray-50 border-gray-200'}`}>
+          
+          {/* سمت راست/بالا: محتوای اصلی مودال */}
           <div className="flex flex-col flex-1 overflow-hidden">
-             {/* ... (Header) ... */}
-             <div className={`flex items-center justify-between px-6 py-4 border-b shrink-0 z-20 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
-                <h2 className={`font-bold text-base flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+             <div className={`flex items-center justify-between px-4 md:px-6 py-4 border-b shrink-0 z-20 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                <h2 className={`font-bold text-sm md:text-base flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500"><FaSitemap size={14} /></div>
                 ایجاد گردش کار (Workflow)
                 </h2>
                 <button onClick={onClose} disabled={creating} className={`p-2 rounded-full transition border ${isDark ? 'text-gray-400 hover:text-white border-slate-700 hover:bg-slate-800' : 'text-gray-500 hover:bg-gray-100 border-gray-200'}`}><FaTimes size={14} /></button>
             </div>
-             {/* ... (Content area) ... */}
-             <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden p-6 space-y-6">
-                {/* ... (Success message and top form section remain unchanged) ... */}
+             
+             <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden p-4 md:p-6 space-y-6">
                 {createSuccess && (
                 <div className="bg-green-500/10 border border-green-500/30 text-green-500 text-sm rounded-xl px-4 py-3 flex items-center gap-2 animate-fadeIn">
                     <FaCheckCircle size={16} /> ماموریت با موفقیت ایجاد شد!
                 </div>
                 )}
-                <div className={`p-5 rounded-2xl border space-y-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <div className={`p-4 md:p-5 rounded-2xl border space-y-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                         <div className="lg:col-span-2">
                             <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>عنوان ماموریت <span className="text-red-400">*</span></label>
                             <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: پردازش فاکتورها" className={`w-full rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`} />
@@ -259,8 +252,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                     </div>
                 </div>
 
-
-                {/* === START OF MODIFIED WORKFLOW SECTION === */}
                 <div>
                   <h3 className={`font-bold text-sm mb-4 flex items-center gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                       <FaSitemap /> خط مونتاژ گردش کار
@@ -268,7 +259,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                   <div className={`w-full overflow-x-auto pb-4 pt-2 px-4 flex items-start gap-3 min-h-[420px] ${isDark ? 'bg-slate-900/50 rounded-2xl border border-slate-800' : 'bg-gray-100/50 rounded-2xl border border-gray-200'}`}>
                       {stages.map((stage, index) => (
                           <React.Fragment key={stage.id}>
-                              <div /* ... Stage container div ... */
+                              <div
                                 onClick={() => setActiveElement({ id: stage.id, type: 'STAGE' })}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, stage.id, 'STAGE')}
@@ -277,9 +268,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                     ? 'border-blue-500 shadow-blue-500/20 ' + (isDark ? 'bg-slate-800' : 'bg-white') 
                                     : 'border-dashed border-slate-600 hover:border-blue-400 ' + (isDark ? 'bg-slate-800/60' : 'bg-white')}`}
                               >
-                                  <div /* ... Stage header ... */ 
-                                     className="p-3 border-b border-slate-700/50 flex justify-between items-center bg-black/5 rounded-t-xl"
-                                  >
+                                  <div className="p-3 border-b border-slate-700/50 flex justify-between items-center bg-black/5 rounded-t-xl">
                                       <span className="text-xs font-bold text-gray-400">مرحله {index + 1}</span>
                                       {stages.length > 1 && (
                                           <button onClick={(e) => { e.stopPropagation(); handleRemoveStage(stage.id); }} className="text-red-400 hover:text-red-500 p-1"><FaTrash size={12} /></button>
@@ -287,12 +276,11 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                   </div>
                                   
                                   <div className="p-4 flex flex-col gap-3 max-h-[360px] overflow-y-auto">
-                                      {/* ... Stage name and description inputs ... */}
                                       <input 
                                         type="text" 
                                         value={stage.stageName} 
                                         onChange={e => updateStageField(stage.id, 'stageName', e.target.value)} 
-                                        placeholder="نام مرحله (مانند: تایید فاکتور)..." 
+                                        placeholder="نام مرحله..." 
                                         className={`w-full text-sm font-bold pb-2 border-b outline-none bg-transparent transition-colors ${activeElement.id === stage.id && activeElement.type === 'STAGE' ? 'border-blue-500' : 'border-slate-600 focus:border-blue-400'} ${isDark ? 'text-white' : 'text-gray-900'}`} 
                                     />
                                     <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
@@ -306,7 +294,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                         />
                                     </div>
                                     
-                                    {/* === NEW DATE/TIME SECTION === */}
                                     <div className={`flex flex-col gap-1.5 p-2 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                       <div className="flex items-center gap-1.5">
                                         <FaClock className="text-gray-400 text-xs" />
@@ -329,16 +316,13 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                           className={`w-[80px] text-xs p-1.5 rounded-md outline-none border ${isDark ? 'bg-slate-700 border-slate-600 [color-scheme:dark]' : 'bg-gray-100 border-gray-300'}`}
                                         />
                                       </div>
-                                      {/* Duration display */}
                                       {index > 0 && stages[index-1].deadlineDate && stage.deadlineDate && (
                                         <div className="text-[10px] text-center pt-1 mt-1 border-t border-dashed border-slate-600/50 text-gray-400">
                                             فاصله: {moment.duration(moment(stage.deadlineDate).diff(moment(stages[index - 1].deadlineDate))).humanize(true)}
                                         </div>
                                       )}
                                     </div>
-                                    {/* === END OF NEW DATE/TIME SECTION === */}
 
-                                    {/* ... (requireFile, approvalRule, and Assignees list) ... */}
                                     <div className="flex gap-2">
                                         <label className={`flex-1 flex items-center justify-center px-1 py-1.5 rounded-lg border cursor-pointer select-none transition-colors ${stage.requireFile ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : (isDark ? 'bg-slate-900/50 border-slate-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500')}`}>
                                             <input type="checkbox" checked={stage.requireFile} onChange={e => updateStageField(stage.id, 'requireFile', e.target.checked)} className="hidden" />
@@ -370,7 +354,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                     </div>
                                   </div>
                               </div>
-                              {/* ... (Connector between stages) ... */}
                               {index < stages.length - 1 && (
                                 <div className="shrink-0 flex items-center justify-center px-1 self-center">
                                     <div 
@@ -407,7 +390,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                             )}
                           </React.Fragment>
                       ))}
-                      {/* ... (Add Stage button) ... */}
                       <div className="shrink-0 flex items-center pl-2 self-stretch">
                         <button onClick={handleAddStage} className={`w-[80px] h-full min-h-[300px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors ${isDark ? 'border-slate-700 hover:border-blue-500 hover:text-blue-400 text-slate-500 bg-slate-800/30' : 'border-gray-300 hover:border-blue-500 text-gray-400 bg-white'}`}>
                             <FaPlus size={24} />
@@ -416,29 +398,28 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                     </div>
                   </div>
                 </div>
-                {/* === END OF MODIFIED WORKFLOW SECTION === */}
                 
-                {/* ... (SMS and footer buttons remain unchanged) ... */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className={`p-4 rounded-xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-                     <div onClick={() => setSendSms(!sendSms)} className={`flex items-center justify-between cursor-pointer p-2 rounded-lg transition ${sendSms ? 'bg-green-500/10' : ''}`}>
-                         <span className={`text-sm ${sendSms ? 'text-green-500 font-bold' : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>ارسال پیامک اطلاع‌رسانی</span>
-                         <div className={`w-10 h-5 rounded-full relative transition-colors ${sendSms ? 'bg-green-500' : (isDark ? 'bg-slate-600' : 'bg-gray-300')}`}>
-                             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${sendSms ? 'left-0.5' : 'right-0.5'}`} />
-                         </div>
-                     </div>
+                <div className="grid grid-cols-1 gap-4">
+                    <div className={`p-4 rounded-xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                        <div onClick={() => setSendSms(!sendSms)} className={`flex items-center justify-between cursor-pointer p-2 rounded-lg transition ${sendSms ? 'bg-green-500/10' : ''}`}>
+                            <span className={`text-sm ${sendSms ? 'text-green-500 font-bold' : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>ارسال پیامک اطلاع‌رسانی</span>
+                            <div className={`w-10 h-5 rounded-full relative transition-colors ${sendSms ? 'bg-green-500' : (isDark ? 'bg-slate-600' : 'bg-gray-300')}`}>
+                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${sendSms ? 'left-0.5' : 'right-0.5'}`} />
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
              </div>
-             <div className={`px-6 py-4 border-t flex gap-3 shrink-0 z-10 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-                <button type="button" onClick={onClose} className={`w-32 rounded-xl py-3 text-sm font-medium border transition-colors ${isDark ? 'bg-slate-800 text-gray-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>انصراف</button>
+             <div className={`px-4 md:px-6 py-4 border-t flex gap-3 shrink-0 z-10 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                <button type="button" onClick={onClose} className={`w-24 md:w-32 rounded-xl py-3 text-sm font-medium border transition-colors ${isDark ? 'bg-slate-800 text-gray-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>انصراف</button>
                 <button onClick={handleSubmit} disabled={creating} className="flex-1 rounded-xl py-3 text-sm font-bold transition-all bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
-                    {creating ? <><FaSpinner className="animate-spin" /> در حال ایجاد...</> : 'تایید و ثبت نهایی گردش کار'}
+                    {creating ? <><FaSpinner className="animate-spin" /> در حال ایجاد...</> : 'ثبت گردش کار'}
                 </button>
              </div>
           </div>
-          {/* ... (Right side: AssigneePickerPanel) ... */}
-          <div className={`w-[320px] shrink-0 border-r z-10 shadow-lg ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+          
+          {/* سمت چپ/پایین: انتخاب کننده پرسنل - در موبایل زیر محتوا اسکرول میخوره */}
+          <div className={`w-full h-[40vh] md:h-full md:w-[320px] shrink-0 border-t md:border-t-0 md:border-r z-10 shadow-lg ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
             <AssigneePickerPanel
               subordinates={subordinates}
               loading={loadingSubordinates}

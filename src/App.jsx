@@ -34,6 +34,7 @@ import PayrollDetailView from './screens/admin/PayrollDetailView';
 import TaskListPage from './pages/TaskListPage';
 import TaskViewPage from './pages/TaskViewPage';
 import RoutineListPage from './pages/RoutineListPage';
+import RoutineTemplatesPage from './pages/RoutineTemplatesPage';
 import { Toaster, toast } from 'react-hot-toast'; 
 import { fetchNotifications, addNotificationFromWS, markNotificationsRead } from './features/notifications/notificationSlice';
 
@@ -73,26 +74,25 @@ function App() {
       
       const notifData = data.payload || data;
 
-      // اضافه شدن به لیست زنگوله فقط برای پیام‌های نوع notification
       if (notifData.type === 'notification') {
           dispatch(addNotificationFromWS(notifData)); 
       }
 
-      // شرط نمایش پاپ‌آپ فقط روی notification
       if (notifData.type === 'notification') {
         
-        // تشخیص دقیق نوع نوتیفیکیشن
+        // 1️⃣ تشخیص دقیق نوع نوتیفیکیشن
         const isChat = notifData.notif_type === 'CHAT_MESSAGE';
-        
-        // تشخیص تسک از روی پیشوند notif_type
         const isTask = notifData.notif_type && notifData.notif_type.startsWith('TASK_');
+        
+        // تشخیص روتین با استفاده از extra_data که از بک‌اند فرستادید
+        const isRoutine = notifData.notif_type === 'SYSTEM_MESSAGE' && 
+                          notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER';
 
-        // آیکون و متن‌های دیفالت
-        const icon = isChat ? '💬' : (isTask ? '📋' : '🔔');
-        const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : 'اعلان جدید');
-        const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : 'مشاهده');
+        // 2️⃣ تنظیم آیکون و متن‌های دیفالت
+        const icon = isChat ? '💬' : (isTask ? '📋' : (isRoutine ? '⏰' : '🔔'));
+        const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : (isRoutine ? 'یادآوری روتین' : 'اعلان جدید'));
+        const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : (isRoutine ? 'انجام روتین' : 'مشاهده'));
 
-        // خواندن وضعیت لحظه‌ای تم بدون رندر مجدد هوک وب‌سوکت
         const currentIsDark = isDarkRef.current;
 
         toast.custom((t) => (
@@ -101,7 +101,7 @@ function App() {
             className={`${
               t.visible ? 'animate-enter' : 'animate-leave'
             } max-w-sm w-full shadow-2xl rounded-2xl pointer-events-auto flex flex-col border ${
-              isChat ? 'border-green-500' : (isTask ? 'border-blue-500' : 'border-gray-500')
+              isChat ? 'border-green-500' : (isTask ? 'border-blue-500' : (isRoutine ? 'border-orange-500' : 'border-gray-500'))
             } overflow-hidden ${
               currentIsDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
             }`}
@@ -111,7 +111,7 @@ function App() {
               <div className="flex-1">
                 <h3 className="font-bold text-base flex items-center gap-2 mb-2">
                   <span className="text-xl">{icon}</span>
-                  <span className={isChat ? 'text-green-500' : (isTask ? 'text-blue-500' : '')}>
+                  <span className={isChat ? 'text-green-500' : (isTask ? 'text-blue-500' : (isRoutine ? 'text-orange-500' : ''))}>
                     {notifData.title || defaultTitle}
                   </span>
                 </h3>
@@ -131,7 +131,7 @@ function App() {
                     dispatch(markNotificationsRead([notifData.id]));
                   }
                   
-                  // مسیریابی دقیق بر اساس دیتاهای بک‌اند
+                  // 3️⃣ مسیریابی دقیق بر اساس دیتاهای بک‌اند
                   if (isChat) {
                     const targetChatId = notifData.object_id || notifData.extra_data?.chat_id;
                     if (targetChatId) {
@@ -146,12 +146,15 @@ function App() {
                     } else {
                       navigate('/tasks'); 
                     }
+                  } else if (isRoutine) {
+                    // هدایت کاربر به صفحه روتین‌ها
+                    navigate('/routines');
                   }
                 }}
                 className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors ${
                   currentIsDark 
-                    ? (isChat ? 'text-green-400 hover:bg-gray-700' : 'text-blue-400 hover:bg-gray-700') 
-                    : (isChat ? 'text-green-600 hover:bg-gray-100' : 'text-blue-600 hover:bg-gray-100')
+                    ? (isChat ? 'text-green-400 hover:bg-gray-700' : isRoutine ? 'text-orange-400 hover:bg-gray-700' : 'text-blue-400 hover:bg-gray-700') 
+                    : (isChat ? 'text-green-600 hover:bg-gray-100' : isRoutine ? 'text-orange-600 hover:bg-gray-100' : 'text-blue-600 hover:bg-gray-100')
                 } border-l ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}
               >
                 {buttonLabel}
@@ -173,6 +176,7 @@ function App() {
       }
     };
 
+
     return () => {
       if (ws.readyState === 1) ws.close();
     };
@@ -187,7 +191,8 @@ function App() {
     >
       <Toaster /> 
       <Header />
-      <main className="flex-grow container mx-auto px-3 sm:px-4 pt-0 pb-4">
+      <main className="flex-grow w-full px-2 sm:px-4 pt-0 pb-4">
+
         <div
           className={`${
             isDark
@@ -227,7 +232,8 @@ function App() {
             <Route path="/admin/payroll/detail" element={<PayrollDetailView />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskViewPage />} />
-            <Route path="/routines" element={<RoutineListPage />} /> 
+            <Route path="/routines" element={<RoutineListPage />} />
+            <Route path="/routines/templates" element={<RoutineTemplatesPage />} /> 
             {/* <Route path="/admin/phonebook" element={<PhonebookScreen />} /> */}
           </Routes>
         </div>

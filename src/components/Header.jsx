@@ -5,6 +5,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { logout, fetchUserProfile } from "../features/users/userSlice";
 import { toggleTheme } from "../features/theme/themeSlice";
 import { markNotificationsRead } from "../features/notifications/notificationSlice";
+import { formatJalaliDateTime } from "../utils/dateUtils";
 
 import {
   FaUser, FaSignOutAlt, FaSignInAlt, FaUsers, FaBuilding,
@@ -38,6 +39,10 @@ const Header = () => {
     "UNKNOWN";
 
   const isSuperUser = currentUser?.is_superuser || false;
+
+  // 🌟 [اضافه شده]: تعیین نقش‌های مجاز برای چک کردن دسترسی‌های خاص (بدون تغییر UI هدر)
+  const allowedRolesForRoutine = ['MANAGING_COUNCIL', 'TECHNICAL_OFFICE', 'PROJECT_MANAGER'];
+  const canManageRoutines = isAdmin || allowedRolesForRoutine.includes(userRole);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -210,8 +215,8 @@ const Header = () => {
         to="/routines"
         className={
           mobile
-            ? mobileItemClass(isActive("/routines"), "bg-teal-600", "hover:bg-teal-700/50")
-            : navLinkClass(isActive("/routines"))
+            ? mobileItemClass(startsWith("/routines"), "bg-teal-600", "hover:bg-teal-700/50")
+            : navLinkClass(startsWith("/routines"))
         }
       >
         <FaSyncAlt className="text-teal-300" />
@@ -354,7 +359,6 @@ const Header = () => {
         <div className="container mx-auto px-4 md:px-6">
           <div className="flex justify-between items-center pt-3 md:pt-4 pb-0">
             
-            {/* قسمت تغییر یافته: نمایش دکمه همبرگری + نام صفحه */}
             <div className="flex items-center gap-2">
               {userInfo && (
                 <button
@@ -378,7 +382,7 @@ const Header = () => {
             </div>
 
             {userInfo && (
-              <nav className="hidden lg:flex items-end gap-1 self-end mb-0 translate-y-[1px]">
+              <nav className="hidden lg:flex items-end gap-1 self-end mb-0 translate-y-[1px] overflow-x-auto no-scrollbar">
                 <NavLinks />
               </nav>
             )}
@@ -418,37 +422,72 @@ const Header = () => {
                         )}
                       </div>
 
-                      <div className="max-h-80 overflow-y-auto">
+                      <div className="max-h-80 overflow-y-auto" dir="rtl">
                         {notifications && notifications.length > 0 ? (
                           notifications.map((notif) => (
-                            <div 
+                            <div
                               key={notif.id}
                               onClick={() => handleNotifClick(notif)}
                               className={`p-3 border-b cursor-pointer transition-colors ${
-                                isDark 
-                                  ? (notif.is_read ? 'border-gray-700 hover:bg-gray-700' : 'bg-gray-700/50 border-gray-700 hover:bg-gray-700') 
-                                  : (notif.is_read ? 'border-gray-100 hover:bg-gray-50' : 'bg-blue-50 border-gray-100 hover:bg-blue-100/50')
+                                isDark
+                                  ? notif.is_read
+                                    ? "border-gray-700 hover:bg-gray-700"
+                                    : "bg-gray-700/50 border-gray-700 hover:bg-gray-700"
+                                  : notif.is_read
+                                    ? "border-gray-100 hover:bg-gray-50"
+                                    : "bg-blue-50 border-gray-100 hover:bg-blue-100/50"
                               }`}
                             >
                               <div className="flex gap-2 items-start">
-                                {!notif.is_read && <FaCircle className="text-[8px] text-blue-500 mt-1.5 shrink-0" />}
-                                <div>
-                                  <h4 className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                {!notif.is_read && (
+                                  <FaCircle className="text-[8px] text-blue-500 mt-1.5 shrink-0" />
+                                )}
+
+                                <div className="min-w-0 flex-1">
+                                  <h4
+                                    className={`text-sm font-bold ${
+                                      isDark ? "text-gray-200" : "text-gray-800"
+                                    }`}
+                                  >
                                     {notif.title}
                                   </h4>
-                                  <p className={`text-xs mt-1 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    {notif.body}
-                                  </p>
+
+                                  {notif.body && (
+                                    <p
+                                      className={`text-xs mt-1 leading-5 line-clamp-2 ${
+                                        isDark ? "text-gray-400" : "text-gray-600"
+                                      }`}
+                                    >
+                                      {notif.body}
+                                    </p>
+                                  )}
+
+                                  {notif.created_at && (
+                                    <time
+                                      dateTime={notif.created_at}
+                                      title={formatJalaliDateTime(notif.created_at)}
+                                      className={`block mt-2 text-[10px] font-medium ${
+                                        isDark ? "text-gray-500" : "text-gray-400"
+                                      }`}
+                                    >
+                                      {formatJalaliDateTime(notif.created_at)}
+                                    </time>
+                                  )}
                                 </div>
                               </div>
                             </div>
                           ))
                         ) : (
-                          <div className={`p-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                          <div
+                            className={`p-4 text-center text-sm ${
+                              isDark ? "text-gray-400" : "text-gray-500"
+                            }`}
+                          >
                             اعلان جدیدی ندارید.
                           </div>
                         )}
                       </div>
+
                     </div>
                   )}
                 </div>
@@ -480,19 +519,26 @@ const Header = () => {
                       className={`text-xs text-gray-400 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
                     />
                   </button>
-
                   {userMenuOpen && (
                     <div className="absolute left-0 top-full mt-2 w-56 md:w-64 bg-gray-700 rounded-md shadow-xl py-1 z-50">
                       <div className="px-4 py-3 border-b border-gray-600">
                         <p className="text-sm font-semibold text-white">
                           {userInfo.first_name || userInfo.username}
                         </p>
-                        {userPosition && (
+                        
+                        {/* 🌟 اصلاح شده: نمایش عنوان دقیق سمت فیزیکی فرد از روی پروفایل دیتابیس */}
+                        {currentUser?.employee?.position?.title ? (
+                          <p className="text-xs text-sky-400 mt-1 flex items-center gap-1 font-medium">
+                            <FaBriefcase className="text-sky-400" /> {currentUser.employee.position.title}
+                          </p>
+                        ) : userPosition ? (
                           <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                             <FaBriefcase className="text-sky-400" /> {userPosition}
                           </p>
-                        )}
+                        ) : null}
+
                         <div className="mt-2 flex flex-col gap-1">
+                          {/* 🌟 نوار نقش سیستم (نوع گزارش سمت) */}
                           <span
                             className={`inline-flex w-fit items-center gap-1 px-2 py-1 text-[10px] md:text-xs rounded-full border ${getRoleStyle(
                               userRole

@@ -32,24 +32,42 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const [modal, setModal] = useState(null);
 
     const { task, steps, logs, files = [] } = taskData;
-    const stages = task?.stages || []; // 👈 مراحل باید از داخل خود آبجکت task خوانده شوند
+    const stages = task?.stages || []; 
 
     let myPendingAction = null;
     let pendingActionContext = { type: null, name: '', require_file: false };
 
-    // بررسی اکشن در سیستم موازی جدید
+    // 🔴 حل مشکل: بررسی اکشن برای هم مسئولین و هم تاییدکنندگان میانی
     if (stages && stages.length > 0) {
         for (const stage of stages) {
+            // ۱. بررسی مجریان اصلی (Assignees)
             const assignee = stage.assignees?.find(a => 
-                Number(a.user_id) === Number(currentUserId) && 
+                (Number(a.user_id) === Number(currentUserId) || Number(a.user) === Number(currentUserId)) && 
                 a.state === 'PENDING'
             );
+            
             if (assignee) {
                 myPendingAction = assignee;
                 pendingActionContext = {
                     type: 'STAGE',
-                    name: stage.stage_name || `مرحله ${stage.stage_number}`,
+                    name: stage.stage_name || `مرحله ${stage.step_index || 1}`,
                     require_file: stage.require_file,
+                };
+                break;
+            }
+
+            // ۲. بررسی تاییدکنندگان میانی (Approvers)
+            const approver = stage.approval_records?.find(a => 
+                Number(a.user) === Number(currentUserId) && 
+                a.status === 'PENDING'
+            );
+            
+            if (approver) {
+                myPendingAction = approver;
+                pendingActionContext = {
+                    type: 'APPROVER',
+                    name: `تاییدیه میانی: ${stage.stage_name || `مرحله ${stage.step_index || 1}`}`,
+                    require_file: false, // معمولا برای تایید میانی فایل الزامی نیست
                 };
                 break;
             }
@@ -116,7 +134,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
         <div className={`h-full flex flex-col overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-white'}`}>
             {/* ── هدر ── */}
             <div className={`px-5 py-4 border-b flex-shrink-0 z-10 shadow-sm ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
-                {/* ... (کدهای هدر بدون تغییر) ... */}
                 <div className="flex items-center gap-3 mb-3">
                     {onBack && (
                         <button onClick={onBack} className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors border ${isDark ? 'bg-slate-800 text-blue-400 hover:bg-slate-700 border-slate-700' : 'bg-gray-100 text-blue-600 hover:bg-gray-200 border-gray-300'}`}>
@@ -179,9 +196,14 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                             <button onClick={() => setModal('approve')} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-green-600/20">
                                 <FaCheckCircle /> تایید
                             </button>
-                            <button onClick={() => setModal('forward')} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
-                                <FaArrowLeft /> ارجاع
-                            </button>
+                            
+                            {/* 🔴 تاییدکنندگان میانی امکان ارجاع ندارند، فقط مسئولین می‌توانند ارجاع دهند */}
+                            {pendingActionContext.type !== 'APPROVER' && (
+                                <button onClick={() => setModal('forward')} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
+                                    <FaArrowLeft /> ارجاع
+                                </button>
+                            )}
+                            
                             <button onClick={() => setModal('reject')} className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-red-600/20">
                                 <FaTimesCircle /> رد کردن
                             </button>
@@ -247,8 +269,8 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                         /* سیستم جدید افقی موازی (مونتاژ) */
                         <div className={`w-full overflow-x-auto pb-4 pt-2 px-4 flex items-start gap-4 min-h-[400px] ${isDark ? 'bg-slate-900/50 rounded-2xl border border-slate-800' : 'bg-gray-100/50 rounded-2xl border border-gray-200'} [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full ${isDark ? '[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-slate-900' : '[&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-gray-100'}`}>
                             {stages.map((stage, index) => {
-                                const isStageCompleted = stage.state === 'COMPLETED';
-                                const isStageActive = stage.state === 'ACTIVE';
+                                const isStageCompleted = stage.status === 'COMPLETED';
+                                const isStageActive = stage.status === 'ACTIVE';
 
                                 let cardClasses = isDark ? "border-slate-700 bg-slate-900/60" : "border-gray-300 border-dashed bg-white";
                                 let headerClasses = isDark ? "bg-slate-800 text-gray-400 border-slate-700/50" : "bg-gray-100 text-gray-600 border-gray-200";
@@ -275,10 +297,10 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                             <div className={`p-3 border-b flex justify-between items-center rounded-t-xl ${headerClasses}`}>
                                                 <div className="flex items-center gap-2">
                                                     <span className={`w-5 h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${badgeColor}`}>
-                                                        {stage.stage_number}
+                                                        {stage.step_index || (index + 1)}
                                                     </span>
                                                     <span className="text-sm font-bold truncate max-w-[120px]" title={stage.stage_name}>
-                                                        {stage.stage_name || `مرحله ${stage.stage_number}`}
+                                                        {stage.stage_name || `مرحله ${stage.step_index || (index + 1)}`}
                                                     </span>
                                                 </div>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor}`}>
@@ -324,12 +346,12 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                 {/* لیست مسئولین */}
                                                 <div className="mt-1 flex-1 flex flex-col gap-2">
                                                     <span className={`text-[10px] font-medium border-b pb-1 ${isDark ? 'border-slate-700 text-gray-400' : 'border-gray-200 text-gray-500'}`}>مسئولین:</span>
-                                                    {stage.assignees?.map(assignee => {
+                                                    {stage.assignees?.map((assignee, idx) => {
                                                         const cfg = STEP_STATE_CONFIG[assignee.state] || { label: assignee.state, color: 'text-gray-500', icon: <FaUser /> };
-                                                        const isMe = Number(assignee.user_id) === Number(currentUserId);
+                                                        const isMe = Number(assignee.user || assignee.user_id) === Number(currentUserId);
                                                         
                                                         return (
-                                                            <div key={assignee.id} className={`flex flex-col gap-1.5 p-2 rounded-xl border transition-colors ${isMe && assignee.state === 'PENDING' ? 'bg-blue-500/10 border-blue-500/50 shadow-sm' : isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-gray-200'}`}>
+                                                            <div key={assignee.id || idx} className={`flex flex-col gap-1.5 p-2 rounded-xl border transition-colors ${isMe && assignee.state === 'PENDING' ? 'bg-blue-500/10 border-blue-500/50 shadow-sm' : isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-gray-200'}`}>
                                                                 <div className="flex items-center justify-between">
                                                                     <div className="flex items-center gap-2">
                                                                         <div className={`w-6 h-6 flex items-center justify-center rounded-md text-[10px] ${cfg.color} ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-gray-50 border border-gray-200'}`}>
@@ -337,7 +359,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                                         </div>
                                                                         <div className="flex flex-col">
                                                                             <span className={`text-xs font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                                                                                {assignee.user_name || `کاربر ${assignee.user_id}`}
+                                                                                {assignee.user_name || `کاربر ${assignee.user || assignee.user_id}`}
                                                                             </span>
                                                                             <span className={`text-[9px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                                                                 {cfg.label}
@@ -364,22 +386,35 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                         {index < stages.length - 1 && (
                                             <div className="shrink-0 flex flex-col items-center justify-center self-center px-2 min-w-[90px]">
                                                 
-                                                {/* نمایش تاییدکنندگان میانی (واسطه‌ها) بالای فلش با نمایش مستقیم نام */}
+                                                {/* نمایش تاییدکنندگان میانی (واسطه‌ها) */}
                                                 {stage.intermediate_approvers_details && stage.intermediate_approvers_details.length > 0 && (
                                                     <div className="flex flex-col items-center mb-2 gap-1.5">
                                                         <span className={`text-[9px] font-bold ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
                                                             تایید میانی:
                                                         </span>
                                                         <div className="flex flex-col gap-1 items-center">
-                                                            {stage.intermediate_approvers_details.map((approver, i) => (
-                                                                <div 
-                                                                    key={approver.id || i} 
-                                                                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md border shadow-sm text-[10px] font-medium whitespace-nowrap transition-colors ${isDark ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700'}`}
-                                                                >
-                                                                    <FaUser size={9} className={isDark ? 'text-indigo-400' : 'text-indigo-500'} />
-                                                                    <span>{approver.name || `کاربر ${approver.id}`}</span>
-                                                                </div>
-                                                            ))}
+                                                            {stage.intermediate_approvers_details.map((approver, i) => {
+                                                                const isApproverMe = Number(approver.id) === Number(currentUserId);
+                                                                let statusColor = "text-gray-500";
+                                                                if(approver.status === 'APPROVED') statusColor = "text-green-500";
+                                                                if(approver.status === 'REJECTED') statusColor = "text-red-500";
+                                                                if(approver.status === 'PENDING') statusColor = "text-blue-500";
+                                                                
+                                                                return (
+                                                                    <div 
+                                                                        key={approver.id || i} 
+                                                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-md border shadow-sm text-[10px] font-medium whitespace-nowrap transition-colors ${
+                                                                            isApproverMe && approver.status === 'PENDING' 
+                                                                            ? 'border-blue-500/50 bg-blue-500/10 text-blue-500' 
+                                                                            : isDark ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' : 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                                                                        }`}
+                                                                    >
+                                                                        <FaUser size={9} className={statusColor} />
+                                                                        <span>{approver.name || `کاربر ${approver.id}`}</span>
+                                                                        {isApproverMe && <span className="text-[8px] bg-blue-500 text-white px-1 rounded ml-1">شما</span>}
+                                                                    </div>
+                                                                )
+                                                            })}
                                                         </div>
                                                     </div>
                                                 )}
@@ -398,7 +433,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     ) : steps && steps.length > 0 ? (
                         /* سیستم قدیمی خطی (بدون تغییر) */
                         <div className="relative mr-2">
-                            {/* ... (کدهای سیستم steps مشابه قبل) ... */}
                             <div className={`absolute right-3.5 top-2 bottom-2 w-0.5 rounded-full ${isDark ? 'bg-slate-800' : 'bg-gray-200'}`} />
                             <div className="space-y-4">
                                 {steps.map(step => {
@@ -431,7 +465,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 </div>
 
                 {/* ── تاریخچه سیستمی ── */}
-                {/* ... (کدهای تاریخچه دقیقاً مانند قبل) ... */}
                 <div>
                     <h3 className={`text-sm font-bold flex items-center gap-2 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
@@ -462,7 +495,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 </div>
 
                 {/* ── ثبت یادداشت و پیامک ── */}
-                {/* ... (کدهای ثبت یادداشت و پیامک دقیقاً مانند قبل) ... */}
                 <div className={`rounded-2xl p-4 border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
                     <h3 className={`text-sm font-bold flex items-center gap-2 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
