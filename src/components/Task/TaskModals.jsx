@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FaSpinner, FaTimes, FaSearch, FaCheckCircle } from 'react-icons/fa';
+import { FaSpinner, FaTimes, FaSearch, FaCheckCircle, FaUser } from 'react-icons/fa';
 import axiosInstance from '../../api/axiosInstance';
 import { forwardStep } from '../../features/task/taskSlice';
 
@@ -155,6 +155,98 @@ export const ForwardModal = ({ taskId, onSuccess, onClose }) => {
                     <button onClick={handleSubmit} disabled={!selected || forwarding} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-900 disabled:text-gray-400 text-white rounded-xl py-3.5 text-sm font-medium transition-colors flex items-center justify-center gap-2">
                         {forwarding ? <FaSpinner className="animate-spin" /> : null}
                         {selected ? `ارجاع ماموریت به ${selected.name}` : 'یک شخص را انتخاب کنید'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const ReturnModal = ({ title, assignees, onConfirm, onClose }) => {
+    const mode = useSelector((s) => s.theme?.mode || 'dark');
+    const isDark = mode === 'dark';
+    const { returning } = useSelector((s) => s.task || {}); 
+
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [note, setNote] = useState('');
+    const [error, setError] = useState('');
+
+    const toggleSelect = (userId) => {
+        setSelectedIds(prev => 
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
+    };
+
+    const handle = async () => {
+        if (selectedIds.length === 0) {
+            setError('لطفاً حداقل یک مجری را برای برگشت دادن انتخاب کنید.');
+            return;
+        }
+        setError('');
+        try {
+            await onConfirm(selectedIds, note);
+        } catch (err) {
+            setError(err?.response?.data?.detail || err?.message || 'خطا در انجام عملیات');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-[9999]" dir="rtl">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className={`relative rounded-2xl p-5 w-full max-w-sm shadow-2xl border flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
+                    <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-500/20 text-gray-400 hover:text-gray-200 transition-colors">
+                        <FaTimes size={16} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto mb-4 space-y-2 [&::-webkit-scrollbar]:hidden">
+                    <p className={`text-sm mb-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>مجریانی که کار باید به آن‌ها برگشت داده شود را انتخاب کنید:</p>
+                    {assignees.map((a, i) => {
+                        const userId = a.user || a.user_id;
+                        const isSelected = selectedIds.includes(userId);
+                        return (
+                            <div 
+                                key={i}
+                                onClick={() => toggleSelect(userId)}
+                                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                                    isSelected 
+                                    ? 'border-orange-500 bg-orange-500/10' 
+                                    : isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-50'
+                                }`}
+                            >
+                                <div className={`w-5 h-5 rounded flex items-center justify-center border ${
+                                    isSelected ? 'bg-orange-500 border-orange-500 text-white' : isDark ? 'border-slate-500 bg-slate-900' : 'border-gray-400 bg-white'
+                                }`}>
+                                    {isSelected && <FaCheckCircle size={12} />}
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className={`text-sm font-medium ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                                        {a.user_name || `کاربر ${userId}`}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder="دلیل برگشت کار (الزامی)..."
+                    rows={3}
+                    className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:border-orange-500 resize-none mb-4 ${isDark ? 'bg-slate-950 text-white border-slate-700 placeholder-gray-500' : 'bg-gray-50 text-gray-900 border-gray-300 placeholder-gray-400'}`}
+                />
+
+                {error && <div className="bg-red-500/10 text-red-500 text-xs p-3 rounded-lg mb-4">{error}</div>}
+
+                <div className="flex gap-3 mt-auto">
+                    <button onClick={onClose} className={`flex-1 rounded-xl py-3 text-sm font-medium transition-colors border ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-gray-300 border-slate-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-gray-300'}`}>
+                        انصراف
+                    </button>
+                    <button onClick={handle} disabled={returning || !note.trim()} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white rounded-xl py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        {returning ? <FaSpinner className="animate-spin" /> : 'برگشت کار'}
                     </button>
                 </div>
             </div>

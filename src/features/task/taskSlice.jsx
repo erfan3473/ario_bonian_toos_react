@@ -224,7 +224,72 @@ export const addTaskComment = createAsyncThunk(
         }
     }
 );
+// دریافت لیست انواع ماموریت (Task Types)
+export const fetchTaskTypes = createAsyncThunk(
+    'task/fetchTaskTypes',
+    async (_, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.get('/tasks/types/');
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 
+export const createTaskType = createAsyncThunk(
+    'task/createTaskType',
+    async (label, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.post('/tasks/types/create/', { label });
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
+
+export const deleteTaskType = createAsyncThunk(
+    'task/deleteTaskType',
+    async (typeId, { rejectWithValue }) => {
+        try {
+            await axiosInstance.delete(`/tasks/types/${typeId}/delete/`);
+            return typeId; // آیدی حذف شده را برمی‌گردانیم
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
+export const returnTaskStep = createAsyncThunk(
+    'task/returnTaskStep',
+    async ({ taskId, target_user_ids, note }, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.post(`/tasks/${taskId}/return/`, {
+                target_ids: target_user_ids, // <--- این خط باید تغییر کند
+                note
+            });
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
+export const freezeTaskTemplate = createAsyncThunk(
+    'task/freezeTaskTemplate',
+    async ({ templateName, templateData, isGlobal }, { rejectWithValue }) => {
+        try {
+            // آدرس بر اساس urls.py شما تنظیم شده است
+            const { data } = await axiosInstance.post('/tasks/freeze-templates/', {
+                template_name: templateName,
+                template_data: templateData,
+                is_global: isGlobal
+            });
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 
 // ═══════════════════════════════════════════════════════════
 // Slice
@@ -241,9 +306,12 @@ const taskSlice = createSlice({
 
         activeTask:          null,   // { task, steps, logs, files }
         loadingDetail:       false,
-
+        returning: false,
         subordinates:        [],
         loadingSubordinates: false,
+
+        taskTypes:           [],     
+        loadingTypes:        false,   
 
         creating:            false,
         createSuccess:       false,
@@ -259,6 +327,7 @@ const taskSlice = createSlice({
         loadingReminderSettings: false,
         updatingReminderSettings: false,
         addingComment: false,
+        freezingTemplate: false,
     },
     reducers: {
         clearActiveTask: (state) => {
@@ -463,7 +532,54 @@ const taskSlice = createSlice({
             .addCase(addTaskComment.rejected, (state, action) => {
                 state.addingComment = false;
                 state.error = action.payload;
+            })
+                        // ── task types ──
+            .addCase(fetchTaskTypes.pending, (state) => {
+                state.loadingTypes = true;
+                state.error = null;
+            })
+            .addCase(fetchTaskTypes.fulfilled, (state, action) => {
+                state.loadingTypes = false;
+                state.taskTypes = action.payload;
+            })
+            .addCase(fetchTaskTypes.rejected, (state, action) => {
+                state.loadingTypes = false;
+                state.error = action.payload;
+            })
+            // اضافه کردن Type
+            .addCase(createTaskType.fulfilled, (state, action) => {
+                state.taskTypes.push(action.payload); // اضافه شدن به لیست دراپ‌داون بلافاصله
+            })
+            // حذف Type
+            .addCase(deleteTaskType.fulfilled, (state, action) => {
+                state.taskTypes = state.taskTypes.filter(t => t.id !== action.payload);
+            })
+                        // ── return ──
+            .addCase(returnTaskStep.pending, (state) => {
+                state.returning = true;
+                state.error     = null;
+            })
+            .addCase(returnTaskStep.fulfilled, (state) => {
+                state.returning = false;
+            })
+            .addCase(returnTaskStep.rejected, (state, action) => {
+                state.returning = false;
+                state.error     = action.payload;
+            })
+            // داخل builder در extraReducers اضافه کنید:
+            .addCase(freezeTaskTemplate.pending, (state) => {
+                state.freezingTemplate = true;
+                state.error = null;
+            })
+            .addCase(freezeTaskTemplate.fulfilled, (state) => {
+                state.freezingTemplate = false;
+            })
+            .addCase(freezeTaskTemplate.rejected, (state, action) => {
+                state.freezingTemplate = false;
+                state.error = action.payload;
             });
+
+
 
     },
 });

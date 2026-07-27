@@ -1,24 +1,24 @@
 import React, { useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { uploadTaskFile, addTaskComment } from '../../features/task/taskSlice';
+import { uploadTaskFile, addTaskComment, returnTaskStep, freezeTaskTemplate } from '../../features/task/taskSlice';
 import axiosInstance from '../../api/axiosInstance';
 import moment from 'moment-jalaali';
 import {
     FaCheckCircle, FaTimesCircle, FaArrowLeft, FaClock, FaUser,
     FaPaperclip, FaUpload, FaSpinner, FaDownload, FaChevronRight,
-    FaRegComment, FaPaperPlane, FaSitemap, FaAlignRight
+    FaRegComment, FaPaperPlane, FaSitemap, FaAlignRight, FaUndo
 } from 'react-icons/fa';
 
 import { 
     TASK_TYPE_LABELS, STATUS_COLORS, STATUS_LABELS, STEP_STATE_CONFIG, 
-    URGENCY_LABELS, URGENCY_COLORS, ACTION_LABELS, FILE_ICONS, stepDotColor 
-} from './taskConstants';
-import { ConfirmModal, ForwardModal } from './TaskModals';
+    URGENCY_LABELS, URGENCY_COLORS, ACTION_LABELS, FILE_ICONS
+} from './taskConstants'; 
+import { ConfirmModal, ForwardModal, ReturnModal } from './TaskModals';
 import TaskSmsSection from './TaskSmsSection';
 
 const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const dispatch = useDispatch();
-    const { uploadingFile, addingComment } = useSelector(s => s.task);
+    const { uploadingFile, addingComment, freezingTemplate } = useSelector(s => s.task);
 
     const [commentNote, setCommentNote] = useState('');
     const [commentFiles, setCommentFiles] = useState([]);
@@ -30,66 +30,70 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const fileInputRef = useRef();
 
     const [modal, setModal] = useState(null);
+    const [templateModal, setTemplateModal] = useState(false);
+    const [templateName, setTemplateName] = useState('');
 
-    const { task, steps, logs, files = [] } = taskData;
+    const { task, logs, files = [] } = taskData;
     const stages = task?.stages || []; 
 
     let myPendingAction = null;
-    let pendingActionContext = { type: null, name: '', require_file: false };
+    let pendingActionContext = { type: null, name: '', require_file: false, rolesText: '' };
+    let isWaitingForAssignees = false;
 
-    // 🔴 حل مشکل: بررسی اکشن برای هم مسئولین و هم تاییدکنندگان میانی
     if (stages && stages.length > 0) {
         for (const stage of stages) {
-            // ۱. بررسی مجریان اصلی (Assignees)
-            const assignee = stage.assignees?.find(a => 
-                (Number(a.user_id) === Number(currentUserId) || Number(a.user) === Number(currentUserId)) && 
-                a.state === 'PENDING'
-            );
+            if (stage.status !== 'ACTIVE') continue;
+
+            let assigneesDone = false;
+            if (stage.approval_rule === 'ANY_ASSIGNEE') {
+                assigneesDone = stage.assignees?.some(a => a.state === 'APPROVED');
+            } else if (stage.approval_rule === 'ALL_ASSIGNEES') {
+                assigneesDone = stage.assignees?.every(a => !['PENDING', 'IN_PROGRESS'].includes(a.state));
+            } else {
+                assigneesDone = stage.assignees?.length === 0;
+            }
+
+            const assigneeRecord = stage.assignees?.find(a => (Number(a.user_id) === Number(currentUserId) || Number(a.user) === Number(currentUserId)));
+            const approverRecord = stage.approval_records?.find(a => Number(a.user) === Number(currentUserId));
+
+            let currentRoles = [];
+            let assigneePending = assigneeRecord && ['PENDING', 'IN_PROGRESS'].includes(assigneeRecord.state);
+            let approverPending = approverRecord && ['PENDING', 'RESUBMITTED', 'RETURNED'].includes(approverRecord.status);
+
+            if (assigneeRecord) currentRoles.push('مجری');
+            if (approverRecord) currentRoles.push('تاییدکننده میانی');
             
-            if (assignee) {
-                myPendingAction = assignee;
+            const rolesText = currentRoles.length > 0 ? currentRoles.join(' و ') : '';
+
+            if (assigneePending) {
+                myPendingAction = assigneeRecord;
                 pendingActionContext = {
                     type: 'STAGE',
                     name: stage.stage_name || `مرحله ${stage.step_index || 1}`,
                     require_file: stage.require_file,
+                    rolesText: rolesText
                 };
                 break;
             }
 
-            // ۲. بررسی تاییدکنندگان میانی (Approvers)
-            const approver = stage.approval_records?.find(a => 
-                Number(a.user) === Number(currentUserId) && 
-                a.status === 'PENDING'
-            );
-            
-            if (approver) {
-                myPendingAction = approver;
-                pendingActionContext = {
-                    type: 'APPROVER',
-                    name: `تاییدیه میانی: ${stage.stage_name || `مرحله ${stage.step_index || 1}`}`,
-                    require_file: false, // معمولا برای تایید میانی فایل الزامی نیست
-                };
+            if (approverPending) {
+                if (assigneesDone) {
+                    myPendingAction = approverRecord;
+                    pendingActionContext = {
+                        type: 'APPROVER',
+                        name: `تاییدیه میانی: ${stage.stage_name || `مرحله ${stage.step_index || 1}`}`,
+                        require_file: false,
+                        rolesText: rolesText
+                    };
+                } else {
+                    isWaitingForAssignees = true;
+                    pendingActionContext = { rolesText: rolesText };
+                }
                 break;
             }
         }
     }
-
-    // فال‌بک به سیستم قدیمی
-    if (!myPendingAction && steps && steps.length > 0) {
-        const step = steps.find(s => 
-            Number(s.to_user_id) === Number(currentUserId) && 
-            s.state === 'PENDING'
-        );
-        if (step) {
-            myPendingAction = step;
-            pendingActionContext = {
-                type: 'STEP',
-                name: step.stage_name || `مرحله ${step.step_index}`,
-                require_file: step.require_file,
-            };
-        }
-    }
-
+ 
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -107,6 +111,27 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
         await axiosInstance.post(`/tasks/${task.id}/reject/`, { note });
         setModal(null);
         onRefresh();
+    };
+
+    const handleReturn = async (targetIds, note) => {
+        if (!targetIds || targetIds.length === 0) {
+            alert('لطفاً حداقل یک مجری را برای برگشت دادن از لیست بالا انتخاب (تیک) کنید.');
+            return;
+        }
+        
+        try {
+            await dispatch(returnTaskStep({
+                taskId: task.id,
+                target_user_ids: targetIds,
+                note: note
+            })).unwrap();
+            
+            setModal(null);
+            onRefresh();
+        } catch (err) {
+            console.error('خطا در برگشت دادن کار:', err);
+            alert(typeof err === 'string' ? err : err?.message || 'خطای سرور در برگشت دادن کار');
+        }
     };
 
     const handleAddComment = async () => {
@@ -130,11 +155,49 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
         }
     };
 
+    const handleSaveAsTemplate = async () => {
+        if (!templateName.trim()) {
+            alert('لطفاً یک نام برای قالب وارد کنید.');
+            return;
+        }
+
+        const mappedStages = stages.map(s => ({
+            stage_name: s.stage_name,
+            description: s.description,
+            approval_rule: s.approval_rule,
+            require_file: s.require_file,
+            assignees: s.assignees?.map(a => a.user || a.user_id) || [],
+            intermediate_approvers: s.intermediate_approvers_details?.map(ap => ap.id) || []
+        }));
+
+        const templateData = {
+            title: task.title,
+            task_type: task.task_type,
+            urgency: task.urgency,
+            project_id: task.project?.id || null,
+            workflow_stages: mappedStages
+        };
+
+        const result = await dispatch(freezeTaskTemplate({
+            templateName,
+            templateData,
+            isGlobal: false
+        }));
+
+        if (freezeTaskTemplate.fulfilled.match(result)) {
+            setTemplateModal(false);
+            setTemplateName('');
+            alert('ماموریت با موفقیت به عنوان قالب فریز شد.');
+        } else {
+            alert(result.payload || 'خطا در ذخیره قالب.');
+        }
+    };
+
     return (
         <div className={`h-full flex flex-col overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-white'}`}>
             {/* ── هدر ── */}
             <div className={`px-5 py-4 border-b flex-shrink-0 z-10 shadow-sm ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex flex-wrap items-center gap-3 mb-3">
                     {onBack && (
                         <button onClick={onBack} className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors border ${isDark ? 'bg-slate-800 text-blue-400 hover:bg-slate-700 border-slate-700' : 'bg-gray-100 text-blue-600 hover:bg-gray-200 border-gray-300'}`}>
                             <FaChevronRight size={12} />
@@ -150,6 +213,12 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     <span className={`text-xs font-medium px-2.5 py-1 rounded-md border ${URGENCY_COLORS[task.urgency] || URGENCY_COLORS.MEDIUM}`}>
                          فوریت: {URGENCY_LABELS[task.urgency] || task.urgency || 'متوسط'}
                     </span>
+                    <button 
+                        onClick={() => setTemplateModal(true)} 
+                        className={`text-xs font-bold px-3 py-1 rounded-md border transition-colors flex items-center gap-1.5 ${isDark ? 'bg-purple-600/20 text-purple-400 border-purple-500/30 hover:bg-purple-600/30' : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'}`}
+                    >
+                        فریز / الگو
+                    </button>
                 </div>
 
                 <div className="flex items-start justify-between gap-4">
@@ -182,10 +251,33 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     </div>
                 </div>
 
+                {isWaitingForAssignees && !myPendingAction && (
+                    <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-2xl">
+                        <div className="flex items-center gap-2">
+                            <FaClock className="text-orange-500 text-lg shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-orange-600 text-xs font-bold mb-1">نقش شما: {pendingActionContext.rolesText}</span>
+                                <p className="text-orange-500 text-sm font-semibold">
+                                    {pendingActionContext.rolesText.includes('مجری') 
+                                        ? 'شما کار خود را انجام داده‌اید. لطفاً منتظر بمانید تا سایر مجریان نیز کارشان را تمام کنند تا بتوانید تاییدیه میانی را ثبت کنید.' 
+                                        : 'لطفاً منتظر بمانید تا مجریان کار خود را به اتمام برسانند تا بتوانید مرحله را تایید کنید.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {myPendingAction && (
                     <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl">
                         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                            <p className="text-blue-500 text-sm font-semibold">اقدام شما برای «{pendingActionContext.name}» نیاز است</p>
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-blue-500 text-[11px] font-bold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 w-fit">
+                                    نقش شما در این مرحله: {pendingActionContext.rolesText}
+                                </span>
+                                <p className="text-blue-600 text-sm font-semibold">
+                                    اقدام شما برای «{pendingActionContext.name}» نیاز است
+                                </p>
+                            </div>
                             {pendingActionContext.require_file && (
                                 <span className="flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-600 px-2 py-1 rounded-md border border-yellow-500/30 font-bold">
                                     <FaPaperclip /> ارسال فایل الزامیست
@@ -197,13 +289,17 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                 <FaCheckCircle /> تایید
                             </button>
                             
-                            {/* 🔴 تاییدکنندگان میانی امکان ارجاع ندارند، فقط مسئولین می‌توانند ارجاع دهند */}
                             {pendingActionContext.type !== 'APPROVER' && (
                                 <button onClick={() => setModal('forward')} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
                                     <FaArrowLeft /> ارجاع
                                 </button>
                             )}
-                            
+                            {pendingActionContext.type === 'APPROVER' && (
+                                <button onClick={() => setModal('return')} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-orange-600/20">
+                                    <FaUndo /> برگشت جهت اصلاح
+                                </button>
+                            )}
+
                             <button onClick={() => setModal('reject')} className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-red-600/20">
                                 <FaTimesCircle /> رد کردن
                             </button>
@@ -256,7 +352,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     )}
                 </div>
 
-                {/* ── مراحل گردش کار (جدید + قدیم) ── */}
+                {/* ── مراحل گردش کار ── */}
                 <div>
                     <h3 className={`font-bold text-sm mb-4 flex items-center gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                         <div className={`w-6 h-6 rounded-md flex items-center justify-center ${isDark ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
@@ -266,8 +362,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     </h3>
 
                     {stages && stages.length > 0 ? (
-                        /* سیستم جدید افقی موازی (مونتاژ) */
-                        <div className={`w-full overflow-x-auto pb-4 pt-2 px-4 flex items-start gap-4 min-h-[400px] ${isDark ? 'bg-slate-900/50 rounded-2xl border border-slate-800' : 'bg-gray-100/50 rounded-2xl border border-gray-200'} [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full ${isDark ? '[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-slate-900' : '[&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-gray-100'}`}>
+                        <div className={`w-full pb-4 pt-4 px-4 flex flex-wrap items-start justify-center gap-y-12 gap-x-6 min-h-[400px] ${isDark ? 'bg-slate-900/50 rounded-2xl border border-slate-800' : 'bg-gray-100/50 rounded-2xl border border-gray-200'}`}>
                             {stages.map((stage, index) => {
                                 const isStageCompleted = stage.status === 'COMPLETED';
                                 const isStageActive = stage.status === 'ACTIVE';
@@ -291,7 +386,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
 
                                 return (
                                     <React.Fragment key={stage.id}>
-                                        <div className={`shrink-0 w-[280px] rounded-2xl border-2 flex flex-col transition-all shadow-sm ${cardClasses}`}>
+                                        <div className={`shrink-0 w-full sm:w-[280px] rounded-2xl border-2 flex flex-col transition-all shadow-sm ${cardClasses}`}>
                                             
                                             {/* هدر مرحله */}
                                             <div className={`p-3 border-b flex justify-between items-center rounded-t-xl ${headerClasses}`}>
@@ -382,15 +477,15 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                             </div>
                                         </div>
 
-                                        {/* رابط/فلش بین مراحل */}
-                                        {index < stages.length - 1 && (
-                                            <div className="shrink-0 flex flex-col items-center justify-center self-center px-2 min-w-[90px]">
+                                        {/* رابط/فلش بین مراحل و نمایش تاییدکنندگان */}
+                                        {(index < stages.length - 1 || (stage.intermediate_approvers_details && stage.intermediate_approvers_details.length > 0)) && (
+                                            <div className="shrink-0 flex flex-col items-center justify-center self-center px-2 min-w-[90px] xl:w-auto">
                                                 
-                                                {/* نمایش تاییدکنندگان میانی (واسطه‌ها) */}
+                                                {/* نمایش تاییدکنندگان میانی/نهایی */}
                                                 {stage.intermediate_approvers_details && stage.intermediate_approvers_details.length > 0 && (
                                                     <div className="flex flex-col items-center mb-2 gap-1.5">
                                                         <span className={`text-[9px] font-bold ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                                                            تایید میانی:
+                                                            {index === stages.length - 1 ? 'تایید نهایی:' : 'تایید میانی:'}
                                                         </span>
                                                         <div className="flex flex-col gap-1 items-center">
                                                             {stage.intermediate_approvers_details.map((approver, i) => {
@@ -419,45 +514,18 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                     </div>
                                                 )}
 
-                                                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed mt-1 ${isDark ? 'border-slate-700 text-slate-500 bg-slate-800/30' : 'border-gray-300 text-gray-400 bg-gray-50'}`}>
-                                                    <FaArrowLeft size={16} />
-                                                </div>
+                                                {/* فلش فقط در صورتی که مرحله آخری نباشد */}
+                                                {index < stages.length - 1 && (
+                                                    <div className={`hidden sm:flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed mt-1 ${isDark ? 'border-slate-700 text-slate-500 bg-slate-800/30' : 'border-gray-300 text-gray-400 bg-gray-50'}`}>
+                                                        <FaArrowLeft size={16} />
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
-
 
                                     </React.Fragment>
                                 );
                             })}
-                        </div>
-                    ) : steps && steps.length > 0 ? (
-                        /* سیستم قدیمی خطی (بدون تغییر) */
-                        <div className="relative mr-2">
-                            <div className={`absolute right-3.5 top-2 bottom-2 w-0.5 rounded-full ${isDark ? 'bg-slate-800' : 'bg-gray-200'}`} />
-                            <div className="space-y-4">
-                                {steps.map(step => {
-                                    const cfg = STEP_STATE_CONFIG[step.state] || { label: step.state, color: 'text-gray-500', icon: <FaUser /> };
-                                    const isMe = Number(step.to_user_id) === Number(currentUserId);
-                                    return (
-                                        <div key={step.id} className="flex items-start gap-4 pr-9 relative">
-                                            <div className={`absolute right-1.5 top-4 w-4 h-4 rounded-full border-4 ${stepDotColor(step.state, isDark)} z-10 shadow-sm`} />
-                                            <div className={`flex-1 p-4 rounded-2xl border transition-colors ${isMe && step.state === 'PENDING' ? 'bg-blue-500/10 border-blue-500/30' : isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className={`text-xs font-bold px-2 py-1 rounded-md border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-gray-50 border-gray-200'} ${cfg.color}`}>
-                                                        {cfg.label}
-                                                    </span>
-                                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${isDark ? 'text-gray-300 bg-slate-950 border-slate-700' : 'text-gray-700 bg-white border-gray-300'}`}>
-                                                        {step.stage_name || `مرحله ${step.step_index}`}
-                                                    </span>
-                                                </div>
-                                                <div className={`text-sm mt-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                    به: <strong>{step.to_user_name || `کاربر ${step.to_user_id}`}</strong>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
                         </div>
                     ) : (
                         <p className={`text-sm p-4 rounded-xl border ${isDark ? 'text-gray-500 bg-slate-900 border-slate-800' : 'text-gray-500 bg-gray-50 border-gray-200'}`}>مرحله‌ای ثبت نشده است.</p>
@@ -556,6 +624,50 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     onClose={() => setModal(null)}
                 />
             )}
+            {modal === 'return' && (
+                <ReturnModal
+                    title="برگشت دادن به مجریان"
+                    assignees={stages.find(s => s.status === 'ACTIVE')?.assignees || []}
+                    onConfirm={handleReturn}
+                    onClose={() => setModal(null)}
+                />
+            )}
+            
+            {/* ── مودال فریز الگو ── */}
+            {templateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className={`w-full max-w-sm p-6 rounded-2xl shadow-xl ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-gray-200'}`}>
+                        <h3 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>ذخیره به عنوان الگو</h3>
+                        <p className={`text-sm mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                            این ماموریت به همراه تمام مراحل، مجریان و تاییدکنندگان ذخیره می‌شود تا در آینده سریع‌تر آن را ایجاد کنید.
+                        </p>
+                        <input 
+                            type="text" 
+                            placeholder="نام الگو (مثلاً: قالب درخواست مرخصی)" 
+                            value={templateName}
+                            onChange={(e) => setTemplateName(e.target.value)}
+                            className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:border-purple-500 mb-6 ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
+                        />
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={handleSaveAsTemplate}
+                                disabled={freezingTemplate}
+                                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-sm py-2.5 rounded-xl transition-colors font-medium flex justify-center items-center gap-2"
+                            >
+                                {freezingTemplate ? <FaSpinner className="animate-spin" /> : 'ذخیره قالب'}
+                            </button>
+                            <button 
+                                onClick={() => { setTemplateModal(false); setTemplateName(''); }}
+                                disabled={freezingTemplate}
+                                className={`flex-1 text-sm py-2.5 rounded-xl transition-colors font-medium border ${isDark ? 'border-slate-700 text-gray-300 hover:bg-slate-800' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                            >
+                                انصراف
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

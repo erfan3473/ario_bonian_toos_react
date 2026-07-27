@@ -1,16 +1,11 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
-import { fetchSubordinates, createTask, clearCreateSuccess, clearTaskError } from '../../features/task/taskSlice';
+import axios from 'axios';
+import { fetchSubordinates, createTask, clearCreateSuccess, clearTaskError ,fetchTaskTypes ,createTaskType ,deleteTaskType} from '../../features/task/taskSlice';
 import AssigneePickerPanel, { AssigneeChip } from './AssigneePickerPanel';
 import JalaliDatePicker from '../common/JalaliDatePicker';
 import { FaTimes, FaSpinner, FaArrowLeft, FaPlus, FaCheckCircle, FaTrash, FaSitemap, FaPaperclip, FaClock, FaAlignRight } from 'react-icons/fa';
-
-const TASK_TYPE_OPTIONS = [
-  { value: 'PAYROLL_FORM', label: 'تکمیل فرم حقوق' },
-  { value: 'PURCHASE', label: 'خرید/تدارکات' },
-  { value: 'REPORT', label: 'گزارش‌دهی' },
-];
 
 const URGENCY_OPTIONS = [
   { value: 'LOW', label: 'کم' },
@@ -23,9 +18,16 @@ const APPROVAL_RULES = [
     { value: 'ANY_ASSIGNEE', label: 'تایید توسط یک نفر کافیست' },
     { value: 'ALL_ASSIGNEES', label: 'تایید همه اجباری است' },
 ];
+const APPROVER_RULES = [
+    { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' },
+    { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' },
+];
 
 const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   const dispatch = useDispatch();
+  
+  const { userInfo } = useSelector((state) => state.userLogin);
+  
   const subordinates = useSelector(s => s.task.subordinates);
   const loadingSubordinates = useSelector(s => s.task.loadingSubordinates);
   const creating = useSelector(s => s.task.creating);
@@ -35,6 +37,9 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState('');
+    
+  const taskTypeOptions = useSelector(s => s.task.taskTypes);
+  const loadingTypes = useSelector(s => s.task.loadingTypes);
   const [note, setNote] = useState('');
   const [sendSms, setSendSms] = useState(false);
   const [files, setFiles] = useState([]);
@@ -42,7 +47,8 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   const [validationErrors, setValidationErrors] = useState({});
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateTitle, setTemplateTitle] = useState('');
-
+  const [isAddingType, setIsAddingType] = useState(false);
+  const [newTypeLabel, setNewTypeLabel] = useState('');
   const [stages, setStages] = useState([
       { 
           id: Date.now(), 
@@ -53,7 +59,8 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
           requireFile: false,
           assignees: [], 
           approvalRule: 'ANY_ASSIGNEE', 
-          nextStageApprovers: [] 
+          nextStageApprovers: [] ,
+          approverRule: 'ALL_APPROVERS'
       }
   ]);
   
@@ -61,7 +68,11 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
 
   useEffect(() => {
     dispatch(fetchSubordinates());
-    return () => { dispatch(clearTaskError()); dispatch(clearCreateSuccess()); };
+    dispatch(fetchTaskTypes());
+    return () => { 
+        dispatch(clearTaskError()); 
+        dispatch(clearCreateSuccess()); 
+    };
   }, [dispatch]);
 
   useEffect(() => { 
@@ -79,7 +90,8 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
           requireFile: false,
           assignees: [], 
           approvalRule: 'ANY_ASSIGNEE', 
-          nextStageApprovers: [] 
+          nextStageApprovers: [] ,
+          approverRule: 'ALL_APPROVERS'
       }]);
       setActiveElement({ id: newId, type: 'STAGE' });
   };
@@ -187,7 +199,12 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
     const finalTaskDeadline = allStageDeadlines.length > 0 ? allStageDeadlines[allStageDeadlines.length - 1] : null;
 
     const payload = {
-      title: title.trim(), task_type: taskType, urgency, note: note.trim(), send_sms: sendSms, files,
+      title: title.trim(), 
+      task_type: taskType, 
+      urgency, 
+      note: note.trim(), 
+      send_sms: sendSms, 
+      files,
       deadline: finalTaskDeadline,
       save_as_template: saveAsTemplate, template_title: templateTitle,
       workflow_stages: stages.map((s, idx) => ({
@@ -198,7 +215,8 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
           require_file: s.requireFile,
           assignee_ids: s.assignees, 
           approval_rule: s.approvalRule,
-          intermediate_approvers: s.nextStageApprovers 
+          intermediate_approvers: s.nextStageApprovers ,
+          approver_rule: s.approverRule
       }))
     };
     dispatch(createTask(payload));
@@ -206,12 +224,11 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
  
   return (
     <div className="fixed inset-0 flex items-center justify-center p-2 md:p-4 z-[9999]" dir="rtl">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      {/* رویداد onClick از پس‌زمینه حذف شد تا با لمس تصادفی بسته نشود */}
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      {/* تغییر طرح به flex-col برای موبایل و flex-row برای دسکتاپ */}
       <div className={`relative flex flex-col md:flex-row w-full max-w-[95vw] lg:max-w-[1200px] h-[95dvh] rounded-2xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-950 border-blue-700' : 'bg-gray-50 border-gray-200'}`}>
           
-          {/* سمت راست/بالا: محتوای اصلی مودال */}
           <div className="flex flex-col flex-1 overflow-hidden">
              <div className={`flex items-center justify-between px-4 md:px-6 py-4 border-b shrink-0 z-20 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
                 <h2 className={`font-bold text-sm md:text-base flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -235,14 +252,73 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                             <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: پردازش فاکتورها" className={`w-full rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`} />
                             {validationErrors.title && <p className="text-[10px] text-red-400 mt-1">{validationErrors.title}</p>}
                         </div>
-                        <div>
-                            <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>دسته‌بندی <span className="text-red-400">*</span></label>
-                            <select value={taskType} onChange={e => setTaskType(e.target.value)} className={`w-full rounded-xl px-4 py-2 text-sm border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}>
-                                <option value="">انتخاب...</option>
-                                {TASK_TYPE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                            </select>
-                            {validationErrors.taskType && <p className="text-[10px] text-red-400 mt-1">{validationErrors.taskType}</p>}
+                        <div className="lg:col-span-2">
+                            <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                دسته‌بندی <span className="text-red-400">*</span>
+                            </label>
+                            
+                            <div className="flex items-center gap-2">
+                                {!isAddingType ? (
+                                    <>
+                                        <select 
+                                            value={taskType} 
+                                            onChange={e => setTaskType(e.target.value)} 
+                                            className={`flex-1 rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
+                                        >
+                                            <option value="">انتخاب کنید...</option>
+                                            {taskTypeOptions.map(t => (
+                                                <option key={t.id} value={t.id}>{t.label}</option>
+                                            ))}
+                                        </select>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setIsAddingType(true)}
+                                            className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 border-slate-700 text-blue-400 hover:bg-slate-700' : 'bg-white border-gray-300 text-blue-600 hover:bg-blue-50'}`}
+                                            title="افزودن دسته‌بندی جدید"
+                                        >
+                                            <FaPlus size={14} />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <input 
+                                            type="text" 
+                                            value={newTypeLabel} 
+                                            onChange={e => setNewTypeLabel(e.target.value)} 
+                                            placeholder="عنوان دسته‌بندی جدید..." 
+                                            className={`flex-1 rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
+                                            autoFocus
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                if (newTypeLabel.trim()) {
+                                                    dispatch(createTaskType(newTypeLabel.trim())).then((res) => {
+                                                        if(res.payload && res.payload.id) {
+                                                            setTaskType(res.payload.id);
+                                                        }
+                                                    });
+                                                    setIsAddingType(false);
+                                                    setNewTypeLabel('');
+                                                }
+                                            }}
+                                            className="p-2.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500/20 transition-colors"
+                                        >
+                                            <FaCheckCircle size={16} />
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setIsAddingType(false); setNewTypeLabel(''); }}
+                                            className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
+                                        >
+                                            <FaTimes size={16} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                            {validationErrors.taskType && <p className="text-red-400 text-xs mt-1">{validationErrors.taskType}</p>}
                         </div>
+
                         <div>
                             <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>فوریت</label>
                             <select value={urgency} onChange={e => setUrgency(e.target.value)} className={`w-full rounded-xl px-4 py-2 text-sm border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}>
@@ -354,19 +430,32 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                     </div>
                                   </div>
                               </div>
-                              {index < stages.length - 1 && (
+                                
                                 <div className="shrink-0 flex items-center justify-center px-1 self-center">
                                     <div 
                                         onClick={() => setActiveElement({ id: stage.id, type: 'LINK' })}
                                         onDragOver={(e) => e.preventDefault()}
                                         onDrop={(e) => handleDrop(e, stage.id, 'LINK')}
-                                        className={`w-40 min-h-[140px] rounded-xl border-2 flex flex-col items-center p-2 cursor-pointer transition-all ${
+                                        className={`w-44 min-h-[150px] rounded-xl border-2 flex flex-col items-center p-2 cursor-pointer transition-all ${
                                             activeElement.id === stage.id && activeElement.type === 'LINK'
                                             ? 'border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20'
                                             : 'border-dashed border-orange-500/50 hover:border-orange-400 bg-orange-500/5'
                                         }`}
                                     >
-                                        <span className="text-[10px] font-bold text-orange-500 mb-2 text-center leading-tight">تاییدیه میانی<br/>(اختیاری)</span>
+                                        <span className="text-[10px] font-bold text-orange-500 mb-1 text-center leading-tight">تاییدیه<br/>(اختیاری)</span>
+                                        
+                                        <div className="w-full mb-2">
+                                            <select 
+                                                value={stage.approverRule} 
+                                                onChange={(e) => updateStageField(stage.id, 'approverRule', e.target.value)}
+                                                onClick={(e) => e.stopPropagation()} 
+                                                className={`w-full text-[9px] p-1 rounded border outline-none ${isDark ? 'bg-slate-900 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}
+                                            >
+                                                {APPROVER_RULES.map(rule => (
+                                                    <option key={rule.value} value={rule.value}>{rule.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         
                                         <div className="flex-1 flex flex-col gap-1 w-full overflow-y-auto items-center justify-center">
                                             {stage.nextStageApprovers.length === 0 ? (
@@ -387,7 +476,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                         </div>
                                     </div>
                                 </div>
-                            )}
                           </React.Fragment>
                       ))}
                       <div className="shrink-0 flex items-center pl-2 self-stretch">
@@ -418,7 +506,6 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
              </div>
           </div>
           
-          {/* سمت چپ/پایین: انتخاب کننده پرسنل - در موبایل زیر محتوا اسکرول میخوره */}
           <div className={`w-full h-[40vh] md:h-full md:w-[320px] shrink-0 border-t md:border-t-0 md:border-r z-10 shadow-lg ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
             <AssigneePickerPanel
               subordinates={subordinates}

@@ -46,7 +46,7 @@ const RoutineTemplatesPage = () => {
     const isDark = mode === "dark";
 
     const [showForm, setShowForm] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false); // وضعیت لودینگ سابمیت فرم
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [activeTab, setActiveTab] = useState('ALL');
     const [userSearch, setUserSearch] = useState('');
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -56,15 +56,15 @@ const RoutineTemplatesPage = () => {
     const userRef = useRef(null);
     const positionRef = useRef(null);
     
+    // 🌟 فیلد trigger_time حذف شد و urgency به difficulty تغییر یافت
     const initialFormData = {
         title: '',
         period: 'DAILY',
         schedule_day_of_month: 1,
         schedule_date: '', 
-        trigger_time: '08:00',
         reminder_time: '09:00',
         deadline_hours: 24,
-        urgency: 'MEDIUM',
+        difficulty: 'MEDIUM',
         trigger_mode: 'HYBRID', 
         target_user: '',
         target_position: '',
@@ -183,7 +183,6 @@ const RoutineTemplatesPage = () => {
 
         setIsSubmitting(true);
         try {
-            // فرض بر این است که متد createTemplate از createAsyncThunk در استیت ریداکس شما استفاده می‌کند
             const resultAction = await dispatch(createTemplate(payload));
             if (createTemplate.fulfilled.match(resultAction) || !resultAction.error) {
                 toast.success('الگو با موفقیت ایجاد شد!');
@@ -202,7 +201,6 @@ const RoutineTemplatesPage = () => {
 
     return (
         <div className="animate-fade-in p-2 md:p-4 text-sm">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                 <h1 className={`text-xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                     <FaListAlt className="text-indigo-500" /> مدیریت الگوهای گردش کار
@@ -220,7 +218,6 @@ const RoutineTemplatesPage = () => {
                 </div>
             </div>
 
-            {/* Inline Form */}
             {showForm && (
                 <div className={`mb-6 rounded-xl border shadow-lg overflow-hidden ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                     <div className={`px-4 py-3 flex justify-between items-center border-b ${isDark ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
@@ -234,10 +231,7 @@ const RoutineTemplatesPage = () => {
                     </div>
 
                     <form onSubmit={handleSubmit} id="routine-form" className="p-4 space-y-4">
-                        {/* Grid: 2 Cards (ساید بای ساید) */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            
-                            {/* Card 1: اطلاعات پایه و تخصیص */}
                             <div className={`p-4 rounded-xl border space-y-4 ${isDark ? 'bg-gray-900/30 border-gray-700' : 'bg-gray-50/50 border-gray-200'}`}>
                                 <h3 className={`font-semibold flex items-center gap-2 pb-2 border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-200'}`}>
                                     <FaListAlt className="text-blue-500" /> اطلاعات پایه
@@ -248,12 +242,13 @@ const RoutineTemplatesPage = () => {
                                         <input required type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className={`w-full p-2 text-sm rounded-lg border focus:ring-1 focus:ring-indigo-500 transition-all ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} placeholder="عنوان..." />
                                     </div>
                                     <div className="col-span-2 sm:col-span-1 space-y-1">
-                                        <label className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>میزان فوریت</label>
-                                        <select value={formData.urgency} onChange={(e) => setFormData({...formData, urgency: e.target.value})} className={`w-full p-2 text-sm rounded-lg border focus:ring-1 focus:ring-indigo-500 transition-all ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}>
-                                            <option value="LOW">کم</option>
+                                        {/* 🌟 تغییر urgency به difficulty */}
+                                        <label className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>درجه سختی</label>
+                                        <select value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})} className={`w-full p-2 text-sm rounded-lg border focus:ring-1 focus:ring-indigo-500 transition-all ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}>
+                                            <option value="EASY">آسان</option>
                                             <option value="MEDIUM">متوسط</option>
-                                            <option value="HIGH">زیاد</option>
-                                            <option value="CRITICAL">بحرانی</option>
+                                            <option value="HARD">سخت</option>
+                                            <option value="EXPERT">بسیار سخت</option>
                                         </select>
                                     </div>
                                 </div>
@@ -308,13 +303,11 @@ const RoutineTemplatesPage = () => {
                                 )}
                             </div>
 
-                            {/* Card 2: بازه زمانی و اجرای متغیر */}
                             <div className={`p-4 rounded-xl border space-y-4 ${isDark ? 'bg-gray-900/30 border-gray-700' : 'bg-gray-50/50 border-gray-200'}`}>
                                 <h3 className={`font-semibold flex items-center gap-2 pb-2 border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-200'}`}>
                                     <FaClock className="text-emerald-500" /> بازه زمانی و اجرای روتین
                                 </h3>
                                 
-                                {/* Period Selector */}
                                 <div className="flex bg-gray-200/50 dark:bg-gray-800/50 p-1 rounded-lg">
                                     {[ { id: 'DAILY', label: 'روزانه' }, { id: 'WEEKLY', label: 'هفتگی' }, { id: 'MONTHLY', label: 'ماهانه' }, { id: 'YEARLY', label: 'سالانه' } ].map(p => (
                                         <button key={p.id} type="button" onClick={() => handlePeriodChange(p.id)} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${formData.period === p.id ? (isDark ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-gray-800 shadow-sm') : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
@@ -323,7 +316,6 @@ const RoutineTemplatesPage = () => {
                                     ))}
                                 </div>
 
-                                {/* Variable Time Inputs */}
                                 {formData.period === 'MONTHLY' && (
                                     <div className="space-y-2">
                                         <label className={`text-xs font-semibold flex items-center justify-start ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -358,12 +350,8 @@ const RoutineTemplatesPage = () => {
                                     </div>
                                 )}
 
-                                {/* Timings */}
-                                <div className="grid grid-cols-4 gap-2 pt-2 border-t dark:border-gray-700 border-gray-200">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-semibold text-gray-500">شروع</label>
-                                        <input type="time" value={formData.trigger_time} onChange={(e) => setFormData({...formData, trigger_time: e.target.value})} className={`w-full p-1.5 text-xs rounded border dir-ltr ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} />
-                                    </div>
+                                {/* 🌟 تغییر ساختار: حذف trigger_time و تنظیم به سه فیلد */}
+                                <div className="grid grid-cols-3 gap-2 pt-2 border-t dark:border-gray-700 border-gray-200">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-semibold text-gray-500">یادآوری</label>
                                         <input type="time" disabled={formData.trigger_mode === 'CHECKOUT_BASED'} value={formData.reminder_time} onChange={(e) => setFormData({...formData, reminder_time: e.target.value})} className={`w-full p-1.5 text-xs rounded border dir-ltr ${formData.trigger_mode === 'CHECKOUT_BASED' ? 'opacity-50' : ''} ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} />
@@ -384,7 +372,6 @@ const RoutineTemplatesPage = () => {
                             </div>
                         </div>
 
-                        {/* Card 3 (Full Width): میز کار وظایف */}
                         <div className={`p-4 rounded-xl border ${isDark ? 'bg-gray-900/30 border-gray-700' : 'bg-gray-50/50 border-gray-200'}`}>
                             <h3 className={`font-semibold flex items-center justify-between gap-2 pb-3 mb-3 border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-200'}`}>
                                 <div className="flex items-center gap-2">
@@ -442,7 +429,6 @@ const RoutineTemplatesPage = () => {
                             )}
                         </div>
 
-                        {/* Submit */}
                         <div className="flex justify-end pt-2">
                             <button 
                                 form="routine-form" 
@@ -466,9 +452,6 @@ const RoutineTemplatesPage = () => {
                 </div>
             )}
 
-            {/* List of Templates */}
-            
-            {/* 1. تب‌های فیلتر دوره الگوها */}
             {!templateLoading && templates?.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-2 mb-4 custom-scrollbar">
                     {TABS.map(tab => (
@@ -487,7 +470,6 @@ const RoutineTemplatesPage = () => {
                 </div>
             )}
 
-            {/* 2. نمایش الگوها */}
             {templateLoading ? (
                 <div className="flex justify-center items-center h-32">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>

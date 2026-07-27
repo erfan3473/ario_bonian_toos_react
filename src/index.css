@@ -41,7 +41,11 @@
 
 
 
-
+@layer base {
+  body {
+    font-family: 'Vazir', 'Tahoma', sans-serif !important;
+  }
+}
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }

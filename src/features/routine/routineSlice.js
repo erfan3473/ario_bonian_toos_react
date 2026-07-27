@@ -283,33 +283,45 @@ const routineSlice = createSlice({
             .addCase(moveRoutineItem.rejected, (state, action) => { state.error = action.payload; })
 
             // ------ Toggle Routine Item ------
-            .addCase(toggleRoutineItem.pending, (state, action) => { state.toggleLoadingId = action.meta.arg; })
+            .addCase(toggleRoutineItem.pending, (state, action) => {
+                // آیدی آیتمی که روش کلیک شده رو در استیت لودینگ قرار میدیم
+                state.toggleLoadingId = action.meta.arg;
+            })
             .addCase(toggleRoutineItem.fulfilled, (state, action) => {
                 state.toggleLoadingId = null;
-                const { item, instance_completed, completed_at } = action.payload;
-                
-                for (let routine of state.dailyRoutines) {
-                    const foundItem = routine.items?.find(i => i.id === item.id);
-                    if (foundItem) {
-                        foundItem.is_done = item.is_done;
-                        routine.is_completed = instance_completed;
-                        routine.completed_at = completed_at;
-                        break; 
-                    }
-                }
+                const updatedItem = action.payload; // فرض بر این است که سرور دیتای جدید آیتم رو برمی‌گردونه
+                const itemId = action.meta.arg;
 
-                Object.values(state.weeklyRoutines).forEach(dailyArray => {
-                    for (let routine of dailyArray) {
-                        const foundItem = routine.items?.find(i => i.id === item.id);
-                        if (foundItem) {
-                            foundItem.is_done = item.is_done;
-                            routine.is_completed = instance_completed;
-                            routine.completed_at = completed_at;
+                // تابع کمکی برای پیدا کردن و آپدیت کردن آیتم بدون نیاز به رفرش
+                const updateItemInList = (routine) => {
+                    if (!routine.items) return;
+                    const itemIndex = routine.items.findIndex(i => i.id === itemId);
+                    
+                    if (itemIndex > -1) {
+                        // اگر سرور دیتای آیتم رو برگردوند جایگزین می‌کنیم
+                        if (updatedItem && updatedItem.id) {
+                            routine.items[itemIndex] = { ...routine.items[itemIndex], ...updatedItem };
+                        } else {
+                            // در صورتی که سرور فقط پیام موفقیت فرستاد، دستی آپدیت می‌کنیم (Optimistic Update Local)
+                            const isDone = !routine.items[itemIndex].is_done;
+                            routine.items[itemIndex].is_done = isDone;
+                            routine.items[itemIndex].completed_at = isDone ? new Date().toISOString() : null;
                         }
                     }
+                };
+
+                // آپدیت آیتم در بورد هفتگی
+                Object.values(state.weeklyRoutines).forEach(routinesArray => {
+                    routinesArray.forEach(updateItemInList);
                 });
+
+                // آپدیت آیتم در بورد روزانه (در صورت نیاز)
+                state.dailyRoutines.forEach(updateItemInList);
             })
-            .addCase(toggleRoutineItem.rejected, (state, action) => { state.toggleLoadingId = null; state.error = action.payload; })
+            .addCase(toggleRoutineItem.rejected, (state, action) => {
+                state.toggleLoadingId = null;
+                state.error = action.payload;
+            })
 
             // ------ Fetch Templates ------
             .addCase(fetchTemplates.pending, (state) => { state.templateLoading = true; state.error = null; })
