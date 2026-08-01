@@ -280,7 +280,17 @@ export const fetchTaskTemplates = createAsyncThunk(
         }
     }
 );
-
+export const deleteTaskTemplate = createAsyncThunk(
+    'task/deleteTaskTemplate',
+    async (templateId, { rejectWithValue }) => {
+        try {
+            await axiosInstance.delete(`/tasks/freeze-templates/${templateId}/delete/`);
+            return templateId; // آیدی حذف شده را برمی‌گردانیم
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 // ═══════════════════════════════════════════════════════════
 // Slice
 // ═══════════════════════════════════════════════════════════
@@ -589,6 +599,11 @@ const taskSlice = createSlice({
             .addCase(fetchTaskTemplates.rejected, (state, action) => {
                 state.loadingTemplates = false;
                 state.error = action.payload;
+            })
+            // ── delete template ──
+            .addCase(deleteTaskTemplate.fulfilled, (state, action) => {
+                // قالب حذف شده را از لیست فرانت‌اند خارج می‌کنیم
+                state.templates = state.templates.filter(t => t.id !== action.payload);
             });
     },
 });

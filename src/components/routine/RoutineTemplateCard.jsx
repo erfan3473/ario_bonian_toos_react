@@ -1,12 +1,31 @@
 // src/components/routine/RoutineTemplateCard.jsx
 
 import React from 'react';
-import { FaCalendarAlt, FaUserTie, FaTasks } from 'react-icons/fa';
+import { FaCalendarAlt, FaUserTie, FaTasks, FaEdit, FaTrash } from 'react-icons/fa';
 
-const RoutineTemplateCard = ({ tpl, isDark }) => {
+const RoutineTemplateCard = ({ tpl, isDark, onEdit, onDelete }) => {
     return (
-        <div className={`p-4 rounded-xl border flex flex-col h-full shadow-sm transition-shadow hover:shadow-md ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-            <h3 className={`font-bold text-base md:text-lg mb-3 line-clamp-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+        <div className={`relative p-4 rounded-xl border flex flex-col h-full shadow-sm transition-shadow hover:shadow-md ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            
+            {/* دکمه‌های عملیات (ویرایش و حذف) */}
+            <div className="absolute top-3 left-3 flex items-center gap-2">
+                <button 
+                    onClick={() => onEdit(tpl)} 
+                    className={`p-1.5 rounded transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-900/30' : 'text-blue-500 hover:bg-blue-50'}`}
+                    title="ویرایش الگو"
+                >
+                    <FaEdit size={14} />
+                </button>
+                <button 
+                    onClick={() => onDelete(tpl.id)} 
+                    className={`p-1.5 rounded transition-colors ${isDark ? 'text-red-400 hover:bg-red-900/30' : 'text-red-500 hover:bg-red-50'}`}
+                    title="حذف الگو"
+                >
+                    <FaTrash size={14} />
+                </button>
+            </div>
+
+            <h3 className={`font-bold text-base md:text-lg mb-3 pl-16 line-clamp-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
                 {tpl.title}
             </h3>
             
@@ -21,7 +40,7 @@ const RoutineTemplateCard = ({ tpl, isDark }) => {
                 </p>
             </div>
             
-            {/* لیست چک‌لیست‌ها (فقط نمایش) */}
+            {/* لیست چک‌لیست‌ها */}
             <div className={`flex-1 pt-3 mt-1 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
                 <h4 className={`text-xs font-semibold mb-2 flex items-center gap-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                     <FaTasks className="text-emerald-500" /> وظایف (چک‌لیست):

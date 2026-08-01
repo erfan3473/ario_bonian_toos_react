@@ -29,6 +29,9 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const dispatch = useDispatch();
     
     const userInfo = useSelector((state) => state.userLogin?.userInfo);
+    // 👈 اضافه شد: بررسی نقش ادمین برای نمایش دکمه فریز
+    const isAdmin = userInfo?.is_admin || userInfo?.is_staff || userInfo?.is_superuser;
+
     const { uploadingFile, addingComment, freezingTemplate, subordinates, loadingSubordinates, editingTask, taskTypes } = useSelector(s => s.task);
 
     const [commentNote, setCommentNote] = useState('');
@@ -64,7 +67,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     let pendingActionContext = { type: null, name: '', require_file: false, rolesText: '' };
     let isWaitingForAssignees = false;
 
-    const isCreatorOrAdmin = Number(task.created_by_id) === Number(currentUserId) || userInfo?.is_staff || userInfo?.is_superuser;
+    const isCreatorOrAdmin = Number(task.created_by_id) === Number(currentUserId) || isAdmin;
 
     useEffect(() => {
         if ((showContactModal || showEditModal) && (!subordinates || subordinates.length === 0)) {
@@ -363,17 +366,20 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                         ویرایش
                     </button>
                 )}
-                <button
-                    onClick={() => setTemplateModal(true)}
-                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
-                        isDark
-                            ? 'bg-purple-600/25 text-purple-300 border-purple-500/55 hover:bg-purple-600/40 hover:border-purple-400/70'
-                            : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 hover:border-purple-400'
-                    }`}
-                >
-                    <FaSnowflake size={12} />
-                    فریز
-                </button>
+                {/* 👈 دکمه فریز داخل شرط isAdmin قرار گرفت */}
+                {isAdmin && (
+                    <button
+                        onClick={() => setTemplateModal(true)}
+                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
+                            isDark
+                                ? 'bg-purple-600/25 text-purple-300 border-purple-500/55 hover:bg-purple-600/40 hover:border-purple-400/70'
+                                : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 hover:border-purple-400'
+                        }`}
+                    >
+                        <FaSnowflake size={12} />
+                        فریز
+                    </button>
+                )}
             </div>
 
             <div className="relative mb-3 mt-8 sm:mt-0">
@@ -528,7 +534,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                             {stages.map((stage, index) => {
                                 const isStageCompleted = stage.status === 'COMPLETED';
                                 const isStageActive = stage.status === 'ACTIVE';
-                                const isStageRejected = stage.status === 'REJECTED'; // 👈 اضافه شد: تشخیص وضعیت رد شده
+                                const isStageRejected = stage.status === 'REJECTED'; 
 
                                 let cardClasses = isDark ? "border-slate-700 bg-slate-900/60" : "border-gray-300 border-dashed bg-white";
                                 let headerClasses = isDark ? "bg-slate-800 text-gray-400 border-slate-700/50" : "bg-gray-100 text-gray-600 border-gray-200";
@@ -546,7 +552,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                     stateBadge = "در جریان";
                                     badgeColor = "bg-blue-500 text-white shadow-lg shadow-blue-500/30";
                                 } else if (isStageRejected) {
-                                    // 👈 اضافه شد: استایل‌های مخصوص مرحله رد شده
                                     cardClasses = isDark ? "border-red-600/50 bg-slate-900" : "border-red-500 bg-white";
                                     headerClasses = isDark ? "bg-red-900/20 border-red-800/50 text-red-400" : "bg-red-50 border-red-200 text-red-700";
                                     stateBadge = "رد شده";
@@ -631,7 +636,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                             {stage.intermediate_approvers_details.map((approver, i) => {
                                                                 const isApproverMe = Number(approver.id) === Number(currentUserId);
                                                                 
-                                                                // 👈 اضافه شد: ترجمه و استایل وضعیت دقیق تاییدکننده میانی
                                                                 let statusColor = "text-gray-500";
                                                                 let statusLabel = "در انتظار";
                                                                 
@@ -691,7 +695,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                         {log.note && <span className="text-gray-500 italic"> — "{log.note}"</span>}
                                         <div className="text-[11px] text-gray-500 mt-1">{new Date(log.created_at).toLocaleString('fa-IR', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'numeric', day: 'numeric' })}</div>
                                         
-                                        {/* نمایش فایل‌های ضمیمه شده به کامنت/لاگ */}
                                         {log.files && log.files.length > 0 && (
                                             <div className="flex flex-wrap gap-2 mt-2">
                                                 {log.files.map(f => (
@@ -716,7 +719,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                         ثبت یادداشت
                     </h3>
 
-                    {/* پیش‌نمایش فایل‌های انتخاب شده برای کامنت */}
                     {commentFiles.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">
                             {commentFiles.map((f, i) => (
@@ -736,7 +738,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                         className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:border-blue-500 resize-none mb-3 ${isDark ? 'bg-slate-950 text-white border-slate-700 placeholder-gray-500' : 'bg-gray-50 text-gray-900 border-gray-300 placeholder-gray-400'}`}
                     />
                     
-                    {/* اینپوت مخفی برای دریافت فایل کامنت */}
                     <input 
                         type="file" 
                         multiple 
@@ -746,7 +747,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                             if (e.target.files) {
                                 setCommentFiles(Array.from(e.target.files));
                             }
-                            e.target.value = ''; // ریست کردن مقدار برای انتخاب مجدد فایل تکراری
+                            e.target.value = ''; 
                         }} 
                     />
 
@@ -778,13 +779,12 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 <TaskSmsSection assignLogs={taskData.assign_sms_logs} reminderLogs={taskData.reminder_sms_logs} onRefresh={onRefresh} />
             </div>
 
-            {/* ── مودال‌ها ── */}
             {modal === 'approve' && <ConfirmModal title="تایید و خاتمه مرحله" message={pendingActionContext.require_file ? `آیا از ارسال فایل‌های لازم اطمینان دارید؟ با تایید، این مرحله خاتمه می‌یابد.` : `با تایید این مرحله، مسئولیت شما به پایان می‌رسد.`} confirmLabel="تایید و ثبت" confirmClass="bg-green-600 hover:bg-green-700" onConfirm={handleApprove} onClose={() => setModal(null)} />}
             {modal === 'reject' && <ConfirmModal title="رد کردن ماموریت" message={`آیا از رد کردن این گردش کار اطمینان دارید؟`} confirmLabel="تایید و رد ماموریت" confirmClass="bg-red-600 hover:bg-red-700" onConfirm={handleReject} onClose={() => setModal(null)} />}
             {modal === 'forward' && <ForwardModal taskId={task.id} onSuccess={() => { setModal(null); onRefresh(); }} onClose={() => setModal(null)} />}
             {modal === 'return' && <ReturnModal title="برگشت دادن به مجریان" assignees={stages.find(s => s.status === 'ACTIVE')?.assignees || []} onConfirm={handleReturn} onClose={() => setModal(null)} />}
             
-            {templateModal && (
+            {templateModal && isAdmin && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className={`w-full max-w-sm p-6 rounded-2xl shadow-xl ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-gray-200'}`}>
                         <h3 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>ذخیره به عنوان الگو</h3>
@@ -865,101 +865,107 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                     <FaSitemap size={14} /> طراحی و ویرایش مراحل گردش کار
                                 </h4>
                                 
-                                <div className="flex flex-col xl:flex-row gap-4 h-auto xl:h-[420px]">
-                                    <div className={`flex-1 overflow-x-auto overflow-y-auto pb-2 px-2 flex items-start gap-2 rounded-xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-gray-200'}`}>
+                                <div className="flex flex-col xl:flex-row gap-4 h-auto xl:h-[480px]">
+                                    <div className={`flex-1 overflow-x-auto overflow-y-auto pb-2 px-2 flex items-start gap-3 rounded-xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-gray-200'}`}>
                                         {editStages.map((stage, index) => (
                                             <React.Fragment key={stage.id}>
                                                 <div
                                                     onClick={() => setActiveEditElement({ id: stage.id, type: 'STAGE' })}
-                                                    className={`shrink-0 w-[240px] rounded-xl border-2 flex flex-col cursor-pointer shadow-sm my-2 transition-all
+                                                    className={`shrink-0 w-[300px] rounded-xl border-2 flex flex-col cursor-pointer shadow-sm my-2 transition-all
                                                     ${activeEditElement.id === stage.id && activeEditElement.type === 'STAGE'
                                                         ? 'border-blue-500 ' + (isDark ? 'bg-slate-800' : 'bg-blue-50/30') 
                                                         : 'border-slate-600/50 ' + (isDark ? 'bg-slate-800/60' : 'bg-white')}`}
                                                 >
-                                                    <div className="p-2 border-b border-slate-700/50 flex justify-between items-center bg-black/5 rounded-t-lg">
-                                                        <span className="text-xs font-bold text-gray-500">مرحله {index + 1}</span>
+                                                    <div className="p-3 border-b border-slate-700/50 flex justify-between items-center bg-black/5 rounded-t-lg">
+                                                        <span className="text-sm font-bold text-gray-500">مرحله {index + 1}</span>
                                                         {editStages.length > 1 && (
-                                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveEditStage(stage.id); }} className="text-red-400 hover:text-red-500 p-1"><FaTrash size={12} /></button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleRemoveEditStage(stage.id); }} className="text-red-400 hover:text-red-500 p-1"><FaTrash size={14} /></button>
                                                         )}
                                                     </div>
                                                     
-                                                    <div className="p-3 flex flex-col gap-3 h-[320px] overflow-y-auto">
+                                                    <div className="p-4 flex flex-col gap-4 max-h-[380px] overflow-y-auto">
                                                         <input 
                                                             type="text" value={stage.stageName} onChange={e => updateEditStageField(stage.id, 'stageName', e.target.value)}
-                                                            placeholder="نام مرحله..." className={`w-full text-sm font-bold pb-1 border-b outline-none bg-transparent ${isDark ? 'text-white border-slate-600' : 'text-gray-900 border-gray-300'}`} 
+                                                            placeholder="نام مرحله..." className={`w-full text-sm font-bold pb-2 border-b outline-none bg-transparent ${isDark ? 'text-white border-slate-600' : 'text-gray-900 border-gray-300'}`} 
                                                         />
-                                                        <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
-                                                            <FaAlignRight className="text-gray-400 text-xs" />
+                                                        <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                            <FaAlignRight className="text-gray-400 text-sm shrink-0" />
                                                             <input 
                                                                 type="text" value={stage.description} onChange={e => updateEditStageField(stage.id, 'description', e.target.value)}
                                                                 placeholder="شرح وظیفه..." className={`w-full text-xs outline-none bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
                                                             />
                                                         </div>
-                                                        <div className="flex gap-1.5">
-                                                            <label className={`flex-1 flex items-center justify-center px-1.5 py-1.5 rounded border cursor-pointer transition-colors ${stage.requireFile ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : (isDark ? 'bg-slate-900/50 border-slate-700 text-gray-500' : 'bg-gray-50 border-gray-200 text-gray-500')}`}>
+                                                        <div className="flex gap-2">
+                                                            <label className={`flex-1 flex items-center justify-center px-1.5 py-2.5 rounded-lg border transition-colors ${stage.requireFile ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : (isDark ? 'bg-slate-900/50 border-slate-700 text-gray-500' : 'bg-gray-50 border-gray-200 text-gray-500')} cursor-pointer`}>
                                                                 <input type="checkbox" checked={stage.requireFile} onChange={e => updateEditStageField(stage.id, 'requireFile', e.target.checked)} className="hidden" />
-                                                                <FaPaperclip size={10} className="mr-1" /><span className="text-[10px] font-medium">فایل اجباری</span>
+                                                                <FaPaperclip size={12} className="mr-1" /><span className="text-xs font-bold">فایل اجباری</span>
                                                             </label>
-                                                            <select value={stage.approvalRule} onChange={e => updateEditStageField(stage.id, 'approvalRule', e.target.value)} className={`flex-[2] text-[10px] p-1 rounded border outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-gray-400' : 'bg-white border-gray-300 text-gray-600'}`}>
+                                                            <select value={stage.approvalRule} onChange={e => updateEditStageField(stage.id, 'approvalRule', e.target.value)} className={`flex-[2] text-xs px-2 py-2.5 rounded-lg border outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-gray-300' : 'bg-white border-gray-300 text-gray-700'}`}>
                                                                 {APPROVAL_RULES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                                             </select>
                                                         </div>
-                                                        <div className="flex gap-1.5">
-                                                            <div className={`flex-1 flex items-center gap-1.5 px-2 py-1.5 rounded border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
-                                                                <FaClock className="text-gray-400 text-xs shrink-0" />
-                                                                <JalaliDatePicker
-                                                                    value={stage.deadlineDate}
-                                                                    onChange={(e) => updateEditStageField(stage.id, 'deadlineDate', e.target.value)}
-                                                                    placeholder="مهلت (اختیاری)"
-                                                                    className={`w-full text-[11px] outline-none bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
-                                                                />
-                                                            </div>
-                                                            <div className={`w-20 flex items-center px-1.5 py-1.5 rounded border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
-                                                                <input 
-                                                                    type="time" value={stage.deadlineTime} onChange={(e) => updateEditStageField(stage.id, 'deadlineTime', e.target.value)} 
-                                                                    className={`w-full text-[11px] outline-none bg-transparent ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
-                                                                />
+                                                        
+                                                        {/* 👈 فیلدهای تاریخ و ساعت (قفل برداشته شد + رفع باگ رویداد e) */}
+                                                        <div className="flex flex-col gap-1.5 mt-1">
+                                                            <span className="text-xs font-bold text-gray-500">مهلت انجام (اختیاری):</span>
+                                                            <div className="flex gap-2">
+                                                                <div className={`flex-1 rounded-lg border transition-colors focus-within:border-blue-500 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                                    <JalaliDatePicker
+                                                                        value={stage.deadlineDate}
+                                                                        onChange={(e) => updateEditStageField(stage.id, 'deadlineDate', e.target ? e.target.value : e)}
+                                                                        placeholder="انتخاب تاریخ"
+                                                                        className={`w-full px-3 py-2.5 text-xs outline-none bg-transparent ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                                                                    />
+                                                                </div>
+                                                                <div className={`w-[110px] rounded-lg border transition-colors focus-within:border-blue-500 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                                    <input 
+                                                                        type="time" 
+                                                                        value={stage.deadlineTime} 
+                                                                        onChange={(e) => updateEditStageField(stage.id, 'deadlineTime', e.target.value)} 
+                                                                        className={`w-full px-2 py-2.5 text-xs outline-none bg-transparent ${isDark ? 'text-gray-200 [color-scheme:dark]' : 'text-gray-800'}`}
+                                                                    />
+                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        <div className="mt-1 flex-1 flex flex-col gap-1.5">
-                                                            <span className="text-xs font-medium text-gray-500">مسئولین:</span>
+                                                        <div className="mt-2 flex-1 flex flex-col gap-2">
+                                                            <span className="text-xs font-bold text-gray-500">مسئولین:</span>
                                                             {stage.assignees.length === 0 ? (
-                                                                <div className="flex-1 min-h-[40px] flex items-center justify-center text-xs text-gray-500 border border-dashed border-gray-500/30 rounded p-1">هیچ‌کس انتخاب نشده</div>
+                                                                <div className="flex-1 min-h-[50px] flex items-center justify-center text-xs text-gray-400 border border-dashed border-gray-500/30 rounded-lg p-2">بدون مسئول</div>
                                                             ) : (
                                                                 <div className="flex flex-wrap gap-1.5">
-                                                                    {stage.assignees.map(empId => {
-                                                                        const emp = subordinates?.find(e => e.user_id === empId);
-                                                                        return emp ? <AssigneeChip key={empId} emp={emp} onRemove={(id) => handleRemoveEditAssignee(stage.id, 'STAGE', id)} /> : <span key={empId} className="text-xs">کاربر {empId}</span>;
-                                                                    })}
+                                                                {stage.assignees.map(empId => {
+                                                                    const emp = subordinates?.find(e => e.user_id === empId);
+                                                                    return emp ? <AssigneeChip key={empId} emp={emp} onRemove={(id) => handleRemoveEditAssignee(stage.id, 'STAGE', id)} /> : <span key={empId} className="text-xs">کاربر {empId}</span>;
+                                                                })}
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <div className="shrink-0 flex items-center justify-center px-1 self-center my-2">
+                                                <div className="shrink-0 flex items-center justify-center px-2 self-center my-2">
                                                     <div 
                                                         onClick={() => setActiveEditElement({ id: stage.id, type: 'LINK' })}
-                                                        className={`w-36 min-h-[120px] rounded-lg border-2 flex flex-col items-center p-2 cursor-pointer transition-all ${
-                                                            activeEditElement.id === stage.id && activeEditElement.type === 'LINK'
+                                                        className={`w-40 min-h-[140px] rounded-xl border-2 flex flex-col items-center p-3 cursor-pointer transition-all ${
+                                                            activeElement.id === stage.id && activeEditElement.type === 'LINK'
                                                             ? 'border-orange-500 bg-orange-500/10' : 'border-dashed border-orange-500/50 bg-orange-500/5'
                                                         }`}
                                                     >
-                                                        <span className="text-[10px] font-bold text-orange-500 mb-1">تاییدیه (اختیاری)</span>
-                                                        <select value={stage.approverRule} onChange={(e) => updateEditStageField(stage.id, 'approverRule', e.target.value)} onClick={e => e.stopPropagation()} className={`w-full text-[9px] p-1 mb-2 rounded border outline-none ${isDark ? 'bg-slate-900 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
+                                                        <span className="text-xs font-bold text-orange-500 mb-2">تاییدیه (اختیاری)</span>
+                                                        <select value={stage.approverRule} onChange={(e) => updateEditStageField(stage.id, 'approverRule', e.target.value)} onClick={e => e.stopPropagation()} className={`w-full text-xs p-1.5 mb-3 rounded-lg border outline-none ${isDark ? 'bg-slate-900 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
                                                             {APPROVER_RULES.map(rule => <option key={rule.value} value={rule.value}>{rule.label}</option>)}
                                                         </select>
-                                                        <div className="flex-1 flex flex-col gap-1 w-full items-center justify-center">
+                                                        <div className="flex-1 flex flex-col gap-2 w-full items-center justify-center">
                                                             {stage.nextStageApprovers.length === 0 ? (
-                                                                <div className="text-orange-500/40 flex flex-col items-center"><FaArrowLeft size={14} className="mb-1" /><span className="text-[9px]">مستقیم</span></div>
+                                                                <div className="text-orange-500/40 flex flex-col items-center"><FaArrowLeft size={16} className="mb-1" /><span className="text-xs">مستقیم</span></div>
                                                             ) : (
-                                                                <div className="w-full flex flex-wrap gap-1 items-center justify-center">
+                                                                <div className="w-full flex flex-wrap gap-1.5 items-center justify-center">
                                                                     {stage.nextStageApprovers.map(empId => {
                                                                         const emp = subordinates?.find(e => e.user_id === empId);
-                                                                        return emp ? <AssigneeChip key={empId} emp={emp} onRemove={(id) => handleRemoveEditAssignee(stage.id, 'LINK', id)} /> : <span key={empId} className="text-[9px]">کاربر {empId}</span>;
+                                                                        return emp ? <AssigneeChip key={empId} emp={emp} onRemove={(id) => handleRemoveEditAssignee(stage.id, 'LINK', id)} /> : <span key={empId} className="text-xs">کاربر {empId}</span>;
                                                                     })}
-                                                                    <FaArrowLeft size={10} className="text-orange-500 mt-1" />
+                                                                    <FaArrowLeft size={12} className="text-orange-500 mt-2" />
                                                                 </div>
                                                             )}
                                                         </div>
@@ -967,16 +973,15 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                 </div>
                                             </React.Fragment>
                                         ))}
-
+                                        
                                         <div className="shrink-0 flex items-center pl-2 self-stretch my-2">
-                                            <button onClick={handleAddEditStage} className={`w-[50px] h-full min-h-[150px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors ${isDark ? 'border-slate-700 hover:border-blue-500 text-slate-500' : 'border-gray-300 hover:border-blue-500 text-gray-400'}`}>
-                                                <FaPlus size={16} />
+                                            <button onClick={handleAddEditStage} className={`w-[60px] h-full min-h-[150px] rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors ${isDark ? 'border-slate-700 hover:border-blue-500 text-slate-500' : 'border-gray-300 hover:border-blue-500 text-gray-400'}`}>
+                                                <FaPlus size={20} />
                                             </button>
                                         </div>
                                     </div>
 
-                                    {/* پنل افراد پرسنل */}
-                                    <div className={`w-full xl:w-[300px] shrink-0 border rounded-xl overflow-hidden shadow-sm ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                                    <div className={`w-full xl:w-[320px] shrink-0 border rounded-xl overflow-hidden shadow-sm ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
                                         <AssigneePickerPanel
                                             subordinates={subordinates || []}
                                             loading={loadingSubordinates}
@@ -996,7 +1001,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                         </label>
                                         <JalaliDatePicker
                                             value={editData.deadlineDate}
-                                            onChange={(e) => setEditData({...editData, deadlineDate: e.target.value})}
+                                            onChange={(e) => setEditData({...editData, deadlineDate: e.target ? e.target.value : e})}
                                             placeholder="تاریخ"
                                             className={`w-full p-2.5 text-sm rounded-lg border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         />

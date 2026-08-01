@@ -55,7 +55,7 @@ const Header = () => {
 
   const getPageName = (path) => {
     if (path.startsWith("/tasks")) return "ماموریت";
-    if (path.startsWith("/routines")) return "وظایف ثابت";
+    if (path.startsWith("/routines")) return "برنامه ریز";
     if (path.startsWith("/chat")) return "پیام‌رسان";
     if (path.startsWith("/notebooks")) return "بایگانی";
     if (path.startsWith("/admin/timesheet")) return "لیست حضور";
@@ -220,7 +220,7 @@ const Header = () => {
         }
       >
         <FaSyncAlt className="text-teal-300" />
-        <span>وظایف ثابت</span>
+        <span>برنامه ریز</span>
       </Link>
 
       {isAdmin && (

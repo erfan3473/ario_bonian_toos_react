@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTemplates, createTemplate, fetchSelectorPositions, fetchSelectorUsers } from '../features/routine/routineSlice';
+import { 
+    fetchTemplates, createTemplate, updateTemplate, deleteTemplate, 
+    fetchSelectorPositions, fetchSelectorUsers 
+} from '../features/routine/routineSlice';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { 
@@ -29,6 +32,20 @@ const TABS = [
     { id: 'YEARLY', label: 'سالانه' }
 ];
 
+const initialFormData = {
+    title: '',
+    period: 'DAILY',
+    schedule_day_of_month: 1,
+    schedule_date: '', 
+    reminder_time: '09:00',
+    deadline_hours: 24,
+    difficulty: 'MEDIUM',
+    trigger_mode: 'HYBRID', 
+    target_user: '',
+    target_position: '',
+    checklists: [{ title: '', order: 1, target_days: [] }] 
+};
+
 const RoutineTemplatesPage = () => {
     const dispatch = useDispatch();
     const { templates, templateLoading, selectorPositions, selectorUsers, error } = useSelector((state) => state.routine);
@@ -46,7 +63,9 @@ const RoutineTemplatesPage = () => {
     const isDark = mode === "dark";
 
     const [showForm, setShowForm] = useState(false);
+    const [editingId, setEditingId] = useState(null); 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
     const [activeTab, setActiveTab] = useState('ALL');
     const [userSearch, setUserSearch] = useState('');
     const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -56,20 +75,6 @@ const RoutineTemplatesPage = () => {
     const userRef = useRef(null);
     const positionRef = useRef(null);
     
-    // 🌟 فیلد trigger_time حذف شد و urgency به difficulty تغییر یافت
-    const initialFormData = {
-        title: '',
-        period: 'DAILY',
-        schedule_day_of_month: 1,
-        schedule_date: '', 
-        reminder_time: '09:00',
-        deadline_hours: 24,
-        difficulty: 'MEDIUM',
-        trigger_mode: 'HYBRID', 
-        target_user: '',
-        target_position: '',
-        checklists: [{ title: '', order: 1, target_days: [] }] 
-    };
     const [formData, setFormData] = useState(initialFormData);
 
     useEffect(() => {
@@ -143,6 +148,48 @@ const RoutineTemplatesPage = () => {
         setFormData({ ...formData, checklists: newChecklists });
     };
 
+    const handleOpenNewForm = () => {
+        setEditingId(null);
+        setFormData(initialFormData);
+        setShowForm(true);
+    };
+
+    const handleCloseForm = () => {
+        setShowForm(false);
+        setEditingId(null);
+        setFormData(initialFormData);
+    };
+
+    const handleEditTemplate = (tpl) => {
+        setEditingId(tpl.id);
+        setFormData({
+            title: tpl.title,
+            period: tpl.period,
+            schedule_day_of_month: tpl.schedule_day_of_month || 1,
+            schedule_date: tpl.schedule_value ? `1403-${tpl.schedule_value.replace('-', '/')}` : '',
+            reminder_time: tpl.reminder_time ? tpl.reminder_time.substring(0, 5) : '09:00',
+            deadline_hours: tpl.deadline_hours || 24,
+            difficulty: tpl.difficulty || 'MEDIUM',
+            trigger_mode: tpl.trigger_mode || 'HYBRID',
+            target_user: tpl.target_user ? tpl.target_user.toString() : '',
+            target_position: tpl.target_position ? tpl.target_position.toString() : '',
+            checklists: tpl.checklists?.length 
+                ? tpl.checklists.map(c => ({ ...c, target_days: c.target_days || [] })) 
+                : [{ title: '', order: 1, target_days: [] }]
+        });
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDeleteTemplate = (id) => {
+        if(window.confirm('آیا از حذف این الگو اطمینان دارید؟')) {
+            dispatch(deleteTemplate(id))
+                .unwrap()
+                .then(() => toast.success('الگو با موفقیت حذف شد.'))
+                .catch(err => toast.error(err || 'خطا در حذف الگو.'));
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -183,14 +230,18 @@ const RoutineTemplatesPage = () => {
 
         setIsSubmitting(true);
         try {
-            const resultAction = await dispatch(createTemplate(payload));
-            if (createTemplate.fulfilled.match(resultAction) || !resultAction.error) {
-                toast.success('الگو با موفقیت ایجاد شد!');
-                setShowForm(false);
-                setFormData(initialFormData);
+            const actionToDispatch = editingId 
+                ? updateTemplate({ id: editingId, templateData: payload }) 
+                : createTemplate(payload);
+
+            const resultAction = await dispatch(actionToDispatch);
+            
+            if (!resultAction.error) {
+                toast.success(editingId ? 'تغییرات الگو ذخیره شد.' : 'الگو با موفقیت ایجاد شد!');
+                handleCloseForm();
                 dispatch(fetchTemplates());
             } else {
-                toast.error(resultAction.payload || 'خطا در ایجاد الگو.');
+                toast.error(resultAction.payload || 'خطا در برقراری ارتباط.');
             }
         } catch (error) {
             toast.error('خطا در ارتباط با سرور.');
@@ -211,7 +262,7 @@ const RoutineTemplatesPage = () => {
                         <FaArrowRight size={12} /> بازگشت
                     </Link>
                     {!showForm && (
-                        <button onClick={() => setShowForm(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold shadow-sm">
+                        <button onClick={handleOpenNewForm} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold shadow-sm">
                             <FaPlus size={12} /> الگوی جدید
                         </button>
                     )}
@@ -223,9 +274,11 @@ const RoutineTemplatesPage = () => {
                     <div className={`px-4 py-3 flex justify-between items-center border-b ${isDark ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
                         <div className="flex items-center gap-2">
                             <FaCalendar className="text-indigo-500" />
-                            <h2 className={`font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>طراحی برنامه روتین جدید</h2>
+                            <h2 className={`font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                                {editingId ? 'ویرایش برنامه روتین' : 'طراحی برنامه روتین جدید'}
+                            </h2>
                         </div>
-                        <button onClick={() => setShowForm(false)} className={`p-1.5 rounded-md transition ${isDark ? 'hover:bg-gray-700 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-800'}`}>
+                        <button onClick={handleCloseForm} className={`p-1.5 rounded-md transition ${isDark ? 'hover:bg-gray-700 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-800'}`}>
                             <FaTimes size={14} />
                         </button>
                     </div>
@@ -242,7 +295,6 @@ const RoutineTemplatesPage = () => {
                                         <input required type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} className={`w-full p-2 text-sm rounded-lg border focus:ring-1 focus:ring-indigo-500 transition-all ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} placeholder="عنوان..." />
                                     </div>
                                     <div className="col-span-2 sm:col-span-1 space-y-1">
-                                        {/* 🌟 تغییر urgency به difficulty */}
                                         <label className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>درجه سختی</label>
                                         <select value={formData.difficulty} onChange={(e) => setFormData({...formData, difficulty: e.target.value})} className={`w-full p-2 text-sm rounded-lg border focus:ring-1 focus:ring-indigo-500 transition-all ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`}>
                                             <option value="EASY">آسان</option>
@@ -350,7 +402,6 @@ const RoutineTemplatesPage = () => {
                                     </div>
                                 )}
 
-                                {/* 🌟 تغییر ساختار: حذف trigger_time و تنظیم به سه فیلد */}
                                 <div className="grid grid-cols-3 gap-2 pt-2 border-t dark:border-gray-700 border-gray-200">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-semibold text-gray-500">یادآوری</label>
@@ -443,7 +494,7 @@ const RoutineTemplatesPage = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <FaSave /> ذخیره الگو
+                                        <FaSave /> {editingId ? 'ذخیره تغییرات' : 'ذخیره الگو'}
                                     </>
                                 )}
                             </button>
@@ -480,7 +531,15 @@ const RoutineTemplatesPage = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-stretch">
-                    {filteredTemplates.map((tpl) => <RoutineTemplateCard key={tpl.id} tpl={tpl} isDark={isDark} />)}
+                    {filteredTemplates.map((tpl) => (
+                        <RoutineTemplateCard 
+                            key={tpl.id} 
+                            tpl={tpl} 
+                            isDark={isDark} 
+                            onEdit={handleEditTemplate}
+                            onDelete={handleDeleteTemplate}
+                        />
+                    ))}
                 </div>
             )}
         </div>
