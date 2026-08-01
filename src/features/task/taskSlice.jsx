@@ -1,4 +1,4 @@
-// src/features/task/taskSlice.js — کامل نهایی
+// src/features/task/taskSlice.js — کامل نهایی (با قابلیت ویرایش)
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
@@ -6,7 +6,7 @@ import axiosInstance from '../../api/axiosInstance';
 // ═══════════════════════════════════════════════════════════
 // Thunks
 // ═══════════════════════════════════════════════════════════
-//  1  //
+
 export const fetchMyTaskInbox = createAsyncThunk(
     'task/fetchMyTaskInbox',
     async (_, { rejectWithValue }) => {
@@ -18,7 +18,6 @@ export const fetchMyTaskInbox = createAsyncThunk(
         }
     }
 );
-// 2 //
 
 export const fetchSentTasks = createAsyncThunk(
     'task/fetchSentTasks',
@@ -31,7 +30,6 @@ export const fetchSentTasks = createAsyncThunk(
         }
     }
 );
-// 3 //
 
 export const fetchTaskDetail = createAsyncThunk(
     'task/fetchTaskDetail',
@@ -44,7 +42,7 @@ export const fetchTaskDetail = createAsyncThunk(
         }
     }
 );
-// 4 // 
+
 export const fetchSubordinates = createAsyncThunk(
     'task/fetchSubordinates',
     async (_, { rejectWithValue }) => {
@@ -56,7 +54,7 @@ export const fetchSubordinates = createAsyncThunk(
         }
     }
 );
-// 5 //
+
 export const createTask = createAsyncThunk(
     'task/createTask',
     async (payload, { rejectWithValue }) => {
@@ -75,36 +73,39 @@ export const createTask = createAsyncThunk(
                 if (payload.urgency) form.append('urgency', payload.urgency);
                 if (payload.project_id) form.append('project_id', payload.project_id);
 
-                // هندل کردن منطق قدیم (آرایه آیدی‌ها)
                 if (payload.assignee_ids) {
                     payload.assignee_ids.forEach(id => form.append('assignee_ids', id));
                 }
 
-                // هندل کردن منطق جدید گردش کار (تبدیل به استرینگ برای FormData)
                 if (payload.workflow_stages && payload.workflow_stages.length > 0) {
                     form.append('workflow_stages', JSON.stringify(payload.workflow_stages));
                 }
 
                 payload.files.forEach(f => form.append('files', f));
-                
                 body = form;
-                // در Axios وقتی body از نوع FormData باشد، هدر multipart به صورت خودکار ست می‌شود
             }
 
             const { data } = await axiosInstance.post('/tasks/create/', body, { headers });
             return data;
         } catch (err) {
-            const detail =
-                err.response?.data?.detail ||
-                JSON.stringify(err.response?.data) ||
-                err.message;
+            const detail = err.response?.data?.detail || JSON.stringify(err.response?.data) || err.message;
             return rejectWithValue(detail);
         }
     }
 );
 
-
-// 6 //
+// 👈 متد جدید برای ویرایش ماموریت
+export const editTask = createAsyncThunk(
+    'task/editTask',
+    async ({ taskId, payload }, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.patch(`/tasks/${taskId}/edit/`, payload);
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 
 export const uploadTaskFile = createAsyncThunk(
     'task/uploadTaskFile',
@@ -124,8 +125,6 @@ export const uploadTaskFile = createAsyncThunk(
     }
 );
 
-// 7 //
-
 export const forwardStep = createAsyncThunk(
     'task/forwardStep',
     async ({ taskId, to_user_id, note, send_sms }, { rejectWithValue }) => {
@@ -142,89 +141,67 @@ export const forwardStep = createAsyncThunk(
     }
 );
 
-// 8 //
-
 export const refreshSmsStatus = createAsyncThunk(
     'task/refreshSmsStatus',
     async (logId, { rejectWithValue }) => {
         try {
-            // آپدیت مسیر بر اساس بک‌اند جدید شما
             const response = await axiosInstance.post(`/tasks/sms-logs/${logId}/refresh/`);
-            return response.data; // دیتای یک لاگ پیامک برمی‌گردد
+            return response.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.detail || 'خطا در بروزرسانی وضعیت پیامک');
         }
     }
 );
 
-// 9 // دریافت تنظیمات یادآوری
 export const fetchReminderSettings = createAsyncThunk(
     'task/fetchReminderSettings',
     async (_, { rejectWithValue }) => {
         try {
-            // ⚠️ مسیر زیر را با URL دقیق urls.py خود هماهنگ کنید
             const { data } = await axiosInstance.get('/tasks/reminder-settings/');
-            return data; // آرایه‌ای از تنظیمات برمی‌گردد
+            return data;
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || err.message);
         }
     }
 );
 
-// 10 // به‌روزرسانی گروهی تنظیمات یادآوری
 export const updateReminderSettings = createAsyncThunk(
     'task/updateReminderSettings',
     async (payload, { rejectWithValue }) => {
         try {
-            // payload باید یک آرایه از آبجکت‌های تنظیمات باشد
-            // ⚠️ مسیر زیر را با URL دقیق urls.py خود هماهنگ کنید
             const { data } = await axiosInstance.put('/tasks/reminder-settings/', payload);
-            return data; // پیام موفقیت برمی‌گردد
+            return data;
         } catch (err) {
-            return rejectWithValue(
-                err.response?.data?.error || 
-                err.response?.data?.detail || 
-                'خطا در ذخیره تنظیمات'
-            );
+            return rejectWithValue(err.response?.data?.error || err.response?.data?.detail || 'خطا در ذخیره تنظیمات');
         }
     }
 );
-//11//ثبت یادداشت / فایل روی task
-//11//ثبت یادداشت / فایل روی task
+
 export const addTaskComment = createAsyncThunk(
     'task/addTaskComment',
     async ({ taskId, note, files }, { rejectWithValue }) => {
         try {
             let body;
-            let config = {}; // هدرها بر اساس وجود یا عدم وجود فایل تنظیم می‌شوند
-
+            let config = {}; 
             const hasFiles = files && files.length > 0;
 
             if (hasFiles) {
                 body = new FormData();
                 if (note) body.append('note', note);
                 files.forEach(f => body.append('files', f));
-                
-                // تنظیم هدر مالتی‌پارت برای ارسال صحیح فایل‌ها به جنگو
                 config = { headers: { 'Content-Type': 'multipart/form-data' } };
             } else {
                 body = { note };
             }
 
-            const { data } = await axiosInstance.post(
-                `/tasks/${taskId}/comment/`,
-                body,
-                config // پاس دادن هدرها و تنظیمات به ریکوئست
-            );
-            return data; // { log, files }
+            const { data } = await axiosInstance.post(`/tasks/${taskId}/comment/`, body, config);
+            return data;
         } catch (err) {
-            return rejectWithValue(
-                err.response?.data?.detail || 'خطا در ثبت یادداشت'
-            );
+            return rejectWithValue(err.response?.data?.detail || 'خطا در ثبت یادداشت');
         }
     }
 );
-// دریافت لیست انواع ماموریت (Task Types)
+
 export const fetchTaskTypes = createAsyncThunk(
     'task/fetchTaskTypes',
     async (_, { rejectWithValue }) => {
@@ -254,18 +231,19 @@ export const deleteTaskType = createAsyncThunk(
     async (typeId, { rejectWithValue }) => {
         try {
             await axiosInstance.delete(`/tasks/types/${typeId}/delete/`);
-            return typeId; // آیدی حذف شده را برمی‌گردانیم
+            return typeId; 
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || err.message);
         }
     }
 );
+
 export const returnTaskStep = createAsyncThunk(
     'task/returnTaskStep',
     async ({ taskId, target_user_ids, note }, { rejectWithValue }) => {
         try {
             const { data } = await axiosInstance.post(`/tasks/${taskId}/return/`, {
-                target_ids: target_user_ids, // <--- این خط باید تغییر کند
+                target_ids: target_user_ids, 
                 note
             });
             return data;
@@ -274,16 +252,28 @@ export const returnTaskStep = createAsyncThunk(
         }
     }
 );
+
 export const freezeTaskTemplate = createAsyncThunk(
     'task/freezeTaskTemplate',
     async ({ templateName, templateData, isGlobal }, { rejectWithValue }) => {
         try {
-            // آدرس بر اساس urls.py شما تنظیم شده است
             const { data } = await axiosInstance.post('/tasks/freeze-templates/', {
                 template_name: templateName,
                 template_data: templateData,
                 is_global: isGlobal
             });
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
+
+export const fetchTaskTemplates = createAsyncThunk(
+    'task/fetchTaskTemplates',
+    async (_, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.get('/tasks/freeze-templates/');
             return data;
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || err.message);
@@ -304,7 +294,7 @@ const taskSlice = createSlice({
         sentTasks:           [],
         loadingSent:         false,
 
-        activeTask:          null,   // { task, steps, logs, files }
+        activeTask:          null,   
         loadingDetail:       false,
         returning: false,
         subordinates:        [],
@@ -315,6 +305,8 @@ const taskSlice = createSlice({
 
         creating:            false,
         createSuccess:       false,
+        
+        editingTask:         false, // 👈 استیت جدید ویرایش
 
         uploadingFile:       false,
 
@@ -328,6 +320,9 @@ const taskSlice = createSlice({
         updatingReminderSettings: false,
         addingComment: false,
         freezingTemplate: false,
+        templates: [],
+        loadingTemplates: false,
+
     },
     reducers: {
         clearActiveTask: (state) => {
@@ -394,6 +389,20 @@ const taskSlice = createSlice({
                 state.error         = action.payload;
             })
 
+            // ── edit task ──
+            .addCase(editTask.pending, (state) => {
+                state.editingTask = true;
+                state.error = null;
+            })
+            .addCase(editTask.fulfilled, (state, action) => {
+                state.editingTask = false;
+                // ما بعد از این در پنل onRefresh صدا می‌زنیم، پس نیازی به جایگذاری دستی اینجا نیست
+            })
+            .addCase(editTask.rejected, (state, action) => {
+                state.editingTask = false;
+                state.error = action.payload;
+            })
+
             // ── subordinates ──
             .addCase(fetchSubordinates.pending, (state) => {
                 state.loadingSubordinates = true;
@@ -440,6 +449,7 @@ const taskSlice = createSlice({
                 state.uploadingFile = false;
                 state.error         = action.payload;
             })
+            
             // ── forward ──
             .addCase(forwardStep.pending, (state) => {
                 state.forwarding = true;
@@ -452,22 +462,19 @@ const taskSlice = createSlice({
                 state.forwarding = false;
                 state.error      = action.payload;
             })
+
+            // ── sms logs ──
             .addCase(refreshSmsStatus.pending, (state) => {
                 state.refreshingSms = true;
             })
             .addCase(refreshSmsStatus.fulfilled, (state, action) => {
                 state.refreshingSms = false;
-                
-                // بک‌اند یک آبجکت تکی پیامک را برگردانده است
                 const updatedSms = action.payload; 
-                
                 if (state.activeTask) {
-                    // ۱. جستجو و آپدیت در پیامک‌های ارجاع/ایجاد
                     if (state.activeTask.assign_sms_logs) {
                         const idx = state.activeTask.assign_sms_logs.findIndex(sms => sms.id === updatedSms.id);
                         if (idx !== -1) state.activeTask.assign_sms_logs[idx] = updatedSms;
                     }
-                    // ۲. جستجو و آپدیت در پیامک‌های یادآوری
                     if (state.activeTask.reminder_sms_logs) {
                         const idx = state.activeTask.reminder_sms_logs.findIndex(sms => sms.id === updatedSms.id);
                         if (idx !== -1) state.activeTask.reminder_sms_logs[idx] = updatedSms;
@@ -476,8 +483,8 @@ const taskSlice = createSlice({
             })
             .addCase(refreshSmsStatus.rejected, (state, action) => {
                 state.refreshingSms = false;
-                // در صورت نیاز نمایش ارور
             })
+
             // ── Reminder Settings ──
             .addCase(fetchReminderSettings.pending, (state) => {
                 state.loadingReminderSettings = true;
@@ -491,20 +498,18 @@ const taskSlice = createSlice({
                 state.loadingReminderSettings = false;
                 state.error = action.payload;
             })
-            
             .addCase(updateReminderSettings.pending, (state) => {
                 state.updatingReminderSettings = true;
                 state.error = null;
             })
             .addCase(updateReminderSettings.fulfilled, (state) => {
                 state.updatingReminderSettings = false;
-                // ویوی بک‌اند شما بعد از آپدیت، یک آبجکت message برمی‌گرداند.
-                // آپدیت شدن لیست معمولاً با فراخوانی مجدد fetchReminderSettings در خود کامپوننت انجام می‌شود.
             })
             .addCase(updateReminderSettings.rejected, (state, action) => {
                 state.updatingReminderSettings = false;
                 state.error = action.payload;
             })
+
             //── comment──
             .addCase(addTaskComment.pending, (state) => {
                 state.addingComment = true;
@@ -513,27 +518,22 @@ const taskSlice = createSlice({
             .addCase(addTaskComment.fulfilled, (state, action) => {
                 state.addingComment = false;
                 if (state.activeTask) {
-                    // ادغام فایل‌های جدید برگشتی از بک‌اند با آبجکت لاگِ سیستم
                     const newLogWithFiles = {
                         ...action.payload.log,
                         files: action.payload.files || []
                     };
-
-                    // اضافه کردن لاگ جدیدِ حاوی فایل به آرایه تاریخچه‌ها
                     state.activeTask.logs = [
                         ...(state.activeTask.logs || []),
                         newLogWithFiles,
                     ];
-
-                    // توجه: فایل‌ها رو به state.activeTask.files اضافه نمی‌کنیم، 
-                    // چون این فایل‌ها متعلق به کامنت هستند و باید اختصاصی زیر خودِ یادداشت نمایش داده بشن.
                 }
             })
             .addCase(addTaskComment.rejected, (state, action) => {
                 state.addingComment = false;
                 state.error = action.payload;
             })
-                        // ── task types ──
+
+            // ── task types ──
             .addCase(fetchTaskTypes.pending, (state) => {
                 state.loadingTypes = true;
                 state.error = null;
@@ -546,15 +546,14 @@ const taskSlice = createSlice({
                 state.loadingTypes = false;
                 state.error = action.payload;
             })
-            // اضافه کردن Type
             .addCase(createTaskType.fulfilled, (state, action) => {
-                state.taskTypes.push(action.payload); // اضافه شدن به لیست دراپ‌داون بلافاصله
+                state.taskTypes.push(action.payload); 
             })
-            // حذف Type
             .addCase(deleteTaskType.fulfilled, (state, action) => {
                 state.taskTypes = state.taskTypes.filter(t => t.id !== action.payload);
             })
-                        // ── return ──
+
+            // ── return ──
             .addCase(returnTaskStep.pending, (state) => {
                 state.returning = true;
                 state.error     = null;
@@ -566,7 +565,8 @@ const taskSlice = createSlice({
                 state.returning = false;
                 state.error     = action.payload;
             })
-            // داخل builder در extraReducers اضافه کنید:
+
+            // ── templates ──
             .addCase(freezeTaskTemplate.pending, (state) => {
                 state.freezingTemplate = true;
                 state.error = null;
@@ -577,10 +577,19 @@ const taskSlice = createSlice({
             .addCase(freezeTaskTemplate.rejected, (state, action) => {
                 state.freezingTemplate = false;
                 state.error = action.payload;
+            })
+            .addCase(fetchTaskTemplates.pending, (state) => {
+                state.loadingTemplates = true;
+                state.error = null;
+            })
+            .addCase(fetchTaskTemplates.fulfilled, (state, action) => {
+                state.loadingTemplates = false;
+                state.templates = action.payload;
+            })
+            .addCase(fetchTaskTemplates.rejected, (state, action) => {
+                state.loadingTemplates = false;
+                state.error = action.payload;
             });
-
-
-
     },
 });
 
@@ -590,6 +599,5 @@ export const {
     clearTaskError,
     handleTaskInboxEvent,
 } = taskSlice.actions;
-
 
 export default taskSlice.reducer;

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
 import axios from 'axios';
-import { fetchSubordinates, createTask, clearCreateSuccess, clearTaskError ,fetchTaskTypes ,createTaskType ,deleteTaskType} from '../../features/task/taskSlice';
+import { fetchSubordinates, createTask, clearCreateSuccess, clearTaskError, fetchTaskTypes, createTaskType, deleteTaskType } from '../../features/task/taskSlice';
 import AssigneePickerPanel, { AssigneeChip } from './AssigneePickerPanel';
 import JalaliDatePicker from '../common/JalaliDatePicker';
 import { FaTimes, FaSpinner, FaArrowLeft, FaPlus, FaCheckCircle, FaTrash, FaSitemap, FaPaperclip, FaClock, FaAlignRight } from 'react-icons/fa';
@@ -224,10 +224,9 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
  
   return (
     <div className="fixed inset-0 flex items-center justify-center p-2 md:p-4 z-[9999]" dir="rtl">
-      {/* رویداد onClick از پس‌زمینه حذف شد تا با لمس تصادفی بسته نشود */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       
-      <div className={`relative flex flex-col md:flex-row w-full max-w-[95vw] lg:max-w-[1200px] h-[95dvh] rounded-2xl overflow-hidden shadow-2xl border ${isDark ? 'bg-slate-950 border-blue-700' : 'bg-gray-50 border-gray-200'}`}>
+      <div className={`relative flex flex-col md:flex-row w-full max-w-[95vw] lg:max-w-[1200px] h-[95dvh] rounded-ml overflow-hidden shadow-2xl border-[3px] ${isDark ? 'bg-slate-950 border-slate-700' : 'bg-gray-50 border-blue-500'}`}>
           
           <div className="flex flex-col flex-1 overflow-hidden">
              <div className={`flex items-center justify-between px-4 md:px-6 py-4 border-b shrink-0 z-20 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
@@ -238,22 +237,25 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                 <button onClick={onClose} disabled={creating} className={`p-2 rounded-full transition border ${isDark ? 'text-gray-400 hover:text-white border-slate-700 hover:bg-slate-800' : 'text-gray-500 hover:bg-gray-100 border-gray-200'}`}><FaTimes size={14} /></button>
             </div>
              
-             <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden p-4 md:p-6 space-y-6">
+             {/* کادر زیر ویرایش شد: اسکرول‌بار اضافه شده و استایل‌دهی شد */}
+            <div dir="ltr" className={`flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full ${isDark ? '[&::-webkit-scrollbar-thumb]:bg-slate-700 hover:[&::-webkit-scrollbar-thumb]:bg-slate-600' : '[&::-webkit-scrollbar-thumb]:bg-gray-300 hover:[&::-webkit-scrollbar-thumb]:bg-gray-400'}`}>
+               <div dir="rtl" className="p-4 md:p-6 space-y-6 min-h-full">
+
                 {createSuccess && (
-                <div className="bg-green-500/10 border border-green-500/30 text-green-500 text-sm rounded-xl px-4 py-3 flex items-center gap-2 animate-fadeIn">
+                <div className="bg-green-500/10 border border-green-500/30 text-green-500 text-sm rounded-sm px-4 py-3 flex items-center gap-2 animate-fadeIn">
                     <FaCheckCircle size={16} /> ماموریت با موفقیت ایجاد شد!
                 </div>
                 )}
                 
-                <div className={`p-4 md:p-5 rounded-2xl border space-y-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                <div className={`p-4 md:p-5 rounded-ml border space-y-4 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                         <div className="lg:col-span-2">
-                            <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>عنوان ماموریت <span className="text-red-400">*</span></label>
-                            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: پردازش فاکتورها" className={`w-full rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`} />
+                            <label className={`block text-sm mb-2 font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>عنوان ماموریت <span className="text-red-400">*</span></label>
+                            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="مثال: پردازش فاکتورها" className={`w-full rounded-sm px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`} />
                             {validationErrors.title && <p className="text-[10px] text-red-400 mt-1">{validationErrors.title}</p>}
                         </div>
                         <div className="lg:col-span-2">
-                            <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                            <label className={`block text-sm mb-2 font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
                                 دسته‌بندی <span className="text-red-400">*</span>
                             </label>
                             
@@ -263,7 +265,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                         <select 
                                             value={taskType} 
                                             onChange={e => setTaskType(e.target.value)} 
-                                            className={`flex-1 rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
+                                            className={`flex-1 rounded-sm px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
                                         >
                                             <option value="">انتخاب کنید...</option>
                                             {taskTypeOptions.map(t => (
@@ -273,7 +275,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                         <button 
                                             type="button" 
                                             onClick={() => setIsAddingType(true)}
-                                            className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 border-slate-700 text-blue-400 hover:bg-slate-700' : 'bg-white border-gray-300 text-blue-600 hover:bg-blue-50'}`}
+                                            className={`p-2.5 rounded-sm border flex items-center justify-center transition-colors ${isDark ? 'bg-slate-800 border-slate-700 text-blue-400 hover:bg-slate-700' : 'bg-white border-gray-300 text-blue-600 hover:bg-blue-50'}`}
                                             title="افزودن دسته‌بندی جدید"
                                         >
                                             <FaPlus size={14} />
@@ -286,7 +288,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                             value={newTypeLabel} 
                                             onChange={e => setNewTypeLabel(e.target.value)} 
                                             placeholder="عنوان دسته‌بندی جدید..." 
-                                            className={`flex-1 rounded-xl px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
+                                            className={`flex-1 rounded-sm px-4 py-2 text-sm border focus:outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
                                             autoFocus
                                         />
                                         <button 
@@ -302,14 +304,14 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                                     setNewTypeLabel('');
                                                 }
                                             }}
-                                            className="p-2.5 rounded-xl bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500/20 transition-colors"
+                                            className="p-2.5 rounded-sm bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500/20 transition-colors"
                                         >
                                             <FaCheckCircle size={16} />
                                         </button>
                                         <button 
                                             type="button"
                                             onClick={() => { setIsAddingType(false); setNewTypeLabel(''); }}
-                                            className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
+                                            className="p-2.5 rounded-sm bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 transition-colors"
                                         >
                                             <FaTimes size={16} />
                                         </button>
@@ -320,11 +322,23 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                         </div>
 
                         <div>
-                            <label className={`block text-xs mb-2 font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>فوریت</label>
-                            <select value={urgency} onChange={e => setUrgency(e.target.value)} className={`w-full rounded-xl px-4 py-2 text-sm border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}>
+                            <label className={`block text-sm mb-2 font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>فوریت</label>
+                            <select value={urgency} onChange={e => setUrgency(e.target.value)} className={`w-full rounded-sm px-4 py-2 text-sm border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}>
                                 {URGENCY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         </div>
+                    </div>
+                    <div className="lg:col-span-4 mt-2">
+                        <label className={`block text-sm mb-2 font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                            توضیحات کلی ماموریت
+                        </label>
+                        <textarea 
+                            value={note} 
+                            onChange={e => setNote(e.target.value)} 
+                            placeholder="توضیحات و جزئیات کلی ماموریت را اینجا بنویسید..." 
+                            rows={3}
+                            className={`w-full rounded-sm px-4 py-3 text-sm border focus:outline-none focus:border-blue-500 resize-none ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 border-gray-300'}`}
+                        />
                     </div>
                 </div>
 
@@ -332,26 +346,26 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                   <h3 className={`font-bold text-sm mb-4 flex items-center gap-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                       <FaSitemap /> خط مونتاژ گردش کار
                   </h3>
-                  <div className={`w-full overflow-x-auto pb-4 pt-2 px-4 flex items-start gap-3 min-h-[420px] ${isDark ? 'bg-slate-900/50 rounded-2xl border border-slate-800' : 'bg-gray-100/50 rounded-2xl border border-gray-200'}`}>
+                  <div className={`w-full overflow-x-auto pb-4 pt-2 px-4 flex items-start gap-3 min-h-[420px] ${isDark ? 'bg-slate-900/50 rounded-ml border border-slate-800' : 'bg-gray-100/50 rounded-ml border border-gray-200'}`}>
                       {stages.map((stage, index) => (
                           <React.Fragment key={stage.id}>
                               <div
                                 onClick={() => setActiveElement({ id: stage.id, type: 'STAGE' })}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, stage.id, 'STAGE')}
-                                className={`shrink-0 w-[280px] rounded-2xl border-2 flex flex-col transition-all cursor-pointer shadow-lg
+                                className={`shrink-0 w-[280px] rounded-ml border-2 flex flex-col transition-all cursor-pointer shadow-lg
                                 ${activeElement.id === stage.id && activeElement.type === 'STAGE'
                                     ? 'border-blue-500 shadow-blue-500/20 ' + (isDark ? 'bg-slate-800' : 'bg-white') 
                                     : 'border-dashed border-slate-600 hover:border-blue-400 ' + (isDark ? 'bg-slate-800/60' : 'bg-white')}`}
                               >
                                   <div className="p-3 border-b border-slate-700/50 flex justify-between items-center bg-black/5 rounded-t-xl">
-                                      <span className="text-xs font-bold text-gray-400">مرحله {index + 1}</span>
+                                      <span className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>مرحله {index + 1}</span>
                                       {stages.length > 1 && (
                                           <button onClick={(e) => { e.stopPropagation(); handleRemoveStage(stage.id); }} className="text-red-400 hover:text-red-500 p-1"><FaTrash size={12} /></button>
                                       )}
                                   </div>
                                   
-                                  <div className="p-4 flex flex-col gap-3 max-h-[360px] overflow-y-auto">
+                                  <div className={`p-4 flex flex-col gap-3 max-h-[360px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full ${isDark ? '[&::-webkit-scrollbar-thumb]:bg-slate-600' : '[&::-webkit-scrollbar-thumb]:bg-gray-300'}`}>
                                       <input 
                                         type="text" 
                                         value={stage.stageName} 
@@ -359,21 +373,21 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                         placeholder="نام مرحله..." 
                                         className={`w-full text-sm font-bold pb-2 border-b outline-none bg-transparent transition-colors ${activeElement.id === stage.id && activeElement.type === 'STAGE' ? 'border-blue-500' : 'border-slate-600 focus:border-blue-400'} ${isDark ? 'text-white' : 'text-gray-900'}`} 
                                     />
-                                    <div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                                        <FaAlignRight className="text-gray-400 text-[10px]" />
+                                    <div className={`flex items-center gap-2 px-2 py-1.5 rounded-sm border ${isDark ? 'bg-slate-900/50 border-slate-700 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-800'}`}>
+                                        <FaAlignRight className="text-[12px]" />
                                         <input 
                                             type="text" 
                                             value={stage.description} 
                                             onChange={e => updateStageField(stage.id, 'description', e.target.value)} 
                                             placeholder="شرح وظیفه این مرحله..." 
-                                            className="w-full text-[11px] outline-none bg-transparent"
+                                            className="w-full text-xs font-medium outline-none bg-transparent"
                                         />
                                     </div>
                                     
-                                    <div className={`flex flex-col gap-1.5 p-2 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className={`flex flex-col gap-1.5 p-2 rounded-sm border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                       <div className="flex items-center gap-1.5">
-                                        <FaClock className="text-gray-400 text-xs" />
-                                        <span className="text-xs font-medium text-gray-300">مهلت انجام</span>
+                                        <FaClock className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`} />
+                                        <span className={`text-xs font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>مهلت انجام</span>
                                       </div>
                                       <div className="flex gap-2">
                                         <div className="flex-1">
@@ -400,23 +414,23 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <label className={`flex-1 flex items-center justify-center px-1 py-1.5 rounded-lg border cursor-pointer select-none transition-colors ${stage.requireFile ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : (isDark ? 'bg-slate-900/50 border-slate-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500')}`}>
+                                        <label className={`flex-1 flex items-center justify-center px-1 py-1.5 rounded-sm border cursor-pointer select-none transition-colors ${stage.requireFile ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : (isDark ? 'bg-slate-900/50 border-slate-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500')}`}>
                                             <input type="checkbox" checked={stage.requireFile} onChange={e => updateStageField(stage.id, 'requireFile', e.target.checked)} className="hidden" />
                                             <FaPaperclip size={10} className="mr-1" />
-                                            <span className="text-[10px] font-medium text-center">الزام فایل</span>
+                                            <span className="text-xs font-bold text-center">الزام فایل</span>
                                         </label>
                                         <select 
                                             value={stage.approvalRule} 
                                             onChange={e => updateStageField(stage.id, 'approvalRule', e.target.value)} 
-                                            className={`flex-1 text-xs p-1.5 rounded-lg border outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-700'}`}
+                                            className={`flex-1 text-xs p-1.5 rounded-sm border outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-700'}`}
                                         >
                                             {APPROVAL_RULES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                                         </select>
                                     </div>
                                     <div className="mt-1 flex-1 flex flex-col gap-2">
-                                        <span className={`text-[10px] font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>مسئولین مرحله:</span>
+                                        <span className={`text-xs font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>مسئولین مرحله:</span>
                                         {stage.assignees.length === 0 ? (
-                                            <div className="flex-1 min-h-[60px] flex flex-col items-center justify-center text-center text-xs text-gray-500 border-2 border-dashed border-gray-500/30 rounded-xl p-3">
+                                            <div className="flex-1 min-h-[60px] flex flex-col items-center justify-center text-center text-xs text-gray-500 border-2 border-dashed border-gray-500/30 rounded-sm p-3">
                                                 <span>کارمندی اضافه نشده</span>
                                             </div>
                                         ) : (
@@ -436,20 +450,20 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                         onClick={() => setActiveElement({ id: stage.id, type: 'LINK' })}
                                         onDragOver={(e) => e.preventDefault()}
                                         onDrop={(e) => handleDrop(e, stage.id, 'LINK')}
-                                        className={`w-44 min-h-[150px] rounded-xl border-2 flex flex-col items-center p-2 cursor-pointer transition-all ${
+                                        className={`w-44 min-h-[150px] rounded-sm border-2 flex flex-col items-center p-2 cursor-pointer transition-all ${
                                             activeElement.id === stage.id && activeElement.type === 'LINK'
                                             ? 'border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20'
                                             : 'border-dashed border-orange-500/50 hover:border-orange-400 bg-orange-500/5'
                                         }`}
                                     >
-                                        <span className="text-[10px] font-bold text-orange-500 mb-1 text-center leading-tight">تاییدیه<br/>(اختیاری)</span>
+                                        <span className={`text-xs font-bold mb-1 text-center leading-tight ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>تاییدیه<br/>(اختیاری)</span>
                                         
                                         <div className="w-full mb-2">
                                             <select 
                                                 value={stage.approverRule} 
                                                 onChange={(e) => updateStageField(stage.id, 'approverRule', e.target.value)}
                                                 onClick={(e) => e.stopPropagation()} 
-                                                className={`w-full text-[9px] p-1 rounded border outline-none ${isDark ? 'bg-slate-900 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}
+                                                className={`w-full text-xs p-1 rounded border outline-none ${isDark ? 'bg-slate-900 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}
                                             >
                                                 {APPROVER_RULES.map(rule => (
                                                     <option key={rule.value} value={rule.value}>{rule.label}</option>
@@ -461,7 +475,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                                             {stage.nextStageApprovers.length === 0 ? (
                                                 <div className="text-orange-500/40 flex flex-col items-center">
                                                     <FaArrowLeft size={24} className="mb-1" />
-                                                    <span className="text-[9px]">بدون تایید (مستقیم)</span>
+                                                    <span className="text-xs font-medium">بدون تایید (مستقیم)</span>
                                                 </div>
                                             ) : (
                                                 <div className="w-full flex flex-col gap-1.5 items-center">
@@ -479,7 +493,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                           </React.Fragment>
                       ))}
                       <div className="shrink-0 flex items-center pl-2 self-stretch">
-                        <button onClick={handleAddStage} className={`w-[80px] h-full min-h-[300px] rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors ${isDark ? 'border-slate-700 hover:border-blue-500 hover:text-blue-400 text-slate-500 bg-slate-800/30' : 'border-gray-300 hover:border-blue-500 text-gray-400 bg-white'}`}>
+                        <button onClick={handleAddStage} className={`w-[80px] h-full min-h-[300px] rounded-ml border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-colors ${isDark ? 'border-slate-700 hover:border-blue-500 hover:text-blue-400 text-slate-500 bg-slate-800/30' : 'border-gray-300 hover:border-blue-500 text-gray-400 bg-white'}`}>
                             <FaPlus size={24} />
                             <span className="text-xs font-bold leading-tight text-center">افزودن<br/>مرحله</span>
                         </button>
@@ -488,19 +502,20 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                 </div>
                 
                 <div className="grid grid-cols-1 gap-4">
-                    <div className={`p-4 rounded-xl border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-                        <div onClick={() => setSendSms(!sendSms)} className={`flex items-center justify-between cursor-pointer p-2 rounded-lg transition ${sendSms ? 'bg-green-500/10' : ''}`}>
-                            <span className={`text-sm ${sendSms ? 'text-green-500 font-bold' : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>ارسال پیامک اطلاع‌رسانی</span>
+                    <div className={`p-4 rounded-sm border flex flex-col justify-center ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
+                        <div onClick={() => setSendSms(!sendSms)} className={`flex items-center justify-between cursor-pointer p-2 rounded-sm transition ${sendSms ? 'bg-green-500/10' : ''}`}>
+                            <span className={`text-sm font-bold ${sendSms ? 'text-green-500' : (isDark ? 'text-gray-200' : 'text-gray-800')}`}>ارسال پیامک اطلاع‌رسانی</span>
                             <div className={`w-10 h-5 rounded-full relative transition-colors ${sendSms ? 'bg-green-500' : (isDark ? 'bg-slate-600' : 'bg-gray-300')}`}>
                                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${sendSms ? 'left-0.5' : 'right-0.5'}`} />
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>
              </div>
              <div className={`px-4 md:px-6 py-4 border-t flex gap-3 shrink-0 z-10 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'}`}>
-                <button type="button" onClick={onClose} className={`w-24 md:w-32 rounded-xl py-3 text-sm font-medium border transition-colors ${isDark ? 'bg-slate-800 text-gray-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>انصراف</button>
-                <button onClick={handleSubmit} disabled={creating} className="flex-1 rounded-xl py-3 text-sm font-bold transition-all bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
+                <button type="button" onClick={onClose} className={`w-24 md:w-32 rounded-sm py-3 text-sm font-medium border transition-colors ${isDark ? 'bg-slate-800 text-gray-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>انصراف</button>
+                <button onClick={handleSubmit} disabled={creating} className="flex-1 rounded-sm py-3 text-sm font-bold transition-all bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
                     {creating ? <><FaSpinner className="animate-spin" /> در حال ایجاد...</> : 'ثبت گردش کار'}
                 </button>
              </div>

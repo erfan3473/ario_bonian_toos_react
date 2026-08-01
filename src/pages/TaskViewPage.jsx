@@ -103,7 +103,7 @@ const TaskViewPage = () => {
       </div>
 
       <div className="container mx-auto px-4 pb-6 max-w-6xl">
-        <div className={`rounded-2xl overflow-hidden ${
+        <div className={`rounded-sm overflow-hidden ${
           isDark ? 'bg-gray-800 border border-gray-700 shadow-2xl' : 'bg-white border border-gray-200 shadow-md'
         }`}>
           <TaskDetailPanel

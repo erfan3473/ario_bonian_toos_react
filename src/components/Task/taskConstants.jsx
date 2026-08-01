@@ -4,19 +4,16 @@ import {
     FaUser, FaFileImage, FaFileAudio, FaFileVideo, FaFile 
 } from 'react-icons/fa';
 
-export const TASK_TYPE_LABELS = {
-    PAYROLL_FORM: 'تکمیل فرم حقوق',
-    PURCHASE: 'خرید/تدارکات',
-    REPORT: 'گزارش‌دهی',
-};
+
 
 export const STATUS_COLORS = {
-    PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30',
-    IN_PROGRESS: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
-    DONE: 'bg-green-500/10 text-green-500 border-green-500/30',
-    REJECTED: 'bg-red-500/10 text-red-500 border-red-500/30',
-    CANCELLED: 'bg-gray-500/10 text-gray-500 border-gray-500/30',
+    PENDING:     'bg-yellow-500/20 text-yellow-600 border-yellow-500/50',
+    IN_PROGRESS: 'bg-blue-500/20  text-blue-400  border-blue-500/50',
+    DONE:        'bg-green-500/20  text-green-400  border-green-500/50',
+    REJECTED:    'bg-red-500/20    text-red-400    border-red-500/50',
+    CANCELLED:   'bg-zinc-500/20   text-zinc-400   border-zinc-500/40',
 };
+
 
 export const STATUS_LABELS = {
     PENDING: 'در انتظار',
@@ -27,12 +24,13 @@ export const STATUS_LABELS = {
 };
 
 export const STEP_STATE_CONFIG = {
-    PENDING: { label: 'در انتظار', color: 'text-yellow-500', icon: <FaClock /> },
-    APPROVED: { label: 'تایید شد', color: 'text-green-500', icon: <FaCheckCircle /> },
-    REJECTED_FORWARDED: { label: 'رد و ارجاع', color: 'text-orange-500', icon: <FaArrowLeft /> },
-    REJECTED: { label: 'رد شد', color: 'text-red-500', icon: <FaTimesCircle /> },
-    FORWARDED: { label: 'ارجاع شد', color: 'text-blue-500', icon: <FaArrowLeft /> },
-    COMPLETED: { label: 'خاتمه', color: 'text-gray-500', icon: <FaCheckCircle /> },
+    PENDING:            { label: 'در انتظار',   color: 'text-yellow-400', icon: <FaClock /> },
+    APPROVED:           { label: 'تایید شد',    color: 'text-green-400',  icon: <FaCheckCircle /> },
+    REJECTED_FORWARDED: { label: 'رد و ارجاع',  color: 'text-orange-400', icon: <FaArrowLeft /> },
+    REJECTED:           { label: 'رد شد',       color: 'text-red-400',    icon: <FaTimesCircle /> },
+    FORWARDED:          { label: 'ارجاع شد',    color: 'text-blue-400',   icon: <FaArrowLeft /> },
+    COMPLETED:          { label: 'خاتمه',       color: 'text-zinc-400',   icon: <FaCheckCircle /> },
+    SKIPPED:          { label: 'عبور مرحله',       color: 'text-zinc-400',   icon: <FaCheckCircle /> },
 };
 
 export const URGENCY_LABELS = {
@@ -43,10 +41,10 @@ export const URGENCY_LABELS = {
 };
 
 export const URGENCY_COLORS = {
-  LOW: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
-  MEDIUM: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
-  HIGH: 'bg-orange-500/10 text-orange-500 border-orange-500/30',
-  CRITICAL: 'bg-red-500/10 text-red-500 border-red-500/30',
+    LOW:      'bg-zinc-500/15  text-zinc-300    border-zinc-500/40',
+    MEDIUM:   'bg-blue-500/20  text-blue-400    border-blue-500/50',
+    HIGH:     'bg-orange-400/25 text-orange-500 border-orange-500/55',
+    CRITICAL: 'bg-red-500/25   text-red-400     border-red-500/55',
 };
 
 export const ACTION_LABELS = {
@@ -56,6 +54,10 @@ export const ACTION_LABELS = {
     REJECT: 'رد کرد',
     COMPLETE: 'خاتمه داد',
     COMMENT: 'یادداشت گذاشت',
+    RETURNED: 'برگشت مامور اجرا',
+    INTERMEDIATE_APPROVE: 'تایید ناظر صورت گرفت',
+    INTERMEDIATE_REJECT: 'تایید ناظر صورت گرفت',
+    EDIT: 'ویرایش ماموریت انجام شده است',
 };
 
 export const FILE_ICONS = {
