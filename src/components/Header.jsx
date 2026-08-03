@@ -220,7 +220,7 @@ const Header = () => {
         }
       >
         <FaSyncAlt className="text-teal-300" />
-        <span>برنامه ریز</span>
+        <span>کارتابل اداری</span>
       </Link>
 
       {isAdmin && (

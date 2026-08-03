@@ -2,9 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* تعریف فونت‌های لوکال (استاتیک) */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('./assets/fonts/vazirmatn-v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: normal; /* 400 */
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('./assets/fonts/vazirmatn-v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: bold; /* 700 */
+  font-style: normal;
+  font-display: swap;
+}
+
+/* اعمال روی کل بادی */
+@layer base {
+  body {
+    font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
+  }
+}
+
 /* فارسی‌سازی تقویم */
 .Calendar {
-  font-family: 'Vazir', 'Tahoma', sans-serif !important;
+  font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
   direction: rtl !important;
 }
 
@@ -13,7 +37,7 @@
   font-family: inherit;
 }
 
-/* رنگ‌بندی سفارشی */
+/* رنگ‌بندی سفارشی تقویم */
 .Calendar__day.-selected {
   background-color: #3b82f6 !important;
   color: white !important;
@@ -36,16 +60,10 @@
 /* استایل input */
 .DatePicker input {
   text-align: center;
-  font-family: 'Vazir', 'Tahoma', sans-serif;
+  font-family: 'Vazirmatn', 'Tahoma', sans-serif;
 }
 
-
-
-@layer base {
-  body {
-    font-family: 'Vazir', 'Tahoma', sans-serif !important;
-  }
-}
+/* مخفی کردن اسکرول‌بار */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }

@@ -38,7 +38,6 @@ const initialFormData = {
     schedule_day_of_month: 1,
     schedule_date: '', 
     reminder_time: '09:00',
-    deadline_hours: 24,
     difficulty: 'MEDIUM',
     trigger_mode: 'HYBRID', 
     target_user: '',
@@ -168,7 +167,6 @@ const RoutineTemplatesPage = () => {
             schedule_day_of_month: tpl.schedule_day_of_month || 1,
             schedule_date: tpl.schedule_value ? `1403-${tpl.schedule_value.replace('-', '/')}` : '',
             reminder_time: tpl.reminder_time ? tpl.reminder_time.substring(0, 5) : '09:00',
-            deadline_hours: tpl.deadline_hours || 24,
             difficulty: tpl.difficulty || 'MEDIUM',
             trigger_mode: tpl.trigger_mode || 'HYBRID',
             target_user: tpl.target_user ? tpl.target_user.toString() : '',
@@ -402,14 +400,10 @@ const RoutineTemplatesPage = () => {
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-3 gap-2 pt-2 border-t dark:border-gray-700 border-gray-200">
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t dark:border-gray-700 border-gray-200">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-semibold text-gray-500">یادآوری</label>
                                         <input type="time" disabled={formData.trigger_mode === 'CHECKOUT_BASED'} value={formData.reminder_time} onChange={(e) => setFormData({...formData, reminder_time: e.target.value})} className={`w-full p-1.5 text-xs rounded border dir-ltr ${formData.trigger_mode === 'CHECKOUT_BASED' ? 'opacity-50' : ''} ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-semibold text-gray-500">مهلت (h)</label>
-                                        <input type="number" min="1" value={formData.deadline_hours} onChange={(e) => setFormData({...formData, deadline_hours: e.target.value})} className={`w-full p-1.5 text-xs rounded border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} />
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-semibold text-gray-500">نوع تریگر</label>
