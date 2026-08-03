@@ -131,13 +131,12 @@ const RoutineListPage = () => {
     }, [weekDays]);
 
     const themes = useMemo(() => [
-        { border: 'border-amber-400', bg: 'bg-amber-50 dark:bg-amber-900', line: 'border-amber-400/80', dot: 'bg-amber-500', text: 'text-amber-900 dark:text-amber-100' },
-        { border: 'border-blue-400', bg: 'bg-blue-50 dark:bg-blue-900', line: 'border-blue-400/80', dot: 'bg-blue-500', text: 'text-blue-900 dark:text-blue-100' },
-        { border: 'border-purple-400', bg: 'bg-purple-50 dark:bg-purple-900', line: 'border-purple-400/80', dot: 'bg-purple-500', text: 'text-purple-900 dark:text-purple-100' },
-        { border: 'border-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-900', line: 'border-emerald-400/80', dot: 'bg-emerald-500', text: 'text-emerald-900 dark:text-emerald-100' },
-        { border: 'border-rose-400', bg: 'bg-rose-50 dark:bg-rose-900', line: 'border-rose-400/80', dot: 'bg-rose-500', text: 'text-rose-900 dark:text-rose-100' }
-    ], []);
-
+        { border: 'border-amber-500', bg: isDark ? 'bg-[#242942]' : 'bg-amber-50', line: 'border-amber-500/80', dot: 'bg-amber-500', text: isDark ? 'text-amber-100' : 'text-amber-900' },
+        { border: 'border-blue-500', bg: isDark ? 'bg-[#2d2945]' : 'bg-blue-50', line: 'border-blue-500/80', dot: 'bg-blue-500', text: isDark ? 'text-blue-100' : 'text-blue-900' },
+        { border: 'border-purple-500', bg: isDark ? 'bg-[#21132b]' : 'bg-purple-50', line: 'border-purple-500/80', dot: 'bg-purple-500', text: isDark ? 'text-purple-100' : 'text-purple-900' },
+        { border: 'border-emerald-500', bg: isDark ? 'bg-[#1a2b2b]' : 'bg-emerald-50', line: 'border-emerald-500/80', dot: 'bg-emerald-500', text: isDark ? 'text-emerald-100' : 'text-emerald-900' },
+        { border: 'border-rose-500', bg: isDark ? 'bg-[#2b161c]' : 'bg-rose-50', line: 'border-rose-500/80', dot: 'bg-rose-500', text: isDark ? 'text-rose-100' : 'text-rose-900' }
+    ], [isDark]);
     useEffect(() => { 
         dispatch(fetchUserTimeBlocks()); 
         dispatch(fetchDifficultySettings());
@@ -360,7 +359,9 @@ const RoutineListPage = () => {
                                     {parentRoutine.template_details?.reminder_time && (
                                         <div className={`font-bold flex items-center gap-1 bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded-sm shrink-0 border border-amber-200 dark:border-amber-800 transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'}`}>
                                             <FaClock size={isZoomed ? 11 : 10} />
-                                            <span className="font-mono mt-0.5">{parentRoutine.template_details.reminder_time.substring(0, 5)}</span>
+                                            <span className="mt-0.5 flex items-center gap-1"><span> یاداوری</span>
+                                                <span className="font-mono">{parentRoutine.template_details.reminder_time.substring(0, 5)}</span>
+                                            </span>
                                         </div>
                                     )}
                                 </div>
@@ -378,7 +379,7 @@ const RoutineListPage = () => {
                                             <FaRegCircle className={`${isZoomed ? 'text-[16px]' : 'text-[14px]'} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
                                         )}
                                     </button>
-                                    <span className={`leading-tight font-bold transition-all ${isZoomed ? 'text-[15px] md:text-[16px]' : 'text-[13px] md:text-[14px]'} ${item.is_done ? 'text-gray-500 line-through' : (isDark ? 'text-white' : 'text-gray-900')}`}>
+                                    <span className={`leading-tight font-bold tracking-tight transition-all ${isZoomed ? 'text-[15px] md:text-[16px]' : 'text-[13px] md:text-[14px]'} ${item.is_done ? 'text-gray-500 line-through' : (isDark ? 'text-white' : 'text-gray-900')}`}>
                                         {item.title}
                                     </span>
                                 </div>
@@ -544,7 +545,7 @@ const RoutineListPage = () => {
                                 { 
                                     id: 'UNASSIGNED', originalId: null, rawTitle: 'منتظر برنامه‌ریزی', 
                                     startTime: null, endTime: null, 
-                                    theme: { border: 'border-gray-400', bg: 'bg-gray-100 dark:bg-gray-800', line: 'border-gray-500', dot: 'bg-gray-500', text: 'text-gray-900 dark:text-gray-100' } 
+                                    theme: { border: 'border-gray-400', bg: isDark ? 'bg-gray-900' : 'bg-gray-100', line: 'border-gray-500', dot: 'bg-gray-500', text: isDark ? 'text-gray-200' : 'text-gray-900' } 
                                 },
                                 ...filteredBlocks.map((b, i) => ({
                                     id: b.id.toString(), originalId: b.id, rawTitle: b.title,
@@ -552,7 +553,6 @@ const RoutineListPage = () => {
                                     theme: themes[i % themes.length]
                                 }))
                             ];
-                            
                             const isZoomed = zoomedDay === day.apiDate;
                             const isAnyZoomed = zoomedDay !== null;
 
@@ -581,9 +581,14 @@ const RoutineListPage = () => {
                                     {/* 👇 اینجا هدر کارت‌ها هم تمام‌رنگ و بدون شفافیت شد */}
                                     <div className={`p-2 flex items-center justify-between border-b ${isDark ? 'border-gray-600' : 'border-gray-200'} transition-colors ${day.isToday ? (isDark ? 'bg-indigo-900' : 'bg-amber-100') : (isDark ? 'bg-gray-800' : 'bg-gray-50')} ${isZoomed ? 'bg-indigo-800 dark:bg-indigo-900' : ''}`}>
                                         <div className="w-8" />
-                                        <div className="text-center">
-                                            <h2 className={`font-extrabold transition-all ${isZoomed ? 'text-xl text-indigo-700 dark:text-indigo-300' : 'text-lg'} ${day.isToday && !isZoomed ? (isDark ? 'text-indigo-400' : 'text-amber-600') : (isDark ? 'text-gray-200' : 'text-gray-800')}`}>{day.dayName}</h2>
-                                            <span className={`text-sm font-bold ${day.isToday ? (isDark ? 'text-indigo-500' : 'text-amber-700') : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>{day.dayNum}</span>
+                                        <div className="flex items-center gap-2">
+                                            <h2 className={`font-extrabold transition-all ${isZoomed ? 'text-xl text-indigo-700 dark:text-indigo-300' : 'text-lg'} ${day.isToday && !isZoomed ? (isDark ? 'text-indigo-400' : 'text-amber-600') : (isDark ? 'text-gray-200' : 'text-gray-800')}`}>
+                                                {day.dayName}
+                                            </h2> 
+                                            <span className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>•</span>
+                                            <span className={`text-sm font-bold opacity-80 ${day.isToday ? (isDark ? 'text-indigo-500' : 'text-amber-700') : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>
+                                                {day.dayNum}
+                                            </span>
                                         </div>
                                         <button 
                                             onClick={() => setZoomedDay(isZoomed ? null : day.apiDate)}
@@ -664,8 +669,10 @@ const RoutineListPage = () => {
                                                     )}
 
                                                     {index === 1 && (
-                                                        <div className="absolute right-8 top-0 left-2 border-t-2 border-dashed border-gray-400 dark:border-gray-600 flex justify-center mt-0.5 pointer-events-none z-10">
-                                                            <span className={`text-[10px] font-bold bg-white dark:bg-gray-900 px-2 -mt-2 shadow-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>شروع روز</span>
+                                                        // فاصله رو از right-8 به right-[65px] تغییر دادیم تا فضای کافی برای ساعت خالی بمونه
+                                                        <div className="absolute right-[65px] top-0 left-2 border-t-2 border-dashed border-gray-400 dark:border-gray-600 flex justify-center mt-0.5 pointer-events-none z-10">
+                                                            {/* بک‌گراند متن رو هم به جای bg-gray-900 به bg-gray-800 تغییر دادم که با تم جدید یکی بشه */}
+                                                            <span className={`text-[10px] font-bold px-2 -mt-[11px] shadow-sm rounded-sm ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>شروع روز</span>
                                                         </div>
                                                     )}
 
@@ -681,7 +688,7 @@ const RoutineListPage = () => {
                                                     <Droppable droppableId={boundaryKey}>
                                                         {(provided, snapshot) => (
                                                             <div ref={provided.innerRef} {...provided.droppableProps}
-                                                                className={`mt-4 mb-2 min-h-[95px] rounded-sm border shadow-sm p-1 transition-all duration-200 ${block.theme.bg} ${snapshot.isDraggingOver ? (isDark ? 'bg-indigo-900 outline-indigo-500' : 'bg-indigo-100 outline-indigo-400') + ' outline-dashed outline-2 outline-offset-2' : (isDark ? 'border-gray-700' : 'border-gray-300')}`}
+                                                                className={`mt-4 mb-2 min-h-[95px] rounded-sm border shadow-sm p-1.5 transition-all duration-200 ${snapshot.isDraggingOver ? (isDark ? 'bg-indigo-900/80 border-indigo-500 outline-dashed outline-2 outline-offset-2 outline-indigo-500' : 'bg-indigo-100 border-indigo-400 outline-dashed outline-2 outline-offset-2 outline-indigo-400') : (`${block.theme.bg} ${isDark ? 'border-gray-700' : 'border-gray-300'}`)}`}
                                                             >
                                                                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-black/10 dark:border-white/10">
                                                                     {block.id !== 'UNASSIGNED' ? (
@@ -713,7 +720,7 @@ const RoutineListPage = () => {
                                                                 {!quickAddState.isOpen && (
                                                                     <button 
                                                                         onClick={() => setQuickAddState({ isOpen: true, date: day.apiDate, timeBlockId: block.id, title: '', reminder_time: '' })}
-                                                                        className={`w-full mt-2 py-1.5 rounded-sm border border-dashed flex items-center justify-center gap-1 text-[11px] font-bold transition-colors opacity-60 hover:opacity-100 ${isDark ? 'border-gray-500 text-gray-500 hover:bg-gray-700' : 'border-gray-400 text-gray-700 hover:bg-white hover:shadow-sm'}`}
+                                                                        className={`w-full mt-2 py-1.5 rounded-sm border border-dashed flex items-center justify-center gap-1 text-[11px] font-bold transition-colors opacity-60 hover:opacity-100${isDark ? 'border-gray-600 bg-gray-800/50 text-gray-400 hover:bg-gray-700 hover:text-white' : 'border-gray-400 bg-white/50 text-gray-700 hover:bg-white hover:shadow-sm'}`}
                                                                     >
                                                                         <FaPlus size={10} /> افزودن سریع
                                                                     </button>
@@ -721,7 +728,7 @@ const RoutineListPage = () => {
 
                                                                 {/* فرم مینیاتوری افزودن سریع */}
                                                                 {quickAddState.isOpen && quickAddState.date === day.apiDate && quickAddState.timeBlockId === block.id && (
-                                                                    <form onSubmit={handleQuickSubmit} className={`mt-2 p-2 rounded-sm shadow-md border ${isDark ? 'bg-gray-800 border-indigo-500' : 'bg-white border-indigo-400'}`}>
+                                                                    <form onSubmit={handleQuickSubmit} className={`mt-2 p-2 rounded-sm shadow-md border ${isDark ? 'bg-gray-900 border-indigo-500/50' : 'bg-white border-indigo-400'}`}>
                                                                         <input 
                                                                             autoFocus
                                                                             type="text" 
@@ -752,7 +759,7 @@ const RoutineListPage = () => {
                                                                     </form>
                                                                 )}
                                                                 {itemsInBlock.length === 0 && !snapshot.isDraggingOver && (
-                                                                    <div className={`text-center text-[11px] py-3 border border-dashed rounded-sm mt-1 font-bold ${isDark ? 'border-gray-600 text-gray-500' : 'border-gray-300 text-gray-400'}`}>
+                                                                    <div className={`text-center text-[11px] py-3 border border-dashed rounded-sm mt-1 font-bold ${isDark ? 'border-gray-600 bg-gray-800/30 text-gray-400' : 'border-gray-300 bg-gray-50 text-gray-400'}`}>
                                                                         کشیدن آیتم به اینجا
                                                                     </div>
                                                                 )}
