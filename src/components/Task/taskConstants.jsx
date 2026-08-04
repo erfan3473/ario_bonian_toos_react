@@ -58,6 +58,7 @@ export const ACTION_LABELS = {
     INTERMEDIATE_APPROVE: 'تایید ناظر صورت گرفت',
     INTERMEDIATE_REJECT: 'تایید ناظر صورت گرفت',
     EDIT: 'ویرایش ماموریت انجام شده است',
+    IN_PROGRESS: 'شروع عملیات',
 };
 
 export const FILE_ICONS = {

@@ -346,18 +346,22 @@ const RoutineListPage = () => {
                     <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
                         className={`mb-2 rounded-sm border flex flex-col transition-all duration-200 ${snapshot.isDragging ? 'rotate-1 scale-[1.02] shadow-2xl ring-1 ring-indigo-500 z-[100]' : 'shadow-sm hover:shadow-md'} ${isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'} ${item.is_done ? 'opacity-70' : ''}`}
                     >
-                        <div className="flex relative overflow-hidden rounded-sm">
-                            <div className={`shrink-0 transition-all ${isZoomed ? 'w-1.5' : 'w-1'} ${getUrgencyColor(difficulty)}`} />
+                        <div className="flex relative overflow-hidden rounded-sm min-h-full">
                             
-                            <div className={`w-full flex flex-col transition-all ${isZoomed ? 'p-3 gap-2' : 'p-2 gap-1.5'}`}>
+                            
+                            {/* کانتینر اصلی محتوا - پدینگ‌های سراسری (p-2 و gap) رو پاک کردیم تا به دیواره‌ها بچسبه */}
+                            <div className="w-full flex flex-col transition-all">
                                 
-                                <div className="flex justify-between items-start gap-1">
-                                    <div className={`font-bold inline-block px-1.5 py-0.5 rounded-sm w-fit truncate max-w-[75%] transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'} ${isDark ? 'bg-indigo-900 text-indigo-100' : 'bg-indigo-100 text-indigo-900'}`} title={parentRoutine.title || parentRoutine.template_details?.title}>
+                                {/* ردیف بالا: عنوان مادر (چسبیده به راست و بالا) / یادآوری (چسبیده به چپ و بالا) */}
+                                <div className="flex justify-between items-start">
+                                    {/* عنوان مادر - با انحنای گوشه پایین‌چپ */}
+                                    <div className={`font-bold inline-block px-2 py-0.5 rounded-bl-md w-fit truncate max-w-[70%] transition-all ${isZoomed ? 'text-[12px]' : 'text-[11px]'} ${isDark ? 'bg-indigo-900/60 text-indigo-200' : 'bg-indigo-100 text-indigo-900'}`} title={parentRoutine.title || parentRoutine.template_details?.title}>
                                         {parentRoutine.title || parentRoutine.template_details?.title}
                                     </div>
                                     
+                                    {/* یادآوری - با انحنای گوشه پایین‌راست */}
                                     {parentRoutine.template_details?.reminder_time && (
-                                        <div className={`font-bold flex items-center gap-1 bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded-sm shrink-0 border border-amber-200 dark:border-amber-800 transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'}`}>
+                                        <div className={`font-bold flex items-center gap-1 bg-amber-100 text-amber-900 dark:bg-amber-900/50 dark:text-amber-100 px-1.5 py-0.5 rounded-br-md shrink-0 border-b border-r border-amber-200 dark:border-amber-800/50 transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'}`}>
                                             <FaClock size={isZoomed ? 11 : 10} />
                                             <span className="mt-0.5 flex items-center gap-1"><span> یاداوری</span>
                                                 <span className="font-mono">{parentRoutine.template_details.reminder_time.substring(0, 5)}</span>
@@ -366,9 +370,10 @@ const RoutineListPage = () => {
                                     )}
                                 </div>
 
+                                {/* وسط: عنوان اصلی تسک (مربع تیک زدن) - پدینگ‌ها رو فقط به اینجا دادیم که فضای خالی رو کم کنیم */}
                                 <div 
                                     onClick={() => !toggleLoadingId && dispatch(toggleRoutineItem(item.id))} 
-                                    className={`flex items-start px-1 py-0.5 -mx-1 rounded-sm cursor-pointer w-full group transition-colors ${isZoomed ? 'gap-2.5' : 'gap-2'} ${item.is_done ? '' : (isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100')}`}
+                                    className={`flex items-start px-2 py-2 cursor-pointer w-full group transition-colors ${isZoomed ? 'gap-2.5' : 'gap-2'} ${item.is_done ? '' : (isDark ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50')}`}
                                 >
                                     <button disabled={toggleLoadingId === item.id} className="mt-[2px] shrink-0 transition-transform group-hover:scale-110">
                                         {toggleLoadingId === item.id ? (
@@ -379,13 +384,15 @@ const RoutineListPage = () => {
                                             <FaRegCircle className={`${isZoomed ? 'text-[16px]' : 'text-[14px]'} ${isDark ? 'text-gray-400' : 'text-gray-500'}`} />
                                         )}
                                     </button>
-                                    <span className={`leading-tight font-bold tracking-tight transition-all ${isZoomed ? 'text-[15px] md:text-[16px]' : 'text-[13px] md:text-[14px]'} ${item.is_done ? 'text-gray-500 line-through' : (isDark ? 'text-white' : 'text-gray-900')}`}>
+                                    {/* این همونجاییه که letter-spacing (tracking-tight) رو اضافه کردیم */}
+                                    <span className={`leading-tight font-bold tracking-tight transition-all ${isZoomed ? 'text-[14px] md:text-[15px]' : 'text-[12px] md:text-[13px]'} ${item.is_done ? 'text-gray-500 line-through' : (isDark ? 'text-white' : 'text-gray-900')}`}>
                                         {item.title}
                                     </span>
                                 </div>
 
-                                <div className={`flex justify-between items-center border-t transition-all ${isZoomed ? 'mt-1 pt-2' : 'mt-0.5 pt-1.5'} ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                                    <div className="flex-1">
+                                {/* ردیف پایین: وضعیت (راست و پایین) / زمان تخمینی (چپ و پایین) */}
+                                <div className={`flex justify-between items-end border-t transition-all mt-auto ${isDark ? 'border-gray-700/50' : 'border-gray-200'}`}>
+                                    <div className="flex-1 px-2 py-1">
                                         {item.is_done && completedTimeStr ? (
                                             <div className="flex items-center gap-1 text-green-700 dark:text-green-600 w-fit font-bold">
                                                 <FaCalendarCheck size={isZoomed ? 11 : 10} />
@@ -394,20 +401,21 @@ const RoutineListPage = () => {
                                                 </span>
                                             </div>
                                         ) : (
-                                            <span className={`font-bold transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            <span className={`font-bold transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'} ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                                 در انتظار اقدام
                                             </span>
                                         )}
                                     </div>
 
+                                    {/* زمان تخمینی - با انحنای گوشه بالا‌راست */}
                                     {estimatedMinutes > 0 && (
                                         <div 
-                                            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-sm shadow-sm border ${isDark ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-gray-100 border-gray-300 text-gray-800'}`}
+                                            className={`flex items-center gap-1 px-1.5 py-1 rounded-tr-md border-t border-r ${isDark ? 'bg-gray-800/50 border-gray-700 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'}`}
                                             title="زمان تخمینی"
                                         >
                                             <FaHourglassHalf size={isZoomed ? 10 : 9} />
                                             <span className={`font-bold flex items-baseline gap-0.5 transition-all ${isZoomed ? 'text-[11px]' : 'text-[10px]'}`}>
-                                                <span className="font-mono text-indigo-700 dark:text-indigo-600 font-extrabold">{estimatedMinutes}</span> 
+                                                <span className="font-mono text-indigo-700 dark:text-indigo-400 font-extrabold">{estimatedMinutes}</span> 
                                                 دقیقه
                                             </span>
                                         </div>
@@ -556,16 +564,15 @@ const RoutineListPage = () => {
                             const isZoomed = zoomedDay === day.apiDate;
                             const isAnyZoomed = zoomedDay !== null;
 
-                            // 👇 اینجا شفافیت‌ها از کارت‌ها برداشته شد
-                            let colClass = `flex-shrink-0 flex flex-col h-full rounded-sm border transition-all duration-500 ease-out origin-top relative overflow-hidden shadow-sm `;
+                            let colClass = `flex-shrink-0 flex flex-col h-full rounded-l-sm border border-r-0 transition-all duration-500 ease-out origin-top relative overflow-hidden shadow-sm `;
                             if (isZoomed) {
-                                colClass += `w-[420px] md:w-[480px] shadow-2xl z-20 scale-[1.02] ring-2 ring-indigo-500 ${isDark ? 'bg-gray-800 border-indigo-500' : 'bg-white border-indigo-500'}`;
+                                // تو حالت زوم چون کارت پاپ میشه و میاد بالا، بُردر راستش رو نگه میداریم که زشت نشه
+                                colClass = `flex-shrink-0 flex flex-col h-full rounded-sm border transition-all duration-500 ease-out origin-top relative overflow-hidden shadow-sm w-[420px] md:w-[480px] shadow-2xl z-20 scale-[1.02] ring-2 ring-indigo-500 ${isDark ? 'bg-gray-800 border-indigo-500' : 'bg-white border-indigo-500'}`;
                             } else if (isAnyZoomed) {
                                 colClass += `w-[260px] opacity-40 scale-[0.97] z-0 saturate-50 pointer-events-auto ${day.isToday ? (isDark ? 'border-indigo-600 bg-gray-900' : 'border-indigo-400 bg-indigo-50') : (isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-300 bg-gray-50')}`;
                             } else {
                                 colClass += `w-[320px] z-10 ${day.isToday ? (isDark ? 'border-indigo-500 bg-gray-900' : 'border-amber-400 bg-amber-50') : (isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-300 bg-white')}`;
                             }
-
                             return (
                                 <div key={day.apiDate} className={colClass}>
                                     
@@ -579,14 +586,14 @@ const RoutineListPage = () => {
                                     )}
 
                                     {/* 👇 اینجا هدر کارت‌ها هم تمام‌رنگ و بدون شفافیت شد */}
-                                    <div className={`p-2 flex items-center justify-between border-b ${isDark ? 'border-gray-600' : 'border-gray-200'} transition-colors ${day.isToday ? (isDark ? 'bg-indigo-900' : 'bg-amber-100') : (isDark ? 'bg-gray-800' : 'bg-gray-50')} ${isZoomed ? 'bg-indigo-800 dark:bg-indigo-900' : ''}`}>
+                                    <div className={`p-2 flex items-center justify-between rounded-sm border ${isDark ? 'border-gray-600' : 'border-gray-200'} transition-colors ${day.isToday ? (isDark ? 'bg-indigo-900' : 'bg-amber-100') : (isDark ? 'bg-gray-800' : 'bg-gray-50')} ${isZoomed ? 'bg-indigo-800 dark:bg-indigo-900' : ''}`}>
                                         <div className="w-8" />
                                         <div className="flex items-center gap-2">
-                                            <h2 className={`font-extrabold transition-all ${isZoomed ? 'text-xl text-indigo-700 dark:text-indigo-300' : 'text-lg'} ${day.isToday && !isZoomed ? (isDark ? 'text-indigo-400' : 'text-amber-600') : (isDark ? 'text-gray-200' : 'text-gray-800')}`}>
+                                            <h2 className={`font-extrabold transition-all ${isZoomed ? 'text-xl text-indigo-100 dark:text-white' : 'text-lg'} ${day.isToday && !isZoomed ? (isDark ? 'text-indigo-400' : 'text-amber-600') : (isDark ? 'text-gray-200' : 'text-gray-800')}`}>
                                                 {day.dayName}
-                                            </h2> 
+                                            </h2>
                                             <span className={`text-[10px] ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>•</span>
-                                            <span className={`text-sm font-bold opacity-80 ${day.isToday ? (isDark ? 'text-indigo-500' : 'text-amber-700') : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>
+                                            <span className={`text-sm font-bold transition-all ${isZoomed ? 'opacity-100 text-indigo-200 dark:text-gray-200' : 'opacity-80'} ${day.isToday && !isZoomed ? (isDark ? 'text-indigo-500' : 'text-amber-700') : (isDark ? 'text-gray-400' : 'text-gray-600')}`}>
                                                 {day.dayNum}
                                             </span>
                                         </div>
@@ -599,7 +606,7 @@ const RoutineListPage = () => {
                                         </button>
                                     </div>
 
-                                    <div className="flex-1 overflow-y-auto no-scrollbar p-2 relative">
+                                    <div className="flex-1 overflow-y-auto no-scrollbar py-2 px-0.5 relative">
                                         {columnBlocks.map((block, index) => {
                                             const itemsInBlock = dayRoutines.flatMap(routine => {
                                                 return (routine.items || [])
@@ -621,61 +628,74 @@ const RoutineListPage = () => {
                                             const isActive = activeBoundary === boundaryKey;
 
                                             return (
-                                                <div key={boundaryKey} className="relative pl-1 pr-3 flex flex-col">
+                                                <div key={boundaryKey} className="relative pl-0.5 pr-2 flex flex-col">
                                                     
                                                     <div className={`absolute right-0 top-0 bottom-0 w-0.5 border-r-2 border-dashed ${block.theme.line}`} />
                                                     
                                                     {block.startTime && (
-                                                        <div className="absolute right-[2px] -top-1 flex items-center gap-1.5 z-40">
+                                                        <div className="absolute right-[2px] left-2 -top-[5px] flex items-center z-40">
                                                             
+                                                            {/* ۱. بخش ساعت و دکمه‌ها (سمت راست) */}
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {index > 1 && (
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleShiftBoundary(columnBlocks[index-1], block, -15); }} 
+                                                                        className={`absolute right-[-4px] bottom-3.5 bg-white dark:bg-gray-800 rounded-sm shadow-md border border-gray-300 dark:border-gray-500 p-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-gray-600 z-50 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom ${isActive ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-50 translate-y-3 pointer-events-none'}`} 
+                                                                        title="-۱۵ دقیقه">
+                                                                        <FaChevronUp size={9}/>
+                                                                    </button>
+                                                                )}
+                                                                
+                                                                <div 
+                                                                    title={index === 1 ? "ویرایش دستی زمان شروع روز" : "تنظیم زمان (کلیک کنید)"}
+                                                                    className={`w-2.5 h-2.5 rounded-sm ring-2 ring-white dark:ring-gray-900 ${block.theme.dot} cursor-pointer hover:scale-125 transition-transform relative z-50`} 
+                                                                    onClick={() => {
+                                                                        if (index > 1) setActiveBoundary(isActive ? null : boundaryKey);
+                                                                        else handleManualTimeEdit(block, 'start_time');
+                                                                    }}
+                                                                />
+                                                                
+                                                                {index > 1 && (
+                                                                    <button 
+                                                                        onClick={(e) => { e.stopPropagation(); handleShiftBoundary(columnBlocks[index-1], block, 15); }} 
+                                                                        className={`absolute right-[-4px] top-3.5 bg-white dark:bg-gray-800 rounded-sm shadow-md border border-gray-300 dark:border-gray-500 p-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-gray-600 z-50 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-top ${isActive ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-50 -translate-y-3 pointer-events-none'}`} 
+                                                                        title="+۱۵ دقیقه">
+                                                                        <FaChevronDown size={9}/>
+                                                                    </button>
+                                                                )}
+
+                                                                <span 
+                                                                    title="برای ویرایش دقیق دستی کلیک کنید"
+                                                                    onClick={() => {
+                                                                        if (index > 1) handleManualTimeEdit(block, 'start_time', true, columnBlocks[index-1]);
+                                                                        else handleManualTimeEdit(block, 'start_time');
+                                                                    }}
+                                                                    className={`text-[11px] font-mono font-extrabold z-40 cursor-pointer hover:text-indigo-600 transition-colors ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
+                                                                >
+                                                                    {block.startTime}
+                                                                </span>
+                                                            </div>
+
+                                                            {/* ۲. خط‌چین که به جای پایین، الان میاد دقیقاً تو همون خطِ ساعت می‌شینه */}
                                                             {index > 1 && (
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); handleShiftBoundary(columnBlocks[index-1], block, -15); }} 
-                                                                    className={`absolute right-[-4px] bottom-3.5 bg-white dark:bg-gray-800 rounded-sm shadow-md border border-gray-300 dark:border-gray-500 p-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-gray-600 z-50 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-bottom ${isActive ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-50 translate-y-3 pointer-events-none'}`} 
-                                                                    title="-۱۵ دقیقه">
-                                                                    <FaChevronUp size={9}/>
-                                                                </button>
-                                                            )}
-                                                            
-                                                            <div 
-                                                                title={index === 1 ? "ویرایش دستی زمان شروع روز" : "تنظیم زمان (کلیک کنید)"}
-                                                                className={`w-2.5 h-2.5 rounded-sm ring-2 ring-white dark:ring-gray-900 ${block.theme.dot} cursor-pointer hover:scale-125 transition-transform relative z-50`} 
-                                                                onClick={() => {
-                                                                    if (index > 1) setActiveBoundary(isActive ? null : boundaryKey);
-                                                                    else handleManualTimeEdit(block, 'start_time');
-                                                                }}
-                                                            />
-                                                            
-                                                            {index > 1 && (
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); handleShiftBoundary(columnBlocks[index-1], block, 15); }} 
-                                                                    className={`absolute right-[-4px] top-3.5 bg-white dark:bg-gray-800 rounded-sm shadow-md border border-gray-300 dark:border-gray-500 p-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-gray-600 z-50 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] origin-top ${isActive ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-50 -translate-y-3 pointer-events-none'}`} 
-                                                                    title="+۱۵ دقیقه">
-                                                                    <FaChevronDown size={9}/>
-                                                                </button>
+                                                                <div className="flex-1 mr-2 border-t-2 border-dashed border-gray-400 dark:border-gray-600" />
                                                             )}
 
-                                                            <span 
-                                                                title="برای ویرایش دقیق دستی کلیک کنید"
-                                                                onClick={() => {
-                                                                    if (index > 1) handleManualTimeEdit(block, 'start_time', true, columnBlocks[index-1]);
-                                                                    else handleManualTimeEdit(block, 'start_time');
-                                                                }}
-                                                                className={`text-[11px] font-mono font-extrabold z-40 cursor-pointer hover:text-indigo-600 transition-colors ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
-                                                            >
-                                                                {block.startTime}
-                                                            </span>
                                                         </div>
                                                     )}
-
                                                     {index === 1 && (
-                                                        // فاصله رو از right-8 به right-[65px] تغییر دادیم تا فضای کافی برای ساعت خالی بمونه
-                                                        <div className="absolute right-[65px] top-0 left-2 border-t-2 border-dashed border-gray-400 dark:border-gray-600 flex justify-center mt-0.5 pointer-events-none z-10">
-                                                            {/* بک‌گراند متن رو هم به جای bg-gray-900 به bg-gray-800 تغییر دادم که با تم جدید یکی بشه */}
-                                                            <span className={`text-[10px] font-bold px-2 -mt-[11px] shadow-sm rounded-sm ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>شروع روز</span>
-                                                        </div>
+                                                        <>
+                                                            {/* ۱. خط‌چین (فقط از راست بعد از ساعت شروع میشه) */}
+                                                            <div className="absolute right-[65px] top-0 left-2 border-t-2 border-dashed border-gray-400 dark:border-gray-600 mt-0.5 pointer-events-none z-10" />
+                                                            
+                                                            {/* ۲. متن "شروع روز" (نسبت به کل عرض کارت وسط‌چین میشه) */}
+                                                            <div className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-20">
+                                                                <span className={`text-[10px] font-bold px-3 py-0.5 -mt-[10px] shadow-sm rounded-sm ${isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-500'}`}>
+                                                                    شروع روز
+                                                                </span>
+                                                            </div>
+                                                        </>
                                                     )}
-
                                                     {block.id !== 'UNASSIGNED' && (
                                                         <button onClick={() => handleSplitBlock(block.originalId)} title="نصف کردن این بازه"
                                                             className={`absolute right-[-4px] top-1/2 -translate-y-1/2 w-[14px] h-[14px] flex items-center justify-center rounded-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-md z-10 transition-transform hover:scale-125 border border-white dark:border-gray-700`}
@@ -688,44 +708,45 @@ const RoutineListPage = () => {
                                                     <Droppable droppableId={boundaryKey}>
                                                         {(provided, snapshot) => (
                                                             <div ref={provided.innerRef} {...provided.droppableProps}
-                                                                className={`mt-4 mb-2 min-h-[95px] rounded-sm border shadow-sm p-1.5 transition-all duration-200 ${snapshot.isDraggingOver ? (isDark ? 'bg-indigo-900/80 border-indigo-500 outline-dashed outline-2 outline-offset-2 outline-indigo-500' : 'bg-indigo-100 border-indigo-400 outline-dashed outline-2 outline-offset-2 outline-indigo-400') : (`${block.theme.bg} ${isDark ? 'border-gray-700' : 'border-gray-300'}`)}`}
+                                                                className={`mt-4 mb-2 min-h-[95px] rounded-sm border shadow-sm py-1.5 px-0.5 transition-all duration-200 ${snapshot.isDraggingOver ? (isDark ? 'bg-indigo-900/80 border-indigo-500 outline-dashed outline-2 outline-offset-2 outline-indigo-500' : 'bg-indigo-100 border-indigo-400 outline-dashed outline-2 outline-offset-2 outline-indigo-400') : (`${block.theme.bg} ${isDark ? 'border-gray-700' : 'border-gray-300'}`)}`}
                                                             >
-                                                                <div className="flex justify-between items-center mb-3 pb-2 border-b border-black/10 dark:border-white/10">
+                                                                <div className={`flex justify-between items-center mb-3 pb-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+    
+                                                                {/* سمت راست: عنوان بلاک */}
+                                                                <div className="flex items-center">
                                                                     {block.id !== 'UNASSIGNED' ? (
-                                                                        <>
-                                                                            <span 
-                                                                                onClick={() => handleEditTitle(block)}
-                                                                                className={`text-sm font-extrabold cursor-pointer hover:underline flex items-center gap-1 ${block.theme.text}`}
-                                                                                title="برای ویرایش عنوان کلیک کنید"
-                                                                            >
-                                                                                {block.rawTitle} <FaEdit className="opacity-70" size={14} />
-                                                                            </span>
-                                                                            <button
-                                                                                onClick={() => handleDeleteBlock(block.originalId)}
-                                                                                className="text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-500 transition-colors p-1"
-                                                                                title="حذف این بازه زمانی"
-                                                                            >
-                                                                                <FaTrash size={14} />
-                                                                            </button>
-                                                                        </>
+                                                                        <span onClick={() => handleEditTitle(block)} className={`text-sm font-extrabold cursor-pointer hover:underline flex items-center gap-1 ${block.theme.text}`} title="برای ویرایش عنوان کلیک کنید">
+                                                                            {block.rawTitle} <FaEdit className="opacity-70" size={14} />
+                                                                        </span>
                                                                     ) : (
                                                                         <span className={`text-sm font-extrabold ${block.theme.text}`}>{block.rawTitle}</span>
                                                                     )}
                                                                 </div>
 
+                                                                {/* سمت چپ: دکمه افزودن و سطل زباله */}
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {block.id === 'UNASSIGNED' && !quickAddState.isOpen && (
+                                                                        <button 
+                                                                            onClick={() => setQuickAddState({ isOpen: true, date: day.apiDate, timeBlockId: block.id, title: '', reminder_time: '' })}
+                                                                            className={`flex items-center gap-1 px-2 py-1 rounded-sm text-[10px] font-bold transition-all shadow-sm ${isDark ? 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-600' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}
+                                                                            title="افزودن سریع"
+                                                                        >
+                                                                            <FaPlus size={9} /> <span>افزودن</span>
+                                                                        </button>
+                                                                    )}
+                                                                    
+                                                                    {block.id !== 'UNASSIGNED' && (
+                                                                        <button onClick={() => handleDeleteBlock(block.originalId)} className={`transition-colors p-1 ${isDark ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-600'}`} title="حذف این بازه زمانی">
+                                                                            <FaTrash size={13} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
                                                                 {itemsInBlock.map((item, idx) => renderDraggableItem(item, idx, isZoomed))}
                                                                 {provided.placeholder}
                                                                 
-                                                                {/* دکمه افزودن سریع */}
-                                                                {!quickAddState.isOpen && (
-                                                                    <button 
-                                                                        onClick={() => setQuickAddState({ isOpen: true, date: day.apiDate, timeBlockId: block.id, title: '', reminder_time: '' })}
-                                                                        className={`w-full mt-2 py-1.5 rounded-sm border border-dashed flex items-center justify-center gap-1 text-[11px] font-bold transition-colors opacity-60 hover:opacity-100${isDark ? 'border-gray-600 bg-gray-800/50 text-gray-400 hover:bg-gray-700 hover:text-white' : 'border-gray-400 bg-white/50 text-gray-700 hover:bg-white hover:shadow-sm'}`}
-                                                                    >
-                                                                        <FaPlus size={10} /> افزودن سریع
-                                                                    </button>
-                                                                )}
-
+                                                    
                                                                 {/* فرم مینیاتوری افزودن سریع */}
                                                                 {quickAddState.isOpen && quickAddState.date === day.apiDate && quickAddState.timeBlockId === block.id && (
                                                                     <form onSubmit={handleQuickSubmit} className={`mt-2 p-2 rounded-sm shadow-md border ${isDark ? 'bg-gray-900 border-indigo-500/50' : 'bg-white border-indigo-400'}`}>
@@ -767,12 +788,7 @@ const RoutineListPage = () => {
                                                         )}
                                                     </Droppable>
 
-                                                    {index < columnBlocks.length - 1 && block.id !== 'UNASSIGNED' && columnBlocks[index + 1].id !== 'UNASSIGNED' && (
-                                                        <div className="relative flex items-center justify-center h-4 z-20">
-                                                            <div className="absolute left-10 right-2 border-b-2 border-dashed border-gray-400 dark:border-gray-600" />
-                                                        </div>
-                                                    )}
-
+                            
                                                     {index === columnBlocks.length - 1 && block.endTime && (
                                                         <div className="absolute right-[5px] -bottom-2 flex items-center gap-1.5 z-40">
                                                             <div 
@@ -803,7 +819,24 @@ const RoutineListPage = () => {
             <div className="flex w-full justify-center mb-1 mt-3 shrink-0">
                 <div className={`flex items-center rounded-sm p-1 shadow-sm border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
                     <button onClick={() => { const d = new Date(baseDate); d.setDate(d.getDate() - 7); setBaseDate(d); }} className={`p-2 rounded-sm transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-700'}`}><FaChevronRight size={14} /></button>
-                    <button onClick={() => setBaseDate(new Date())} className={`text-sm font-extrabold px-6 py-1.5 mx-1 rounded-sm shadow-sm transition-colors ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-900 border border-gray-200'}`}>این هفته</button>
+                    
+                    {/* دکمه "این هفته" هوشمند */}
+                    <button 
+                        onClick={() => setBaseDate(new Date())} 
+                        disabled={weekDays.some(day => day.isToday)}
+                        className={`text-sm font-extrabold px-6 py-1.5 mx-1 rounded-sm transition-all duration-300 ${
+                            weekDays.some(day => day.isToday)
+                                ? (isDark 
+                                    ? 'bg-gray-700 text-gray-400 opacity-80 cursor-default shadow-inner' 
+                                    : 'bg-gray-100 text-gray-500 border border-gray-200 opacity-80 cursor-default shadow-inner')
+                                : (isDark 
+                                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg ring-1 ring-indigo-400 scale-105' 
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg scale-105')
+                        }`}
+                    >
+                        {weekDays.some(day => day.isToday) ? 'این هفته' : 'برگشت به این هفته'}
+                    </button>
+
                     <button onClick={() => { const d = new Date(baseDate); d.setDate(d.getDate() + 7); setBaseDate(d); }} className={`p-2 rounded-sm transition-colors ${isDark ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-700'}`}><FaChevronLeft size={14} /></button>
                 </div>
             </div>
