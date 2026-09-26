@@ -71,12 +71,11 @@ const MonthlyRadar = ({ monthDays, weeklyRoutines, setBaseDate, isDark, jalaliMo
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                        <div className="grid grid-cols-7 gap-1 text-center mb-1.5 mt-1">
                             {['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map((dayName, idx) => (
-                                <div key={idx} className={`text-[10px] font-black ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{dayName}</div>
+                                <div key={idx} className={`text-[11px] md:text-xs font-black ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{dayName}</div>
                             ))}
                         </div>
-
                         <div className="grid grid-cols-7 gap-1">
                             {monthDays.map((day) => {
                                 const dayRoutines = weeklyRoutines[day.apiDate] || [];
@@ -89,7 +88,8 @@ const MonthlyRadar = ({ monthDays, weeklyRoutines, setBaseDate, isDark, jalaliMo
                                 );
 
                                 // ارتفاع رو از 55 به 42 کاهش دادیم
-                                let dayClass = 'relative min-h-[42px] p-0.5 flex flex-col items-center rounded-sm border cursor-pointer transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-md ';
+                                // ارتفاع رو چون قابلیت باز و بسته شدن داریم، بزرگتر کردیم (52px)
+                                let dayClass = 'relative min-h-[52px] p-1 flex flex-col items-center rounded-sm border cursor-pointer transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-md ';
                                 if (day.isCurrentWeek) {
                                     dayClass += isDark ? 'border-indigo-500/50 bg-indigo-900/40' : 'border-indigo-400 bg-indigo-50 shadow-sm';
                                 } else {
@@ -101,23 +101,23 @@ const MonthlyRadar = ({ monthDays, weeklyRoutines, setBaseDate, isDark, jalaliMo
 
                                 return (
                                     <div key={day.apiDate} onClick={(e) => { e.stopPropagation(); setBaseDate(day.dateObj); }} className={dayClass}>
-                                        <div className="w-full flex justify-between items-start px-0.5">
-                                            <span className={`text-[8px] truncate ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{day.monthName}</span>
-                                            <span className={`text-[10px] md:text-xs font-black ${day.isToday ? 'text-amber-600 dark:text-amber-500' : (isDark ? 'text-gray-300' : 'text-gray-700')}`}>
+                                        <div className="w-full flex justify-between items-start px-1">
+                                            <span className={`text-[9px] truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{day.monthName}</span>
+                                            <span className={`text-xs md:text-sm font-black ${day.isToday ? 'text-amber-600 dark:text-amber-500' : (isDark ? 'text-gray-200' : 'text-gray-800')}`}>
                                                 {day.dayNum}
                                             </span>
                                         </div>
                                         
-                                        <div className="w-full flex flex-wrap justify-center gap-0.5 mt-0.5">
+                                        <div className="w-full flex flex-wrap justify-center gap-1 mt-1">
                                             {allItems.slice(0, 6).map((item) => (
                                                 <div key={item.id} onClick={(e) => { e.stopPropagation(); setSelectedRoutine(item); }} title={item.title} className="p-0.5 cursor-pointer group z-10">
-                                                    {/* سایز نقطه‌ها رو از 2.5 به 2 تغییر دادیم که جای کمتری بگیره */}
-                                                    <div className={`w-2 h-2 rounded-full group-hover:scale-[1.5] transition-transform ${getDotColor(item.period, item.is_done)}`} />
+                                                    {/* سایز نقطه‌ها رو برای کلیک و تاچ راحت‌تر درشت‌تر کردیم */}
+                                                    <div className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full group-hover:scale-[1.5] transition-transform ${getDotColor(item.period, item.is_done)}`} />
                                                 </div>
                                             ))}
                                             {allItems.length > 6 && (
-                                                <div className="w-2 h-2 flex items-center justify-center mt-0.5">
-                                                    <span className={`text-[7px] font-black ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>+</span>
+                                                <div className="w-2.5 h-2.5 md:w-3 md:h-3 flex items-center justify-center mt-0.5">
+                                                    <span className={`text-[10px] font-black ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>+</span>
                                                 </div>
                                             )}
                                         </div>

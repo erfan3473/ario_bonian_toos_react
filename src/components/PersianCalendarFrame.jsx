@@ -1,18 +1,19 @@
 // src/components/PersianCalendarFrame.jsx
 import React from 'react';
 import moment from 'moment-jalaali';
-import './PersianCalendarFrame.css';
+import { useSelector } from 'react-redux';
 
 moment.loadPersian({ usePersianDigits: false });
 
 const PersianCalendarFrame = ({ startDate, endDate }) => {
+  const isDark = useSelector((s) => s.theme?.mode === 'dark');
+
   if (!startDate || !endDate) return null;
 
   const start = moment(startDate, 'YYYY-MM-DD');
   const end = moment(endDate, 'YYYY-MM-DD');
   const today = moment();
 
-  // محاسبه ماه و سال شروع
   const currentMonth = start.jMonth();
   const currentYear = start.jYear();
 
@@ -20,84 +21,70 @@ const PersianCalendarFrame = ({ startDate, endDate }) => {
     'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
     'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
   ];
-
   const weekDays = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
 
-  // تبدیل روز هفته میلادی به شمسی
-  // moment.day(): یکشنبه=0, دوشنبه=1, ..., شنبه=6
-  // تقویم فارسی: شنبه=0, یکشنبه=1, ..., جمعه=6
   const getPersianDayOfWeek = (momentDate) => {
-    const gregorianDay = momentDate.day(); // 0=یکشنبه, 6=شنبه
-    return (gregorianDay + 1) % 7; // شنبه=0, یکشنبه=1, ..., جمعه=6
+    return (momentDate.day() + 1) % 7; 
   };
 
-  // تولید روزهای ماه
   const getDaysInMonth = () => {
     const days = [];
     const daysInMonth = moment.jDaysInMonth(currentYear, currentMonth);
     const firstDayOfMonth = moment(`${currentYear}/${currentMonth + 1}/1`, 'jYYYY/jM/jD');
     const firstDayPersianWeekday = getPersianDayOfWeek(firstDayOfMonth);
 
-    // روزهای خالی ابتدای ماه
-    for (let i = 0; i < firstDayPersianWeekday; i++) {
-      days.push(null);
-    }
+    for (let i = 0; i < firstDayPersianWeekday; i++) days.push(null);
 
-    // روزهای واقعی ماه
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = moment(`${currentYear}/${currentMonth + 1}/${day}`, 'jYYYY/jM/jD');
-      const isInRange = currentDate.isBetween(start, end, 'day', '[]');
-      const isToday = currentDate.isSame(today, 'day');
-      const persianWeekday = getPersianDayOfWeek(currentDate);
-      const isFriday = persianWeekday === 6; // جمعه = 6
-
       days.push({
         day,
-        isInRange,
-        isToday,
-        isFriday,
+        isInRange: currentDate.isBetween(start, end, 'day', '[]'),
+        isToday: currentDate.isSame(today, 'day'),
+        isFriday: getPersianDayOfWeek(currentDate) === 6,
       });
     }
-
     return days;
   };
 
   const days = getDaysInMonth();
 
   return (
-    <div className="persian-calendar-frame">
+    <div className={`w-64 p-2.5 rounded-xl shadow-sm relative overflow-hidden transition-colors duration-300 flex-shrink-0 ${
+      isDark ? 'bg-gray-800 border border-gray-700' : 'bg-gradient-to-br from-indigo-500 to-purple-600'
+    }`}>
       {/* هدر تقویم */}
-      <div className="calendar-header">
-        <div className="calendar-title">
+      <div className="text-center mb-2">
+        <span className={`font-extrabold text-sm ${isDark ? 'text-gray-100' : 'text-white'}`}>
           {monthNames[currentMonth]} {currentYear}
-        </div>
+        </span>
       </div>
 
-      {/* نام روزهای هفته */}
-      <div className="calendar-weekdays">
+      {/* روزهای هفته */}
+      <div className="grid grid-cols-7 mb-1.5">
         {weekDays.map((day, i) => (
-          <div key={i} className="calendar-weekday">
+          <div key={i} className={`text-center text-[10px] font-bold ${isDark ? 'text-gray-400' : 'text-indigo-100'}`}>
             {day}
           </div>
         ))}
       </div>
 
-      {/* شبکه روزها */}
-      <div className="calendar-days">
+      {/* روزهای ماه */}
+      <div className="grid grid-cols-7 gap-1">
         {days.map((item, i) => {
-          if (!item) {
-            return <div key={i} className="calendar-day-empty" />;
-          }
+          if (!item) return <div key={i} />;
+
+          let bgClass = isDark ? 'bg-gray-700/50 text-gray-300' : 'bg-white/20 text-white';
+          if (item.isInRange) bgClass = isDark ? 'bg-indigo-600/60 shadow-[inset_0_0_0_1px_rgba(99,102,241,0.5)] text-white' : 'bg-white/40 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] text-white';
+          if (item.isToday) bgClass = isDark ? 'bg-yellow-500/20 text-yellow-400 shadow-[inset_0_0_0_2px_#eab308]' : 'bg-yellow-50 text-yellow-700 shadow-[inset_0_0_0_2px_#facc15] font-black';
+          
+          let textClass = '';
+          if (!item.isToday && item.isFriday) textClass = isDark ? 'text-red-400' : 'text-red-200';
 
           return (
             <div
               key={i}
-              className={`
-                calendar-day
-                ${item.isInRange ? 'calendar-day-in-range' : ''}
-                ${item.isToday ? 'calendar-day-today' : ''}
-                ${item.isFriday ? 'calendar-day-friday' : ''}
-              `}
+              className={`w-6 h-6 flex items-center justify-center rounded-md text-[10px] font-semibold transition-all ${bgClass} ${textClass}`}
             >
               {item.day}
             </div>
@@ -106,14 +93,14 @@ const PersianCalendarFrame = ({ startDate, endDate }) => {
       </div>
 
       {/* راهنما */}
-      <div className="calendar-legend">
-        <div className="legend-item">
-          <span className="legend-box legend-today"></span>
-          <span className="legend-text">امروز</span>
+      <div className="flex justify-center gap-4 mt-2.5">
+        <div className="flex items-center gap-1">
+          <div className={`w-2.5 h-2.5 rounded-sm ${isDark ? 'bg-yellow-500/20 border border-yellow-500' : 'bg-yellow-50 border-2 border-yellow-400'}`}></div>
+          <span className={`text-[9px] ${isDark ? 'text-gray-400' : 'text-indigo-50'}`}>امروز</span>
         </div>
-        <div className="legend-item">
-          <span className="legend-box legend-range"></span>
-          <span className="legend-text">بازه انتخابی</span>
+        <div className="flex items-center gap-1">
+          <div className={`w-2.5 h-2.5 rounded-sm ${isDark ? 'bg-indigo-600/60 border border-indigo-500' : 'bg-white/40 border border-white/60'}`}></div>
+          <span className={`text-[9px] ${isDark ? 'text-gray-400' : 'text-indigo-50'}`}>انتخابی</span>
         </div>
       </div>
     </div>

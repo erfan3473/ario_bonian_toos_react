@@ -948,7 +948,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                     <div 
                                                         onClick={() => setActiveEditElement({ id: stage.id, type: 'LINK' })}
                                                         className={`w-40 min-h-[140px] rounded-xl border-2 flex flex-col items-center p-3 cursor-pointer transition-all ${
-                                                            activeElement.id === stage.id && activeEditElement.type === 'LINK'
+                                                            activeEditElement.id === stage.id && activeEditElement.type === 'LINK' // ✅ اصلاح شد
                                                             ? 'border-orange-500 bg-orange-500/10' : 'border-dashed border-orange-500/50 bg-orange-500/5'
                                                         }`}
                                                     >

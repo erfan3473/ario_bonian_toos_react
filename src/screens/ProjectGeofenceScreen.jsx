@@ -1,4 +1,3 @@
-// src/screens/ProjectGeofenceScreen.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -56,6 +55,9 @@ const ProjectGeofenceScreen = () => {
 
   const { geofence, loading } = useSelector((state) => state.projects);
   const geofenceData = geofence?.data;
+  
+  const mode = useSelector((state) => state.theme?.mode || "dark");
+  const isDark = mode === "dark";
 
   // خواندن مسیرها و عارضه‌ها از ریداکس
   const { routeTemplates, projectFeatures } = useSelector((state) => state.mapRoutes);
@@ -315,7 +317,7 @@ const ProjectGeofenceScreen = () => {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', zIndex: 50, backgroundColor: '#111827' }}>
+    <div className={`p-4 md:p-6 transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
       
       {/* استایل‌های اختصاصی پاپ‌آپ و آیکون‌های SVG عارضه‌ها */}
       <style>{`
@@ -324,70 +326,84 @@ const ProjectGeofenceScreen = () => {
         .custom-feature-icon svg { width: 100%; height: 100%; }
       `}</style>
 
-      {loading?.geofence && (
+      {/* کانتینر اصلی نقشه با استایل و بردر هماهنگ */}
+      <div 
+        className={`relative w-full rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 border-2 ${
+          isDark ? 'border-blue-700 bg-gray-800' : 'border-blue-600 bg-white'
+        }`}
+        style={{ height: 'calc(100vh - 160px)', minHeight: '500px' }}
+      >
+        
+        {loading?.geofence && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 2000,
+            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontSize: 18, fontWeight: 'bold'
+          }}>
+            در حال بارگذاری اطلاعات نقشه...
+          </div>
+        )}
+
+        {/* کانتینر رندر نقشه */}
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+        {/* دکمه‌های کنترلی */}
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 2000,
-          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'white', fontSize: 18,
+          position: 'absolute', bottom: 24, left: 24, right: 24, zIndex: 1000,
+          display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center'
         }}>
-          در حال بارگذاری...
+          <button onClick={() => navigate(-1)} style={btnStyle('#374151')}>
+            ← بازگشت
+          </button>
+
+          {!isDrawing ? (
+            <button onClick={handleStart} style={btnStyle('#2563eb')}>
+              ✏️ رسم مجدد
+            </button>
+          ) : (
+            <button onClick={handleFinish} style={btnStyle('#16a34a')}>
+              ✅ اتمام رسم
+            </button>
+          )}
+
+          <button onClick={handleClear} style={btnStyle('#dc2626')}>
+            🗑️ پاک کردن
+          </button>
+
+          {!isDrawing && points.length >= 3 && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              style={btnStyle(saving ? '#6b7280' : '#15803d')}
+            >
+              {saving ? 'در حال ذخیره...' : `💾 ذخیره (${points.length} نقطه)`}
+            </button>
+          )}
         </div>
-      )}
 
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
-
-      <div style={{
-        position: 'absolute', bottom: 24, left: 24, right: 24, zIndex: 1000,
-        display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center'
-      }}>
-        <button onClick={() => navigate(-1)} style={btnStyle('#374151')}>
-          ← بازگشت
-        </button>
-
-        {!isDrawing ? (
-          <button onClick={handleStart} style={btnStyle('#2563eb')}>
-            ✏️ رسم مجدد
-          </button>
-        ) : (
-          <button onClick={handleFinish} style={btnStyle('#16a34a')}>
-            ✅ اتمام رسم
-          </button>
+        {/* پیام راهنمای در حال رسم */}
+        {isDrawing && (
+          <div style={{
+            position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+            background: 'rgba(0,0,0,0.85)', color: '#86efac', border: '1px solid #16a34a',
+            padding: '10px 20px', borderRadius: 12, fontSize: 14, fontWeight: 'bold', textAlign: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.4)'
+          }}>
+            🟢 روی نقشه کلیک کنید ({points.length} نقطه)
+          </div>
         )}
 
-        <button onClick={handleClear} style={btnStyle('#dc2626')}>
-          🗑️ پاک کردن
-        </button>
-
-        {!isDrawing && points.length >= 3 && (
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={btnStyle(saving ? '#6b7280' : '#15803d')}
-          >
-            {saving ? 'در حال ذخیره...' : `💾 ذخیره (${points.length} نقطه)`}
-          </button>
-        )}
       </div>
-
-      {isDrawing && (
-        <div style={{
-          position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
-          background: 'rgba(0,0,0,0.8)', color: '#86efac',
-          padding: '10px 16px', borderRadius: 8, fontSize: 14, textAlign: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
-        }}>
-          🟢 روی نقشه کلیک کنید ({points.length} نقطه)
-        </div>
-      )}
     </div>
   );
 };
 
+// استایل اختصاصی دکمه‌ها
 const btnStyle = (bg) => ({
   background: bg, color: '#fff', border: 'none',
   padding: '12px 20px', borderRadius: 8,
-  fontSize: 15, fontWeight: 'bold', cursor: 'pointer',
+  fontSize: 14, fontWeight: 'bold', cursor: 'pointer',
   boxShadow: '0 4px 10px rgba(0,0,0,0.3)', fontFamily: 'inherit',
-  minWidth: '120px'
+  minWidth: '130px', transition: 'all 0.2s ease-in-out'
 });
 
 export default ProjectGeofenceScreen;

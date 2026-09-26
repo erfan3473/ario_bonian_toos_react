@@ -10,6 +10,7 @@ import {
     FaPlus, FaListAlt, FaTimes, FaCheckSquare, FaChevronDown, 
     FaClock, FaArrowRight, FaCalendar, FaTrash, FaSave, FaUserTie 
 } from 'react-icons/fa';
+import moment from 'moment-jalaali'; // 🌟 این ایمپورت برای ترجمه تاریخ بین تقویم و بک‌اند اضافه شد
 
 import RoutineTemplateCard from '../components/routine/RoutineTemplateCard'; 
 import JalaliDatePicker from '../components/common/JalaliDatePicker';
@@ -26,6 +27,7 @@ const WEEK_DAYS = [
 
 const TABS = [
     { id: 'ALL', label: 'همه' },
+    { id: 'ONCE', label: 'یک‌باره' },
     { id: 'DAILY', label: 'روزانه' },
     { id: 'WEEKLY', label: 'هفتگی' },
     { id: 'MONTHLY', label: 'ماهانه' },
@@ -161,11 +163,25 @@ const RoutineTemplatesPage = () => {
 
     const handleEditTemplate = (tpl) => {
         setEditingId(tpl.id);
+        
+        // 🌟 گرفتن دیتای شمسی از بک‌اند و تبدیلش به میلادی (چون کامپوننت تقویم شما فقط میلادی می‌فهمه)
+        let formattedDate = '';
+        if (tpl.schedule_value) {
+            if (tpl.period === 'YEARLY') {
+                const currentJYear = moment().jYear();
+                const m = moment(`${currentJYear}-${tpl.schedule_value}`, 'jYYYY-jMM-jDD');
+                if (m.isValid()) formattedDate = m.format('YYYY-MM-DD');
+            } else if (tpl.period === 'ONCE') {
+                const m = moment(tpl.schedule_value, 'jYYYY-jMM-jDD');
+                if (m.isValid()) formattedDate = m.format('YYYY-MM-DD');
+            }
+        }
+
         setFormData({
             title: tpl.title,
             period: tpl.period,
             schedule_day_of_month: tpl.schedule_day_of_month || 1,
-            schedule_date: tpl.schedule_value ? `1403-${tpl.schedule_value.replace('-', '/')}` : '',
+            schedule_date: formattedDate,   
             reminder_time: tpl.reminder_time ? tpl.reminder_time.substring(0, 5) : '09:00',
             difficulty: tpl.difficulty || 'MEDIUM',
             trigger_mode: tpl.trigger_mode || 'HYBRID',
@@ -179,24 +195,13 @@ const RoutineTemplatesPage = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleDeleteTemplate = (id) => {
-        if(window.confirm('آیا از حذف این الگو اطمینان دارید؟')) {
-            dispatch(deleteTemplate(id))
-                .unwrap()
-                .then(() => toast.success('الگو با موفقیت حذف شد.'))
-                .catch(err => toast.error(err || 'خطا در حذف الگو.'));
-        }
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (!formData.title.trim()) return toast.error("عنوان الگو الزامی است.");
-        if (formData.period === 'YEARLY' && !formData.schedule_date) return toast.error("تاریخ اجرای سالانه الزامی است.");
-
+        
         const cleanChecklists = formData.checklists.filter(c => c.title.trim() !== '');
         if (cleanChecklists.length === 0) return toast.error("حداقل یک وظیفه وارد کنید.");
-
         let finalDaysOfWeek = [];
         if (formData.period === 'WEEKLY') {
             const daysSet = new Set();
@@ -207,12 +212,23 @@ const RoutineTemplatesPage = () => {
             if (finalDaysOfWeek.length === 0) return toast.error("حداقل یک وظیفه برای یکی از روزهای هفته تعریف کنید.");
         }
 
+        // 🌟 گرفتن دیتای میلادی از تقویم و تبدیل مجددش به شمسی برای بک‌اند (برای جلوگیری از خلق سال 2647)
         let finalScheduleValue = null;
-        if (formData.period === 'YEARLY' && formData.schedule_date) {
-            const dateParts = formData.schedule_date.replace(/\//g, '-');
-            finalScheduleValue = dateParts.length > 5 ? dateParts.substring(dateParts.length - 5) : dateParts; 
+        if ((formData.period === 'YEARLY' || formData.period === 'ONCE') && formData.schedule_date) {
+            const m = moment(formData.schedule_date, 'YYYY-MM-DD');
+            if (m.isValid()) {
+                if (formData.period === 'YEARLY') {
+                    finalScheduleValue = m.format('jMM-jDD');
+                } else if (formData.period === 'ONCE') {
+                    finalScheduleValue = m.format('jYYYY-jMM-jDD');
+                }
+            }
         }
 
+        if ((formData.period === 'YEARLY' || formData.period === 'ONCE') && !finalScheduleValue) {
+            return toast.error("تاریخ اجرا الزامی است.");
+        }
+        
         const payload = {
             ...formData,
             schedule_days_of_week: finalDaysOfWeek,
@@ -245,6 +261,16 @@ const RoutineTemplatesPage = () => {
             toast.error('خطا در ارتباط با سرور.');
         } finally {
             setIsSubmitting(false);
+        }
+    };
+    
+
+    const handleDeleteTemplate = (id) => {
+        if(window.confirm('آیا از حذف این الگو اطمینان دارید؟')) {
+            dispatch(deleteTemplate(id))
+                .unwrap()
+                .then(() => toast.success('الگو با موفقیت حذف شد.'))
+                .catch(err => toast.error(err || 'خطا در حذف الگو.'));
         }
     };
 
@@ -358,9 +384,9 @@ const RoutineTemplatesPage = () => {
                                     <FaClock className="text-emerald-500" /> بازه زمانی و اجرای روتین
                                 </h3>
                                 
-                                <div className="flex bg-gray-200/50 dark:bg-gray-800/50 p-1 rounded-lg">
-                                    {[ { id: 'DAILY', label: 'روزانه' }, { id: 'WEEKLY', label: 'هفتگی' }, { id: 'MONTHLY', label: 'ماهانه' }, { id: 'YEARLY', label: 'سالانه' } ].map(p => (
-                                        <button key={p.id} type="button" onClick={() => handlePeriodChange(p.id)} className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all ${formData.period === p.id ? (isDark ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-gray-800 shadow-sm') : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+                                <div className="flex bg-gray-200/50 dark:bg-gray-800/50 p-1 rounded-lg flex-wrap gap-1">
+                                    {[ { id: 'ONCE', label: 'یک‌باره' }, { id: 'DAILY', label: 'روزانه' }, { id: 'WEEKLY', label: 'هفتگی' }, { id: 'MONTHLY', label: 'ماهانه' }, { id: 'YEARLY', label: 'سالانه' } ].map(p => (
+                                        <button key={p.id} type="button" onClick={() => handlePeriodChange(p.id)} className={`flex-1 min-w-[60px] py-1.5 text-xs font-semibold rounded-md transition-all ${formData.period === p.id ? (isDark ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-gray-800 shadow-sm') : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                                             {p.label}
                                         </button>
                                     ))}
@@ -393,10 +419,18 @@ const RoutineTemplatesPage = () => {
                                     </div>
                                 )}
 
-                                {formData.period === 'YEARLY' && (
+                                {(formData.period === 'YEARLY' || formData.period === 'ONCE') && (
                                     <div className="space-y-1 relative">
-                                        <label className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>تاریخ اجرا در سال</label>
-                                        <JalaliDatePicker name="schedule_date" value={formData.schedule_date} onChange={(e) => setFormData({...formData, schedule_date: e.target.value})} placeholder="انتخاب روز و ماه" inputClassName={`w-full p-2 text-sm pl-10 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} />
+                                        <label className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            {formData.period === 'ONCE' ? 'تاریخ دقیق اجرا (مثال: ۱۴۰۳/۰۵/۱۰)' : 'تاریخ اجرا در سال'}
+                                        </label>
+                                        <JalaliDatePicker 
+                                            name="schedule_date" 
+                                            value={formData.schedule_date} 
+                                            onChange={(e) => setFormData({...formData, schedule_date: e.target.value})} 
+                                            placeholder={formData.period === 'ONCE' ? "انتخاب تاریخ دقیق" : "انتخاب روز و ماه"} 
+                                            inputClassName={`w-full p-2 text-sm pl-10 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300'}`} 
+                                        />
                                     </div>
                                 )}
 

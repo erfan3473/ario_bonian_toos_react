@@ -6,7 +6,7 @@
 @font-face {
   font-family: 'Vazirmatn';
   src: url('./assets/fonts/vazirmatn-v33.003/fonts/webfonts/Vazirmatn-Regular.woff2') format('woff2');
-  font-weight: normal; /* 400 */
+  font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
@@ -14,19 +14,17 @@
 @font-face {
   font-family: 'Vazirmatn';
   src: url('./assets/fonts/vazirmatn-v33.003/fonts/webfonts/Vazirmatn-Bold.woff2') format('woff2');
-  font-weight: bold; /* 700 */
+  font-weight: bold;
   font-style: normal;
   font-display: swap;
 }
 
-/* اعمال روی کل بادی */
 @layer base {
   body {
     font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
   }
 }
 
-/* فارسی‌سازی تقویم */
 .Calendar {
   font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
   direction: rtl !important;
@@ -37,7 +35,6 @@
   font-family: inherit;
 }
 
-/* رنگ‌بندی سفارشی تقویم */
 .Calendar__day.-selected {
   background-color: #3b82f6 !important;
   color: white !important;
@@ -57,17 +54,117 @@
   font-weight: 600;
 }
 
-/* استایل input */
 .DatePicker input {
   text-align: center;
   font-family: 'Vazirmatn', 'Tahoma', sans-serif;
 }
 
-/* مخفی کردن اسکرول‌بار */
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
 .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* =========================================
+   Quill Editor RTL Fixes & Alignment
+   ========================================= */
+
+/* تنظیمات پایه ادیتور */
+.ql-editor {
+  direction: rtl;
+  text-align: right;
+}
+
+/* 🔴 اعمال قطعی چیدمان‌ها (غلبه بر پیش‌فرض‌ها) */
+.ql-editor .ql-align-center { text-align: center !important; }
+.ql-editor .ql-align-left { text-align: left !important; }
+.ql-editor .ql-align-right { text-align: right !important; }
+.ql-editor .ql-align-justify { text-align: justify !important; }
+
+/* 🔴 مدیریت جهت (RTL / LTR) */
+/* وقتی LTR می‌شود، چپ‌چین می‌شود مگر اینکه کاربر خودش وسط‌چین/راست‌چین کرده باشد */
+.ql-editor .ql-direction-ltr { direction: ltr !important; }
+.ql-editor .ql-direction-ltr:not(.ql-align-center):not(.ql-align-right):not(.ql-align-justify) {
+  text-align: left !important;
+}
+
+/* وقتی RTL می‌شود، راست‌چین می‌شود مگر اینکه کاربر تنظیم کرده باشد */
+.ql-editor .ql-direction-rtl { direction: rtl !important; }
+.ql-editor .ql-direction-rtl:not(.ql-align-center):not(.ql-align-left):not(.ql-align-justify) {
+  text-align: right !important;
+}
+
+
+/* 🔴 تنظیمات لیست‌ها برای فارسی (RTL) */
+.ql-editor li:not(.ql-direction-ltr) {
+  padding-left: 0 !important;
+  padding-right: 2.5em !important;
+}
+.ql-editor li:not(.ql-direction-ltr)::before {
+  margin-left: 0 !important;
+  margin-right: -2.5em !important;
+  text-align: right !important;
+  display: inline-block;
+  width: 1.8em !important;
+}
+
+/* 🔴 تنظیمات لیست‌ها برای انگلیسی (LTR) */
+.ql-editor li.ql-direction-ltr {
+  padding-right: 0 !important;
+  padding-left: 2.5em !important;
+}
+.ql-editor li.ql-direction-ltr::before {
+  margin-right: 0 !important;
+  margin-left: -2.5em !important;
+  text-align: left !important;
+  display: inline-block;
+  width: 1.8em !important;
+}
+
+/* تورفتگی‌های لیست فارسی */
+.ql-editor li:not(.ql-direction-ltr).ql-indent-1 { padding-right: 4.5em !important; padding-left: 0 !important; }
+.ql-editor li:not(.ql-direction-ltr).ql-indent-2 { padding-right: 6.5em !important; padding-left: 0 !important; }
+.ql-editor li:not(.ql-direction-ltr).ql-indent-3 { padding-right: 8.5em !important; padding-left: 0 !important; }
+.ql-editor li:not(.ql-direction-ltr).ql-indent-4 { padding-right: 10.5em !important; padding-left: 0 !important; }
+.ql-editor li:not(.ql-direction-ltr).ql-indent-5 { padding-right: 12.5em !important; padding-left: 0 !important; }
+
+/* تورفتگی‌های لیست انگلیسی */
+.ql-editor li.ql-direction-ltr.ql-indent-1 { padding-left: 4.5em !important; padding-right: 0 !important; }
+.ql-editor li.ql-direction-ltr.ql-indent-2 { padding-left: 6.5em !important; padding-right: 0 !important; }
+.ql-editor li.ql-direction-ltr.ql-indent-3 { padding-left: 8.5em !important; padding-right: 0 !important; }
+.ql-editor li.ql-direction-ltr.ql-indent-4 { padding-left: 10.5em !important; padding-right: 0 !important; }
+.ql-editor li.ql-direction-ltr.ql-indent-5 { padding-left: 12.5em !important; padding-right: 0 !important; }
+
+
+/* اصلاح استایل Placeholder */
+.ql-editor.ql-blank::before {
+  left: auto !important;
+  right: 15px !important;
+  text-align: right;
+  font-style: normal;
+}
+.ql-editor .ql-direction-ltr.ql-blank::before {
+  right: auto !important;
+  left: 15px !important;
+  text-align: left;
+}
+
+/* حل مشکل نوار ابزار */
+.ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) svg {
+  right: auto !important;
+  left: 0 !important;
+}
+.ql-snow .ql-picker-label {
+  padding-right: 8px !important;
+  padding-left: 18px !important;
+}
+.ql-toolbar.ql-snow {
+  overflow: visible !important;
+  position: relative;
+  z-index: 50;
+}
+.ql-picker-options {
+  z-index: 100 !important;
 }

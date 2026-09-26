@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import QRCode from 'react-qr-code';
 
@@ -242,6 +242,15 @@ const WorkerDashboardScreen = () => {
     printWindow.document.close();
   };
 
+  // 🚀 این تابع useCallback از رندر مجدد تمام کارت‌ها هنگام کلیک روی یکی جلوگیری میکند
+  const handleWorkerCardClick = useCallback((id) => {
+    setMapSelectedWorkerId((prevId) => {
+      const newId = id === prevId ? null : id;
+      if (newId) setZoomTrigger((prev) => prev + 1);
+      return newId;
+    });
+  }, []);
+
   return (
     <div className={`min-h-screen flex flex-col ${
       isDark ? 'bg-gray-950 text-gray-100' : 'bg-gray-100 text-gray-900'
@@ -410,11 +419,7 @@ const WorkerDashboardScreen = () => {
                       worker={w}
                       highlight={highlightId === w.id}
                       selected={mapSelectedWorkerId === w.id}
-                      onClick={(id) => {
-                        const newId = id === mapSelectedWorkerId ? null : id;
-                        setMapSelectedWorkerId(newId);
-                        if (newId) setZoomTrigger((prev) => prev + 1);
-                      }}
+                      onClick={handleWorkerCardClick}
                       lastSeen={formatTimeAgo(w.lastUpdate)}
                     />
                   ))

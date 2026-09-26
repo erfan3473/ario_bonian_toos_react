@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
-import './JalaliDatePicker.css';
 
 const MONTH_NAMES = [
   'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
@@ -17,8 +16,8 @@ const YEARS = (() => {
 })();
 
 const getPersianWeekdayIndex = (m) => {
-  const g = m.day(); // 0..6 (Sunday..Saturday)
-  return (g + 1) % 7; // 0..6 (Saturday..Friday)
+  const g = m.day(); 
+  return (g + 1) % 7; 
 };
 
 const JalaliDatePicker = ({
@@ -31,8 +30,7 @@ const JalaliDatePicker = ({
   modal = false,
   placeholder = 'انتخاب تاریخ',
 }) => {
-  const mode = useSelector((s) => s.theme?.mode || 'dark');
-  const isDark = mode === 'dark';
+  const isDark = useSelector((s) => s.theme?.mode === 'dark');
 
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => moment().jMonth());
@@ -139,72 +137,88 @@ const JalaliDatePicker = ({
 
   const displayValue = selectedDate ? selectedDate.format('jYYYY/jMM/jDD') : '';
 
-  const calendarContent = (
-    <div className="jalali-datepicker-content">
-      <div className="jalali-datepicker-header">
-        <button type="button" onClick={handlePrevMonth} className="jalali-datepicker-nav-btn">▶</button>
+  // استایل‌های پویا با Tailwind بر اساس تم سیستم
+  const selectClass = `border rounded-md px-1.5 py-1 text-xs font-semibold cursor-pointer outline-none transition-colors ${
+    isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 hover:border-blue-500'
+  }`;
 
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <select
-            value={currentMonth}
-            onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
-            className="jalali-datepicker-select"
-          >
+  const navBtnClass = `w-7 h-7 rounded-full flex items-center justify-center text-[10px] transition-colors ${
+    isDark ? 'bg-gray-700 text-gray-400 hover:bg-blue-600 hover:text-white' : 'bg-gray-100 text-gray-600 hover:bg-blue-600 hover:text-white'
+  }`;
+
+  const footerBtnClass = `px-4 py-1 text-xs font-semibold rounded-full border transition-colors ${
+    isDark ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-blue-600 hover:border-blue-600 hover:text-white' : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-blue-600 hover:border-blue-600 hover:text-white'
+  }`;
+
+  const getDayClass = (day, cell) => {
+    if (!day) return "pointer-events-none";
+    let base = "aspect-square flex items-center justify-center text-xs rounded-lg cursor-pointer transition-colors font-medium ";
+    
+    if (isSelected(day)) {
+      base += "bg-blue-600 text-white font-bold shadow-md";
+    } else if (isToday(day)) {
+      base += isDark 
+        ? "bg-yellow-900/40 text-yellow-400 ring-1 ring-yellow-600 font-bold " 
+        : "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 font-bold ";
+    } else {
+      base += isDark ? "hover:bg-gray-700 hover:text-blue-300 " : "hover:bg-blue-50 hover:text-blue-600 ";
+      if (cell.isFriday) {
+        base += isDark ? "text-red-400 " : "text-red-600 ";
+      } else {
+        base += isDark ? "text-gray-300 " : "text-gray-800 ";
+      }
+    }
+    return base;
+  };
+
+  const calendarContent = (
+    <div dir="rtl">
+      {/* هدر تقویم */}
+      <div className={`flex justify-between items-center mb-3 pb-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <button type="button" onClick={handlePrevMonth} className={navBtnClass}>▶</button>
+        <div className="flex gap-1.5">
+          <select value={currentMonth} onChange={(e) => setCurrentMonth(parseInt(e.target.value))} className={selectClass}>
             {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
-
-          <select
-            value={currentYear}
-            onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-            className="jalali-datepicker-select"
-          >
+          <select value={currentYear} onChange={(e) => setCurrentYear(parseInt(e.target.value))} className={selectClass}>
             {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-
-        <button type="button" onClick={handleNextMonth} className="jalali-datepicker-nav-btn">◀</button>
+        <button type="button" onClick={handleNextMonth} className={navBtnClass}>◀</button>
       </div>
 
-      <div className="jalali-datepicker-weekdays">
-        {WEEK_DAYS.map((d, i) => <div key={i} className="jalali-datepicker-weekday">{d}</div>)}
+      {/* روزهای هفته */}
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {WEEK_DAYS.map((d, i) => (
+          <div key={i} className={`text-center text-[10px] font-bold py-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{d}</div>
+        ))}
       </div>
 
-      <div className="jalali-datepicker-days">
+      {/* شبکه روزها */}
+      <div className="grid grid-cols-7 gap-1">
         {daysGrid.map((cell, i) => {
           const day = cell ? cell.day : null;
           return (
-            <div
-              key={i}
-              onClick={() => handleDayClick(day)}
-              className={`
-                jalali-datepicker-day
-                ${!day ? 'jalali-datepicker-day-empty' : ''}
-                ${isToday(day) ? 'jalali-datepicker-day-today' : ''}
-                ${isSelected(day) ? 'jalali-datepicker-day-selected' : ''}
-                ${cell && cell.isFriday ? 'jalali-datepicker-day-friday' : ''}
-              `}
-            >
+            <div key={i} onClick={() => handleDayClick(day)} className={getDayClass(day, cell)}>
               {day}
             </div>
           );
         })}
       </div>
 
-      <div className="jalali-datepicker-footer">
-        <button type="button" onClick={handleToday} className="jalali-datepicker-today-btn">امروز</button>
-        <button type="button" onClick={handleClear} className="jalali-datepicker-clear-btn">پاک کردن</button>
+      {/* فوتر */}
+      <div className={`flex justify-center gap-2 mt-3 pt-2 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+        <button type="button" onClick={handleToday} className={footerBtnClass}>امروز</button>
+        <button type="button" onClick={handleClear} className={`${footerBtnClass} !text-red-500 hover:!bg-red-500 hover:!text-white hover:!border-red-500`}>پاک کردن</button>
       </div>
     </div>
   );
 
   return (
-    <div
-      ref={containerRef}
-      className={`jalali-datepicker ${isDark ? 'jalali-datepicker--dark' : 'jalali-datepicker--light'} ${className}`}
-      style={{ position: 'relative' }}
-    >
-      {label && <label className="jalali-datepicker-label">{label}</label>}
+    <div ref={containerRef} className={`relative ${className}`} dir="rtl">
+    {label && <label className={`block text-[11px] font-bold mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{label}</label>}
 
+      {/* اینپوت اصلی */}
       <div className="relative">
         <input
           type="text"
@@ -213,23 +227,41 @@ const JalaliDatePicker = ({
           placeholder={placeholder}
           readOnly
           disabled={disabled}
-          className="jalali-datepicker-input"
+          className={`w-full pl-2 pr-8 py-0 leading-normal rounded-md border focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs font-semibold h-[32px] cursor-pointer transition-colors ${
+            isDark 
+              ? 'bg-gray-800 text-gray-200 border-gray-600' 
+              : 'bg-white text-gray-800 border-gray-300'
+          } ${disabled ? (isDark ? 'opacity-50 cursor-not-allowed bg-gray-900' : 'opacity-60 cursor-not-allowed bg-gray-100') : ''}`}
         />
-        <span className="jalali-datepicker-input-icon">📅</span>
+        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[14px] pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+          📅
+        </span>
       </div>
 
+      {/* پاپ‌آپ (بدون مودال) */}
       {isOpen && !disabled && !modal && (
-        <div className="jalali-datepicker-popup">
+        <div className={`absolute top-full right-0 mt-1.5 z-[1000] p-3 rounded-xl border shadow-xl w-64 ${
+          isDark ? 'bg-gray-800 border-gray-700 text-gray-200 shadow-black/50' : 'bg-white border-gray-200 text-gray-800'
+        }`}>
           {calendarContent}
         </div>
       )}
 
+      {/* حالت مودال (برای صفحه گوشی یا انتخاب کارفرما) */}
       {isOpen && !disabled && modal && (
-        <div className="jalali-datepicker-modal-overlay">
-          <div className="jalali-datepicker-modal">
-            <div className="jalali-datepicker-modal-header">
-              <span className="jalali-datepicker-modal-header-title">انتخاب تاریخ</span>
-              <button type="button" onClick={() => setIsOpen(false)} className="jalali-datepicker-modal-close">×</button>
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className={`p-4 rounded-2xl shadow-2xl border w-full max-w-[320px] ${
+            isDark ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'
+          }`}>
+            <div className={`flex items-center justify-between mb-3 pb-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <span className="text-xs font-bold">انتخاب تاریخ</span>
+              <button 
+                type="button" 
+                onClick={() => setIsOpen(false)} 
+                className={`text-lg leading-none transition-colors ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}
+              >
+                ×
+              </button>
             </div>
             {calendarContent}
           </div>

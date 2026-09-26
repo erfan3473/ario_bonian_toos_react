@@ -14,6 +14,7 @@ export const fetchNotifications = createAsyncThunk(
 );
 
 // خوانده شده کردن یک یا چند نوتیف
+// خوانده شده کردن یک یا چند نوتیف
 export const markNotificationsRead = createAsyncThunk(
   'notifications/markRead',
   async (notifIds, { getState }) => {
@@ -25,7 +26,8 @@ export const markNotificationsRead = createAsyncThunk(
       ? { ids: notifIds } 
       : { all: true }; 
 
-    const { data } = await axios.post('/api/notifications/mark_read/', payload, config);
+    // ✅ اصلاح مسیر از mark_read به read
+    const { data } = await axios.post('/api/notifications/read/', payload, config);
     return { notifIds, unreadCount: data.unread_count };
   }
 );

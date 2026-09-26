@@ -37,7 +37,13 @@ import RoutineListPage from './pages/RoutineListPage';
 import RoutineTemplatesPage from './pages/RoutineTemplatesPage';
 import { Toaster, toast } from 'react-hot-toast'; 
 import { fetchNotifications, addNotificationFromWS, markNotificationsRead } from './features/notifications/notificationSlice';
-
+import AssetVerifyScreen from './screens/AssetVerifyScreen';
+import WebAttendanceScreen from './screens/WebAttendanceScreen';
+import AiAgentScreen from './screens/AiAgentScreen';
+// 👇 ایمپورت صفحات دبیرخانه
+import SecretariatListScreen from './screens/secretariat/SecretariatListScreen';
+import SecretariatCreateScreen from './screens/secretariat/SecretariatCreateScreen';
+import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScreen';
 
 function App() {
   const dispatch = useDispatch();
@@ -46,7 +52,6 @@ function App() {
   const isDark = mode === "dark";
   const { userInfo } = useSelector((state) => state.userLogin);
 
-  // 🔴 استفاده از useRef برای جلوگیری از قطع وب‌سوکت هنگام تغییر تم (Dark/Light)
   const isDarkRef = useRef(isDark);
   useEffect(() => {
     isDarkRef.current = isDark;
@@ -57,10 +62,8 @@ function App() {
 
     const token = userInfo.access || userInfo.token;
     
-    // دریافت تعداد اولیه هنگام لود سایت
     dispatch(fetchNotifications());
 
-    // اتصال به وب‌سوکت
     const wsUrl = `wss://www.ariobonyantoos.com/ws/inbox/?token=${token}`;
     const ws = new WebSocket(wsUrl);
 
@@ -80,15 +83,12 @@ function App() {
 
       if (notifData.type === 'notification') {
         
-        // 1️⃣ تشخیص دقیق نوع نوتیفیکیشن
         const isChat = notifData.notif_type === 'CHAT_MESSAGE';
         const isTask = notifData.notif_type && notifData.notif_type.startsWith('TASK_');
         
-        // تشخیص روتین با استفاده از extra_data که از بک‌اند فرستادید
         const isRoutine = notifData.notif_type === 'SYSTEM_MESSAGE' && 
                           notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER';
 
-        // 2️⃣ تنظیم آیکون و متن‌های دیفالت
         const icon = isChat ? '💬' : (isTask ? '📋' : (isRoutine ? '⏰' : '🔔'));
         const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : (isRoutine ? 'یادآوری روتین' : 'اعلان جدید'));
         const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : (isRoutine ? 'انجام روتین' : 'مشاهده'));
@@ -106,7 +106,6 @@ function App() {
               currentIsDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
             }`}
           >
-            {/* هدر دیالوگ */}
             <div className={`p-4 flex items-start gap-4 ${currentIsDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
               <div className="flex-1">
                 <h3 className="font-bold text-base flex items-center gap-2 mb-2">
@@ -121,7 +120,6 @@ function App() {
               </div>
             </div>
 
-            {/* دکمه‌های اکشن دیالوگ */}
             <div className={`flex border-t ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}>
               <button
                 onClick={() => {
@@ -131,7 +129,6 @@ function App() {
                     dispatch(markNotificationsRead([notifData.id]));
                   }
                   
-                  // 3️⃣ مسیریابی دقیق بر اساس دیتاهای بک‌اند
                   if (isChat) {
                     const targetChatId = notifData.object_id || notifData.extra_data?.chat_id;
                     if (targetChatId) {
@@ -147,7 +144,6 @@ function App() {
                       navigate('/tasks'); 
                     }
                   } else if (isRoutine) {
-                    // هدایت کاربر به صفحه روتین‌ها
                     navigate('/routines');
                   }
                 }}
@@ -176,11 +172,10 @@ function App() {
       }
     };
 
-
     return () => {
       if (ws.readyState === 1) ws.close();
     };
-  }, [dispatch, userInfo, navigate]); // 🔴 isDark از آرایه وابستگی‌ها حذف شد
+  }, [dispatch, userInfo, navigate]); 
 
   return (
     <div
@@ -198,11 +193,15 @@ function App() {
             isDark
               ? "bg-blue-800 border border-blue-700 border-t-0 shadow-none"
               : "bg-white border border-gray-200 border-t-0 shadow-none"
-          } rounded-t-none rounded-b-2xl pt-4 sm:pt-5 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-180px)] transition-colors duration-300`}
+          } rounded-t-none rounded-b-2xl pt-2 sm:pt-3 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-130px)] transition-colors duration-300`}
         >
           <Routes>
             <Route path="/" element={<HomeScreen />} />
             <Route path="/auth" element={<AuthScreen />} />
+            
+            <Route path="/ai-assistant" element={<ProtectedRoute><AiAgentScreen /></ProtectedRoute>} />
+
+            <Route path="/verify/:assetCode" element={<AssetVerifyScreen />} />
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
             <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
             <Route path="/chat" element={<ChatScreen />} />
@@ -234,12 +233,17 @@ function App() {
             <Route path="/tasks/:id" element={<TaskViewPage />} />
             <Route path="/routines" element={<RoutineListPage />} />
             <Route path="/routines/templates" element={<RoutineTemplatesPage />} /> 
-            {/* <Route path="/admin/phonebook" element={<PhonebookScreen />} /> */}
+            <Route path="/attendance" element={<ProtectedRoute><WebAttendanceScreen /></ProtectedRoute>} />
+
+            {/* 👇 مسیرهای جدید دبیرخانه */}
+            <Route path="/secretariat" element={<ProtectedRoute><SecretariatListScreen /></ProtectedRoute>} />
+            <Route path="/secretariat/create" element={<ProtectedRoute><SecretariatCreateScreen /></ProtectedRoute>} />
+            <Route path="/secretariat/:id" element={<ProtectedRoute><SecretariatDetailScreen /></ProtectedRoute>} />
           </Routes>
         </div>
       </main>
 
-      <footer className={`${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"} p-4 text-center mt-auto transition-colors duration-300`}>
+      <footer className={`print:hidden ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"} p-3 text-center text-sm mt-auto transition-colors duration-300`}>
         &copy; {new Date().getFullYear()} - سامانه مدیریت پروژه آریو بنیان توس
       </footer>
     </div>

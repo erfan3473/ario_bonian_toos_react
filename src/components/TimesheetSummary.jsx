@@ -1,24 +1,23 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { decimalHoursToHHMM } from '../utils/dateUtils';
-import { fetchWorkerLocationStats } from '../features/attendance/attendanceSlice'; // ایمپورت اکشن GPS
+import { fetchWorkerLocationStats } from '../features/attendance/attendanceSlice';
 
 const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
   const dispatch = useDispatch();
+  const isDark = useSelector((s) => s.theme?.mode === 'dark');
 
-  // استیت‌های مربوط به تحلیل مکانی
   const { filters, locationStats, locationStatsLoading, locationStatsError } = useSelector((state) => state.attendance);
   const [activeGpsWorker, setActiveGpsWorker] = useState(null);
 
   if (loading || !meta || !workers || workers.length === 0) {
     return (
-      <div className="text-center text-gray-400 py-10 border-2 border-dashed border-gray-200 rounded-xl mt-6 bg-gray-50">
-        <p className="text-sm">دیتایی برای نمایش خلاصه وجود ندارد.</p>
+      <div className={`text-center py-6 border border-dashed rounded-lg mt-4 text-xs ${isDark ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
+        <p>دیتایی برای نمایش خلاصه وجود ندارد.</p>
       </div>
     );
   }
 
-  // تابع باز و بسته کردن پنل GPS برای هر شخص
   const handleToggleGps = (workerId) => {
     if (activeGpsWorker === workerId) {
       setActiveGpsWorker(null);
@@ -34,34 +33,34 @@ const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
   };
 
   return (
-    <div className="mt-6">
-      <div className="mb-3 flex justify-between items-end">
-        <h3 className="text-lg font-bold text-gray-800">
+    <div className="mt-4">
+      <div className="mb-2 flex justify-between items-end">
+        <h3 className={`text-sm font-bold ${isDark ? 'text-gray-800' : 'text-gray-800'}`}>
           کارنامه کلی پرسنل
         </h3>
-        <span className="text-xs font-medium bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100">
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-sm border ${isDark ? 'bg-gray-700 text-gray-200 border-gray-600' : 'bg-white text-slate-800 border-slate-300'}`}>
            تعداد پرسنل: {workers.length}
         </span>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-xs md:text-sm whitespace-nowrap">
-            <thead className="bg-gray-100 text-gray-600 border-b border-gray-200">
+      <div className={`border rounded-lg shadow-sm overflow-hidden ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
+          <table className="min-w-full text-[11px] whitespace-nowrap border-collapse">
+            <thead className={`sticky top-0 z-20 shadow-sm ${isDark ? 'bg-slate-800 text-gray-300 border-gray-700' : 'bg-slate-200 text-gray-700 border-gray-300'}`}>
               <tr>
-                <th className="px-3 py-3 text-right font-semibold sticky right-0 bg-gray-100 z-10 shadow-[1px_0_0_#e5e7eb]">نام پرسنل</th>
-                <th className="px-3 py-3 text-center font-semibold">روزهای<br/>حضور</th>
-                <th className="px-3 py-3 text-center font-semibold text-blue-700">مجموع<br/>کارکرد</th>
-                <th className="px-3 py-3 text-center font-semibold text-teal-600">میانگین<br/>ساعت حضور</th>
-                <th className="px-3 py-3 text-center font-semibold text-indigo-700">شب‌کاری</th>
-                <th className="px-3 py-3 text-center font-semibold text-rose-600">جمعه‌کاری</th>
-                <th className="px-3 py-3 text-center font-semibold text-purple-600">اضافه کار<br/>(سیستم)</th>
-                <th className="px-3 py-3 text-center font-semibold text-green-700">اضافه کار<br/>(تایید شده)</th>
+                <th className={`px-2 py-2 text-right font-bold sticky right-0 z-30 border-l ${isDark ? 'bg-slate-800 border-gray-700 shadow-[1px_0_0_#374151]' : 'bg-slate-200 border-gray-300 shadow-[1px_0_0_#d1d5db]'}`}>ردیف و نام پرسنل</th>
+                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>حضور<br/>(روز)</th>
+                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-blue-400 border-gray-700' : 'text-blue-700 border-gray-300'}`}>مجموع<br/>کارکرد</th>
+                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-teal-400 border-gray-700' : 'text-teal-600 border-gray-300'}`}>میانگین<br/>ساعت حضور</th>
+                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-indigo-400 border-gray-700' : 'text-indigo-700 border-gray-300'}`}>شب‌کاری</th>
+                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-rose-400 border-gray-700' : 'text-rose-600 border-gray-300'}`}>جمعه‌کاری</th>
+                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-purple-400 border-gray-700' : 'text-purple-600 border-gray-300'}`}>اضافه کار<br/>(سیستم)</th>
+                <th className={`px-2 py-2 text-center font-bold ${isDark ? 'text-green-400' : 'text-green-700'}`}>اضافه کار<br/>(تایید شده)</th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-100">
-              {workers.map((worker) => {
+            <tbody>
+              {workers.map((worker, index) => {
                 const wData = byWorker[worker.worker_id];
                 if (!wData || !wData.summary) return null;
 
@@ -76,76 +75,103 @@ const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
 
                 const isGpsOpen = activeGpsWorker === worker.worker_id;
 
+                const rowBgColor = isGpsOpen 
+                  ? (isDark ? 'bg-indigo-900/30' : 'bg-indigo-50/50') 
+                  : (isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50');
+
+                const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
+
                 return (
                   <React.Fragment key={worker.worker_id}>
                     {/* --- ردیف اصلی اطلاعات --- */}
-                    <tr className={`transition ${isGpsOpen ? 'bg-indigo-50/30' : 'hover:bg-gray-50'}`}>
-                      <td className={`px-3 py-3 sticky right-0 z-10 border-l border-gray-100 shadow-[1px_0_0_#e5e7eb] ${isGpsOpen ? 'bg-indigo-50/80' : 'bg-white'}`}>
-                        <div className="flex items-center gap-2">
-                          <div>
-                            <div className="font-bold text-gray-800 text-sm">
+                    <tr className={`border-b transition-colors duration-150 ${borderColor} ${rowBgColor}`}>
+                      <td className={`px-2 py-1.5 sticky right-0 z-10 border-l align-middle ${borderColor} ${rowBgColor} ${isDark ? 'shadow-[1px_0_0_#374151]' : 'shadow-[1px_0_0_#e5e7eb]'}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-mono shadow-sm shrink-0 ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                            {index + 1}
+                          </span>
+                          <div className="leading-tight">
+                            <div className={`font-bold text-[11px] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
                               {worker.worker_name}
                             </div>
-                            <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                            <div className={`text-[9px] font-mono mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                               {worker.worker_code}
                             </div>
                           </div>
                           <button
                             onClick={() => handleToggleGps(worker.worker_id)}
                             title="تحلیل موقعیت مکانی"
-                            className={`mr-auto p-1.5 rounded-full border transition-colors ${isGpsOpen ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 text-indigo-500 border-gray-200 hover:bg-indigo-100'}`}
+                            className={`mr-auto p-1 rounded-full border transition-colors ${
+                              isGpsOpen 
+                                ? (isDark ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-600 text-white border-indigo-600') 
+                                : (isDark ? 'bg-gray-700 text-indigo-400 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 text-indigo-500 border-gray-200 hover:bg-indigo-100')
+                            }`}
                           >
                             📍
                           </button>
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 text-center"><span className="font-bold text-gray-700">{presentDays}</span></td>
-                      <td className="px-3 py-3 text-center font-mono text-blue-700 font-bold dir-ltr bg-blue-50/30">{decimalHoursToHHMM(hours)}</td>
-                      <td className="px-3 py-3 text-center font-mono dir-ltr">{averageHours > 0 ? <span className="text-teal-600 font-bold">{decimalHoursToHHMM(averageHours)}</span> : <span className="text-gray-300">-</span>}</td>
-                      <td className="px-3 py-3 text-center font-mono dir-ltr">{night > 0 ? <span className="text-indigo-700 font-bold">{decimalHoursToHHMM(night)}</span> : <span className="text-gray-300">-</span>}</td>
-                      <td className="px-3 py-3 text-center font-mono dir-ltr">{friday > 0 ? <span className="text-rose-600 font-bold">{decimalHoursToHHMM(friday)}</span> : <span className="text-gray-300">-</span>}</td>
-                      <td className="px-3 py-3 text-center font-mono dir-ltr">{calcOvertime > 0 ? <span className="text-purple-600 font-medium">{decimalHoursToHHMM(calcOvertime)}</span> : <span className="text-gray-300">-</span>}</td>
-                      <td className="px-3 py-3 text-center font-mono dir-ltr bg-green-50/30">{approvedOvertime > 0 ? <span className="text-green-700 font-bold">{decimalHoursToHHMM(approvedOvertime)}</span> : <span className="text-gray-300">-</span>}</td>
+                      <td className={`px-2 py-1.5 text-center border-l align-middle ${borderColor}`}>
+                        <span className={`font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{presentDays}</span>
+                      </td>
+                      <td className={`px-2 py-1.5 text-center font-mono font-bold dir-ltr border-l align-middle ${borderColor} ${isDark ? 'text-blue-400 bg-blue-900/10' : 'text-blue-700 bg-blue-50/40'}`}>
+                        {decimalHoursToHHMM(hours)}
+                      </td>
+                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
+                        {averageHours > 0 ? <span className={`font-bold ${isDark ? 'text-teal-400' : 'text-teal-600'}`}>{decimalHoursToHHMM(averageHours)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
+                      </td>
+                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
+                        {night > 0 ? <span className={`font-bold ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>{decimalHoursToHHMM(night)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
+                      </td>
+                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
+                        {friday > 0 ? <span className={`font-bold ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{decimalHoursToHHMM(friday)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
+                      </td>
+                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
+                        {calcOvertime > 0 ? <span className={`font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{decimalHoursToHHMM(calcOvertime)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
+                      </td>
+                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr align-middle ${isDark ? 'bg-green-900/10' : 'bg-green-50/40'}`}>
+                        {approvedOvertime > 0 ? <span className={`font-bold ${isDark ? 'text-green-400' : 'text-green-700'}`}>{decimalHoursToHHMM(approvedOvertime)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
+                      </td>
                     </tr>
 
                     {/* --- ردیف کشویی (Expandable Row) برای GPS --- */}
                     {isGpsOpen && (
                       <tr>
-                        <td colSpan="8" className="p-0 border-b-2 border-indigo-200 bg-indigo-50/40">
-                          <div className="p-4 md:p-6 animate-fade-in shadow-inner">
-                            <h4 className="text-indigo-800 font-bold mb-4 text-sm md:text-base flex items-center gap-2">
+                        <td colSpan="8" className={`p-0 border-b-2 ${isDark ? 'border-indigo-800 bg-indigo-900/20' : 'border-indigo-200 bg-indigo-50/40'}`}>
+                          <div className="p-3 animate-fade-in shadow-inner">
+                            <h4 className={`font-bold mb-3 text-xs flex items-center gap-1 ${isDark ? 'text-indigo-300' : 'text-indigo-800'}`}>
                               📊 تحلیل مکانی ({worker.worker_name}) در بازه انتخابی
                             </h4>
                             
-                            {locationStatsLoading && <div className="text-indigo-600 animate-pulse text-sm">در حال دریافت و تحلیل نقاط مکانی...</div>}
-                            {locationStatsError && <div className="text-red-600 bg-red-50 p-3 rounded text-sm">{locationStatsError}</div>}
+                            {locationStatsLoading && <div className={`animate-pulse text-xs ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>در حال دریافت و تحلیل نقاط مکانی...</div>}
+                            {locationStatsError && <div className={`p-2 rounded text-xs ${isDark ? 'bg-red-900/40 text-red-400' : 'bg-red-50 text-red-600'}`}>{locationStatsError}</div>}
                             
                             {!locationStatsLoading && !locationStatsError && locationStats && (
                               locationStats.total_logs === 0 ? (
-                                <div className="text-gray-500 bg-white p-4 rounded-lg border border-gray-200 text-center text-sm">
+                                <div className={`p-3 rounded-lg border text-center text-[11px] ${isDark ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-500'}`}>
                                   دیتای موقعیت مکانی (GPS) برای این شخص در این بازه ثبت نشده است.
                                 </div>
                               ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                   {/* بخش آماری */}
-                                  <div className="flex flex-col gap-3 justify-center">
-                                    <div className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                                      <span className="text-gray-600 text-xs md:text-sm font-semibold">مجموع مسافت طی شده:</span>
-                                      <span className="text-lg font-bold text-indigo-600 dir-ltr">
-                                        {locationStats.distance_kilometers} <span className="text-xs font-normal text-gray-500">km</span>
+                                  <div className="flex flex-col gap-2 justify-center">
+                                    <div className={`p-2 rounded-lg border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                      <span className={`text-[10px] font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>مجموع مسافت طی شده:</span>
+                                      <span className={`text-sm font-bold dir-ltr ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                        {locationStats.distance_kilometers} <span className="text-[9px] font-normal opacity-70">km</span>
                                       </span>
                                     </div>
-                                    <div className="bg-white p-3 rounded-xl border border-gray-200 flex items-center justify-between shadow-sm">
-                                      <span className="text-gray-600 text-xs md:text-sm font-semibold">تعداد کل نقاط ثبت شده:</span>
-                                      <span className="text-lg font-bold text-gray-700">{locationStats.total_logs}</span>
+                                    <div className={`p-2 rounded-lg border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                                      <span className={`text-[10px] font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>تعداد کل نقاط ثبت شده:</span>
+                                      <span className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{locationStats.total_logs}</span>
                                     </div>
                                   </div>
 
                                   {/* بخش چارت (Donut) */}
                                   <div className="flex justify-center items-center">
                                     <div 
-                                      className="relative w-32 h-32 md:w-40 md:h-40 rounded-full shadow-inner"
+                                      className="relative w-24 h-24 rounded-full shadow-inner"
                                       style={{
                                         background: `conic-gradient(
                                           #22c55e 0% ${locationStats.chart_data.inside_project_percent}%, 
@@ -154,45 +180,45 @@ const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
                                         )`
                                       }}
                                     >
-                                      <div className="absolute inset-3 bg-white rounded-full flex items-center justify-center shadow-sm">
+                                      <div className={`absolute inset-2.5 rounded-full flex items-center justify-center shadow-sm ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
                                         <div className="text-center">
-                                          <div className="text-xl md:text-2xl font-black text-gray-800">{locationStats.chart_data.inside_project_percent}%</div>
-                                          <div className="text-[9px] md:text-[10px] text-gray-500">حضور در پروژه</div>
+                                          <div className={`text-sm font-black ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>{locationStats.chart_data.inside_project_percent}%</div>
+                                          <div className={`text-[8px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>در پروژه</div>
                                         </div>
                                       </div>
                                     </div>
                                   </div>
 
                                   {/* بخش راهنما */}
-                                  <div className="flex flex-col justify-center gap-2">
-                                    <div className="bg-white p-2 rounded-lg border border-gray-100 flex items-center justify-between shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                                        <span className="text-xs text-gray-700">داخل پروژه</span>
+                                  <div className="flex flex-col justify-center gap-1.5">
+                                    <div className={`p-1.5 rounded border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                        <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>داخل پروژه</span>
                                       </div>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-gray-400">({locationStats.raw_counts.inside} نقطه)</span>
-                                        <span className="font-bold text-green-600 text-xs w-8 text-left">{locationStats.chart_data.inside_project_percent}%</span>
-                                      </div>
-                                    </div>
-                                    <div className="bg-white p-2 rounded-lg border border-gray-100 flex items-center justify-between shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                                        <span className="text-xs text-gray-700">خارج محدوده</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-gray-400">({locationStats.raw_counts.outside} نقطه)</span>
-                                        <span className="font-bold text-yellow-600 text-xs w-8 text-left">{locationStats.chart_data.outside_project_percent}%</span>
+                                        <span className={`text-[9px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({locationStats.raw_counts.inside} نقطه)</span>
+                                        <span className="font-bold text-green-500 text-[10px] w-6 text-left">{locationStats.chart_data.inside_project_percent}%</span>
                                       </div>
                                     </div>
-                                    <div className="bg-white p-2 rounded-lg border border-gray-100 flex items-center justify-between shadow-sm">
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                                        <span className="text-xs text-gray-700">GPS خاموش</span>
+                                    <div className={`p-1.5 rounded border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                                        <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>خارج محدوده</span>
                                       </div>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-gray-400">({locationStats.raw_counts.off} نقطه)</span>
-                                        <span className="font-bold text-red-600 text-xs w-8 text-left">{locationStats.chart_data.gps_off_percent}%</span>
+                                        <span className={`text-[9px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({locationStats.raw_counts.outside} نقطه)</span>
+                                        <span className="font-bold text-yellow-500 text-[10px] w-6 text-left">{locationStats.chart_data.outside_project_percent}%</span>
+                                      </div>
+                                    </div>
+                                    <div className={`p-1.5 rounded border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                        <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>GPS خاموش</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[9px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({locationStats.raw_counts.off} نقطه)</span>
+                                        <span className="font-bold text-red-500 text-[10px] w-6 text-left">{locationStats.chart_data.gps_off_percent}%</span>
                                       </div>
                                     </div>
                                   </div>

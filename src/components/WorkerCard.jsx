@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useSelector } from 'react-redux';
 
 const statusMap = {
@@ -178,4 +178,5 @@ const WorkerCard = ({ worker, highlight, selected, onClick, lastSeen }) => {
   );
 };
 
-export default WorkerCard;
+// 🚀 استفاده از memo برای جلوگیری از رندر مجدد در هر تیک سوکت
+export default memo(WorkerCard);
