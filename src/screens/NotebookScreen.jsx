@@ -31,7 +31,7 @@ const getCustomScrollbarStyle = (isDark) => `
       background-color: ${isDark ? '#3B82F6' : '#60A5FA'};
   }
   
-  /* فقط رنگ‌های اختصاصی دارک‌مود اینجا می‌مانند (استایل‌های ساختاری به index.css منتقل شدند) */
+  /* رنگ‌های اختصاصی دارک‌مود */
   .quill-dark .ql-toolbar {
       background-color: #374151;
       border-color: #4B5563;
@@ -53,7 +53,7 @@ const quillModules = {
         [{ 'size': ['small', false, 'large', 'huge'] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],          
-        [{ 'align': ['', 'center', 'right', 'justify'] }], // 👈 اضافه شدن صریح تمام گزینه‌های الاین
+        [{ 'align': [] }], // دادن آرایه خالی به Quill می‌گوید تمام گزینه‌های الاین (چپ، راست، وسط، جاستیفای) را بیاور                      
         [{ 'direction': 'rtl' }],                         
         [{ 'list': 'ordered'}, { 'list': 'bullet' }, { 'indent': '-1'}, { 'indent': '+1' }], 
         ['link', 'blockquote', 'code-block'],
@@ -136,12 +136,12 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                     </div>
                 ) : (
                     entry.content && (
+                        /* 🔴 حذف کلاس‌های مخرب (مثل !p-0) برای یکسان‌سازی دقیق با ادیتور */
                         <div className={`ql-snow w-full ${isDark ? 'quill-dark' : ''}`}>
                             <div 
-                                className={`ql-editor !p-0 max-w-none break-words whitespace-pre-wrap leading-relaxed [&_img]:max-w-full [&_img]:rounded-lg ${
+                                className={`ql-editor max-w-none break-words whitespace-pre-wrap [&_img]:max-w-full [&_img]:rounded-lg ${
                                     isDark ? 'text-gray-200' : 'text-gray-800'
                                 }`} 
-                                dir="auto"
                                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(entry.content) }}
                             />
                         </div>
@@ -186,6 +186,7 @@ const NotebookScreen = () => {
     useEffect(() => { dispatch(fetchNotebooks()); }, [dispatch]);
 
     useEffect(() => {
+        // 🔴 حل نهایی مشکل پریدن دفترچه بعد از رفرش صفحه
         if (notebooks.length > 0) {
             const savedNotebookId = localStorage.getItem('activeNotebookId');
             if (savedNotebookId) {
@@ -197,11 +198,9 @@ const NotebookScreen = () => {
                     localStorage.removeItem('activeNotebookId');
                 }
             }
-        } else if (!loading && notebooks.length === 0) {
-            setActiveNotebook(null);
-            localStorage.removeItem('activeNotebookId');
         }
-    }, [notebooks, loading]);
+        // بخش else if کاملاً حذف شد تا دیتای localStorage قبل از رسیدن ریکوئست سرور پاک نشود!
+    }, [notebooks]);
 
     useEffect(() => {
         if (activeNotebook) {

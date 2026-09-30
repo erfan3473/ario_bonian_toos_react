@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { fetchLetters } from '../../features/secretariat/secretariatSlice';
-import { FaPlus, FaSearch, FaPaperclip, FaExclamationCircle, FaUserSecret, FaInbox } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaPaperclip, FaExclamationCircle, FaUserSecret, FaInbox, FaChevronLeft } from 'react-icons/fa';
 
 const SecretariatListScreen = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const location = useLocation(); 
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { letters, loadingList, error } = useSelector((state) => state.secretariat);
 
-    const [filterType, setFilterType] = useState('');
+    const [filterType, setFilterType] = useState(location.state?.filter || '');
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
@@ -24,8 +25,25 @@ const SecretariatListScreen = () => {
         });
     };
 
+    const getFilterName = (type) => {
+        switch(type) {
+            case 'INCOMING': return 'مکاتبات وارده';
+            case 'OUTGOING': return 'مکاتبات صادره';
+            case 'INTERNAL': return 'مکاتبات داخلی';
+            default: return 'همه مکاتبات';
+        }
+    };
+
     return (
         <div className="p-4 max-w-7xl mx-auto space-y-6">
+
+            <div className="flex flex-wrap items-center gap-2 text-xs font-bold print:hidden mb-4">
+                <Link to="/" className="text-blue-500 hover:text-blue-700 transition">خانه</Link>
+                <FaChevronLeft className="text-[10px] text-gray-400" />
+                <span className="text-gray-500">دبیرخانه</span>
+                <FaChevronLeft className="text-[10px] text-gray-400" />
+                <span className={isDark ? "text-gray-300" : "text-gray-700"}>{getFilterName(filterType)}</span>
+            </div>
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-3">
@@ -97,12 +115,12 @@ const SecretariatListScreen = () => {
                     <table className="w-full text-right text-sm">
                         <thead className={`text-[11px] uppercase tracking-wider font-black ${isDark ? 'bg-gray-900/50 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                             <tr>
-                                <th className="px-5 py-4 w-32">شماره اندیکاتور</th>
+                                <th className="px-5 py-4 w-32">شماره نامه</th>
                                 <th className="px-5 py-4 w-24">نوع</th>
                                 <th className="px-5 py-4 max-w-md">موضوع و مشخصات</th>
                                 <th className="px-5 py-4 w-40">فرستنده</th>
                                 <th className="px-5 py-4 w-40">گیرنده</th>
-                                <th className="px-5 py-4 w-32">تاریخ ثبت</th>
+                                <th className="px-5 py-4 w-32">تاریخ</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -113,9 +131,17 @@ const SecretariatListScreen = () => {
                                     className={`cursor-pointer group transition-colors duration-200 ${isDark ? 'hover:bg-gray-700/50 bg-gray-800' : 'hover:bg-blue-50/50 bg-white'}`}
                                 >
                                     <td className="px-5 py-4 whitespace-nowrap">
-                                        <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-gray-300' : 'text-gray-700'} group-hover:text-blue-500 transition-colors`}>
-                                            {letter.indicator_number}
-                                        </span>
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-gray-300' : 'text-gray-700'} group-hover:text-blue-500 transition-colors`} title="شماره سیستمی">
+                                                {letter.indicator_number}
+                                            </span>
+                                            {/* 🚀 تصحیح Bidi: تغییر به راست‌چین برای حفظ ترتیب */}
+                                            {letter.original_number && (
+                                                <span className="text-[10.5px] opacity-60 font-mono text-right" dir="rtl" title="شماره فیزیکی / مبدأ">
+                                                    {letter.original_number}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
 
                                     <td className="px-5 py-4 whitespace-nowrap">
@@ -153,7 +179,6 @@ const SecretariatListScreen = () => {
                                         </div>
                                     </td>
 
-                                    {/* 🚀 فرستنده با پشتیبانی از مدل سازمان جدید */}
                                     <td className="px-5 py-4">
                                         <div className="flex flex-col truncate max-w-[140px]">
                                             <span className={`text-[13px] font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -162,7 +187,6 @@ const SecretariatListScreen = () => {
                                         </div>
                                     </td>
 
-                                    {/* 🚀 گیرنده با پشتیبانی از مدل سازمان جدید */}
                                     <td className="px-5 py-4">
                                         <div className="flex flex-col truncate max-w-[140px]">
                                             <span className={`text-[13px] font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -172,9 +196,16 @@ const SecretariatListScreen = () => {
                                     </td>
 
                                     <td className="px-5 py-4 whitespace-nowrap">
-                                        <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            {formatPersianDate(letter.created_at)}
-                                        </span>
+                                        <div className="flex flex-col gap-1.5">
+                                            <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`} title="تاریخ ثبت سیستم">
+                                                {formatPersianDate(letter.created_at)}
+                                            </span>
+                                            {letter.original_date && (
+                                                <span className="text-[10px] opacity-60" title="تاریخ مبدأ">
+                                                    {formatPersianDate(letter.original_date)}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

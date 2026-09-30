@@ -44,7 +44,7 @@ import AiAgentScreen from './screens/AiAgentScreen';
 import SecretariatListScreen from './screens/secretariat/SecretariatListScreen';
 import SecretariatCreateScreen from './screens/secretariat/SecretariatCreateScreen';
 import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScreen';
-
+import SecretariatEditScreen from './screens/secretariat/SecretariatEditScreen';
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -239,6 +239,7 @@ function App() {
             <Route path="/secretariat" element={<ProtectedRoute><SecretariatListScreen /></ProtectedRoute>} />
             <Route path="/secretariat/create" element={<ProtectedRoute><SecretariatCreateScreen /></ProtectedRoute>} />
             <Route path="/secretariat/:id" element={<ProtectedRoute><SecretariatDetailScreen /></ProtectedRoute>} />
+            <Route path="/secretariat/:id/edit" element={<ProtectedRoute><SecretariatEditScreen /></ProtectedRoute>} />
           </Routes>
         </div>
       </main>

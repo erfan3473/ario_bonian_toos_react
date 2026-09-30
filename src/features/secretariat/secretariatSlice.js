@@ -67,7 +67,20 @@ export const signLetter = createAsyncThunk('secretariat/signLetter', async ({ le
         return data; 
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
+// اضافه کردن متدهای جدید برای ویرایش و حذف
+export const updateLetter = createAsyncThunk('secretariat/updateLetter', async ({ id, payload }, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.put(`/secretariat/${id}/update/`, payload);
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
 
+export const deleteLetter = createAsyncThunk('secretariat/deleteLetter', async (id, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.delete(`/secretariat/${id}/delete/`);
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
