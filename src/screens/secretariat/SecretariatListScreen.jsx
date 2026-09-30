@@ -132,12 +132,12 @@ const SecretariatListScreen = () => {
                                 >
                                     <td className="px-5 py-4 whitespace-nowrap">
                                         <div className="flex flex-col gap-1.5">
-                                            <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-gray-300' : 'text-gray-700'} group-hover:text-blue-500 transition-colors`} title="شماره سیستمی">
+                                            <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-gray-300' : 'text-gray-700'} group-hover:text-blue-500 transition-colors`} title="شماره تولید شده توسط سیستم">
                                                 {letter.indicator_number}
                                             </span>
                                             {/* 🚀 تصحیح Bidi: تغییر به راست‌چین برای حفظ ترتیب */}
                                             {letter.original_number && (
-                                                <span className="text-[10.5px] opacity-60 font-mono text-right" dir="rtl" title="شماره فیزیکی / مبدأ">
+                                                <span className="text-[18px] opacity-900 font-mono text-right" dir="rtl" title="شماره ثبت دفتری">
                                                     {letter.original_number}
                                                 </span>
                                             )}

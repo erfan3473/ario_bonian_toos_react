@@ -1,10 +1,87 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { fetchLetterDetail, updateLetter, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaChevronLeft } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronDown } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
+
+// 🚀 کامپوننت اختصاصی جستجوی پرسنل (تایپ و سرچ)
+const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    useEffect(() => {
+        if (value) {
+            const selected = personnel.find(p => p.id === parseInt(value));
+            if (selected) setSearchTerm(`${selected.name} - ${selected.position_title || 'بدون سمت'}`);
+        } else {
+            setSearchTerm('');
+        }
+    }, [value, personnel]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filtered = personnel.filter(p => 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    const inputClass = `w-full p-2.5 text-sm rounded-lg border focus:ring-2 focus:outline-none transition ${isDark ? 'bg-gray-800 border-gray-700 text-white focus:ring-blue-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-blue-400'}`;
+
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <input
+                type="text"
+                className={inputClass}
+                placeholder={placeholder}
+                value={searchTerm}
+                onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setIsOpen(true);
+                    if (e.target.value === '') onChange('');
+                }}
+                onFocus={() => setIsOpen(true)}
+            />
+            <FaChevronDown className="absolute left-3 top-3.5 text-gray-400 pointer-events-none text-xs" />
+            
+            {isOpen && (
+                <ul className={`absolute z-10 w-full mt-1 max-h-60 overflow-y-auto rounded-lg border shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
+                    <li 
+                        className={`p-2.5 cursor-pointer text-sm font-bold opacity-70 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                        onClick={() => { onChange(''); setIsOpen(false); }}
+                    >
+                        -- نامشخص / ثبت دستی در پایین --
+                    </li>
+                    {filtered.map(emp => (
+                        <li 
+                            key={emp.id}
+                            className={`p-2.5 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}
+                            onClick={() => {
+                                onChange(emp.id.toString());
+                                setSearchTerm(`${emp.name} - ${emp.position_title || 'بدون سمت'}`);
+                                setIsOpen(false);
+                            }}
+                        >
+                            <div className="font-bold">{emp.name}</div>
+                            <div className="text-xs opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
+                        </li>
+                    ))}
+                    {filtered.length === 0 && (
+                        <li className="p-3 text-sm opacity-50 text-center">موردی یافت نشد</li>
+                    )}
+                </ul>
+            )}
+        </div>
+    );
+};
 
 const SecretariatEditScreen = () => {
     const { id } = useParams();
@@ -35,7 +112,7 @@ const SecretariatEditScreen = () => {
         attachment_note: '',
         contract_number: '',
         reference_number: '',
-        reference_letter: '', // 🚀 آیدی سیستمی نامه پدر
+        reference_letter: '', // 🚀 فیلد سیستمی عطف
         cc_text: '',
         internal_cc_receivers: [], 
         body: '',
@@ -45,7 +122,6 @@ const SecretariatEditScreen = () => {
         dispatch(fetchAllPersonnel());
         dispatch(fetchOrganizations()); 
         dispatch(fetchLetterDetail(id));
-        // 🚀 اگه لیست نامه‌ها خالی بود، از بک‌اند می‌گیریم تا برای رفرنس‌‌دهی استفاده کنیم
         if (!letters || letters.length === 0) {
             dispatch(fetchLetters({}));
         }
@@ -72,7 +148,7 @@ const SecretariatEditScreen = () => {
                 attachment_note: activeLetter.attachment_note || '',
                 contract_number: activeLetter.contract_number || '',
                 reference_number: activeLetter.reference_number || '',
-                reference_letter: activeLetter.reference_letter_detail?.id || '', // 🚀 پر کردن رفرنس
+                reference_letter: activeLetter.reference_letter_detail?.id || '', // 🚀 پر کردن عطف سیستمی
                 cc_text: activeLetter.cc_text || '',
                 internal_cc_receivers: activeLetter.internal_cc_receivers || [], 
                 body: activeLetter.body || '',
@@ -194,10 +270,13 @@ const SecretariatEditScreen = () => {
                             {formData.letter_type === 'INCOMING' ? (
                                 <input type="text" list="org-list" className={inputClass} value={formData.external_sender} onChange={(e) => setFormData({ ...formData, external_sender: e.target.value })} />
                             ) : (
-                                <select className={inputClass} value={formData.internal_sender} onChange={(e) => setFormData({ ...formData, internal_sender: e.target.value })}>
-                                    <option value="">نامشخص / ثبت دستی در پایین</option>
-                                    {allPersonnel?.map(emp => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}
-                                </select>
+                                <SearchablePersonnelSelect 
+                                    personnel={allPersonnel} 
+                                    value={formData.internal_sender} 
+                                    onChange={(val) => setFormData({ ...formData, internal_sender: val })} 
+                                    placeholder="جستجو و انتخاب پرسنل..." 
+                                    isDark={isDark} 
+                                />
                             )}
                         </div>
                         <div className="space-y-3 p-4 rounded-lg bg-gray-500/5">
@@ -205,10 +284,13 @@ const SecretariatEditScreen = () => {
                             {formData.letter_type === 'OUTGOING' ? (
                                 <input type="text" list="org-list" className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
                             ) : (
-                                <select className={inputClass} value={formData.internal_receiver} onChange={(e) => setFormData({ ...formData, internal_receiver: e.target.value })}>
-                                    <option value="">نامشخص / ثبت دستی در پایین</option>
-                                    {allPersonnel?.map(emp => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}
-                                </select>
+                                <SearchablePersonnelSelect 
+                                    personnel={allPersonnel} 
+                                    value={formData.internal_receiver} 
+                                    onChange={(val) => setFormData({ ...formData, internal_receiver: val })} 
+                                    placeholder="جستجو و انتخاب پرسنل..." 
+                                    isDark={isDark} 
+                                />
                             )}
                         </div>
                     </div>
@@ -216,12 +298,10 @@ const SecretariatEditScreen = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">عنوان دستی گیرنده (چاپ در بالای نامه - اختیاری)</label>
-                            {/* 🚀 textarea شد تا با Enter بره خط بعدی */}
                             <textarea rows="2" className={inputClass} value={formData.manual_receiver_name} onChange={(e) => setFormData({ ...formData, manual_receiver_name: e.target.value })}></textarea>
                         </div>
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">عنوان دستی فرستنده (چاپ در محل امضا - اختیاری)</label>
-                            {/* 🚀 textarea شد تا با Enter بره خط بعدی */}
                             <textarea rows="2" className={inputClass} value={formData.manual_sender_name} onChange={(e) => setFormData({ ...formData, manual_sender_name: e.target.value })}></textarea>
                         </div>
                     </div>
@@ -231,7 +311,7 @@ const SecretariatEditScreen = () => {
                         <textarea rows="2" className={inputClass} value={formData.receiver_persons} onChange={(e) => setFormData({ ...formData, receiver_persons: e.target.value })}></textarea>
                     </div>
 
-                    {/* 🚀👇 دقیقاً اینجاست! فیلد سیستمی عطف (بالای موضوع نامه) 👇🚀 */}
+                    {/* 🚀 فیلد سیستمی ارتباط بین نامه‌ها */}
                     <div className={`mb-5 p-4 rounded-lg border shadow-sm ${isDark ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
                         <label className="block mb-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">
                             🔗 ارتباط سیستمی (این نامه پاسخی است به کدام نامه؟)
@@ -243,7 +323,6 @@ const SecretariatEditScreen = () => {
                             ))}
                         </select>
                     </div>
-                    {/* 🚀👆 پایان فیلد سیستمی عطف 👆🚀 */}
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
                         <div className="md:col-span-3">

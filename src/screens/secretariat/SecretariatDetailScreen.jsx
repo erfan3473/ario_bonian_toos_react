@@ -167,7 +167,6 @@ const SecretariatDetailScreen = () => {
                 </div>
 
                 <div className="flex gap-3 flex-wrap">
-                    {/* 🚀 دکمه پاسخ به نامه */}
                     <button onClick={handleReplyLetter} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition">
                         <FaReply /> پاسخ به نامه
                     </button>
@@ -233,19 +232,27 @@ const SecretariatDetailScreen = () => {
 
                     <div className="flex flex-col items-center justify-center w-1/3">
                         {letter.letter_type === 'INCOMING' && letter.external_sender_detail?.logo ? (
-                            <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-16 md:h-20 object-contain print:h-20" />
+                            <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain mb-2 print:h-16" />
                         ) : (
-                            <img src={logo} alt="لوگو" className="h-16 md:h-20 object-contain print:h-20 print:grayscale-0" />
+                            <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain mb-2 print:h-16 print:grayscale-0" />
                         )}
+                        {/* 🚀 نام فرستنده دقیقاً زیر لوگو قرار گرفت */}
+                        <span className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
+                            {letter.final_sender_name}
+                        </span>
                     </div>
-
                     <div className="flex flex-col items-center justify-start w-1/3 pt-2 md:pt-4">
                         <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-gray-800 dark:text-gray-100 print:text-black">بسمه تعالی</span>
                     </div>
 
                     <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold w-1/3 items-end space-y-1.5 pt-2 md:pt-4">
-                        <div className="flex items-center gap-2"><span className="opacity-70 print:opacity-100 font-normal">شماره اندیکاتور:</span> <span className="font-mono text-blue-600 dark:text-blue-400 print:text-black">{letter.indicator_number}</span></div>
-                        {letter.original_number && <div className="flex items-center gap-2"><span className="opacity-70 print:opacity-100 font-normal">شماره مبدأ:</span> <span className="font-mono" dir="ltr">{letter.original_number}</span></div>}
+                        <div className="flex items-center gap-2"><span className="opacity-70 print:opacity-100 font-normal">شماره سیستمی:</span> <span className="font-mono text-blue-600 dark:text-blue-400 print:text-black">{letter.indicator_number}</span></div>
+                        {letter.original_number && (
+                            <div className="flex items-center gap-2">
+                                <span className="opacity-70 print:opacity-100 font-normal">شماره نامه فیزیکی:</span>
+                                <bdi className="font-mono font-bold text-gray-800 dark:text-gray-200 print:text-black">{letter.original_number}</bdi>
+                            </div>
+                        )}
                         <div className="flex items-center gap-2"><span className="opacity-70 print:opacity-100 font-normal">تاریخ ثبت:</span> <span>{new Date(letter.created_at).toLocaleDateString('fa-IR')}</span></div>
                         {letter.original_date && <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 print:text-black"><span className="opacity-70 print:opacity-100 font-normal">تاریخ مبدأ:</span> <span>{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span></div>}
                         <div className="flex items-center gap-2"><span className="opacity-70 print:opacity-100 font-normal">پیوست:</span> <span>{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span></div>
@@ -258,7 +265,6 @@ const SecretariatDetailScreen = () => {
                     <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${letter.confidentiality !== 'NORMAL' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{translateEnum(letter.confidentiality)}</span>
                 </div>
 
-                {/* 🚀 باکس نمایش درخت مکاتبات */}
                 {(letter.reference_letter_detail || (letter.replies && letter.replies.length > 0)) && (
                     <div className={`p-4 mb-6 rounded-xl border-l-4 print:hidden ${isDark ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-500'}`}>
                         {letter.reference_letter_detail && (
@@ -289,6 +295,7 @@ const SecretariatDetailScreen = () => {
                 <div className="space-y-3 mb-8 text-sm md:text-base print:text-base leading-relaxed">
                     <div className="flex items-baseline">
                         <span className="w-24 opacity-80 print:opacity-100 font-normal">گیرنده (به):</span> 
+                        {/* 🚀 فراخوانی نام نهایی محاسبه شده در بک‌اند */}
                         <strong className="text-lg">{letter.final_receiver_name}</strong>
                     </div>
 
@@ -301,7 +308,9 @@ const SecretariatDetailScreen = () => {
                     
                     <div className="flex items-baseline mt-4">
                         <span className="w-24 opacity-80 print:opacity-100 font-normal">فرستنده (از):</span> 
-                        <strong className="text-lg">{letter.final_sender_name}</strong>
+                        <strong className="text-lg">
+                            {letter.external_sender_detail?.name || letter.internal_sender_name || '-'}
+                        </strong>
                     </div>
 
                     <div className="flex items-baseline mt-4">
@@ -336,7 +345,8 @@ const SecretariatDetailScreen = () => {
                         </div>
                         <div className="flex flex-col items-center mt-2 text-center">
                             {letter.manual_sender_name && (
-                                <span className="font-bold text-base print:text-lg whitespace-pre-wrap print:text-black">
+                                /* 🚀 اعمال کلاس whitespace-pre-wrap برای پشتیبانی از چند خطی شدن عنوان دستی در محل امضا */
+                                <span className="font-bold text-base print:text-lg whitespace-pre-wrap print:text-black leading-relaxed">
                                     {letter.manual_sender_name}
                                 </span>
                             )}
