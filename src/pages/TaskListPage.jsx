@@ -10,13 +10,14 @@ import {
   deleteTaskTemplate,
   createTask, 
   fetchTaskTypes,
-  fetchSubordinates
+  fetchSubordinates,
+  fetchAllTasksAdmin // 👈 اضافه شده
 } from '../features/task/taskSlice';
 import TaskWorkflowCreateModal from '../components/Task/TaskWorkflowCreateModal';
 import AssigneePickerPanel, { AssigneeChip } from '../components/Task/AssigneePickerPanel';
 import {
   FaInbox, FaPaperPlane, FaPlus, FaSpinner, FaClock, FaUser, FaChevronLeft,
-  FaSearch, FaTimes, FaLayerGroup, FaBolt, FaLock, FaSitemap, FaTrash, FaAlignRight, FaPaperclip, FaArrowLeft
+  FaSearch, FaTimes, FaLayerGroup, FaBolt, FaLock, FaSitemap, FaTrash, FaAlignRight, FaPaperclip, FaArrowLeft, FaListUl
 } from 'react-icons/fa';
 
 const TASK_TYPE_LABELS = { PAYROLL_FORM: 'تکمیل فرم حقوق', PURCHASE: 'خرید/تدارکات', REPORT: 'گزارش‌دهی' };
@@ -36,7 +37,14 @@ const TaskListPage = () => {
 
   const { userInfo } = useSelector((state) => state.userLogin);
   const isAdmin = userInfo?.is_admin || userInfo?.is_staff || userInfo?.is_superuser;
-  const { inbox, sentTasks, loadingInbox, loadingSent, templates, creating, taskTypes, subordinates, loadingSubordinates } = useSelector((state) => state.task);
+  
+  // 👈 اضافه شدن allTasks و loadingAllTasks
+  const { 
+    inbox, sentTasks, allTasks, 
+    loadingInbox, loadingSent, loadingAllTasks, 
+    templates, creating, taskTypes, subordinates, loadingSubordinates 
+  } = useSelector((state) => state.task);
+  
   const mode = useSelector((state) => state.theme?.mode || 'dark');
   const isDark = mode === 'dark';
 
@@ -53,12 +61,14 @@ const TaskListPage = () => {
   ]);
   const [activeElement, setActiveElement] = useState({ id: 'stage-1', type: 'STAGE' });
 
+  // 👈 آپدیت افکت برای تب سوم
   useEffect(() => {
     if (userInfo) {
       if (activeTab === 'inbox') dispatch(fetchMyTaskInbox());
-      else dispatch(fetchSentTasks());
+      else if (activeTab === 'sent') dispatch(fetchSentTasks());
+      else if (activeTab === 'all' && isAdmin) dispatch(fetchAllTasksAdmin());
     }
-  }, [dispatch, userInfo, activeTab]);
+  }, [dispatch, userInfo, activeTab, isAdmin]);
 
   useEffect(() => {
     if (showTemplatePanel) {
@@ -68,12 +78,21 @@ const TaskListPage = () => {
     }
   }, [showTemplatePanel, dispatch, templates.length, taskTypes.length, subordinates?.length]);
 
-  const currentList = activeTab === 'inbox' ? inbox : sentTasks;
-  const filteredList = currentList.filter((t) => {
-    if (!search.trim()) return true;
+  // 👈 بهینه‌سازی: تشخیص لیست و وضعیت لودینگ جاری
+  const currentList = activeTab === 'inbox' ? inbox : activeTab === 'sent' ? sentTasks : (allTasks || []);
+  const isListLoading = activeTab === 'inbox' ? loadingInbox : activeTab === 'sent' ? loadingSent : loadingAllTasks;
+
+  // 👈 بهینه‌سازی: استفاده از useMemo برای فیلتر کردن (جلوگیری از افت پرفورمنس در لیست‌های طولانی)
+  const filteredList = useMemo(() => {
+    if (!search.trim()) return currentList;
     const s = search.toLowerCase();
-    return t.title?.toLowerCase().includes(s) || t.note?.toLowerCase().includes(s) || t.created_by_name?.toLowerCase().includes(s) || (URGENCY_LABELS[t.urgency] || '').toLowerCase().includes(s);
-  });
+    return currentList.filter((t) => 
+      t.title?.toLowerCase().includes(s) || 
+      t.note?.toLowerCase().includes(s) || 
+      t.created_by_name?.toLowerCase().includes(s) || 
+      (URGENCY_LABELS[t.urgency] || '').toLowerCase().includes(s)
+    );
+  }, [currentList, search]);
 
   const handleTabChange = (tab) => { setSearchParams({ tab }); setSearch(''); };
   const handleTaskClick = (taskId) => navigate(`/tasks/${taskId}`, { state: { returnTab: activeTab } });
@@ -104,7 +123,7 @@ const TaskListPage = () => {
         note: tmpl.template_data.note || ''
       });
       
-    if (tmpl.template_data.workflow_stages && tmpl.template_data.workflow_stages.length > 0) {
+      if (tmpl.template_data.workflow_stages && tmpl.template_data.workflow_stages.length > 0) {
         const loadedStages = tmpl.template_data.workflow_stages.map((s, idx) => ({
             id: `stage-${Date.now()}-${idx}`,
             stageName: s.stage_name || '',
@@ -119,7 +138,7 @@ const TaskListPage = () => {
         }));
         setStages(loadedStages);
         setActiveElement({ id: loadedStages[0].id, type: 'STAGE' });
-    } else {
+      } else {
           setStages([{ id: `stage-${Date.now()}`, stageName: 'مرحله ۱', description: '', deadlineDate: '', deadlineTime: '23:59', requireFile: false, assignees: [], approvalRule: 'ANY_ASSIGNEE', nextStageApprovers: [], approverRule: 'ALL_APPROVERS' }]);
       }
     }
@@ -235,7 +254,6 @@ const TaskListPage = () => {
             ماموریت‌های من
           </h1>
           <div className="flex gap-2">
-            {/* 👇 دکمه فقط برای ادمین‌ها رندر می‌شود */}
             {isAdmin && (
               <button onClick={() => { setShowTemplatePanel(!showTemplatePanel); setShowCreateModal(false); }} className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-colors font-bold border ${showTemplatePanel ? 'bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-900/30' : isDark ? 'bg-gray-800 text-purple-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-purple-600 border-purple-200 hover:bg-purple-50'}`}>
                 <FaBolt size={14} /><span className="hidden sm:inline">اجرای سریع قالب</span>
@@ -332,7 +350,6 @@ const TaskListPage = () => {
                                         <React.Fragment key={stage.id}>
                                             <div
                                                 onClick={() => setActiveElement({ id: stage.id, type: 'STAGE' })}
-                                                // 👈 افزایش عرض کارت به 300px
                                                 className={`shrink-0 w-[300px] rounded-xl border-2 flex flex-col cursor-pointer shadow-sm my-2 transition-all
                                                 ${activeElement.id === stage.id && activeElement.type === 'STAGE'
                                                     ? 'border-blue-500 ' + (isDark ? 'bg-slate-800' : 'bg-blue-50/30') 
@@ -366,20 +383,17 @@ const TaskListPage = () => {
                                                         </select>
                                                     </div>
                                                     
-                                                    {/* 👈 بازطراحی مهلت انجام: بزرگتر و بدون آیکون اضافه */}
                                                     <div className="flex flex-col gap-1.5 mt-1">
                                                         <span className="text-xs font-bold text-gray-500">مهلت انجام (اختیاری):</span>
                                                         <div className="flex gap-2">
                                                             <div className={`flex-1 rounded-lg border transition-colors focus-within:border-blue-500 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                                                 <JalaliDatePicker
                                                                     value={stage.deadlineDate}
-                                                                    // 👈 دریافت مستقیم از event (رفع باگ تاریخ)
                                                                     onChange={(e) => updateStageField(stage.id, 'deadlineDate', e.target ? e.target.value : e)}
                                                                     placeholder="انتخاب تاریخ"
                                                                     className={`w-full px-3 py-2.5 text-xs outline-none bg-transparent ${isDark ? 'text-gray-200' : 'text-gray-800'}`}
                                                                 />
                                                             </div>
-                                                            {/* 👈 افزایش عرض تایم‌پیکر برای نمایش راحت‌تر AM/PM */}
                                                             <div className={`w-[110px] rounded-lg border transition-colors focus-within:border-blue-500 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                                                 <input 
                                                                     type="time" 
@@ -518,6 +532,28 @@ const TaskListPage = () => {
               </span>
             )}
           </button>
+
+          {/* 👈 تب اضافه شده برای ادمین (کل سازمان) */}
+          {isAdmin && (
+            <button
+              onClick={() => handleTabChange('all')}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-all font-medium text-sm ${
+                activeTab === 'all'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30'
+                  : isDark
+                  ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <FaListUl size={16} />
+              <span>کل سازمان (ادمین)</span>
+              {allTasks?.length > 0 && (
+                <span className={`${isDark ? 'bg-gray-600' : 'bg-gray-300 text-gray-800'} text-xs px-2 py-0.5 rounded-full font-bold`}>
+                  {allTasks.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* جستجو */}
@@ -543,8 +579,8 @@ const TaskListPage = () => {
           </div>
         </div>
 
-        {/* لیست task‌ها */}
-        {loadingInbox || loadingSent ? (
+        {/* لیست task‌ها (با استفاده از متغیر ایزوله شده isListLoading) */}
+        {isListLoading ? (
           <div className="flex justify-center items-center py-20">
             <FaSpinner className="animate-spin text-blue-500 text-4xl" />
           </div>
@@ -558,10 +594,12 @@ const TaskListPage = () => {
                 ? 'نتیجه‌ای یافت نشد'
                 : activeTab === 'inbox'
                 ? 'ماموریت دریافتی وجود ندارد'
-                : 'ماموریت ارسالی وجود ندارد'}
+                : activeTab === 'sent'
+                ? 'ماموریت ارسالی وجود ندارد'
+                : 'هیچ ماموریتی در سازمان ثبت نشده است'}
             </h3>
             <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-              {search.trim() ? 'عبارت دیگری را جستجو کنید' : 'می‌توانید یک ماموریت جدید ایجاد کنید'}
+              {search.trim() ? 'عبارت دیگری را جستجو کنید' : 'لیست مورد نظر در حال حاضر خالی است.'}
             </p>
           </div>
         ) : (
@@ -584,13 +622,11 @@ const TaskListPage = () => {
                     </h3>
                     
                     <div className="flex flex-wrap items-center gap-2 mt-3">
-                      {/* وضعیت */}
                       <span className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md border ${STATUS_COLORS[task.status] || ''}`}>
                         <span className="font-normal opacity-75">وضعیت:</span>
                         {STATUS_LABELS[task.status] || task.status}
                       </span>
                       
-                      {/* نوع ماموریت (داینامیک) */}
                       <span className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md border ${
                         isDark ? 'text-gray-300 bg-gray-900 border-gray-700' : 'text-gray-700 bg-gray-100 border-gray-300'
                       }`}>
@@ -598,7 +634,6 @@ const TaskListPage = () => {
                         {task.task_type_label || TASK_TYPE_LABELS[task.task_type] || task.task_type || 'بدون دسته‌بندی'}
                       </span>
                       
-                      {/* فوریت */}
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-md border ${URGENCY_COLORS[task.urgency] || ''}`}>
                         فوریت: {URGENCY_LABELS[task.urgency] || task.urgency || 'متوسط'}
                       </span>
@@ -607,7 +642,6 @@ const TaskListPage = () => {
                   <FaChevronLeft className={`transition-colors shrink-0 mt-1 ${isDark ? 'text-gray-600 group-hover:text-blue-500' : 'text-gray-400 group-hover:text-blue-600'}`} />
                 </div>
 
-                {/* توضیحات با دیوایدر */}
                 {task.note && (
                   <>
                     <div className={`w-1/2 my-3 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}></div>
@@ -616,9 +650,8 @@ const TaskListPage = () => {
                     </p>
                   </>
                 )}
+                
                 <div className={`flex flex-wrap items-center gap-4 text-xs mt-4 pt-3 border-t ${isDark ? 'border-gray-700/50 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
-                  
-                  {/* آمر */}
                   {task.created_by_name && (
                     <div className="flex items-center gap-1.5">
                       <FaUser className={isDark ? 'text-gray-500' : 'text-gray-400'} size={12} />
@@ -626,7 +659,6 @@ const TaskListPage = () => {
                     </div>
                   )}
 
-                  {/* تاریخ و ساعت ایجاد */}
                   <div className="flex items-center gap-1.5">
                     <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} size={12} />
                     <span>تاریخ ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>

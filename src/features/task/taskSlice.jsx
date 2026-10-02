@@ -291,6 +291,19 @@ export const deleteTaskTemplate = createAsyncThunk(
         }
     }
 );
+
+
+export const fetchAllTasksAdmin = createAsyncThunk(
+    'task/fetchAllTasksAdmin',
+    async (_, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.get('/tasks/all/');
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 // ═══════════════════════════════════════════════════════════
 // Slice
 // ═══════════════════════════════════════════════════════════
@@ -333,6 +346,9 @@ const taskSlice = createSlice({
         templates: [],
         loadingTemplates: false,
 
+        allTasks:            [],
+        loadingAllTasks:     false,
+
     },
     reducers: {
         clearActiveTask: (state) => {
@@ -356,6 +372,19 @@ const taskSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+
+            .addCase(fetchAllTasksAdmin.pending, (state) => {
+                state.loadingAllTasks = true;
+                state.error = null;
+            })
+            .addCase(fetchAllTasksAdmin.fulfilled, (state, action) => {
+                state.loadingAllTasks = false;
+                state.allTasks = action.payload;
+            })
+            .addCase(fetchAllTasksAdmin.rejected, (state, action) => {
+                state.loadingAllTasks = false;
+                state.error = action.payload;
+            })
             // ── inbox ──
             .addCase(fetchMyTaskInbox.pending, (state) => {
                 state.loadingInbox      = true;

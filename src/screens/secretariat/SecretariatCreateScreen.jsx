@@ -92,7 +92,8 @@ const SecretariatCreateScreen = () => {
     const replyData = location.state?.replyTo; 
 
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
-    const { creating, createSuccess, error, allPersonnel, organizations, letters } = useSelector((state) => state.secretariat);
+    const { creating, createSuccess, error, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
+    const lettersList = Array.isArray(lettersData) ? lettersData : (lettersData?.results || []);
 
     const [attachments, setAttachments] = useState(null);
     const [formData, setFormData] = useState({
@@ -388,7 +389,7 @@ const SecretariatCreateScreen = () => {
                         </label>
                         <select className={inputClass} value={formData.reference_letter} onChange={(e) => setFormData({ ...formData, reference_letter: e.target.value })}>
                             <option value="">-- مستقل (بدون ارتباط سیستمی) --</option>
-                            {letters?.map(l => (
+                            {lettersList?.map(l => (
                                 <option key={l.id} value={l.id}>نامه {l.indicator_number} ({l.subject})</option>
                             ))}
                         </select>

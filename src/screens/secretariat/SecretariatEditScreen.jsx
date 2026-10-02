@@ -14,7 +14,7 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 
     useEffect(() => {
         if (value) {
-            const selected = personnel.find(p => p.id === parseInt(value));
+            const selected = personnel?.find(p => p.id === parseInt(value));
             if (selected) setSearchTerm(`${selected.name} - ${selected.position_title || 'بدون سمت'}`);
         } else {
             setSearchTerm('');
@@ -29,10 +29,11 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = personnel.filter(p => 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    // 🚀 جلوگیری از ارور filter با اضافه کردن علامت ?
+    const filtered = personnel?.filter(p => 
+        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    ) || [];
 
     const inputClass = `w-full p-2.5 text-sm rounded-lg border focus:ring-2 focus:outline-none transition ${isDark ? 'bg-gray-800 border-gray-700 text-white focus:ring-blue-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-blue-400'}`;
 
@@ -89,8 +90,9 @@ const SecretariatEditScreen = () => {
     const navigate = useNavigate();
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     
-    // 🚀 واکشی لیست نامه‌ها (letters) برای نمایش در منوی کشویی ارتباط سیستمی
-    const { activeLetter, allPersonnel, organizations, letters } = useSelector((state) => state.secretariat);
+    // 🚀 استخراج امن دیتا برای جلوگیری از کرش کردن مپ و فیلتر
+    const { activeLetter, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
+    const lettersList = Array.isArray(lettersData) ? lettersData : (lettersData?.results || []);
 
     const [updating, setUpdating] = useState(false);
     const [formData, setFormData] = useState({
@@ -112,7 +114,7 @@ const SecretariatEditScreen = () => {
         attachment_note: '',
         contract_number: '',
         reference_number: '',
-        reference_letter: '', // 🚀 فیلد سیستمی عطف
+        reference_letter: '',
         cc_text: '',
         internal_cc_receivers: [], 
         body: '',
@@ -122,7 +124,7 @@ const SecretariatEditScreen = () => {
         dispatch(fetchAllPersonnel());
         dispatch(fetchOrganizations()); 
         dispatch(fetchLetterDetail(id));
-        if (!letters || letters.length === 0) {
+        if (!lettersList || lettersList.length === 0) {
             dispatch(fetchLetters({}));
         }
     }, [dispatch, id]);
@@ -148,7 +150,7 @@ const SecretariatEditScreen = () => {
                 attachment_note: activeLetter.attachment_note || '',
                 contract_number: activeLetter.contract_number || '',
                 reference_number: activeLetter.reference_number || '',
-                reference_letter: activeLetter.reference_letter_detail?.id || '', // 🚀 پر کردن عطف سیستمی
+                reference_letter: activeLetter.reference_letter_detail?.id || '',
                 cc_text: activeLetter.cc_text || '',
                 internal_cc_receivers: activeLetter.internal_cc_receivers || [], 
                 body: activeLetter.body || '',
@@ -274,7 +276,7 @@ const SecretariatEditScreen = () => {
                                     personnel={allPersonnel} 
                                     value={formData.internal_sender} 
                                     onChange={(val) => setFormData({ ...formData, internal_sender: val })} 
-                                    placeholder="جستجو و انتخاب پرسنل..." 
+                                    placeholder="جستجو و انتخاب فرستنده..." 
                                     isDark={isDark} 
                                 />
                             )}
@@ -288,7 +290,7 @@ const SecretariatEditScreen = () => {
                                     personnel={allPersonnel} 
                                     value={formData.internal_receiver} 
                                     onChange={(val) => setFormData({ ...formData, internal_receiver: val })} 
-                                    placeholder="جستجو و انتخاب پرسنل..." 
+                                    placeholder="جستجو و انتخاب گیرنده..." 
                                     isDark={isDark} 
                                 />
                             )}
@@ -311,14 +313,14 @@ const SecretariatEditScreen = () => {
                         <textarea rows="2" className={inputClass} value={formData.receiver_persons} onChange={(e) => setFormData({ ...formData, receiver_persons: e.target.value })}></textarea>
                     </div>
 
-                    {/* 🚀 فیلد سیستمی ارتباط بین نامه‌ها */}
+                    {/* 🚀 فیلد سیستمی ارتباط بین نامه‌ها با استفاده از آرایه صحیح */}
                     <div className={`mb-5 p-4 rounded-lg border shadow-sm ${isDark ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
                         <label className="block mb-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">
                             🔗 ارتباط سیستمی (این نامه پاسخی است به کدام نامه؟)
                         </label>
                         <select className={inputClass} value={formData.reference_letter} onChange={(e) => setFormData({ ...formData, reference_letter: e.target.value })}>
                             <option value="">-- مستقل (بدون ارتباط سیستمی) --</option>
-                            {letters?.filter(l => l.id !== parseInt(id)).map(l => (
+                            {lettersList?.filter(l => l.id !== parseInt(id)).map(l => (
                                 <option key={l.id} value={l.id}>نامه {l.indicator_number} ({l.subject})</option>
                             ))}
                         </select>

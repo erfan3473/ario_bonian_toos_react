@@ -29,10 +29,14 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const dispatch = useDispatch();
     
     const userInfo = useSelector((state) => state.userLogin?.userInfo);
-    // 👈 اضافه شد: بررسی نقش ادمین برای نمایش دکمه فریز
     const isAdmin = userInfo?.is_admin || userInfo?.is_staff || userInfo?.is_superuser;
-
+    
     const { uploadingFile, addingComment, freezingTemplate, subordinates, loadingSubordinates, editingTask, taskTypes } = useSelector(s => s.task);
+
+    // تشخیص دقیق سطح دسترسی برای هیئت مدیره
+    const myEmployeeRecord = subordinates?.find(e => e.user_id === currentUserId);
+    const isBoard = myEmployeeRecord?.hierarchy_level === 0;
+    const isAdminOrBoard = isAdmin || isBoard;
 
     const [commentNote, setCommentNote] = useState('');
     const [commentFiles, setCommentFiles] = useState([]);
@@ -51,7 +55,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const [contactSelectedIds, setContactSelectedIds] = useState([]);
     
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editData, setEditData] = useState({ title: '', note: '', urgency: 'MEDIUM', task_type: '', deadlineDate: '', deadlineTime: '23:59' });
+    const [editData, setEditData] = useState({ title: '', note: '', urgency: 'MEDIUM', task_type: '', status: 'PENDING', deadlineDate: '', deadlineTime: '23:59' });
     const [editStages, setEditStages] = useState([]);
     const [activeEditElement, setActiveEditElement] = useState({ id: null, type: 'STAGE' });
 
@@ -63,11 +67,12 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const stages = task?.stages || []; 
     const currentActiveStage = stages.find(s => s.status === 'ACTIVE');
     const activeStageName = currentActiveStage ? (currentActiveStage.stage_name || `مرحله ${currentActiveStage.step_index}`) : null;
+    
     let myPendingAction = null;
     let pendingActionContext = { type: null, name: '', require_file: false, rolesText: '' };
     let isWaitingForAssignees = false;
 
-    const isCreatorOrAdmin = Number(task.created_by_id) === Number(currentUserId) || isAdmin;
+    const isCreatorOrAdmin = Number(task.created_by_id) === Number(currentUserId) || isAdminOrBoard;
 
     useEffect(() => {
         if ((showContactModal || showEditModal) && (!subordinates || subordinates.length === 0)) {
@@ -96,6 +101,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
             note: task.note || '',
             urgency: task.urgency || 'MEDIUM',
             task_type: task.task_type || '',
+            status: task.status || 'PENDING',
             deadlineDate: dDate,
             deadlineTime: dTime,
         });
@@ -108,6 +114,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 description: s.description || '',
                 deadlineDate: sDate,
                 deadlineTime: sTime,
+                status: s.status || 'PENDING',
                 requireFile: !!s.require_file,
                 assignees: s.assignees?.map(a => a.user || a.user_id) || [],
                 approvalRule: s.approval_rule || 'ANY_ASSIGNEE',
@@ -126,7 +133,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const handleAddEditStage = () => {
         const newId = `new-${Date.now()}`;
         const newStage = {
-            id: newId, stageName: `مرحله ${editStages.length + 1}`, description: '', deadlineDate: '', deadlineTime: '23:59', requireFile: false, assignees: [], approvalRule: 'ANY_ASSIGNEE', nextStageApprovers: [], approverRule: 'ALL_APPROVERS'
+            id: newId, stageName: `مرحله ${editStages.length + 1}`, description: '', deadlineDate: '', deadlineTime: '23:59', status: 'PENDING', requireFile: false, assignees: [], approvalRule: 'ANY_ASSIGNEE', nextStageApprovers: [], approverRule: 'ALL_APPROVERS'
         };
         setEditStages([...editStages, newStage]);
         setActiveEditElement({ id: newId, type: 'STAGE' });
@@ -192,6 +199,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
             note: editData.note,
             urgency: editData.urgency,
             task_type: editData.task_type,
+            status: editData.status,
             deadline: finalDeadline,
             workflow_stages: editStages.map((s, idx) => ({
                 id: s.id,
@@ -199,6 +207,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 stage_name: s.stageName,
                 description: s.description,
                 deadline: s.deadlineDate ? `${s.deadlineDate}T${s.deadlineTime || '23:59'}:00` : null,
+                status: s.status,
                 require_file: s.requireFile,
                 assignee_ids: s.assignees,
                 approval_rule: s.approvalRule,
@@ -366,8 +375,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                         ویرایش
                     </button>
                 )}
-                {/* 👈 دکمه فریز داخل شرط isAdmin قرار گرفت */}
-                {isAdmin && (
+                {isAdminOrBoard && (
                     <button
                         onClick={() => setTemplateModal(true)}
                         className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
@@ -784,7 +792,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
             {modal === 'forward' && <ForwardModal taskId={task.id} onSuccess={() => { setModal(null); onRefresh(); }} onClose={() => setModal(null)} />}
             {modal === 'return' && <ReturnModal title="برگشت دادن به مجریان" assignees={stages.find(s => s.status === 'ACTIVE')?.assignees || []} onConfirm={handleReturn} onClose={() => setModal(null)} />}
             
-            {templateModal && isAdmin && (
+            {templateModal && isAdminOrBoard && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
                     <div className={`w-full max-w-sm p-6 rounded-2xl shadow-xl ${isDark ? 'bg-slate-900 border border-slate-700' : 'bg-white border border-gray-200'}`}>
                         <h3 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>ذخیره به عنوان الگو</h3>
@@ -821,8 +829,8 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                         
                         <div className="flex-1 overflow-y-auto py-4 space-y-6 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-600">
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="md:col-span-1">
                                     <label className={`text-xs font-bold mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>عنوان ماموریت</label>
                                     <input 
                                         type="text" 
@@ -831,8 +839,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                         className={`w-full p-2.5 text-sm rounded-lg border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`} 
                                     />
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-3 md:col-span-1">
                                     <div>
                                         <label className={`text-xs font-bold mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>نوع ماموریت</label>
                                         <select 
@@ -857,6 +864,24 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                             <option value="CRITICAL">بحرانی</option>
                                         </select>
                                     </div>
+                                </div>
+                                
+                                <div className="md:col-span-1">
+                                    <label className={`text-xs font-bold mb-1.5 block ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        وضعیت کلی پرونده {isAdminOrBoard ? '' : '(فقط مدیران)'}
+                                    </label>
+                                    <select 
+                                        value={editData.status} 
+                                        onChange={e => setEditData({...editData, status: e.target.value})} 
+                                        disabled={!isAdminOrBoard}
+                                        className={`w-full p-2.5 text-sm rounded-lg border outline-none focus:border-blue-500 ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-gray-50 text-gray-900 border-gray-300'} ${!isAdminOrBoard ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        <option value="PENDING">در انتظار انجام</option>
+                                        <option value="IN_PROGRESS">در حال انجام</option>
+                                        <option value="DONE">انجام شده</option>
+                                        <option value="REJECTED">رد شده</option>
+                                        <option value="CANCELLED">لغو شده</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -905,7 +930,22 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                             </select>
                                                         </div>
                                                         
-                                                        {/* 👈 فیلدهای تاریخ و ساعت (قفل برداشته شد + رفع باگ رویداد e) */}
+                                                        {isAdminOrBoard && (
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <span className="text-xs font-bold text-gray-500">وضعیت مرحله:</span>
+                                                                <select 
+                                                                    value={stage.status} 
+                                                                    onChange={e => updateEditStageField(stage.id, 'status', e.target.value)}
+                                                                    className={`w-full text-xs px-2 py-2.5 rounded-lg border outline-none ${isDark ? 'bg-slate-900 border-slate-700 text-gray-300' : 'bg-white border-gray-300 text-gray-700'}`}
+                                                                >
+                                                                    <option value="PENDING">در صف انتظار</option>
+                                                                    <option value="ACTIVE">در حال انجام (فعال)</option>
+                                                                    <option value="COMPLETED">تکمیل شده</option>
+                                                                    <option value="REJECTED">رد شده</option>
+                                                                </select>
+                                                            </div>
+                                                        )}
+
                                                         <div className="flex flex-col gap-1.5 mt-1">
                                                             <span className="text-xs font-bold text-gray-500">مهلت انجام (اختیاری):</span>
                                                             <div className="flex gap-2">
@@ -948,7 +988,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                     <div 
                                                         onClick={() => setActiveEditElement({ id: stage.id, type: 'LINK' })}
                                                         className={`w-40 min-h-[140px] rounded-xl border-2 flex flex-col items-center p-3 cursor-pointer transition-all ${
-                                                            activeEditElement.id === stage.id && activeEditElement.type === 'LINK' // ✅ اصلاح شد
+                                                            activeEditElement.id === stage.id && activeEditElement.type === 'LINK'
                                                             ? 'border-orange-500 bg-orange-500/10' : 'border-dashed border-orange-500/50 bg-orange-500/5'
                                                         }`}
                                                     >

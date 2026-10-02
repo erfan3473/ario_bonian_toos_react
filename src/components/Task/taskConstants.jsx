@@ -56,7 +56,8 @@ export const ACTION_LABELS = {
     COMMENT: 'یادداشت گذاشت',
     RETURNED: 'برگشت مامور اجرا',
     INTERMEDIATE_APPROVE: 'تایید ناظر صورت گرفت',
-    INTERMEDIATE_REJECT: 'تایید ناظر صورت گرفت',
+    INTERMEDIATE_REJECT: 'رد توسط ناظر صورت گرفت',
+    FORWARD_ASSIST: ' ارجاع جهت همکاری',
     EDIT: 'ویرایش ماموریت انجام شده است',
     IN_PROGRESS: 'شروع عملیات',
 };
