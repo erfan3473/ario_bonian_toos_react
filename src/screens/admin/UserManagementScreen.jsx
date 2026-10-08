@@ -217,12 +217,7 @@ const UserManagementScreen = () => {
               }`}
             />
           </div>
-          <button 
-            onClick={handleNewUserClick} 
-            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2 whitespace-nowrap"
-          >
-            <span>➕</span> کاربر جدید
-          </button>
+         
         </div>
 
         {/* تگ‌های فیلتر سمت‌ها */}

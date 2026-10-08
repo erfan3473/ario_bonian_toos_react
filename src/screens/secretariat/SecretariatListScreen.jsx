@@ -2,7 +2,35 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { fetchLetters, fetchAllPersonnel } from '../../features/secretariat/secretariatSlice';
-import { FaPlus, FaSearch, FaPaperclip, FaExclamationCircle, FaUserSecret, FaInbox, FaChevronLeft, FaChevronDown, FaAngleRight, FaAngleLeft } from 'react-icons/fa';
+import { 
+    FaPlus, FaSearch, FaPaperclip, FaExclamationCircle, FaUserSecret, 
+    FaInbox, FaChevronLeft, FaChevronDown, FaAngleRight, FaAngleLeft, 
+    FaSortAmountDown, FaSortAmountUp, FaArrowRight, FaArrowLeft, FaBuilding, FaCheckCircle
+} from 'react-icons/fa';
+
+// 🚀 کامپوننت هایلایت کلمات سرچ شده (کاملاً هوشمند نسبت به اعداد فارسی و انگلیسی)
+const HighlightedText = ({ text, highlight }) => {
+    if (!highlight || !text) return <>{text}</>;
+    
+    const escaped = highlight.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const fuzzyStr = escaped.replace(/[0-9۰-۹]/g, match => {
+        const num = '0123456789۰۱۲۳۴۵۶۷۸۹'.indexOf(match) % 10;
+        return `[${num}${String.fromCharCode(1776 + num)}]`;
+    });
+    
+    const regex = new RegExp(`(${fuzzyStr})`, 'gi');
+    const parts = text.toString().split(regex);
+    
+    return (
+        <span>
+            {parts.map((part, i) => 
+                (i % 2 === 1)
+                    ? <mark key={i} className="bg-yellow-300 text-gray-900 px-1 rounded-sm font-bold">{part}</mark>
+                    : part
+            )}
+        </span>
+    );
+};
 
 // 🚀 کامپوننت انتخاب فرستنده با قابلیت تایپ و جستجو
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
@@ -12,7 +40,7 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 
     useEffect(() => {
         if (value) {
-            const selected = personnel?.find(p => p.id === parseInt(value));
+            const selected = personnel?.find(p => String(p.id) === String(value));
             if (selected) setSearchTerm(`${selected.name} - ${selected.position_title || 'بدون سمت'}`);
         } else {
             setSearchTerm('');
@@ -87,94 +115,106 @@ const SecretariatListScreen = () => {
     const location = useLocation(); 
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     
-    // استخراج دیتای صفحه بندی شده از ریداکس
     const { letters: lettersData, loadingList, error, allPersonnel } = useSelector((state) => state.secretariat);
     const lettersList = Array.isArray(lettersData) ? lettersData : (lettersData?.results || []);
-    // 🚀 نمایش تعداد کل دقیق (count) برگشتی از بک‌اند
     const totalCount = lettersData?.count || lettersList.length || 0;
     const totalPages = Math.ceil(totalCount / 12) || 1;
 
-    // استیت‌های فیلتر و صفحه‌بندی
+    // 🚀 استیت‌های فیلتر - بازگردانده شده به حالت پایدار و بدون sessionStorage
     const [page, setPage] = useState(1);
     const [filterType, setFilterType] = useState(location.state?.filter || '');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedYear, setSelectedYear] = useState('');
-    const [selectedMonth, setSelectedMonth] = useState('');
     const [senderFilter, setSenderFilter] = useState('');
+    const [ordering, setOrdering] = useState('desc'); 
 
-    // 🚀 استیت‌های شمارش نامه‌ها برای نمایش کنار هر سال و ماه
+    // 🚀 استیت Debounce برای جلوگیری از درخواست‌های رگباری به سرور هنگام تایپ
+    const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const searchWrapperRef = useRef(null);
+
     const [yearCounts, setYearCounts] = useState({});
-    const [monthCounts, setMonthCounts] = useState({});
 
-    const JALALI_YEARS = ['1401', '1402', '1403', '1404', '1405', '1406'];
-    const JALALI_MONTHS = [
-        { val: '1', name: 'فروردین' }, { val: '2', name: 'اردیبهشت' }, { val: '3', name: 'خرداد' },
-        { val: '4', name: 'تیر' }, { val: '5', name: 'مرداد' }, { val: '6', name: 'شهریور' },
-        { val: '7', name: 'مهر' }, { val: '8', name: 'آبان' }, { val: '9', name: 'آذر' },
-        { val: '10', name: 'دی' }, { val: '11', name: 'بهمن' }, { val: '12', name: 'اسفند' }
-    ];
+    const JALALI_YEARS = ['1401', '1402', '1403', '1404', '1405', '1406', '1407'];
 
-    // با هر تغییر فیلتر، صفحه برمی‌گردد به 1
     const handleFilterChange = (setter, value) => {
         setter(value);
-        setPage(1);
+        setPage(1); 
     };
+
+    // 🚀 اثر Debounce
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 600); 
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchQuery]);
 
     useEffect(() => {
         dispatch(fetchAllPersonnel());
     }, [dispatch]);
 
+    // 🚀 فراخوانی لیست نامه‌ها
     useEffect(() => {
-        // 🚀 ارسال null در صورت خالی بودن سال برای جلوگیری از خطا در بک‌اند
         dispatch(fetchLetters({ 
             type: filterType, 
-            search: searchQuery, 
+            search: debouncedSearch, 
             page: page,
             jalali_year: selectedYear || null,
-            jalali_month: selectedMonth || null,
-            sender: senderFilter
+            sender: senderFilter,
+            ordering: ordering 
         }));
-    }, [dispatch, filterType, searchQuery, page, selectedYear, selectedMonth, senderFilter]);
+    }, [dispatch, filterType, debouncedSearch, page, selectedYear, senderFilter, ordering]);
 
-    // محاسبه‌ی دستی و لحظه‌ای تعداد برای فیلترها از روی lettersList فعلی
     useEffect(() => {
         if (!lettersList || lettersList.length === 0) {
             setYearCounts({});
-            setMonthCounts({});
             return;
         }
         
         const yCounts = {};
-        const mCounts = {};
-
         lettersList.forEach(letter => {
             if (letter.original_date) {
                 try {
                     const date = new Date(letter.original_date);
-                    const pc = new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'numeric' }).formatToParts(date);
+                    const pc = new Intl.DateTimeFormat('fa-IR', { year: 'numeric' }).formatToParts(date);
                     const y = pc.find(p => p.type === 'year')?.value;
-                    const m = pc.find(p => p.type === 'month')?.value;
-
-                    // تبدیل اعداد فارسی به انگلیسی
                     const toEng = (s) => s?.replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
-                    
                     const engY = toEng(y);
-                    const engM = toEng(m);
-
                     if (engY) yCounts[engY] = (yCounts[engY] || 0) + 1;
-                    if (engM) mCounts[engM] = (mCounts[engM] || 0) + 1;
                 } catch (e) {}
             }
         });
         setYearCounts(yCounts);
-        setMonthCounts(mCounts);
     }, [lettersList]);
+
+    useEffect(() => {
+        setIsSearchOpen(false);
+    }, [location.pathname]);
+
+    useEffect(() => {
+        const handleClickOutsideSearch = (event) => {
+            if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target)) {
+                setIsSearchOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutsideSearch);
+        return () => document.removeEventListener('mousedown', handleClickOutsideSearch);
+    }, []);
 
     const formatPersianDate = (dateString) => {
         if (!dateString) return '-';
         return new Date(dateString).toLocaleDateString('fa-IR', {
             year: 'numeric', month: 'short', day: 'numeric'
         });
+    };
+
+    const getMonthName = (dateString) => {
+        if (!dateString) return 'نامشخص';
+        return new Date(dateString).toLocaleDateString('fa-IR', { month: 'long', year: 'numeric' });
     };
 
     const getFilterName = (type) => {
@@ -217,10 +257,8 @@ const SecretariatListScreen = () => {
                 </Link>
             </div>
 
-            {/* 🚀 کنترل پنل فیلترها */}
             <div className={`p-4 rounded-2xl space-y-4 border shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
                 
-                {/* ردیف اول: تب‌های نوع نامه و سرچ و فرستنده */}
                 <div className="flex flex-col xl:flex-row gap-4 justify-between items-center">
                     <div className="flex gap-2 overflow-x-auto w-full xl:w-auto pb-1 md:pb-0 scrollbar-hide">
                         {[
@@ -253,29 +291,137 @@ const SecretariatListScreen = () => {
                             placeholder="فیلتر فرستنده داخلی..." 
                             isDark={isDark} 
                         />
-                        <div className="relative w-full md:w-64">
+                        
+                        <div className="relative w-full md:w-80" ref={searchWrapperRef}>
                             <input
                                 type="text"
-                                placeholder="جستجو (موضوع یا شماره)..."
+                                placeholder="جستجو (موضوع، متن، شماره)..."
                                 value={searchQuery}
-                                onChange={(e) => handleFilterChange(setSearchQuery, e.target.value)}
+                                onChange={(e) => {
+                                    handleFilterChange(setSearchQuery, e.target.value);
+                                    setIsSearchOpen(true);
+                                }}
+                                onFocus={() => setIsSearchOpen(true)}
                                 className={`w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
                                     isDark ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
                                 }`}
                             />
                             <FaSearch className="absolute left-3.5 top-3.5 text-gray-400" />
+                            
+                            {searchQuery && isSearchOpen && (
+                                <div className={`absolute top-full mt-2 right-0 w-full md:w-[480px] max-h-[500px] overflow-y-auto rounded-xl border shadow-2xl z-50 p-4 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-200 border-gray-300'}`}>
+                                    {loadingList ? (
+                                        <div className="p-3 text-center text-sm opacity-50 font-bold">در حال جستجو...</div>
+                                    ) : lettersList.length === 0 ? (
+                                        <div className="p-3 text-center text-sm opacity-50 font-bold">نتیجه‌ای یافت نشد</div>
+                                    ) : (
+                                        lettersList.map(letter => {
+                                            const escaped = searchQuery.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                            const fuzzyStr = escaped.replace(/[0-9۰-۹]/g, match => {
+                                                const num = '0123456789۰۱۲۳۴۵۶۷۸۹'.indexOf(match) % 10;
+                                                return `[${num}${String.fromCharCode(1776 + num)}]`;
+                                            });
+                                            const searchRegex = new RegExp(fuzzyStr, 'gi');
+                                            
+                                            const checkMatch = (val) => {
+                                                if (!val) return false;
+                                                searchRegex.lastIndex = 0; 
+                                                return searchRegex.test(val);
+                                            };
+
+                                            const matches = [];
+                                            if (checkMatch(letter.subject)) matches.push({ label: 'موضوع', text: letter.subject });
+                                            if (checkMatch(letter.indicator_number)) matches.push({ label: 'شماره سیستمی', text: letter.indicator_number });
+                                            if (checkMatch(letter.original_number)) matches.push({ label: 'شماره فیزیکی', text: letter.original_number });
+                                            if (checkMatch(letter.contract_number)) matches.push({ label: 'شماره قرارداد', text: letter.contract_number });
+                                            if (checkMatch(letter.final_sender_name)) matches.push({ label: 'فرستنده', text: letter.final_sender_name });
+                                            if (checkMatch(letter.final_receiver_name)) matches.push({ label: 'گیرنده', text: letter.final_receiver_name });
+                                            if (checkMatch(letter.manual_sender_name)) matches.push({ label: 'فرستنده دستی', text: letter.manual_sender_name });
+                                            if (checkMatch(letter.manual_receiver_name)) matches.push({ label: 'گیرنده دستی', text: letter.manual_receiver_name });
+
+                                            let bodySnippet = null;
+                                            searchRegex.lastIndex = 0;
+                                            const bodyMatch = letter.body ? searchRegex.exec(letter.body) : null;
+                                            
+                                            if (bodyMatch) {
+                                                const idx = bodyMatch.index;
+                                                const matchLen = bodyMatch[0].length;
+                                                const start = Math.max(0, idx - 40);
+                                                const end = Math.min(letter.body.length, idx + matchLen + 40);
+                                                
+                                                const originalMatch = letter.body.substring(idx, idx + matchLen);
+                                                const pre = letter.body.substring(start, idx);
+                                                const post = letter.body.substring(idx + matchLen, end);
+                                                
+                                                bodySnippet = (
+                                                    <span>
+                                                        {start > 0 && '... '}
+                                                        {pre}
+                                                        <mark className="bg-yellow-300 text-black px-1 mx-1 font-black rounded-sm shadow-sm">
+                                                            ---------- {originalMatch} ----------
+                                                        </mark>
+                                                        {post}
+                                                        {end < letter.body.length && ' ...'}
+                                                    </span>
+                                                );
+                                            }
+
+                                            if (matches.length === 0 && !bodySnippet) return null;
+
+                                            return (
+                                                <div 
+                                                    key={letter.id} 
+                                                    onClick={() => {
+                                                        setIsSearchOpen(false);
+                                                        navigate(`/secretariat/${letter.id}`);
+                                                    }}
+                                                    className="relative bg-white text-gray-900 p-4 mb-4 rounded shadow-md cursor-pointer transition-transform duration-200 hover:-translate-y-1 hover:shadow-xl border border-gray-300"
+                                                    style={{ minHeight: '200px', backgroundImage: 'linear-gradient(to bottom, #ffffff 0%, #fcfcfc 100%)' }}
+                                                >
+                                                    <div className="flex justify-between items-start border-b-2 border-gray-400 pb-2 mb-3">
+                                                        <div className="w-1/4 flex flex-col items-center justify-center opacity-20">
+                                                            <FaInbox size={24} />
+                                                        </div>
+                                                        <div className="w-2/4 text-center font-black text-sm pt-1">بسمه تعالی</div>
+                                                        <div className="w-1/4 text-left text-[9px] font-mono font-bold leading-relaxed">
+                                                            <div className="whitespace-nowrap">ش: <HighlightedText text={letter.indicator_number} highlight={searchQuery} /></div>
+                                                            {letter.original_number && <div className="whitespace-nowrap" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>ف: <HighlightedText text={letter.original_number} highlight={searchQuery} /></div>}
+                                                            <div>ت: {new Date(letter.created_at).toLocaleDateString('fa-IR')}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="text-[11px] space-y-1.5 font-bold mb-3">
+                                                        {matches.map((m, idx) => (
+                                                            <div key={idx} className="flex gap-1 border-b border-gray-100 pb-1.5 mt-1.5">
+                                                                <span className="opacity-60 min-w-[70px]">{m.label}:</span> 
+                                                                <span className="flex-1 leading-tight"><HighlightedText text={m.text} highlight={searchQuery} /></span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {bodySnippet && (
+                                                        <div className="mt-3 text-[10px] leading-loose text-justify text-gray-800 bg-gray-50 p-2.5 rounded border border-gray-200 border-dashed relative">
+                                                            <span className="absolute -top-2.5 right-2 bg-gray-50 px-1 text-[8px] font-bold text-gray-400">متن نامه</span>
+                                                            {bodySnippet}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* ردیف دوم: فیلتر سال و ماه */}
                 <div className={`pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+                    <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold opacity-70 whitespace-nowrap">سال بایگانی:</span>
                             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                                 <button 
-                                    onClick={() => { handleFilterChange(setSelectedYear, ''); handleFilterChange(setSelectedMonth, ''); }}
+                                    onClick={() => handleFilterChange(setSelectedYear, '')}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${!selectedYear ? 'bg-indigo-600 text-white' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
                                 >
                                     همه سال‌ها
@@ -286,46 +432,32 @@ const SecretariatListScreen = () => {
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${selectedYear === yr ? 'bg-indigo-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}`}
                                     >
                                         <span>{yr}</span>
-                                        {yearCounts[yr] > 0 && (
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${selectedYear === yr ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-800'}`}>
-                                                {yearCounts[yr]}
-                                            </span>
-                                        )}
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {selectedYear && (
-                            <div className="flex items-center gap-2 w-full lg:w-auto overflow-x-auto pb-1 scrollbar-hide border-l pl-4 border-gray-200 dark:border-gray-700">
-                                <button 
-                                    onClick={() => handleFilterChange(setSelectedMonth, '')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${!selectedMonth ? 'bg-emerald-600 text-white' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
-                                >
-                                    کل ماه‌ها
-                                </button>
-                                {JALALI_MONTHS.map(m => (
-                                    <button 
-                                        key={m.val} onClick={() => handleFilterChange(setSelectedMonth, m.val)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${selectedMonth === m.val ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}`}
-                                    >
-                                        <span>{m.name}</span>
-                                        {monthCounts[m.val] > 0 && (
-                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${selectedMonth === m.val ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-800'}`}>
-                                                {monthCounts[m.val]}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2 border-l pl-4 border-gray-200 dark:border-gray-700 ml-auto">
+                            <button
+                                onClick={() => handleFilterChange(setOrdering, 'desc')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${ordering === 'desc' ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
+                            >
+                                <FaSortAmountDown /> جدید به قدیم
+                            </button>
+                            <button
+                                onClick={() => handleFilterChange(setOrdering, 'asc')}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${ordering === 'asc' ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
+                            >
+                                <FaSortAmountUp /> قدیم به جدید
+                            </button>
+                        </div>
                     </div>
                 </div>
 
             </div>
 
             {loadingList ? (
-                <div className="text-center py-20 animate-pulse font-bold opacity-50">در حال همگام‌سازی دفتر اندیکاتور...</div>
+                <div className="text-center py-20 animate-pulse font-bold opacity-50">در حال جستجو...</div>
             ) : error ? (
                 <div className="bg-red-100 border border-red-200 text-red-700 p-4 rounded-xl text-sm font-bold">{error}</div>
             ) : lettersList?.length === 0 ? (
@@ -339,104 +471,207 @@ const SecretariatListScreen = () => {
                     <table className="w-full text-right text-sm">
                         <thead className={`text-[11px] uppercase tracking-wider font-black ${isDark ? 'bg-gray-900/50 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                             <tr>
-                                <th className="px-5 py-4 w-32">شماره نامه</th>
-                                <th className="px-5 py-4 w-24">نوع</th>
+                                <th className="px-5 py-4 w-12 text-center">ردیف</th>
+                                <th className="px-5 py-4 w-40">شماره‌ها</th>
+                                <th className="px-5 py-4 w-28">نوع / وضعیت</th>
                                 <th className="px-5 py-4 max-w-md">موضوع و مشخصات</th>
-                                <th className="px-5 py-4 w-40">فرستنده</th>
-                                <th className="px-5 py-4 w-40">گیرنده</th>
-                                <th className="px-5 py-4 w-32">تاریخ</th>
+                                <th className="px-5 py-4 w-32">مبدأ / مقصد</th>
+                                <th className="px-5 py-4 w-48">تاریخ‌های مرتبط</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {lettersList.map((letter) => (
-                                <tr 
-                                    key={letter.id} 
-                                    onClick={() => navigate(`/secretariat/${letter.id}`)}
-                                    className={`cursor-pointer group transition-colors duration-200 ${isDark ? 'hover:bg-gray-700/50 bg-gray-800' : 'hover:bg-blue-50/50 bg-white'}`}
-                                >
-                                    <td className="px-5 py-4 whitespace-nowrap">
-                                        <div className="flex flex-col gap-1.5">
-                                            <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-gray-300' : 'text-gray-700'} group-hover:text-blue-500 transition-colors`} title="شماره تولید شده توسط سیستم">
-                                                {letter.indicator_number}
-                                            </span>
-                                            {/* 🚀 تصحیح Bidi و جلوگیری از برهم‌ریختگی شماره فیزیکی */}
-                                            {letter.original_number && (
-                                                <bdi className="text-[11px] opacity-70 font-mono font-bold text-right" dir="ltr" style={{ unicodeBidi: 'plaintext' }} title="شماره ثبت فیزیکی / مبدأ">
-                                                    {letter.original_number}
-                                                </bdi>
-                                            )}
-                                        </div>
-                                    </td>
+                            {lettersList.map((letter, index) => {
+                                const currentMonth = getMonthName(letter.created_at);
+                                const previousMonth = index > 0 ? getMonthName(lettersList[index - 1].created_at) : null;
+                                const showDivider = currentMonth !== previousMonth;
 
-                                    <td className="px-5 py-4 whitespace-nowrap">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black tracking-wide ${
-                                            letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400 border border-green-500/20' :
-                                            letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400 border border-orange-500/20' :
-                                            'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border border-purple-500/20'
-                                        }`}>
-                                            {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : 'داخلی'}
-                                        </span>
-                                    </td>
+                                return (
+                                    <React.Fragment key={letter.id}>
+                                        {showDivider && (
+                                            <tr className={`${isDark ? 'bg-gray-800/80' : 'bg-blue-50/50'}`}>
+                                                <td colSpan="6" className="px-5 py-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`text-xs font-black px-3 py-1 rounded-full ${isDark ? 'bg-gray-700 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>
+                                                            {currentMonth}
+                                                        </span>
+                                                        <div className={`flex-1 h-px ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
 
-                                    <td className="px-5 py-4 max-w-xs md:max-w-md">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className={`font-bold truncate ${isDark ? 'text-gray-100' : 'text-gray-900'}`} title={letter.subject}>
-                                                {letter.subject}
-                                            </span>
-                                            {letter.attachments?.length > 0 && (
-                                                <FaPaperclip className="text-gray-400 flex-shrink-0" title="دارای پیوست" size={12} />
-                                            )}
-                                        </div>
-                                        <div className="flex gap-1.5 mt-1.5">
-                                            {letter.urgency !== 'NORMAL' && (
-                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                                                    <FaExclamationCircle size={8} /> 
-                                                    {letter.urgency === 'URGENT' ? 'فوری' : 'خیلی فوری'}
-                                                </span>
-                                            )}
-                                            {letter.confidentiality !== 'NORMAL' && (
-                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
-                                                    <FaUserSecret size={8} /> 
-                                                    {letter.confidentiality === 'CONFIDENTIAL' ? 'محرمانه' : 'سری'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
+                                        <tr 
+                                            onClick={() => navigate(`/secretariat/${letter.id}`)}
+                                            className={`cursor-pointer group transition-colors duration-200 ${isDark ? 'hover:bg-gray-700/50 bg-gray-800' : 'hover:bg-blue-50/50 bg-white'}`}
+                                        >
+                                            {/* 1. ردیف و آیکون نوع نامه با انیمیشن */}
+                                            <td className="px-5 py-4 whitespace-nowrap text-center">
+                                                <div className="flex flex-col items-center justify-center gap-2">
+                                                    <span className="text-xs font-bold opacity-40">{(page - 1) * 12 + index + 1}</span>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 ${
+                                                        letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-600' :
+                                                        letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-600' :
+                                                        'bg-purple-100 text-purple-600'
+                                                    }`}>
+                                                        {letter.letter_type === 'INCOMING' ? <FaArrowLeft className="animate-pulse" /> : 
+                                                         letter.letter_type === 'OUTGOING' ? <FaArrowRight className="animate-pulse" /> : 
+                                                         <FaBuilding className="animate-bounce" />}
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                    <td className="px-5 py-4">
-                                        <div className="flex flex-col truncate max-w-[140px]">
-                                            <span className={`text-[13px] font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                {letter.final_sender_name}
-                                            </span>
-                                        </div>
-                                    </td>
+                                            {/* 2. شماره‌های نامه */}
+                                            <td className="px-5 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[9px] opacity-60 font-bold mb-0.5">سیستمی:</span>
+                                                        <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                            {letter.indicator_number}
+                                                        </span>
+                                                    </div>
+                                                    {letter.original_number && (
+                                                        <div className="flex flex-col border-t border-gray-100 dark:border-gray-700 pt-1">
+                                                            <span className="text-[9px] opacity-60 font-bold mb-0.5">فیزیکی:</span>
+                                                            <bdi className="text-[11px] font-mono font-bold text-right" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
+                                                                {letter.original_number}
+                                                            </bdi>
+                                                        </div>
+                                                    )}
+                                                    {letter.destination_indicator && (
+                                                        <div className="flex flex-col border-t border-gray-100 dark:border-gray-700 pt-1">
+                                                            <span className="text-[9px] opacity-60 font-bold mb-0.5 text-emerald-600">ثبت مقصد:</span>
+                                                            <bdi className="text-[11px] font-mono font-bold text-right text-emerald-600" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
+                                                                {letter.destination_indicator}
+                                                            </bdi>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
 
-                                    <td className="px-5 py-4">
-                                        <div className="flex flex-col truncate max-w-[140px]">
-                                            <span className={`text-[13px] font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                {letter.final_receiver_name}
-                                            </span>
-                                        </div>
-                                    </td>
+                                            {/* 3. نوع و وضعیت */}
+                                            <td className="px-5 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-2 items-start">
+                                                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black tracking-wide ${
+                                                        letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400 border border-green-500/20' :
+                                                        letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400 border border-orange-500/20' :
+                                                        'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border border-purple-500/20'
+                                                    }`}>
+                                                        {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : 'داخلی'}
+                                                    </span>
+                                                    
+                                                    {/* 🚀 لیبل وضعیت */}
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm ${
+                                                        letter.status === 'APPROVED' ? 'bg-emerald-500 text-white' :
+                                                        letter.status === 'REJECTED' ? 'bg-rose-500 text-white' : 
+                                                        'bg-orange-400 text-white'
+                                                    }`}>
+                                                        {letter.status === 'APPROVED' ? <FaCheckCircle/> : letter.status === 'REJECTED' ? '❌' : '⏳'}
+                                                        {letter.status === 'APPROVED' ? 'تایید شده' : letter.status === 'REJECTED' ? 'رد شده' : 'در انتظار'}
+                                                    </span>
+                                                </div>
+                                            </td>
 
-                                    <td className="px-5 py-4 whitespace-nowrap">
-                                        <div className="flex flex-col gap-1.5">
-                                            <span className={`text-xs font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`} title="تاریخ ثبت سیستم">
-                                                {formatPersianDate(letter.created_at)}
-                                            </span>
-                                            {letter.original_date && (
-                                                <span className="text-[10px] opacity-60" title="تاریخ مبدأ">
-                                                    {formatPersianDate(letter.original_date)}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                            {/* 4. موضوع و مشخصات */}
+                                            <td className="px-5 py-4 max-w-xs md:max-w-md">
+                                                <div className="flex items-start gap-2 mb-1">
+                                                    <span className={`font-bold text-[13px] leading-relaxed ${isDark ? 'text-gray-100' : 'text-gray-900'}`} title={letter.subject}>
+                                                        {letter.subject}
+                                                    </span>
+                                                    {letter.attachments?.length > 0 && (
+                                                        <FaPaperclip className="text-gray-400 flex-shrink-0 mt-1" title="دارای پیوست" size={12} />
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-1.5 mt-2">
+                                                    {letter.urgency !== 'NORMAL' && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border border-red-500/20">
+                                                            <FaExclamationCircle size={8} /> 
+                                                            {letter.urgency === 'URGENT' ? 'فوری' : 'خیلی فوری'}
+                                                        </span>
+                                                    )}
+                                                    {letter.confidentiality !== 'NORMAL' && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 border border-slate-500/20">
+                                                            <FaUserSecret size={8} /> 
+                                                            {letter.confidentiality === 'CONFIDENTIAL' ? 'محرمانه' : 'سری'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            {/* 5. مبدأ و مقصد */}
+                                            <td className="px-5 py-4">
+                                                <div className="flex flex-col gap-2 max-w-[140px]">
+                                                    <div className="flex flex-col border-b border-gray-100 dark:border-gray-700 pb-1.5">
+                                                        <span className="text-[9px] opacity-60 font-bold mb-0.5 text-blue-500">از (فرستنده):</span>
+                                                        <span className={`text-[11px] font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                            {letter.final_sender_name}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-col pt-0.5">
+                                                        <span className="text-[9px] opacity-60 font-bold mb-0.5 text-indigo-500">به (گیرنده):</span>
+                                                        <span className={`text-[11px] font-bold truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                            {letter.final_receiver_name}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            {/* 6. تاریخ‌ها */}
+                                            <td className="px-5 py-4 whitespace-nowrap">
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">سیستمی</span>
+                                                            <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                {formatPersianDate(letter.created_at)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {letter.approved_at && (
+                                                        <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest">تایید مدیر</span>
+                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                    {formatPersianDate(letter.approved_at)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {letter.original_date && (
+                                                        <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">روی برگه</span>
+                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                    {formatPersianDate(letter.original_date)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {letter.destination_date && (
+                                                        <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">ثبت مقصد</span>
+                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                    {formatPersianDate(letter.destination_date)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </React.Fragment>
+                                );
+                            })}
                         </tbody>
                     </table>
 
-                    {/* 🚀 سیستم صفحه‌‌بندی پایینی */}
                     {totalPages > 1 && (
                         <div className={`px-5 py-4 flex items-center justify-between border-t ${isDark ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
                             <div className="text-xs font-bold opacity-60">

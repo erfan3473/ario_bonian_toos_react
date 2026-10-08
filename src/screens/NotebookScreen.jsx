@@ -8,7 +8,7 @@ import {
     FaFileDownload, FaBookOpen, FaPlus, 
     FaHashtag, FaChevronLeft, FaChevronRight, FaPaperclip, 
     FaTimes, FaPlusCircle, FaPaperPlane, FaBook, FaFolderOpen,
-    FaEdit, FaTrash, FaCog, FaSpinner
+    FaEdit, FaTrash, FaCog, FaSpinner, FaSearch // 👈 اضافه شدن آیکون سرچ
 } from 'react-icons/fa';
 
 import { 
@@ -53,7 +53,7 @@ const quillModules = {
         [{ 'size': ['small', false, 'large', 'huge'] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],          
-        [{ 'align': [] }], // دادن آرایه خالی به Quill می‌گوید تمام گزینه‌های الاین (چپ، راست، وسط، جاستیفای) را بیاور                      
+        [{ 'align': ['', 'center', 'right', 'justify'] }],                      
         [{ 'direction': 'rtl' }],                         
         [{ 'list': 'ordered'}, { 'list': 'bullet' }, { 'indent': '-1'}, { 'indent': '+1' }], 
         ['link', 'blockquote', 'code-block'],
@@ -136,12 +136,12 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                     </div>
                 ) : (
                     entry.content && (
-                        /* 🔴 حذف کلاس‌های مخرب (مثل !p-0) برای یکسان‌سازی دقیق با ادیتور */
                         <div className={`ql-snow w-full ${isDark ? 'quill-dark' : ''}`}>
                             <div 
-                                className={`ql-editor max-w-none break-words whitespace-pre-wrap [&_img]:max-w-full [&_img]:rounded-lg ${
+                                className={`ql-editor !p-0 max-w-none break-words whitespace-pre-wrap leading-relaxed [&_img]:max-w-full [&_img]:rounded-lg ${
                                     isDark ? 'text-gray-200' : 'text-gray-800'
                                 }`} 
+                                dir="auto"
                                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(entry.content) }}
                             />
                         </div>
@@ -172,6 +172,10 @@ const NotebookScreen = () => {
     const [editNbTitle, setEditNbTitle] = useState('');
     const [editNbType, setEditNbType] = useState('PERSONAL');
 
+    // استیت‌های مربوط به سرچ
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+
     const [isSending, setIsSending] = useState(false);
     const [isCreatingNb, setIsCreatingNb] = useState(false);
     const [isUpdatingNb, setIsUpdatingNb] = useState(false);
@@ -186,7 +190,6 @@ const NotebookScreen = () => {
     useEffect(() => { dispatch(fetchNotebooks()); }, [dispatch]);
 
     useEffect(() => {
-        // 🔴 حل نهایی مشکل پریدن دفترچه بعد از رفرش صفحه
         if (notebooks.length > 0) {
             const savedNotebookId = localStorage.getItem('activeNotebookId');
             if (savedNotebookId) {
@@ -198,14 +201,18 @@ const NotebookScreen = () => {
                     localStorage.removeItem('activeNotebookId');
                 }
             }
+        } else if (!loading && notebooks.length === 0) {
+            setActiveNotebook(null);
+            localStorage.removeItem('activeNotebookId');
         }
-        // بخش else if کاملاً حذف شد تا دیتای localStorage قبل از رسیدن ریکوئست سرور پاک نشود!
-    }, [notebooks]);
+    }, [notebooks, loading]);
 
     useEffect(() => {
         if (activeNotebook) {
             dispatch(fetchNoteEntries(activeNotebook.id));
-            setIsEditingNotebook(false); 
+            setIsEditingNotebook(false);
+            setSearchQuery(''); // ریست کردن سرچ در صورت تعویض دفترچه
+            setIsSearchOpen(false);
         }
     }, [activeNotebook, dispatch]);
 
@@ -213,7 +220,8 @@ const NotebookScreen = () => {
         const isNewNotebook = activeNotebook?.id !== currentNotebookIdRef.current;
         const isNewMessageAdded = currentEntries.length > prevEntriesLengthRef.current;
 
-        if (isNewNotebook || isNewMessageAdded) {
+        // اگر جستجو فعال باشد، نباید اسکرول کنیم پایین
+        if ((isNewNotebook || isNewMessageAdded) && !searchQuery) {
             setTimeout(() => {
                 endOfNotesRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, 100);
@@ -221,7 +229,7 @@ const NotebookScreen = () => {
 
         prevEntriesLengthRef.current = currentEntries.length;
         currentNotebookIdRef.current = activeNotebook?.id;
-    }, [currentEntries, activeNotebook]);
+    }, [currentEntries, activeNotebook, searchQuery]);
 
     const handleSelectNotebook = (nb) => {
         setActiveNotebook(nb);
@@ -252,6 +260,9 @@ const NotebookScreen = () => {
                 setInputText('');
                 setSelectedFile(null);
                 if (fileInputRef.current) fileInputRef.current.value = "";
+                // بعد از ارسال پیام جستجو را ببند تا پیام جدید را ببیند
+                setSearchQuery('');
+                setIsSearchOpen(false);
             }
         });
     };
@@ -328,6 +339,14 @@ const NotebookScreen = () => {
             });
         }
     };
+
+    // تابع برای تمیز کردن تگ‌های HTML جهت جستجوی صحیح
+    const stripHTML = (html) => (html || '').replace(/<[^>]*>?/gm, '');
+
+    // فیلتر کردن پیام‌ها بر اساس جستجو
+    const filteredEntries = currentEntries.filter(entry => 
+        stripHTML(entry.content).toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const canManageNotebook = activeNotebook && (isAdmin || activeNotebook.user === userInfo?.id);
 
@@ -467,30 +486,65 @@ const NotebookScreen = () => {
                                     )}
                                 </div>
 
-                                {canManageNotebook && !isEditingNotebook && (
+                                {/* دکمه‌های مدیریت و سرچ */}
+                                {!isEditingNotebook && (
                                     <div className="flex items-center gap-1.5 mr-2">
-                                        <button onClick={handleStartEditNotebook} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="ویرایش دفترچه">
-                                            <FaCog />
-                                        </button>
-                                        <button onClick={handleDeleteNotebook} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-800' : 'text-gray-500 hover:text-red-600 hover:bg-red-50'}`} title="حذف دفترچه">
-                                            <FaTrash />
-                                        </button>
+                                        {/* 🔴 بخش جستجو */}
+                                        <div className="flex items-center">
+                                            {isSearchOpen ? (
+                                                <div className={`flex items-center px-3 py-1.5 rounded-lg border transition-all duration-300 ${isDark ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'}`}>
+                                                    <input 
+                                                        type="text" 
+                                                        placeholder="جستجو..."
+                                                        value={searchQuery}
+                                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                                        autoFocus
+                                                        className={`bg-transparent border-none focus:outline-none text-sm w-28 md:w-48 ${isDark ? 'text-white' : 'text-gray-900'}`}
+                                                    />
+                                                    <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className="text-gray-500 hover:text-red-500 mr-2">
+                                                        <FaTimes />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => setIsSearchOpen(true)} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="جستجو">
+                                                    <FaSearch />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {canManageNotebook && (
+                                            <>
+                                                <button onClick={handleStartEditNotebook} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="ویرایش دفترچه">
+                                                    <FaCog />
+                                                </button>
+                                                <button onClick={handleDeleteNotebook} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-800' : 'text-gray-500 hover:text-red-600 hover:bg-red-50'}`} title="حذف دفترچه">
+                                                    <FaTrash />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>
 
                             <div className="flex-1 overflow-y-auto min-h-0 flex flex-col scroll-smooth notebook-scrollbar pl-1">
-                                {currentEntries.map((entry) => (
-                                    <NoteBubble 
-                                        key={entry.id} 
-                                        entry={entry} 
-                                        isDark={isDark} 
-                                        userInfo={userInfo}
-                                        isAdmin={isAdmin}
-                                        onEdit={handleEditNote}
-                                        onDelete={handleDeleteNote}
-                                    />
-                                ))}
+                                {/* رندر پیام‌ها با اعمال فیلتر جستجو */}
+                                {filteredEntries.length > 0 ? (
+                                    filteredEntries.map((entry) => (
+                                        <NoteBubble 
+                                            key={entry.id} 
+                                            entry={entry} 
+                                            isDark={isDark} 
+                                            userInfo={userInfo}
+                                            isAdmin={isAdmin}
+                                            onEdit={handleEditNote}
+                                            onDelete={handleDeleteNote}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="flex-1 flex items-center justify-center text-gray-500 mt-10">
+                                        نتیجه‌ای یافت نشد.
+                                    </div>
+                                )}
                                 <div ref={endOfNotesRef} className="pb-8 pt-4"></div>
                             </div>
 

@@ -43,7 +43,6 @@ export const fetchAllPersonnel = createAsyncThunk('secretariat/fetchAllPersonnel
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
 
-// 🚀 دریافت لیست سازمان‌های خارجی
 export const fetchOrganizations = createAsyncThunk('secretariat/fetchOrganizations', async (_, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.get('/secretariat/organizations/');
@@ -60,14 +59,13 @@ export const uploadAttachment = createAsyncThunk('secretariat/uploadAttachment',
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
 
-// 🚀 ثبت امضای دیجیتال
 export const signLetter = createAsyncThunk('secretariat/signLetter', async ({ letterId, signature }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.post(`/secretariat/${letterId}/sign/`, { signature });
         return data; 
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
-// اضافه کردن متدهای جدید برای ویرایش و حذف
+
 export const updateLetter = createAsyncThunk('secretariat/updateLetter', async ({ id, payload }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.put(`/secretariat/${id}/update/`, payload);
@@ -81,13 +79,24 @@ export const deleteLetter = createAsyncThunk('secretariat/deleteLetter', async (
         return data;
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
+
+// 🚀 اکشن جدید برای تایید یا رد نامه توسط مدیر
+export const approveLetter = createAsyncThunk('secretariat/approveLetter', async ({ letterId, payload }, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.post(`/secretariat/${letterId}/approve/`, payload);
+        return data;
+    } catch (err) { 
+        return rejectWithValue(err.response?.data?.detail || err.message); 
+    }
+});
+
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
         letters: [], loadingList: false, activeLetter: null, loadingDetail: false,
         cartableItems: [], loadingCartable: false, 
         allPersonnel: [], loadingPersonnel: false,
-        organizations: [], loadingOrganizations: false, // 🚀
+        organizations: [], loadingOrganizations: false, 
         creating: false, createSuccess: false, forwarding: false, error: null,
     },
     reducers: {
@@ -97,7 +106,6 @@ const secretariatSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            // ... (سایر ردیوسرهای قبلی دست‌نخورده باقی می‌مانند)
             .addCase(fetchLetters.pending, (state) => { state.loadingList = true; state.error = null; })
             .addCase(fetchLetters.fulfilled, (state, action) => { state.loadingList = false; state.letters = action.payload; })
             .addCase(fetchLetters.rejected, (state, action) => { state.loadingList = false; state.error = action.payload; })
@@ -112,14 +120,15 @@ const secretariatSlice = createSlice({
             
             .addCase(fetchAllPersonnel.fulfilled, (state, action) => { state.allPersonnel = action.payload; })
             
-            // 🚀 دریافت سازمان‌ها
             .addCase(fetchOrganizations.pending, (state) => { state.loadingOrganizations = true; })
             .addCase(fetchOrganizations.fulfilled, (state, action) => { state.loadingOrganizations = false; state.organizations = action.payload; })
             .addCase(fetchOrganizations.rejected, (state, action) => { state.loadingOrganizations = false; })
             
-            // آپدیت نامه در لحظه
+            // آپدیت نامه در لحظه در استیت
             .addCase(uploadAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
-            .addCase(signLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; }); // 🚀 آپدیت بعد از امضا
+            .addCase(signLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
+            // 🚀 آپدیت وضعیت نامه بعد از تایید/رد
+            .addCase(approveLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; });
     }
 });
 

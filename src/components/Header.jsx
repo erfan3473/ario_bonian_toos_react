@@ -12,7 +12,7 @@ import {
   FaChartLine, FaClipboardList, FaCheckCircle, FaCog,
   FaChevronDown, FaBriefcase, FaIdBadge, FaComments,
   FaBars, FaTimes, FaMoon, FaSun, FaBell, FaCircle, 
-  FaSyncAlt, FaHome, FaEnvelope, FaRobot // 👈 FaRobot
+  FaSyncAlt, FaHome, FaEnvelope, FaRobot
 } from "react-icons/fa";
 
 const Header = () => {
@@ -67,7 +67,7 @@ const Header = () => {
     if (path.startsWith("/attendance")) return "ثبت شیفت";
     if (path.startsWith("/profile")) return "پروفایل من";
     if (path.startsWith("/secretariat")) return "دبیرخانه";
-    if (path.startsWith("/ai-assistant")) return "مدیریت / هوش مصنوعی"; // 👈 اصلاح نام صفحه
+    if (path.startsWith("/ai-assistant")) return "مدیریت / هوش مصنوعی";
     if (path === "/" || path === "") return "خانه";
     
     return "";
@@ -196,7 +196,6 @@ const Header = () => {
     }`;
 
   const renderNavLinks = (mobile = false) => {
-    // 👇 هوش مصنوعی مستقیماً به اینجا (منوی مدیریت) اضافه شد
     const adminRoutes = [
       { path: "/chat", name: "پیام‌رسان", icon: FaComments, color: "text-cyan-300", bg: "bg-cyan-600", hover: "hover:bg-cyan-700/50", activeCheck: isActive("/chat") },
       { path: "/ai-assistant", name: "هوش مصنوعی", icon: FaRobot, color: "text-indigo-300", bg: "bg-indigo-600", hover: "hover:bg-indigo-700/50", activeCheck: startsWith("/ai-assistant") },
@@ -209,7 +208,6 @@ const Header = () => {
       { path: "/admin/requests", name: "درخواست‌ها", icon: FaCheckCircle, color: "text-pink-300", bg: "bg-pink-600", hover: "hover:bg-pink-700/50", activeCheck: isActive("/admin/requests") },
       { path: "/admin/daily-summary", name: "گزارش‌ها", icon: FaClipboardList, color: "text-indigo-300", bg: "bg-indigo-600", hover: "hover:bg-indigo-700/50", activeCheck: isActive("/admin/daily-summary") },
       { path: "/admin/settings", name: "تنظیمات", icon: FaCog, color: "text-gray-300", bg: "bg-gray-600", hover: "hover:bg-gray-700/50", activeCheck: isActive("/admin/settings") },
-      { path: "/secretariat", name: "دبیرخانه کل", icon: FaEnvelope, color: "text-amber-300", bg: "bg-amber-600", hover: "hover:bg-amber-700/50", activeCheck: startsWith("/secretariat") },
     ];
 
     const currentActiveAdminRoute = adminRoutes.find(route => route.activeCheck);
@@ -224,6 +222,15 @@ const Header = () => {
         >
           <FaHome className="text-blue-300" />
           <span>خانه</span>
+        </Link>
+
+        {/* 🚀 لینک دبیرخانه به بیرون منتقل شد تا همه بتوانند ببینند */}
+        <Link
+          to="/secretariat"
+          className={mobile ? mobileItemClass(startsWith("/secretariat"), "bg-amber-600", "hover:bg-amber-700/50") : navLinkClass(startsWith("/secretariat"))}
+        >
+          <FaEnvelope className="text-amber-300" />
+          <span>دبیرخانه</span>
         </Link>
 
         <Link

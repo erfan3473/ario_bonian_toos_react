@@ -59,23 +59,12 @@
   font-family: 'Vazirmatn', 'Tahoma', sans-serif;
 }
 
-/* 🚀 Advanced No-Scrollbar Implementation */
-.no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-}
-
-/* Ensure Webkit browsers (Chrome, Safari, Edge) hide the entire scrollbar, including arrows */
 .no-scrollbar::-webkit-scrollbar {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
+    display: none;
 }
-
-.no-scrollbar::-webkit-scrollbar-track,
-.no-scrollbar::-webkit-scrollbar-thumb,
-.no-scrollbar::-webkit-scrollbar-button {
-    display: none !important;
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }
 
 /* =========================================
@@ -162,20 +151,71 @@
   direction: ltr;
 }
 
-/* حل مشکل مخفی شدن منوها و جایگاه آیکون‌های نوار ابزار */
+/* مرتب‌سازی کلی نوار ابزار */
 .ql-toolbar.ql-snow {
   overflow: visible !important;
   position: relative;
   z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+}
+.ql-toolbar.ql-snow .ql-formats {
+  display: flex;
+  align-items: center;
 }
 .ql-picker-options {
   z-index: 100 !important;
 }
+
+/* 🔴 رفع مشکل نامرئی شدن دراپ‌دون‌های متن (Size و Header) */
 .ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) svg {
   right: auto !important;
   left: 0 !important;
 }
-.ql-snow .ql-picker-label {
+.ql-snow .ql-picker:not(.ql-color-picker):not(.ql-icon-picker) .ql-picker-label {
   padding-right: 8px !important;
   padding-left: 18px !important;
+}
+
+/* 🔴 رفع مشکل نامرئی شدن دراپ‌دون‌های آیکون‌دار (Align, Color, Background) */
+.ql-snow .ql-picker.ql-icon-picker,
+.ql-snow .ql-picker.ql-color-picker {
+  width: 28px !important;
+}
+.ql-snow .ql-picker.ql-icon-picker .ql-picker-label,
+.ql-snow .ql-picker.ql-color-picker .ql-picker-label {
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.ql-snow .ql-picker.ql-icon-picker svg,
+.ql-snow .ql-picker.ql-color-picker svg {
+  position: static !important;
+  margin: 0 !important;
+}
+
+/* 🔴 تنظیمات پیشرفته دارک‌مود (بدون !important برای جلوگیری از خنثی شدن رنگ‌های انتخابی کاربر) */
+.quill-dark .ql-toolbar .ql-stroke { stroke: #D1D5DB; }
+.quill-dark .ql-toolbar .ql-fill { fill: #D1D5DB; }
+.quill-dark .ql-toolbar .ql-picker { color: #D1D5DB; }
+
+/* حل مشکل سفید بودن بک‌گراند دراپ‌دون در دارک‌مود */
+.ql-snow .ql-picker-options {
+  background-color: #ffffff;
+  border-color: #e5e7eb;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.quill-dark .ql-picker-options {
+  background-color: #374151 !important; 
+  border-color: #4b5563 !important;
+}
+.quill-dark .ql-picker-item .ql-stroke {
+  stroke: #d1d5db;
+}
+.quill-dark .ql-picker-item .ql-fill {
+  fill: #d1d5db;
+}
+.quill-dark .ql-picker-item:hover {
+  background-color: #4b5563 !important;
 }
