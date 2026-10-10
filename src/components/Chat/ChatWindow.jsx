@@ -5,7 +5,7 @@ import { markModelNotificationsRead } from '../../features/notifications/notific
 
 const ChatWindow = ({ chatId, onBack }) => {
   const dispatch = useDispatch();
-  const { messages, loadingMessages } = useSelector((state) => state.chat);
+  const { chats, messages, loadingMessages } = useSelector((state) => state.chat);
   const { userInfo } = useSelector((state) => state.userLogin);
   
   const [inputText, setInputText] = useState('');
@@ -13,7 +13,11 @@ const ChatWindow = ({ chatId, onBack }) => {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   
-  const chatMessages = (messages[chatId] || []).slice().reverse();
+  const activeChatObj = chats.find((c) => c.id === chatId);
+  const isSystemChat = activeChatObj?.chat_type === 'SYSTEM';
+
+  // 🚀 تغییر حیاتی: متد reverse حذف شد تا پیام‌های جدید بروند پایین صفحه نه بالا!
+  const chatMessages = messages[chatId] || [];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -21,11 +25,8 @@ const ChatWindow = ({ chatId, onBack }) => {
 
   useEffect(() => { scrollToBottom(); }, [chatMessages]);
 
-  useEffect(() => { dispatch(fetchChatMessages(chatId)); }, [dispatch, chatId]);  useEffect(() => { 
-    // دریافت تاریخچه پیام‌ها
+  useEffect(() => { 
     dispatch(fetchChatMessages(chatId)); 
-    
-    // 🔴 سینک کردن خوانده‌شدن نوتیفیکیشن‌های این چت به محض ورود
     dispatch(markModelNotificationsRead({ model: 'chat', objectId: chatId }));
   }, [dispatch, chatId]);
   
@@ -71,7 +72,7 @@ const ChatWindow = ({ chatId, onBack }) => {
 
   const sendMessage = (e) => {
     e.preventDefault();
-    if (!inputText.trim() || !ws.current) return;
+    if (!inputText.trim() || !ws.current || isSystemChat) return;
 
     const payload = {
       type: 'send_message',
@@ -85,11 +86,20 @@ const ChatWindow = ({ chatId, onBack }) => {
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
+  const getHeaderTitle = () => {
+    if (isSystemChat) return 'اعلان‌های سیستم';
+    if (activeChatObj?.chat_type === 'GROUP') return activeChatObj.project_name || 'گروه پروژه';
+    if (activeChatObj?.chat_type === 'PRIVATE') {
+      const other = activeChatObj.members.find(m => m.id !== userInfo?.id);
+      return other?.name || 'چت خصوصی';
+    }
+    return `گفتگو #${chatId}`;
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#131314]">
       {/* Header */}
       <div className="px-4 py-3 bg-[#1e1f20] border-b border-gray-800 flex items-center gap-3 shrink-0 min-h-[60px] shadow-sm">
-        {/* دکمه بازگشت در موبایل */}
         <button 
           onClick={onBack}
           className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 rounded-lg text-blue-400 hover:bg-gray-700 transition-colors border border-gray-700"
@@ -99,7 +109,10 @@ const ChatWindow = ({ chatId, onBack }) => {
         </button>
 
         <div className="flex-1 flex items-center justify-between">
-            <span className="font-semibold text-gray-100">گفتگو #{chatId}</span>
+            <span className={`font-semibold ${isSystemChat ? 'text-yellow-400' : 'text-gray-100'} flex items-center gap-2`}>
+                {isSystemChat && <i className="fas fa-bullhorn"></i>}
+                {getHeaderTitle()}
+            </span>
             {loadingMessages && <i className="fas fa-spinner fa-spin text-blue-500"></i>}
         </div>
       </div>
@@ -107,9 +120,24 @@ const ChatWindow = ({ chatId, onBack }) => {
       {/* Messages */}
       <div className="flex-grow overflow-y-auto p-4 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {chatMessages.map((msg, index) => {
-          // 🔴 جلوگیری از رندر پیام‌های ماموریت و پیام‌های خالی
           if (msg.message_type === 'TASK') return null;
           if (!msg.text || msg.text.trim() === '') return null;
+
+          if (msg.message_type === 'SYSTEM') {
+            return (
+              <div key={msg.id || index} className="flex justify-center my-6">
+                <div className="bg-blue-900/20 border border-blue-500/20 text-gray-200 px-5 py-4 rounded-2xl text-[14px] leading-loose max-w-[85%] shadow-lg text-center backdrop-blur-sm">
+                    <div className="font-black text-blue-400 mb-2 flex justify-center items-center gap-2 text-sm border-b border-blue-500/20 pb-2">
+                        <i className="fas fa-robot text-lg"></i> پیام سیستم
+                    </div>
+                    <span className="whitespace-pre-wrap font-medium leading-relaxed">{msg.text}</span>
+                    <div className="text-[10px] text-blue-300/70 font-mono mt-3">
+                        {new Date(msg.created_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'})} - {new Date(msg.created_at).toLocaleDateString('fa-IR')}
+                    </div>
+                </div>
+              </div>
+            );
+          }
 
           const isMe = msg.sender_id === userInfo?.id;
           return (
@@ -124,10 +152,7 @@ const ChatWindow = ({ chatId, onBack }) => {
                 {!isMe && (
                    <span className="text-xs text-blue-400 font-bold mb-1.5 opacity-90">{msg.sender_name}</span>
                 )}
-                
-                {/* 🔴 بخش مربوط به دیزاین ماموریت حذف شد و فقط متن چت نمایش داده می‌شود */}
                 <span className="whitespace-pre-wrap break-words">{msg.text}</span>
-
                 <span className={`text-[10px] mt-1.5 flex ${isMe ? 'justify-end text-blue-200' : 'justify-end text-gray-500'}`}>
                   {new Date(msg.created_at).toLocaleTimeString('fa-IR', {hour: '2-digit', minute:'2-digit'})}
                 </span>
@@ -138,38 +163,46 @@ const ChatWindow = ({ chatId, onBack }) => {
         <div ref={messagesEndRef} />
       </div>
 
-
       {/* Input */}
-      <div className="p-3 md:p-4 bg-[#1e1f20] shrink-0 border-t border-gray-800">
-          <form onSubmit={sendMessage} className="flex items-end bg-[#131314] border border-gray-700 rounded-2xl overflow-hidden focus-within:border-blue-500 transition-colors">
-            <textarea
-              ref={textareaRef}
-              dir="auto"
-              rows="1"
-              className="flex-grow bg-transparent text-gray-100 px-4 py-3 md:py-4 focus:outline-none resize-none max-h-32 overflow-y-auto leading-relaxed [&::-webkit-scrollbar]:hidden"
-              placeholder="پیام خود را بنویسید..."
-              value={inputText}
-              onChange={(e) => {
-                  setInputText(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-              }}
-              onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage(e);
-                  }
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!inputText.trim()}
-              className={`p-3 md:p-4 transition-colors shrink-0 ${!inputText.trim() ? 'text-gray-600 cursor-not-allowed' : 'text-blue-500 hover:text-blue-400'}`}
-            >
-              <i className={`fas fa-paper-plane text-xl ${document.dir === 'rtl' ? 'rotate-180' : ''}`}></i>
-            </button>
-          </form>
-      </div>
+      {isSystemChat ? (
+        <div className="p-4 bg-[#1e1f20] shrink-0 border-t border-gray-800 flex justify-center items-center">
+            <p className="text-xs md:text-sm text-gray-500 font-bold flex items-center gap-2">
+                <i className="fas fa-lock"></i>
+                این یک گفتگوی یک‌طرفه سیستمی است و امکان ارسال پیام وجود ندارد.
+            </p>
+        </div>
+      ) : (
+        <div className="p-3 md:p-4 bg-[#1e1f20] shrink-0 border-t border-gray-800">
+            <form onSubmit={sendMessage} className="flex items-end bg-[#131314] border border-gray-700 rounded-2xl overflow-hidden focus-within:border-blue-500 transition-colors">
+              <textarea
+                ref={textareaRef}
+                dir="auto"
+                rows="1"
+                className="flex-grow bg-transparent text-gray-100 px-4 py-3 md:py-4 focus:outline-none resize-none max-h-32 overflow-y-auto leading-relaxed [&::-webkit-scrollbar]:hidden"
+                placeholder="پیام خود را بنویسید..."
+                value={inputText}
+                onChange={(e) => {
+                    setInputText(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(e);
+                    }
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!inputText.trim()}
+                className={`p-3 md:p-4 transition-colors shrink-0 ${!inputText.trim() ? 'text-gray-600 cursor-not-allowed' : 'text-blue-500 hover:text-blue-400'}`}
+              >
+                <i className={`fas fa-paper-plane text-xl ${document.dir === 'rtl' ? 'rotate-180' : ''}`}></i>
+              </button>
+            </form>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,11 +3,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { fetchLetterDetail, updateLetter, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-// 🚀 ایمپورت FaArrowLeft برای جلوگیری از خطای Not Defined اضافه شد
-import { FaChevronLeft, FaChevronDown, FaArrowLeft, FaArrowRight, FaBuilding } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronDown } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 
-// 🚀 کامپوننت اختصاصی جستجوی پرسنل (تایپ و سرچ)
+import logo from '../../assets/ario.png';
+
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -84,6 +84,47 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
+// 🚀 لوگوی متحرک اختصاصی برای صفحه ادیت هم آورده شد
+const DirectionalLogo = ({ type, colorName }) => {
+    const isOutward = type === 'OUTGOING';
+    const isInternal = type === 'INTERNAL';
+
+    const colorMaps = {
+        green: { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' },
+        orange: { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' },
+        purple: { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' },
+    };
+    const theme = colorMaps[colorName] || colorMaps.purple;
+
+    return (
+        <div className={`relative w-20 h-20 shrink-0 flex items-center justify-center rounded-2xl shadow-lg border-2 transition-all duration-500 ${theme.bg} ${theme.border}`}>
+            <img src={logo} alt="لوگو" className="w-12 h-12 object-contain z-10 relative" />
+            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : 'rotate-0'}`}>
+                {[0, 90, 180, 270].map((rotation, i) => (
+                    <div key={i} className="absolute inset-0 flex items-start justify-center" style={{ transform: `rotate(${rotation}deg)` }}>
+                        <svg 
+                            width="32" height="32" viewBox="0 0 24 24" 
+                            className={`transition-all duration-500 drop-shadow-md ${theme.text} -mt-4 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}
+                        >
+                            {isInternal ? (
+                                <>
+                                    <path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                                    <path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                                </>
+                            ) : (
+                                <>
+                                    <path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                                    <path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" />
+                                </>
+                            )}
+                        </svg>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const SecretariatEditScreen = () => {
     const { id } = useParams();
     const dispatch = useDispatch();
@@ -91,7 +132,6 @@ const SecretariatEditScreen = () => {
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { userInfo } = useSelector((state) => state.userLogin);
     
-    // چک کردن دسترسی تایید
     const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0);
     
     const { activeLetter, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
@@ -99,7 +139,6 @@ const SecretariatEditScreen = () => {
 
     const [updating, setUpdating] = useState(false);
     
-    // مقادیر پیش‌فرض
     const [formData, setFormData] = useState({
         subject: '',
         letter_type: 'INTERNAL',
@@ -137,7 +176,6 @@ const SecretariatEditScreen = () => {
         }
     }, [dispatch, id]);
 
-    // این Effect اطلاعات نامه را می‌خواند و فیلدها را با دیتای بک‌اند پر می‌کند
     useEffect(() => {
         if (activeLetter && String(activeLetter.id) === String(id)) {
             setFormData({
@@ -180,7 +218,10 @@ const SecretariatEditScreen = () => {
             internal_sender: '', 
             external_sender: '', 
             internal_receiver: '', 
-            external_receiver: ''
+            external_receiver: '',
+            // 🚀 ریست کردن فیلدهای مقصد هنگام تغییر نوع نامه
+            destination_indicator: newType !== 'OUTGOING' ? '' : formData.destination_indicator,
+            destination_date: newType !== 'OUTGOING' ? '' : formData.destination_date
         });
     };
 
@@ -218,11 +259,10 @@ const SecretariatEditScreen = () => {
         return <div className="text-center py-20 font-bold opacity-60">در حال خواندن اطلاعات پرونده...</div>;
     }
 
-    // تغییرات استایل و آیکون هدر براساس نوع نامه
     const typeConfigs = {
-        'INCOMING': { color: 'green', text: 'وارده', icon: <FaArrowLeft className="animate-pulse" /> },
-        'OUTGOING': { color: 'orange', text: 'صادره', icon: <FaArrowRight className="animate-pulse" /> },
-        'INTERNAL': { color: 'purple', text: 'داخلی', icon: <FaBuilding className="animate-pulse" /> }
+        'INCOMING': { color: 'green', text: 'وارده' },
+        'OUTGOING': { color: 'orange', text: 'صادره' },
+        'INTERNAL': { color: 'purple', text: 'داخلی' }
     };
     const currentTypeConfig = typeConfigs[formData.letter_type] || typeConfigs['INTERNAL'];
 
@@ -237,21 +277,16 @@ const SecretariatEditScreen = () => {
                 <span className={isDark ? "text-gray-300" : "text-gray-700"}>ویرایش اطلاعات</span>
             </div>
 
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                    {/* آیکون متحرک */}
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg bg-${currentTypeConfig.color}-500 transition-colors duration-500 text-xl`}>
-                        {currentTypeConfig.icon}
-                    </div>
-                    <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                        ویرایش مکاتبه (اندیکاتور: {activeLetter.indicator_number})
-                    </h2>
-                </div>
+            {/* 🚀 هدر اختصاصی و لوگوی متحرک */}
+            <div className="flex flex-col items-center justify-center relative mb-8 mt-2">
+                <DirectionalLogo type={formData.letter_type} colorName={currentTypeConfig.color} />
+                <h2 className={`text-2xl mt-4 font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    ویرایش مکاتبه (اندیکاتور: {activeLetter.indicator_number})
+                </h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
 
-                {/* خط رنگی متحرک که به کاربر نشون میده تو چه حالتیه */}
                 <div className={`h-1.5 w-full rounded-t-xl transition-all duration-500 bg-gradient-to-r from-${currentTypeConfig.color}-400 to-${currentTypeConfig.color}-600`} />
 
                 <div className={`p-4 rounded-b-xl border border-t-0 shadow-sm ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
@@ -266,7 +301,6 @@ const SecretariatEditScreen = () => {
                             </select>
                         </div>
                         
-                        {/* فقط ادمین‌ها و مدیران می‌تونن وضعیت رو دستی از اینجا عوض کنن */}
                         {isLevelZeroOrAdmin && (
                             <div>
                                 <label className="block mb-1 text-xs font-bold opacity-80 text-rose-600">وضعیت نامه</label>
@@ -298,28 +332,33 @@ const SecretariatEditScreen = () => {
                         </div>
                     </div>
                     
-                    {/* فیلدهای اختصاصی مدیران برای ثبت شماره‌های خارجی و فیزیکی */}
+                    {/* فیلدهای اختصاصی مدیران */}
                     {isLevelZeroOrAdmin && (
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mt-5 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <div className={`col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-5 mt-5 p-4 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                             <div>
-                                <label className="block mb-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">شماره نامه فیزیکی</label>
+                                <label className="block mb-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">شماره چاپی آریو بنیان توس</label>
                                 <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-emerald-300 dark:border-emerald-700`} value={formData.original_number} onChange={(e) => setFormData({ ...formData, original_number: e.target.value })} />
                             </div>
                             <div className="relative">
-                                <JalaliDatePicker name="original_date" label="تاریخ نامه فیزیکی" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} />
+                                <JalaliDatePicker name="original_date" label="تاریخ نامه چاپ شده" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} />
                             </div>
-                            <div>
-                                <label className="block mb-1 text-xs font-bold text-indigo-700 dark:text-indigo-400">شماره ثبت در مقصد</label>
-                                <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700`} value={formData.destination_indicator} onChange={(e) => setFormData({ ...formData, destination_indicator: e.target.value })} />
-                            </div>
-                            <div className="relative">
-                                <JalaliDatePicker name="destination_date" label="تاریخ تحویل مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} />
-                            </div>
+                            
+                            {/* 🚀 فیلدهای مقصد فقط در نامه‌های صادره نمایش داده می‌شوند */}
+                            {formData.letter_type === 'OUTGOING' && (
+                                <>
+                                    <div>
+                                        <label className="block mb-1 text-xs font-bold text-indigo-700 dark:text-indigo-400">شماره ثبت در مقصد</label>
+                                        <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700`} value={formData.destination_indicator} onChange={(e) => setFormData({ ...formData, destination_indicator: e.target.value })} />
+                                    </div>
+                                    <div className="relative">
+                                        <JalaliDatePicker name="destination_date" label="تاریخ تحویل تایید از مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} />
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* افکتِ رنگی فرم ارتباطات بر اساس نوع نامه */}
                 <div className={`p-4 rounded-xl border shadow-sm transition-all duration-500 ${
                     formData.letter_type === 'INCOMING' ? (isDark ? 'bg-green-900/10 border-green-800/50' : 'bg-green-50/50 border-green-200') :
                     formData.letter_type === 'OUTGOING' ? (isDark ? 'bg-orange-900/10 border-orange-800/50' : 'bg-orange-50/50 border-orange-200') :
@@ -393,23 +432,11 @@ const SecretariatEditScreen = () => {
                         </div>
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">عطف به (شماره نامه مرتبط - تایپی)</label>
-                            <input 
-                                type="text" 
-                                dir="rtl" 
-                                className={`${inputClass} text-right font-mono`} 
-                                value={formData.reference_number} 
-                                onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })} 
-                            />
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })} />
                         </div>
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">شماره قرارداد</label>
-                            <input 
-                                type="text" 
-                                dir="rtl" 
-                                className={`${inputClass} text-right font-mono`} 
-                                value={formData.contract_number} 
-                                onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })} 
-                            />
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })} />
                         </div>
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">پیوست (متن)</label>

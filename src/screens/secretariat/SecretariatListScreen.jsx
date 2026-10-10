@@ -244,7 +244,7 @@ const SecretariatListScreen = () => {
                     </div>
                     <div>
                         <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                            دفتر اندیکاتور
+                             دبیر خانه کل
                         </h1>
                         <span className="text-sm font-bold opacity-60">تعداد نامه‌ها (با احتساب فیلتر): {totalCount}</span>
                     </div>
@@ -621,7 +621,7 @@ const SecretariatListScreen = () => {
                                                     <div className="flex items-center gap-2">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                                                         <div className="flex flex-col">
-                                                            <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">سیستمی</span>
+                                                            <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">تاریخ ثبت نگارنده</span>
                                                             <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                                                 {formatPersianDate(letter.created_at)}
                                                             </span>
@@ -632,7 +632,7 @@ const SecretariatListScreen = () => {
                                                         <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                                             <div className="flex flex-col">
-                                                                <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest">تایید مدیر</span>
+                                                                <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest">تایید مدیریت</span>
                                                                 <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                                                     {formatPersianDate(letter.approved_at)}
                                                                 </span>
@@ -644,7 +644,7 @@ const SecretariatListScreen = () => {
                                                         <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                                                             <div className="flex flex-col">
-                                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">روی برگه</span>
+                                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">تاریخ جاپ شده روی نامه </span>
                                                                 <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                                                     {formatPersianDate(letter.original_date)}
                                                                 </span>

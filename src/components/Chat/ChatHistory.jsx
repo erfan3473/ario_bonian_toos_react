@@ -7,7 +7,9 @@ const ChatHistory = ({ onOpenUsers }) => {
   const { chats, activeChatId, loadingChats } = useSelector((state) => state.chat);
   const { userInfo } = useSelector((state) => state.userLogin);
 
+  // 🚀 شناسایی هوشمند نام چت (پشتیبانی از چت سیستمی اضافه شد)
   const getChatTitle = (chat) => {
+    if (chat.chat_type === 'SYSTEM') return 'اعلان‌های سیستم';
     if (chat.chat_type === 'GROUP') return chat.project_name || 'گروه پروژه';
     if (chat.chat_type === 'PRIVATE') {
       const other = chat.members.find(m => m.id !== userInfo?.id);
@@ -16,28 +18,28 @@ const ChatHistory = ({ onOpenUsers }) => {
     return `پرونده #${chat.id}`;
   };
 
+  // 🚀 آیکون اختصاصی برای هر نوع چت
   const getIcon = (type) => {
+    if (type === 'SYSTEM') return <i className="fas fa-bullhorn text-yellow-400"></i>;
     if (type === 'GROUP') return <i className="fas fa-hashtag text-purple-400"></i>;
     return <i className="fas fa-user text-blue-400"></i>;
   };
 
-  // فیلتر کردن پیام‌های کاملا خالی برای عدم نمایش در لیست
   const validChats = chats.filter(chat => {
     if (!chat.last_message) return false;
     const isTask = chat.last_message.message_type === 'TASK';
+    const isSystem = chat.last_message.message_type === 'SYSTEM';
     const hasText = chat.last_message.text && chat.last_message.text.trim() !== '';
-    return isTask || hasText;
+    return isTask || isSystem || hasText;
   });
 
   return (
     <div className="h-full flex flex-col relative">
-      {/* Header */}
       <div className="px-4 py-4 border-b border-gray-800 flex justify-between items-center bg-[#1e1f20]">
         <h2 className="text-white font-bold text-lg flex items-center gap-2">
           <i className="fas fa-inbox text-blue-500"></i>
           پیام‌های شما
         </h2>
-        {/* دکمه شروع چت جدید (فقط در موبایل و تبلت دیده می‌شود) */}
         <button 
           onClick={onOpenUsers}
           className="xl:hidden w-10 h-10 rounded-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 flex items-center justify-center transition"
@@ -46,7 +48,6 @@ const ChatHistory = ({ onOpenUsers }) => {
         </button>
       </div>
 
-      {/* List */}
       <div className="flex-grow overflow-y-auto p-2 space-y-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {loadingChats ? (
            <div className="flex justify-center mt-10"><i className="fas fa-circle-notch fa-spin text-blue-500 text-2xl"></i></div>
@@ -74,7 +75,9 @@ const ChatHistory = ({ onOpenUsers }) => {
               <div className="flex-grow min-w-0">
                 <div className="flex justify-between items-baseline mb-1">
                   <span className={`text-sm font-semibold truncate ${
-                    activeChatId === chat.id ? 'text-blue-400' : 'text-gray-200'
+                    activeChatId === chat.id 
+                        ? (chat.chat_type === 'SYSTEM' ? 'text-yellow-400' : 'text-blue-400') 
+                        : 'text-gray-200'
                   }`}>
                     {getChatTitle(chat)}
                   </span>
@@ -85,6 +88,8 @@ const ChatHistory = ({ onOpenUsers }) => {
                 <p className="text-xs text-gray-400 truncate mt-0.5">
                   {chat.last_message?.message_type === 'TASK' 
                     ? <><i className="fas fa-paperclip text-yellow-500 ml-1"></i>رویداد ماموریت</> 
+                    : chat.last_message?.message_type === 'SYSTEM'
+                    ? <><i className="fas fa-info-circle text-blue-400 ml-1"></i>{chat.last_message?.text}</>
                     : chat.last_message?.text}
                 </p>
               </div>

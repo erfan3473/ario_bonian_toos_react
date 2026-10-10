@@ -80,10 +80,29 @@ export const deleteLetter = createAsyncThunk('secretariat/deleteLetter', async (
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
 
-// 🚀 اکشن جدید برای تایید یا رد نامه توسط مدیر
 export const approveLetter = createAsyncThunk('secretariat/approveLetter', async ({ letterId, payload }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.post(`/secretariat/${letterId}/approve/`, payload);
+        return data;
+    } catch (err) { 
+        return rejectWithValue(err.response?.data?.detail || err.message); 
+    }
+});
+
+// 🚀 اکشن واکشی لیست پیامک‌های نامه
+export const fetchLetterSmsLogs = createAsyncThunk('secretariat/fetchLetterSmsLogs', async (letterId, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.get(`/secretariat/${letterId}/sms-logs/`);
+        return data;
+    } catch (err) { 
+        return rejectWithValue(err.response?.data?.detail || err.message); 
+    }
+});
+
+// 🚀 اکشن استعلام وضعیت یک پیامک
+export const refreshLetterSmsStatus = createAsyncThunk('secretariat/refreshLetterSmsStatus', async (logId, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.post(`/secretariat/sms-logs/refresh/`, { log_id: logId });
         return data;
     } catch (err) { 
         return rejectWithValue(err.response?.data?.detail || err.message); 
@@ -98,9 +117,12 @@ const secretariatSlice = createSlice({
         allPersonnel: [], loadingPersonnel: false,
         organizations: [], loadingOrganizations: false, 
         creating: false, createSuccess: false, forwarding: false, error: null,
+        
+        // 🚀 استیت‌های مربوط به لاگ پیامک‌ها
+        smsLogs: [], loadingSmsLogs: false, refreshingSms: false,
     },
     reducers: {
-        clearActiveLetter: (state) => { state.activeLetter = null; },
+        clearActiveLetter: (state) => { state.activeLetter = null; state.smsLogs = []; },
         clearCreateSuccess: (state) => { state.createSuccess = false; },
         clearSecretariatError: (state) => { state.error = null; },
     },
@@ -124,11 +146,26 @@ const secretariatSlice = createSlice({
             .addCase(fetchOrganizations.fulfilled, (state, action) => { state.loadingOrganizations = false; state.organizations = action.payload; })
             .addCase(fetchOrganizations.rejected, (state, action) => { state.loadingOrganizations = false; })
             
-            // آپدیت نامه در لحظه در استیت
             .addCase(uploadAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(signLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
-            // 🚀 آپدیت وضعیت نامه بعد از تایید/رد
-            .addCase(approveLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; });
+            .addCase(approveLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
+
+            // 🚀 مدیریت استیت‌های مربوط به پیامک
+            .addCase(fetchLetterSmsLogs.pending, (state) => { state.loadingSmsLogs = true; })
+            .addCase(fetchLetterSmsLogs.fulfilled, (state, action) => { state.loadingSmsLogs = false; state.smsLogs = action.payload; })
+            .addCase(fetchLetterSmsLogs.rejected, (state) => { state.loadingSmsLogs = false; })
+            
+            // 🚀 جایگزینی لاگِ آپدیت شده در لیست پیامک‌ها بعد از رفرش
+            .addCase(refreshLetterSmsStatus.pending, (state) => { state.refreshingSms = true; })
+            .addCase(refreshLetterSmsStatus.fulfilled, (state, action) => {
+                state.refreshingSms = false;
+                const updatedLog = action.payload;
+                const index = state.smsLogs.findIndex(log => log.id === updatedLog.id);
+                if (index !== -1) {
+                    state.smsLogs[index] = { ...state.smsLogs[index], ...updatedLog };
+                }
+            })
+            .addCase(refreshLetterSmsStatus.rejected, (state) => { state.refreshingSms = false; });
     }
 });
 
