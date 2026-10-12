@@ -1,13 +1,41 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { fetchLetterDetail, forwardLetter, fetchAllPersonnel, uploadAttachment, signLetter, deleteLetter, fetchLetterSmsLogs, refreshLetterSmsStatus, updateLetter, registerDestination } from '../../features/secretariat/secretariatSlice';
+import { fetchLetterDetail, forwardLetter, fetchAllPersonnel, uploadAttachment, signLetter, deleteLetter, fetchLetterSmsLogs, refreshLetterSmsStatus, updateLetter, registerDestination, issueLetter } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaUserEdit, FaUserCheck, FaUserClock, FaHistory } from 'react-icons/fa';
+import { FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaHistory } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
 import axiosInstance from '../../api/axiosInstance'; 
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
+
+// 🚀 کامپوننت لوگوی ثابت جهت‌دار (بدون انیمیشن)
+const StaticDirectionalLogo = ({ type }) => {
+    const isOutward = type === 'OUTGOING';
+    const isInternal = type === 'INTERNAL';
+
+    const colorMaps = {
+        'INCOMING': { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' },
+        'OUTGOING': { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' },
+        'INTERNAL': { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' },
+    };
+    const theme = colorMaps[type] || colorMaps['INTERNAL'];
+
+    return (
+        <div className={`relative w-8 h-8 shrink-0 flex items-center justify-center rounded-lg shadow-sm border ${theme.bg} ${theme.border}`}>
+            <img src={logo} alt="لوگو" className="w-5 h-5 object-contain z-10 relative opacity-90" />
+            <div className={`absolute inset-0 z-20 flex items-start justify-center ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : 'rotate-0'}`}>
+                <svg width="14" height="14" viewBox="0 0 24 24" className={`drop-shadow-sm ${theme.text} -mt-1.5 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}>
+                    {isInternal ? (
+                        <><path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>
+                    ) : (
+                        <><path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" /></>
+                    )}
+                </svg>
+            </div>
+        </div>
+    );
+};
 
 const LetterProgressStepper = ({ status, isDark }) => {
     if (status === 'REJECTED') {
@@ -22,7 +50,7 @@ const LetterProgressStepper = ({ status, isDark }) => {
     const steps = [
         { key: 'PENDING', label: 'ثبت اولیه', icon: '📝' },
         { key: 'APPROVED', label: 'تایید و امضا', icon: '✅' },
-        { key: 'ISSUED', label: 'خروج از شرکت', icon: '🏃‍♂️' },
+        { key: 'ISSUED', label: 'خروج از سازمان', icon: '🏃‍♂️' },
         { key: 'REGISTERED', label: 'تکمیل و بایگانی', icon: '📂' }
     ];
 
@@ -219,15 +247,14 @@ const SecretariatDetailScreen = () => {
         if (!deliveryResponsible) return toast.error('انتخاب مسئول پیگیری الزامی است.');
         setIsApproving(true);
         
-        // از API جدید issue استفاده می‌کنیم که پیامک می‌فرستد
-        axiosInstance.post(`/secretariat/${id}/issue/`, { delivery_responsible: deliveryResponsible })
+        dispatch(issueLetter({ letterId: id, payload: { delivery_responsible: deliveryResponsible } })).unwrap()
             .then(() => {
                 toast.success('نامه به حالت "در دست پیک" درآمد و پیامک ارسال شد.');
                 setShowIssueModal(false);
                 dispatch(fetchLetterDetail(id)); 
                 if (isLevelZeroOrAdmin) dispatch(fetchLetterSmsLogs(id));
             })
-            .catch(err => toast.error(err.response?.data?.detail || 'خطا در عملیات'))
+            .catch(err => toast.error(err || 'خطا در عملیات'))
             .finally(() => setIsApproving(false));
     };
 
@@ -250,6 +277,16 @@ const SecretariatDetailScreen = () => {
             })
             .catch(err => toast.error(err || 'خطا در ثبت اطلاعات'))
             .finally(() => setRegisteringDest(false));
+    };
+
+    // 🚀 تابع کمکی برای فرمت‌بندی تاریخ و ساعت به شکل خواسته‌شده
+    const formatDateTimeExact = (dateString) => {
+        if (!dateString) return '';
+        const d = new Date(dateString);
+        return d.toLocaleString('fa-IR', { 
+            year: 'numeric', month: 'numeric', day: 'numeric', 
+            hour: '2-digit', minute:'2-digit', second:'2-digit' 
+        });
     };
 
     if (loadingDetail || !letter) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
@@ -319,63 +356,71 @@ const SecretariatDetailScreen = () => {
 
             <LetterProgressStepper status={letter.status} isDark={isDark} />
 
-            {/* 🚀 بنر اطلاعات یکپارچه (۷ ستون در کنار هم برای دسکتاپ) */}
-            <div className={`p-4 rounded-xl border print:hidden shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {/* 🚀 بنر اختصاصی و منسجم اطلاعات سیستمی و اشخاص */}
+            <div className={`p-4 md:p-5 rounded-2xl border print:hidden shadow-sm flex flex-col md:flex-row flex-wrap gap-4 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 w-full">
                     
-                    {/* اطلاعات سیستمی */}
+                    {/* ۱. شماره سیستمی */}
                     <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-blue-50 dark:bg-slate-900/50 border border-blue-100 dark:border-slate-700/50">
-                        <span className="opacity-60 text-[9px] font-bold text-blue-600 dark:text-blue-400 mb-1">شماره سیستمی</span>
+                        <span className="opacity-60 text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-1">شماره سیستمی:</span>
                         <span className="font-mono font-black text-blue-700 dark:text-blue-400 text-sm">{letter.indicator_number}</span>
                     </div>
-                    
+
+                    {/* ۲. تاریخ ثبت اولیه */}
                     <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-                        <span className="opacity-60 text-[9px] font-bold mb-1">تاریخ ثبت اولیه</span>
-                        <span className="font-bold text-xs">{new Date(letter.created_at).toLocaleDateString('fa-IR')}</span>
+                        <span className="opacity-60 text-[10px] font-bold mb-1">تاریخ ثبت اولیه:</span>
+                        <span className="font-bold text-sm">{new Date(letter.created_at).toLocaleDateString('fa-IR')}</span>
                     </div>
-                    
+
+                    {/* ۳. نوع نامه */}
                     <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-                        <span className="opacity-60 text-[9px] font-bold mb-1">نوع نامه</span>
-                        <span className="font-bold text-xs text-gray-800 dark:text-gray-200">نامه {translateEnum(letter.letter_type)}</span>
+                        <span className="opacity-60 text-[10px] font-bold mb-1">نوع نامه:</span>
+                        <div className="flex items-center gap-2">
+                            <StaticDirectionalLogo type={letter.letter_type} />
+                            <span className="font-bold text-sm text-gray-800 dark:text-gray-200">نامه {translateEnum(letter.letter_type)}</span>
+                        </div>
                     </div>
-                    
+
+                    {/* ۴. وضعیت فعلی */}
                     <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-                        <span className="opacity-60 text-[9px] font-bold mb-1">وضعیت فعلی</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getStatusStyle(letter.status)}`}>
+                        <span className="opacity-60 text-[10px] font-bold mb-1">وضعیت فعلی:</span>
+                        <span className={`px-2 py-1 rounded text-xs font-bold border ${getStatusStyle(letter.status)}`}>
                             {translateEnum(letter.status)}
                         </span>
                     </div>
 
-                    {/* اطلاعات اشخاص */}
+                    {/* ۵. نگارنده */}
                     <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-                        <div className="flex items-center gap-1 opacity-60 text-[9px] font-bold mb-1"><FaUserEdit/> نگارنده:</div>
+                        <div className="opacity-60 text-[10px] font-bold mb-1">نگارنده:</div>
                         <div className="font-bold text-xs text-blue-600 dark:text-blue-400 truncate w-full">{letter.created_by_name}</div>
-                        <div className="opacity-50 text-[8px] font-mono mt-0.5" dir="ltr">({new Date(letter.created_at).toLocaleString('fa-IR')})</div>
+                        <div className="opacity-50 text-[10px] font-mono mt-1" dir="ltr">({formatDateTimeExact(letter.created_at)})</div>
                     </div>
-                    
+
+                    {/* ۶. تاییدکننده */}
                     <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-                        <div className="flex items-center gap-1 opacity-60 text-[9px] font-bold mb-1"><FaUserCheck/> تاییدکننده:</div>
+                        <div className="opacity-60 text-[10px] font-bold mb-1">تاییدکننده:</div>
                         {letter.approved_at ? (
                             <>
                                 <div className="font-bold text-xs text-emerald-600 dark:text-emerald-400 truncate w-full">{letter.approved_by_name}</div>
-                                <div className="opacity-50 text-[8px] font-mono mt-0.5" dir="ltr">({new Date(letter.approved_at).toLocaleString('fa-IR')})</div>
+                                <div className="opacity-50 text-[10px] font-mono mt-1" dir="ltr">({formatDateTimeExact(letter.approved_at)})</div>
                             </>
                         ) : <div className="text-xs opacity-40 italic mt-1">در انتظار</div>}
                     </div>
 
-                    <div className="col-span-2 md:col-span-2 lg:col-span-1 flex flex-col items-center text-center justify-center p-2 rounded-lg bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30">
-                        <div className="flex items-center gap-1 text-cyan-700 dark:text-cyan-500 text-[9px] font-bold mb-1"><FaUserClock/> مسئول خروج:</div>
+                    {/* ۷. مسئول خروج */}
+                    <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-cyan-50 dark:bg-cyan-900/10 border border-cyan-100 dark:border-cyan-900/30">
+                        <div className="opacity-60 text-cyan-700 dark:text-cyan-500 text-[10px] font-bold mb-1">مسئول خروج:</div>
                         {letter.delivery_responsible_name ? (
                             <>
                                 <div className="font-bold text-xs text-cyan-800 dark:text-cyan-400 truncate w-full">{letter.delivery_responsible_name}</div>
-                                {letter.delivery_assigned_at && <div className="opacity-50 text-cyan-700 dark:text-cyan-500 text-[8px] font-mono mt-0.5" dir="ltr">({new Date(letter.delivery_assigned_at).toLocaleString('fa-IR')})</div>}
+                                {letter.delivery_assigned_at && <div className="opacity-50 text-cyan-700 dark:text-cyan-500 text-[10px] font-mono mt-1" dir="ltr">({formatDateTimeExact(letter.delivery_assigned_at)})</div>}
                             </>
                         ) : <div className="text-xs opacity-40 italic mt-1 text-cyan-800 dark:text-cyan-400">نامشخص</div>}
                     </div>
                 </div>
             </div>
 
-            {/* 🚀 پنل اختصاصی پیک */}
+            {/* پنل ثبت مقصد (پیک) */}
             {(isDeliveryPerson || isLevelZeroOrAdmin) && letter.letter_type === 'OUTGOING' && ['ISSUED', 'APPROVED'].includes(letter.status) && (
                 <div className={`p-5 md:p-6 rounded-2xl border-2 border-emerald-500 shadow-xl print:hidden ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50'}`}>
                     <h3 className="text-emerald-700 dark:text-emerald-400 font-black mb-3 flex items-center gap-2 text-lg">
@@ -408,10 +453,9 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* نوار ابزار (Toolbar) منظم‌شده */}
+            {/* نوار ابزار (Toolbar) */}
             <div className={`p-4 rounded-xl border flex flex-col lg:flex-row gap-4 items-center justify-between print:hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`}>
                 
-                {/* اکشن‌های عملیاتی نامه */}
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                     <button onClick={() => navigate('/secretariat/create', { state: { replyTo: { id: letter.id, indicator: letter.indicator_number, subject: letter.subject } } })} className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-4 py-2 rounded-lg font-bold transition text-sm shadow-sm"><FaReply /> پاسخ</button>
                     
@@ -429,7 +473,6 @@ const SecretariatDetailScreen = () => {
                     <button onClick={() => setShowForward(!showForward)} className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-4 py-2 rounded-lg font-bold transition text-sm shadow-sm"><FaShare /> ارجاع</button>
                 </div>
                 
-                {/* اکشن‌های مدیریتی */}
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto lg:justify-end border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-slate-700 pt-3 lg:pt-0 lg:pr-4">
                     {isLevelZeroOrAdmin && letter.status === 'PENDING' && (
                         <>
@@ -480,9 +523,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* ========================================================================= */}
-            {/* 🚀 کادر اصلی نامه (دیزاین A4) که در هنگام پرینت فقط این بخش در کاغذ قرار می‌گیرد */}
-            {/* ========================================================================= */}
+            {/* کادر پرینت */}
             <div className={`p-6 md:p-10 rounded-none md:rounded-xl border shadow-sm mx-auto overflow-hidden relative 
                 ${letter.status === 'REJECTED' || letter.status === 'PENDING' ? 'opacity-50 grayscale print:hidden' : ''} 
                 print:block print:p-0 print:border-none print:shadow-none bg-white text-gray-900 min-h-[800px]`}
@@ -553,6 +594,7 @@ const SecretariatDetailScreen = () => {
                         )}
                     </div>
                     
+                    {/* 🚀 مهر اریب ثبت مقصد */}
                     <div className="w-1/3 flex justify-center items-center relative h-32">
                         {letter.letter_type === 'OUTGOING' && letter.destination_indicator && (
                             <div className="absolute transform -rotate-12 border-[3px] border-red-600 text-red-600 px-4 py-2 rounded-xl flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '150px' }}>
@@ -576,9 +618,6 @@ const SecretariatDetailScreen = () => {
                     </div>
                 </div>
             </div>
-            {/* ========================================================================= */}
-            {/* پایان کادر پرینت */}
-            {/* ========================================================================= */}
 
             {(letter.reference_letter_detail || (letter.replies && letter.replies.length > 0)) && (
                 <div className={`p-4 mb-6 rounded-xl border-l-4 print:hidden mt-6 ${isDark ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-500'}`}>

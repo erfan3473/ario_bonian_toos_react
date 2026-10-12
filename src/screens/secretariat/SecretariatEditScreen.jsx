@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { fetchLetterDetail, updateLetter, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaChevronLeft, FaChevronDown } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronDown, FaExclamationTriangle } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import logo from '../../assets/ario.png';
 
@@ -110,7 +110,7 @@ const SecretariatEditScreen = () => {
         original_date: '',
         destination_indicator: '', 
         destination_date: '', 
-        delivery_responsible: '', // 🚀 اضافه شدن فیلد پیک
+        delivery_responsible: '', 
         internal_sender: '',
         external_sender: '',
         internal_receiver: '',
@@ -148,7 +148,7 @@ const SecretariatEditScreen = () => {
                 original_date: activeLetter.original_date || '',
                 destination_indicator: activeLetter.destination_indicator || '',
                 destination_date: activeLetter.destination_date || '',
-                delivery_responsible: activeLetter.delivery_responsible ? String(activeLetter.delivery_responsible) : '', // 🚀 لود پرسنل پیک
+                delivery_responsible: activeLetter.delivery_responsible ? String(activeLetter.delivery_responsible) : '',
                 
                 internal_sender: activeLetter.internal_sender ? String(activeLetter.internal_sender) : '',
                 external_sender: activeLetter.external_sender_detail?.name || '',
@@ -185,6 +185,23 @@ const SecretariatEditScreen = () => {
         });
     };
 
+    const handleStatusChange = (e) => {
+        const newStatus = e.target.value;
+        
+        // اگر مدیر وضعیت را از "تکمیل شده" به چیز دیگری برگرداند، فیلدهای مقصد را پاک می‌کنیم
+        if (newStatus === 'APPROVED' || newStatus === 'ISSUED' || newStatus === 'PENDING') {
+            setFormData({
+                ...formData,
+                status: newStatus,
+                destination_indicator: '',
+                destination_date: ''
+            });
+            toast('بازگشت به وضعیت قبلی: فیلدهای ثبت مقصد پاک شدند.', { icon: '🔄' });
+        } else {
+            setFormData({ ...formData, status: newStatus });
+        }
+    };
+
     const handleMultiSelectChange = (e) => {
         const values = Array.from(e.target.selectedOptions, option => option.value);
         setFormData({ ...formData, internal_cc_receivers: values });
@@ -194,7 +211,6 @@ const SecretariatEditScreen = () => {
         e.preventDefault();
         if (!formData.subject) return toast.error('موضوع الزامی است');
         
-        // 🚀 اعتبارسنجی: اگر صادر شده است، حتما پیک انتخاب شود
         if (formData.status === 'ISSUED' && formData.letter_type === 'OUTGOING' && !formData.delivery_responsible) {
             return toast.error('لطفاً مسئول خروج (پیک) را مشخص کنید.');
         }
@@ -268,8 +284,14 @@ const SecretariatEditScreen = () => {
                         {isLevelZeroOrAdmin && (
                             <div className="flex flex-col gap-3">
                                 <div>
-                                    <label className="block mb-1 text-xs font-bold opacity-80 text-rose-600">وضعیت نامه</label>
-                                    <select className={inputClass} value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                                    <label className="block mb-1 text-xs font-bold opacity-80 text-rose-600 flex justify-between">
+                                        وضعیت نامه
+                                        {(formData.status === 'PENDING' || formData.status === 'APPROVED' || formData.status === 'ISSUED') && activeLetter.status === 'REGISTERED' && (
+                                            <span className="text-orange-500 flex items-center gap-1 text-[9px]"><FaExclamationTriangle/> بازگشت وضعیت</span>
+                                        )}
+                                    </label>
+                                    {/* 🚀 مدیر در اینجا می‌تواند نامه تکمیل شده را دوباره به تایید یا خروج برگرداند */}
+                                    <select className={inputClass} value={formData.status} onChange={handleStatusChange}>
                                         <option value="PENDING">در انتظار تایید</option>
                                         <option value="APPROVED">تایید شده (آماده صدور)</option>
                                         <option value="ISSUED">صادر شده (در دست پیک)</option>
@@ -278,8 +300,7 @@ const SecretariatEditScreen = () => {
                                     </select>
                                 </div>
 
-                                {/* 🚀 فیلد پیک فقط زمانی فعال/نمایش داده می‌شود که مدیر حالت صادرشده را انتخاب کند */}
-                                {formData.letter_type === 'OUTGOING' && formData.status === 'ISSUED' && (
+                                {formData.letter_type === 'OUTGOING' && (formData.status === 'ISSUED' || formData.status === 'REGISTERED') && (
                                     <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
                                         <label className="block mb-1 text-xs font-bold text-cyan-700 dark:text-cyan-400">مسئول تحویل (پیک) <span className="text-red-500">*</span></label>
                                         <SearchablePersonnelSelect personnel={allPersonnel} value={formData.delivery_responsible} onChange={(val) => setFormData({ ...formData, delivery_responsible: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
@@ -409,15 +430,17 @@ const SecretariatEditScreen = () => {
                         <textarea rows="4" className={inputClass} value={formData.body} onChange={(e) => setFormData({ ...formData, body: e.target.value })}></textarea>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 rounded-lg bg-gray-500/5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
                         <div>
-                            <label className="block mb-1 text-xs font-bold opacity-80">رونوشت کاغذی</label>
+                            <label className="block mb-1 text-xs font-bold opacity-80">رونوشت کاغذی (تایپ متن زیر نامه)</label>
                             <textarea rows="3" className={inputClass} value={formData.cc_text} onChange={(e) => setFormData({ ...formData, cc_text: e.target.value })}></textarea>
                         </div>
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">ارسال رونوشت سیستمی</label>
                             <select multiple className={`${inputClass} h-[84px]`} value={formData.internal_cc_receivers} onChange={handleMultiSelectChange}>
-                                {allPersonnel?.map(emp => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}
+                                {allPersonnel?.map(emp => (
+                                    <option key={`cc-${emp.id}`} value={emp.id}>{emp.name}</option>
+                                ))}
                             </select>
                         </div>
                     </div>

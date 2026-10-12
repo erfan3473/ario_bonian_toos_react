@@ -5,34 +5,27 @@ import { fetchLetters, fetchAllPersonnel } from '../../features/secretariat/secr
 import { 
     FaPlus, FaSearch, FaPaperclip, FaExclamationCircle, FaUserSecret, 
     FaInbox, FaChevronLeft, FaChevronDown, FaAngleRight, FaAngleLeft, 
-    FaSortAmountDown, FaSortAmountUp, FaArrowRight, FaArrowLeft, FaBuilding, FaCheckCircle
+    FaSortAmountDown, FaSortAmountUp, FaCheckCircle
 } from 'react-icons/fa';
 
-// 🚀 کامپوننت هایلایت کلمات سرچ شده (کاملاً هوشمند نسبت به اعداد فارسی و انگلیسی)
+import logo from '../../assets/ario.png';
+
 const HighlightedText = ({ text, highlight }) => {
     if (!highlight || !text) return <>{text}</>;
-    
     const escaped = highlight.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const fuzzyStr = escaped.replace(/[0-9۰-۹]/g, match => {
         const num = '0123456789۰۱۲۳۴۵۶۷۸۹'.indexOf(match) % 10;
         return `[${num}${String.fromCharCode(1776 + num)}]`;
     });
-    
     const regex = new RegExp(`(${fuzzyStr})`, 'gi');
     const parts = text.toString().split(regex);
-    
     return (
         <span>
-            {parts.map((part, i) => 
-                (i % 2 === 1)
-                    ? <mark key={i} className="bg-yellow-300 text-gray-900 px-1 rounded-sm font-bold">{part}</mark>
-                    : part
-            )}
+            {parts.map((part, i) => (i % 2 === 1) ? <mark key={i} className="bg-yellow-300 text-gray-900 px-1 rounded-sm font-bold">{part}</mark> : part)}
         </span>
     );
 };
 
-// 🚀 کامپوننت انتخاب فرستنده با قابلیت تایپ و جستجو
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -64,47 +57,50 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 
     return (
         <div className="relative w-full md:w-64" ref={wrapperRef}>
-            <input
-                type="text"
-                className={inputClass}
-                placeholder={placeholder}
-                value={searchTerm}
-                onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setIsOpen(true);
-                    if (e.target.value === '') onChange('');
-                }}
-                onFocus={() => setIsOpen(true)}
-            />
+            <input type="text" className={inputClass} placeholder={placeholder} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); if (e.target.value === '') onChange(''); }} onFocus={() => setIsOpen(true)} />
             <FaChevronDown className="absolute left-3 top-3.5 text-gray-400 pointer-events-none text-xs" />
             
             {isOpen && (
                 <ul className={`absolute z-20 w-full mt-1 max-h-60 overflow-y-auto rounded-lg border shadow-xl ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
-                    <li 
-                        className={`p-2.5 cursor-pointer text-sm font-bold opacity-70 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-                        onClick={() => { onChange(''); setIsOpen(false); }}
-                    >
-                        -- همه فرستنده‌ها --
-                    </li>
+                    <li className={`p-2.5 cursor-pointer text-sm font-bold opacity-70 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} onClick={() => { onChange(''); setIsOpen(false); }}>-- همه فرستنده‌ها --</li>
                     {filtered.map(emp => (
-                        <li 
-                            key={emp.id}
-                            className={`p-2.5 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}
-                            onClick={() => {
-                                onChange(emp.id.toString());
-                                setSearchTerm(`${emp.name} - ${emp.position_title || 'بدون سمت'}`);
-                                setIsOpen(false);
-                            }}
-                        >
+                        <li key={emp.id} className={`p-2.5 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`} onClick={() => { onChange(emp.id.toString()); setSearchTerm(`${emp.name} - ${emp.position_title || 'بدون سمت'}`); setIsOpen(false); }}>
                             <div className="font-bold">{emp.name}</div>
                             <div className="text-xs opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
                         </li>
                     ))}
-                    {filtered.length === 0 && (
-                        <li className="p-3 text-sm opacity-50 text-center">موردی یافت نشد</li>
-                    )}
+                    {filtered.length === 0 && (<li className="p-3 text-sm opacity-50 text-center">موردی یافت نشد</li>)}
                 </ul>
             )}
+        </div>
+    );
+};
+
+// 🚀 لوگوی متحرک (اضافه شده به صفحه لیست)
+const DirectionalLogo = ({ type }) => {
+    const isOutward = type === 'OUTGOING';
+    const isInternal = type === 'INTERNAL';
+
+    const theme = type === 'INCOMING' ? { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' } :
+                  type === 'OUTGOING' ? { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' } :
+                  { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' };
+
+    return (
+        <div className={`relative w-12 h-12 shrink-0 flex items-center justify-center rounded-xl shadow-sm border transition-all duration-500 ${theme.bg} ${theme.border}`}>
+            <img src={logo} alt="لوگو" className="w-7 h-7 object-contain z-10 relative opacity-90" />
+            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : 'rotate-0'}`}>
+                {[0, 90, 180, 270].map((rotation, i) => (
+                    <div key={i} className="absolute inset-0 flex items-start justify-center" style={{ transform: `rotate(${rotation}deg)` }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-2.5 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}>
+                            {isInternal ? (
+                                <><path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>
+                            ) : (
+                                <><path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" /></>
+                            )}
+                        </svg>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -120,7 +116,6 @@ const SecretariatListScreen = () => {
     const totalCount = lettersData?.count || lettersList.length || 0;
     const totalPages = Math.ceil(totalCount / 12) || 1;
 
-    // 🚀 استیت‌های فیلتر - بازگردانده شده به حالت پایدار و بدون sessionStorage
     const [page, setPage] = useState(1);
     const [filterType, setFilterType] = useState(location.state?.filter || '');
     const [searchQuery, setSearchQuery] = useState('');
@@ -128,7 +123,6 @@ const SecretariatListScreen = () => {
     const [senderFilter, setSenderFilter] = useState('');
     const [ordering, setOrdering] = useState('desc'); 
 
-    // 🚀 استیت Debounce برای جلوگیری از درخواست‌های رگباری به سرور هنگام تایپ
     const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -143,38 +137,21 @@ const SecretariatListScreen = () => {
         setPage(1); 
     };
 
-    // 🚀 اثر Debounce
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(searchQuery);
-        }, 600); 
-        return () => {
-            clearTimeout(handler);
-        };
+        const handler = setTimeout(() => { setDebouncedSearch(searchQuery); }, 600); 
+        return () => { clearTimeout(handler); };
     }, [searchQuery]);
 
     useEffect(() => {
         dispatch(fetchAllPersonnel());
     }, [dispatch]);
 
-    // 🚀 فراخوانی لیست نامه‌ها
     useEffect(() => {
-        dispatch(fetchLetters({ 
-            type: filterType, 
-            search: debouncedSearch, 
-            page: page,
-            jalali_year: selectedYear || null,
-            sender: senderFilter,
-            ordering: ordering 
-        }));
+        dispatch(fetchLetters({ type: filterType, search: debouncedSearch, page: page, jalali_year: selectedYear || null, sender: senderFilter, ordering: ordering }));
     }, [dispatch, filterType, debouncedSearch, page, selectedYear, senderFilter, ordering]);
 
     useEffect(() => {
-        if (!lettersList || lettersList.length === 0) {
-            setYearCounts({});
-            return;
-        }
-        
+        if (!lettersList || lettersList.length === 0) { setYearCounts({}); return; }
         const yCounts = {};
         lettersList.forEach(letter => {
             if (letter.original_date) {
@@ -191,9 +168,7 @@ const SecretariatListScreen = () => {
         setYearCounts(yCounts);
     }, [lettersList]);
 
-    useEffect(() => {
-        setIsSearchOpen(false);
-    }, [location.pathname]);
+    useEffect(() => { setIsSearchOpen(false); }, [location.pathname]);
 
     useEffect(() => {
         const handleClickOutsideSearch = (event) => {
@@ -207,9 +182,7 @@ const SecretariatListScreen = () => {
 
     const formatPersianDate = (dateString) => {
         if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('fa-IR', {
-            year: 'numeric', month: 'short', day: 'numeric'
-        });
+        return new Date(dateString).toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' });
     };
 
     const getMonthName = (dateString) => {
@@ -243,16 +216,11 @@ const SecretariatListScreen = () => {
                         <FaInbox size={18} />
                     </div>
                     <div>
-                        <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                             دبیر خانه آریو بنیان توس
-                        </h1>
+                        <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>دبیر خانه کل</h1>
                         <span className="text-sm font-bold opacity-60">تعداد نامه‌ها (با احتساب فیلتر): {totalCount}</span>
                     </div>
                 </div>
-                <Link
-                    to="/secretariat/create"
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition text-sm font-bold shadow-md shadow-blue-900/20 active:scale-95"
-                >
+                <Link to="/secretariat/create" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition text-sm font-bold shadow-md shadow-blue-900/20 active:scale-95">
                     <FaPlus size={12} /> ثبت نامه جدید
                 </Link>
             </div>
@@ -284,27 +252,15 @@ const SecretariatListScreen = () => {
                     </div>
 
                     <div className="flex flex-col md:flex-row w-full xl:w-auto gap-3">
-                        <SearchablePersonnelSelect 
-                            personnel={allPersonnel} 
-                            value={senderFilter} 
-                            onChange={(val) => handleFilterChange(setSenderFilter, val)} 
-                            placeholder="فیلتر فرستنده داخلی..." 
-                            isDark={isDark} 
-                        />
+                        <SearchablePersonnelSelect personnel={allPersonnel} value={senderFilter} onChange={(val) => handleFilterChange(setSenderFilter, val)} placeholder="فیلتر فرستنده داخلی..." isDark={isDark} />
                         
                         <div className="relative w-full md:w-80" ref={searchWrapperRef}>
                             <input
-                                type="text"
-                                placeholder="جستجو (موضوع، متن، شماره)..."
+                                type="text" placeholder="جستجو (موضوع، متن، شماره)..."
                                 value={searchQuery}
-                                onChange={(e) => {
-                                    handleFilterChange(setSearchQuery, e.target.value);
-                                    setIsSearchOpen(true);
-                                }}
+                                onChange={(e) => { handleFilterChange(setSearchQuery, e.target.value); setIsSearchOpen(true); }}
                                 onFocus={() => setIsSearchOpen(true)}
-                                className={`w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${
-                                    isDark ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
-                                }`}
+                                className={`w-full pl-10 pr-4 py-2.5 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${isDark ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'}`}
                             />
                             <FaSearch className="absolute left-3.5 top-3.5 text-gray-400" />
                             
@@ -420,17 +376,9 @@ const SecretariatListScreen = () => {
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-bold opacity-70 whitespace-nowrap">سال بایگانی:</span>
                             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                                <button 
-                                    onClick={() => handleFilterChange(setSelectedYear, '')}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${!selectedYear ? 'bg-indigo-600 text-white' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
-                                >
-                                    همه سال‌ها
-                                </button>
+                                <button onClick={() => handleFilterChange(setSelectedYear, '')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${!selectedYear ? 'bg-indigo-600 text-white' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}>همه سال‌ها</button>
                                 {JALALI_YEARS.map(yr => (
-                                    <button 
-                                        key={yr} onClick={() => handleFilterChange(setSelectedYear, yr)}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${selectedYear === yr ? 'bg-indigo-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}`}
-                                    >
+                                    <button key={yr} onClick={() => handleFilterChange(setSelectedYear, yr)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${selectedYear === yr ? 'bg-indigo-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}`}>
                                         <span>{yr}</span>
                                     </button>
                                 ))}
@@ -438,18 +386,8 @@ const SecretariatListScreen = () => {
                         </div>
 
                         <div className="flex items-center gap-2 border-l pl-4 border-gray-200 dark:border-gray-700 ml-auto">
-                            <button
-                                onClick={() => handleFilterChange(setOrdering, 'desc')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${ordering === 'desc' ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
-                            >
-                                <FaSortAmountDown /> جدید به قدیم
-                            </button>
-                            <button
-                                onClick={() => handleFilterChange(setOrdering, 'asc')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${ordering === 'asc' ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}
-                            >
-                                <FaSortAmountUp /> قدیم به جدید
-                            </button>
+                            <button onClick={() => handleFilterChange(setOrdering, 'desc')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${ordering === 'desc' ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}><FaSortAmountDown /> جدید به قدیم</button>
+                            <button onClick={() => handleFilterChange(setOrdering, 'asc')} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${ordering === 'asc' ? 'bg-emerald-600 text-white shadow-md' : (isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')}`}><FaSortAmountUp /> قدیم به جدید</button>
                         </div>
                     </div>
                 </div>
@@ -504,23 +442,14 @@ const SecretariatListScreen = () => {
                                             onClick={() => navigate(`/secretariat/${letter.id}`)}
                                             className={`cursor-pointer group transition-colors duration-200 ${isDark ? 'hover:bg-gray-700/50 bg-gray-800' : 'hover:bg-blue-50/50 bg-white'}`}
                                         >
-                                            {/* 1. ردیف و آیکون نوع نامه با انیمیشن */}
+                                            {/* 🚀 1. ردیف و جایگزینی با لوگوی چرخشی */}
                                             <td className="px-5 py-4 whitespace-nowrap text-center">
                                                 <div className="flex flex-col items-center justify-center gap-2">
                                                     <span className="text-xs font-bold opacity-40">{(page - 1) * 12 + index + 1}</span>
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 ${
-                                                        letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-600' :
-                                                        letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-600' :
-                                                        'bg-purple-100 text-purple-600'
-                                                    }`}>
-                                                        {letter.letter_type === 'INCOMING' ? <FaArrowLeft className="animate-pulse" /> : 
-                                                         letter.letter_type === 'OUTGOING' ? <FaArrowRight className="animate-pulse" /> : 
-                                                         <FaBuilding className="animate-bounce" />}
-                                                    </div>
+                                                    <DirectionalLogo type={letter.letter_type} />
                                                 </div>
                                             </td>
 
-                                            {/* 2. شماره‌های نامه */}
                                             <td className="px-5 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex flex-col">
@@ -548,7 +477,6 @@ const SecretariatListScreen = () => {
                                                 </div>
                                             </td>
 
-                                            {/* 3. نوع و وضعیت */}
                                             <td className="px-5 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col gap-2 items-start">
                                                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black tracking-wide ${
@@ -559,19 +487,26 @@ const SecretariatListScreen = () => {
                                                         {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : 'داخلی'}
                                                     </span>
                                                     
-                                                    {/* 🚀 لیبل وضعیت */}
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm ${
-                                                        letter.status === 'APPROVED' ? 'bg-emerald-500 text-white' :
-                                                        letter.status === 'REJECTED' ? 'bg-rose-500 text-white' : 
-                                                        'bg-orange-400 text-white'
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white ${
+                                                        letter.status === 'REGISTERED' ? 'bg-emerald-500' :
+                                                        letter.status === 'ISSUED' ? 'bg-cyan-500' :
+                                                        letter.status === 'APPROVED' ? 'bg-blue-500' :
+                                                        letter.status === 'REJECTED' ? 'bg-rose-500' : 
+                                                        'bg-orange-400'
                                                     }`}>
-                                                        {letter.status === 'APPROVED' ? <FaCheckCircle/> : letter.status === 'REJECTED' ? '❌' : '⏳'}
-                                                        {letter.status === 'APPROVED' ? 'تایید شده' : letter.status === 'REJECTED' ? 'رد شده' : 'در انتظار'}
+                                                        {letter.status === 'REGISTERED' ? <FaCheckCircle/> : 
+                                                         letter.status === 'ISSUED' ? '🏃‍♂️' : 
+                                                         letter.status === 'APPROVED' ? '📄' : 
+                                                         letter.status === 'REJECTED' ? '❌' : '⏳'}
+                                                        
+                                                        {letter.status === 'REGISTERED' ? 'تکمیل شده' : 
+                                                         letter.status === 'ISSUED' ? 'در دست پیک' : 
+                                                         letter.status === 'APPROVED' ? 'آماده صدور' : 
+                                                         letter.status === 'REJECTED' ? 'رد شده' : 'در انتظار'}
                                                     </span>
                                                 </div>
                                             </td>
 
-                                            {/* 4. موضوع و مشخصات */}
                                             <td className="px-5 py-4 max-w-xs md:max-w-md">
                                                 <div className="flex items-start gap-2 mb-1">
                                                     <span className={`font-bold text-[13px] leading-relaxed ${isDark ? 'text-gray-100' : 'text-gray-900'}`} title={letter.subject}>
@@ -597,7 +532,6 @@ const SecretariatListScreen = () => {
                                                 </div>
                                             </td>
 
-                                            {/* 5. مبدأ و مقصد */}
                                             <td className="px-5 py-4">
                                                 <div className="flex flex-col gap-2 max-w-[140px]">
                                                     <div className="flex flex-col border-b border-gray-100 dark:border-gray-700 pb-1.5">
@@ -615,7 +549,6 @@ const SecretariatListScreen = () => {
                                                 </div>
                                             </td>
 
-                                            {/* 6. تاریخ‌ها */}
                                             <td className="px-5 py-4 whitespace-nowrap">
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex items-center gap-2">
@@ -678,20 +611,8 @@ const SecretariatListScreen = () => {
                                 صفحه {page} از {totalPages}
                             </div>
                             <div className="flex gap-2">
-                                <button 
-                                    disabled={page === 1}
-                                    onClick={() => setPage(page - 1)}
-                                    className="p-2 rounded-lg bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                                >
-                                    <FaAngleRight />
-                                </button>
-                                <button 
-                                    disabled={page === totalPages}
-                                    onClick={() => setPage(page + 1)}
-                                    className="p-2 rounded-lg bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-                                >
-                                    <FaAngleLeft />
-                                </button>
+                                <button disabled={page === 1} onClick={() => setPage(page - 1)} className="p-2 rounded-lg bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"><FaAngleRight /></button>
+                                <button disabled={page === totalPages} onClick={() => setPage(page + 1)} className="p-2 rounded-lg bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"><FaAngleLeft /></button>
                             </div>
                         </div>
                     )}
