@@ -109,6 +109,26 @@ export const refreshLetterSmsStatus = createAsyncThunk('secretariat/refreshLette
     }
 });
 
+
+export const registerDestination = createAsyncThunk('secretariat/registerDestination', async ({ letterId, payload }, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.post(`/secretariat/${letterId}/register-destination/`, payload);
+        return data;
+    } catch (err) { 
+        return rejectWithValue(err.response?.data?.detail || err.message); 
+    }
+});
+
+// 🚀 اکشن خروج نامه از شرکت و تخصیص پیک
+export const issueLetter = createAsyncThunk('secretariat/issueLetter', async ({ letterId, payload }, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.post(`/secretariat/${letterId}/issue/`, payload);
+        return data;
+    } catch (err) { 
+        return rejectWithValue(err.response?.data?.detail || err.message); 
+    }
+});
+
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
@@ -165,7 +185,9 @@ const secretariatSlice = createSlice({
                     state.smsLogs[index] = { ...state.smsLogs[index], ...updatedLog };
                 }
             })
-            .addCase(refreshLetterSmsStatus.rejected, (state) => { state.refreshingSms = false; });
+            .addCase(refreshLetterSmsStatus.rejected, (state) => { state.refreshingSms = false; })
+            .addCase(registerDestination.fulfilled, (state, action) => { state.activeLetter = action.payload; })
+            .addCase(issueLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; });
     }
 });
 

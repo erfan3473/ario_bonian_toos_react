@@ -3,10 +3,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { createLetter, clearCreateSuccess, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaMagic, FaTrashAlt, FaChevronDown, FaChevronLeft } from 'react-icons/fa';
+import { FaMagic, FaTrashAlt, FaChevronDown, FaChevronLeft, FaCalendarAlt, FaHashtag } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
-
 import logo from '../../assets/ario.png';
+
 const DRAFT_KEY = 'secretariat_create_draft';
 
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
@@ -133,7 +133,6 @@ const SecretariatCreateScreen = () => {
 
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { userInfo } = useSelector((state) => state.userLogin);
-    
     const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0);
 
     const { creating, createSuccess, error, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
@@ -146,8 +145,8 @@ const SecretariatCreateScreen = () => {
         indicator_number: '',
         original_number: '',
         original_date: '',
-        destination_indicator: '', // اضافه شد
-        destination_date: '', // اضافه شد
+        destination_indicator: '', 
+        destination_date: '', 
         internal_sender: '',
         external_sender: '',
         internal_receiver: '',
@@ -166,6 +165,14 @@ const SecretariatCreateScreen = () => {
         cc_text: '',
         internal_cc_receivers: [], 
     });
+
+    // 🚀 تولید تاریخ با لحن ادبی و رسمی
+    const formalDate = new Intl.DateTimeFormat('fa-IR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    }).format(new Date());
 
     const generateIndicator = (type) => {
         const prefix = type === 'INTERNAL' ? 'INT' : type === 'INCOMING' ? 'INC' : 'OUT';
@@ -244,7 +251,6 @@ const SecretariatCreateScreen = () => {
             external_sender: '', 
             internal_receiver: '', 
             external_receiver: '',
-            // 🚀 ریست کردن فیلدهای مقصد اگر نامه صادره نباشد
             destination_indicator: newType !== 'OUTGOING' ? '' : formData.destination_indicator,
             destination_date: newType !== 'OUTGOING' ? '' : formData.destination_date
         });
@@ -315,75 +321,47 @@ const SecretariatCreateScreen = () => {
             {error && <div className="bg-red-100 text-red-700 p-3 mb-4 rounded-lg text-sm">{error}</div>}
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                
+                {/* 🚀 اطلاعات سیستمی دبیرخانه (جدا شده در یک باکس شیک در بالای فرم) */}
+                <div className={`p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row gap-6 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-blue-50/50 border-blue-200/50'}`}>
+                    <div className="flex-1">
+                        <label className="block mb-2 text-xs font-bold opacity-80 flex justify-between items-center text-blue-600 dark:text-blue-400">
+                            <span className="flex items-center gap-1.5"><FaHashtag /> شناسه پیگیری (اندیکاتور موقت)</span>
+                            <button type="button" onClick={() => setFormData(prev => ({ ...prev, indicator_number: generateIndicator(formData.letter_type) }))} className="text-blue-500 hover:text-blue-700 flex items-center gap-1 transition bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded">
+                                <FaMagic /> <span className="hidden sm:inline">تولید مجدد</span>
+                            </button>
+                        </label>
+                        <input type="text" dir="ltr" className={`${inputClass} font-mono font-black text-left bg-white/50 dark:bg-gray-900/50 cursor-not-allowed border-blue-200 dark:border-blue-900/50 text-blue-800 dark:text-blue-300 text-lg tracking-widest`} value={formData.indicator_number} readOnly />
+                        <p className="text-[10px] mt-2 opacity-60 font-medium leading-relaxed">این شماره موقت است. پس از تایید مدیریت، سیستم شماره نامه رسمی شرکت را تخصیص خواهد داد.</p>
+                    </div>
+                    
+                    <div className="w-full md:w-80 border-t md:border-t-0 md:border-r border-blue-200/50 dark:border-slate-700 pt-4 md:pt-0 md:pr-6 flex flex-col justify-center">
+                        <label className="block mb-2 text-xs font-bold opacity-80 flex items-center gap-1.5 text-gray-700 dark:text-gray-300">
+                            <FaCalendarAlt /> تاریخ نگارش و تشکیل پرونده
+                        </label>
+                        <div className={`p-3.5 rounded-lg text-center font-bold text-sm border bg-white/50 dark:bg-gray-900/50 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-800'}`}>
+                            مورخ {formalDate}
+                        </div>
+                    </div>
+                </div>
+
                 <div className={`h-1.5 w-full rounded-t-xl transition-all duration-500 bg-gradient-to-r from-${currentTypeConfig.color}-400 to-${currentTypeConfig.color}-600`} />
 
-                <div className={`p-4 rounded-b-xl border border-t-0 shadow-sm ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
-                    <h3 className="font-bold mb-4 border-b pb-2 opacity-80">اطلاعات ثبتی و شماره‌گذاری</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
+                <div className={`p-5 rounded-b-xl border border-t-0 shadow-sm ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+                    <h3 className="font-bold mb-4 border-b pb-2 opacity-80">ماهیت و دسترسی</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
                         <div>
-                            <label className="block mb-1 text-xs font-bold opacity-80">نوع نامه</label>
+                            <label className="block mb-1 text-xs font-bold opacity-80">نوع ثبت دبیرخانه‌ای</label>
                             <select className={inputClass} value={formData.letter_type} onChange={handleTypeChange}>
                                 <option value="INTERNAL">داخلی (بین واحدها)</option>
                                 <option value="INCOMING">وارده (دریافتی)</option>
-                                <option value="OUTGOING">صادره (به خارج سازمان)</option>
+                                <option value="OUTGOING">صادره (ارسال به خارج)</option>
                             </select>
                         </div>
-                        <div>
-                            <label className="block mb-1 text-xs font-bold opacity-80 flex justify-between">
-                                شماره اندیکاتور موقت
-                                <button type="button" onClick={() => setFormData(prev => ({ ...prev, indicator_number: generateIndicator(formData.letter_type) }))} className="text-blue-500 hover:text-blue-600 flex items-center gap-1">
-                                    <FaMagic /> بازتولید
-                                </button>
-                            </label>
-                            <input type="text" dir="ltr" className={`${inputClass} font-mono font-bold text-left bg-opacity-50 pointer-events-none`} value={formData.indicator_number} readOnly />
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-xs font-bold opacity-80">تاریخ نگارش نامه</label>
-                            <input type="text" className={`${inputClass} bg-opacity-50 pointer-events-none text-center`} value={new Date().toLocaleDateString('fa-IR')} readOnly />
-                        </div>
-
-                        {/* فیلدهای اختصاصی مدیران (فیزیکی و مقصد) */}
-                        {isLevelZeroOrAdmin && (
-                            <div className={`col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-5 mt-2 p-4 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
-                                <div>
-                                    <label className="block mb-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">شماره چاپی آریو بنیان توس</label>
-                                    <input 
-                                        type="text" 
-                                        dir="rtl"
-                                        placeholder="فقط مدیران پر می‌کنند" 
-                                        className={`${inputClass} text-right font-mono border-emerald-300 dark:border-emerald-700`} 
-                                        value={formData.original_number} 
-                                        onChange={(e) => setFormData({ ...formData, original_number: e.target.value })} 
-                                    />
-                                </div>
-                                <div className="relative">
-                                    <JalaliDatePicker name="original_date" label="تاریخ نامه چاپ شده" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} placeholder="انتخاب تاریخ" />
-                                </div>
-                                
-                                {/* 🚀 فیلدهای مقصد فقط در نامه‌های صادره نمایش داده می‌شوند */}
-                                {formData.letter_type === 'OUTGOING' && (
-                                    <>
-                                        <div>
-                                            <label className="block mb-1 text-xs font-bold text-indigo-700 dark:text-indigo-400">شماره ثبت در مقصد</label>
-                                            <input 
-                                                type="text" 
-                                                dir="rtl" 
-                                                className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700`} 
-                                                value={formData.destination_indicator} 
-                                                onChange={(e) => setFormData({ ...formData, destination_indicator: e.target.value })} 
-                                            />
-                                        </div>
-                                        <div className="relative">
-                                            <JalaliDatePicker name="destination_date" label="تاریخ دریافت توسط مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} placeholder="انتخاب تاریخ" />
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-2 mt-2 col-span-1 md:col-span-3">
+                        
+                        <div className="grid grid-cols-2 gap-4 col-span-1 md:col-span-2">
                             <div>
-                                <label className="block mb-1 text-xs font-bold opacity-80">فوریت</label>
+                                <label className="block mb-1 text-xs font-bold opacity-80">فوریت ارجاع</label>
                                 <select className={inputClass} value={formData.urgency} onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}>
                                     <option value="NORMAL">عادی</option>
                                     <option value="URGENT">فوری</option>
@@ -391,7 +369,7 @@ const SecretariatCreateScreen = () => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block mb-1 text-xs font-bold opacity-80">محرمانگی</label>
+                                <label className="block mb-1 text-xs font-bold opacity-80">سطح محرمانگی</label>
                                 <select className={inputClass} value={formData.confidentiality} onChange={(e) => setFormData({ ...formData, confidentiality: e.target.value })}>
                                     <option value="NORMAL">عادی</option>
                                     <option value="CONFIDENTIAL">محرمانه</option>
@@ -400,9 +378,49 @@ const SecretariatCreateScreen = () => {
                             </div>
                         </div>
                     </div>
+
+                    {isLevelZeroOrAdmin && (
+                        <div className={`col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-5 mt-6 p-4 rounded-xl border ${formData.letter_type === 'OUTGOING' ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800' : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'}`}>
+                            <div className="md:col-span-4 border-b border-black/10 dark:border-white/10 pb-2 mb-1">
+                                <h4 className="text-sm font-bold opacity-80">بخش مدیریت بایگانی فیزیکی</h4>
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-xs font-bold opacity-80">شماره چاپی (ثبت دستی)</label>
+                                <input 
+                                    type="text" 
+                                    dir="rtl"
+                                    placeholder="مثلاً ۱۴۰۵/۱۲۴/م" 
+                                    className={`${inputClass} text-right font-mono`} 
+                                    value={formData.original_number} 
+                                    onChange={(e) => setFormData({ ...formData, original_number: e.target.value })} 
+                                />
+                            </div>
+                            <div className="relative">
+                                <JalaliDatePicker name="original_date" label="تاریخ مندرج در نامه کاغذی" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} placeholder="انتخاب تاریخ" />
+                            </div>
+                            
+                            {formData.letter_type === 'OUTGOING' && (
+                                <>
+                                    <div>
+                                        <label className="block mb-1 text-xs font-bold opacity-80 text-indigo-700 dark:text-indigo-400">شماره ثبت دریافت در مقصد</label>
+                                        <input 
+                                            type="text" 
+                                            dir="rtl" 
+                                            className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700`} 
+                                            value={formData.destination_indicator} 
+                                            onChange={(e) => setFormData({ ...formData, destination_indicator: e.target.value })} 
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <JalaliDatePicker name="destination_date" label="تاریخ تحویل به مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} placeholder="انتخاب تاریخ" />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
 
-                <div className={`p-4 rounded-xl border shadow-sm transition-all duration-500 ${
+                <div className={`p-5 rounded-xl border shadow-sm transition-all duration-500 ${
                     formData.letter_type === 'INCOMING' ? (isDark ? 'bg-green-900/10 border-green-800/50' : 'bg-green-50/50 border-green-200') :
                     formData.letter_type === 'OUTGOING' ? (isDark ? 'bg-orange-900/10 border-orange-800/50' : 'bg-orange-50/50 border-orange-200') :
                     (isDark ? 'bg-purple-900/10 border-purple-800/50' : 'bg-purple-50/50 border-purple-200')
@@ -507,10 +525,10 @@ const SecretariatCreateScreen = () => {
                     </div>
                 </div>
 
-                <div className={`p-4 rounded-xl border ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+                <div className={`p-5 rounded-xl border ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
                     <div className="mb-4">
                         <label className="block mb-1 text-xs font-bold opacity-80">متن یا چکیده نامه</label>
-                        <textarea rows="4" className={inputClass} value={formData.body} onChange={(e) => setFormData({ ...formData, body: e.target.value })}></textarea>
+                        <textarea rows="6" className={inputClass} value={formData.body} onChange={(e) => setFormData({ ...formData, body: e.target.value })}></textarea>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
@@ -530,12 +548,12 @@ const SecretariatCreateScreen = () => {
                         </div>
                     </div>
 
-                    <div className="mb-5 p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
-                        <label className="block mb-2 text-sm font-bold opacity-80">آپلود اسکن نامه و ضمائم</label>
+                    <div className="mb-5 p-4 rounded-xl bg-blue-50/50 dark:bg-slate-900/50 border border-blue-200 dark:border-slate-700">
+                        <label className="block mb-2 text-sm font-bold opacity-80 text-blue-700 dark:text-blue-400">آپلود اسکن نامه و ضمائم</label>
                         <input type="file" multiple onChange={(e) => setAttachments(e.target.files)} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition cursor-pointer" />
                     </div>        
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center p-3 rounded bg-gray-500/5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <label className="flex items-center gap-2 cursor-pointer text-sm font-bold opacity-80">
                             <input type="checkbox" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={formData.has_physical_copy} onChange={(e) => setFormData({ ...formData, has_physical_copy: e.target.checked })} />
                             نامه دارای نسخه فیزیکی (کاغذی) است

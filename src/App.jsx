@@ -41,6 +41,8 @@ import AssetVerifyScreen from './screens/AssetVerifyScreen';
 import WebAttendanceScreen from './screens/WebAttendanceScreen';
 import AiAgentScreen from './screens/AiAgentScreen';
 // 👇 ایمپورت صفحات دبیرخانه
+
+import DomainQRScreen from './screens/DomainQRScreen';
 import SecretariatListScreen from './screens/secretariat/SecretariatListScreen';
 import SecretariatCreateScreen from './screens/secretariat/SecretariatCreateScreen';
 import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScreen';
@@ -240,6 +242,7 @@ function App() {
             <Route path="/secretariat/create" element={<ProtectedRoute><SecretariatCreateScreen /></ProtectedRoute>} />
             <Route path="/secretariat/:id" element={<ProtectedRoute><SecretariatDetailScreen /></ProtectedRoute>} />
             <Route path="/secretariat/:id/edit" element={<ProtectedRoute><SecretariatEditScreen /></ProtectedRoute>} />
+            <Route path="/domain-qr" element={<DomainQRScreen />} />
           </Routes>
         </div>
       </main>

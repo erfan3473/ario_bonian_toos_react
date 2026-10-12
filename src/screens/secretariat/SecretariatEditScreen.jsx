@@ -5,7 +5,6 @@ import { fetchLetterDetail, updateLetter, fetchAllPersonnel, fetchOrganizations,
 import toast from 'react-hot-toast';
 import { FaChevronLeft, FaChevronDown } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
-
 import logo from '../../assets/ario.png';
 
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
@@ -39,52 +38,25 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 
     return (
         <div className="relative" ref={wrapperRef}>
-            <input
-                type="text"
-                className={inputClass}
-                placeholder={placeholder}
-                value={searchTerm}
-                onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setIsOpen(true);
-                    if (e.target.value === '') onChange('');
-                }}
-                onFocus={() => setIsOpen(true)}
-            />
+            <input type="text" className={inputClass} placeholder={placeholder} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); if (e.target.value === '') onChange(''); }} onFocus={() => setIsOpen(true)} />
             <FaChevronDown className="absolute left-3 top-3.5 text-gray-400 pointer-events-none text-xs" />
             
             {isOpen && (
                 <ul className={`absolute z-10 w-full mt-1 max-h-60 overflow-y-auto rounded-lg border shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
-                    <li 
-                        className={`p-2.5 cursor-pointer text-sm font-bold opacity-70 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-                        onClick={() => { onChange(''); setIsOpen(false); }}
-                    >
-                        -- نامشخص / ثبت دستی در پایین --
-                    </li>
+                    <li className={`p-2.5 cursor-pointer text-sm font-bold opacity-70 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} onClick={() => { onChange(''); setIsOpen(false); }}>-- نامشخص / ثبت دستی در پایین --</li>
                     {filtered.map(emp => (
-                        <li 
-                            key={emp.id}
-                            className={`p-2.5 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}
-                            onClick={() => {
-                                onChange(emp.id.toString());
-                                setSearchTerm(`${emp.name} - ${emp.position_title || 'بدون سمت'}`);
-                                setIsOpen(false);
-                            }}
-                        >
+                        <li key={emp.id} className={`p-2.5 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`} onClick={() => { onChange(emp.id.toString()); setSearchTerm(`${emp.name} - ${emp.position_title || 'بدون سمت'}`); setIsOpen(false); }}>
                             <div className="font-bold">{emp.name}</div>
                             <div className="text-xs opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
                         </li>
                     ))}
-                    {filtered.length === 0 && (
-                        <li className="p-3 text-sm opacity-50 text-center">موردی یافت نشد</li>
-                    )}
+                    {filtered.length === 0 && (<li className="p-3 text-sm opacity-50 text-center">موردی یافت نشد</li>)}
                 </ul>
             )}
         </div>
     );
 };
 
-// 🚀 لوگوی متحرک اختصاصی برای صفحه ادیت هم آورده شد
 const DirectionalLogo = ({ type, colorName }) => {
     const isOutward = type === 'OUTGOING';
     const isInternal = type === 'INTERNAL';
@@ -102,20 +74,11 @@ const DirectionalLogo = ({ type, colorName }) => {
             <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : 'rotate-0'}`}>
                 {[0, 90, 180, 270].map((rotation, i) => (
                     <div key={i} className="absolute inset-0 flex items-start justify-center" style={{ transform: `rotate(${rotation}deg)` }}>
-                        <svg 
-                            width="32" height="32" viewBox="0 0 24 24" 
-                            className={`transition-all duration-500 drop-shadow-md ${theme.text} -mt-4 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}
-                        >
+                        <svg width="32" height="32" viewBox="0 0 24 24" className={`transition-all duration-500 drop-shadow-md ${theme.text} -mt-4 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}>
                             {isInternal ? (
-                                <>
-                                    <path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                                    <path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                                </>
+                                <><path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>
                             ) : (
-                                <>
-                                    <path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                                    <path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" />
-                                </>
+                                <><path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" /></>
                             )}
                         </svg>
                     </div>
@@ -147,6 +110,7 @@ const SecretariatEditScreen = () => {
         original_date: '',
         destination_indicator: '', 
         destination_date: '', 
+        delivery_responsible: '', // 🚀 اضافه شدن فیلد پیک
         internal_sender: '',
         external_sender: '',
         internal_receiver: '',
@@ -171,9 +135,7 @@ const SecretariatEditScreen = () => {
         dispatch(fetchAllPersonnel());
         dispatch(fetchOrganizations()); 
         dispatch(fetchLetterDetail(id));
-        if (!lettersList || lettersList.length === 0) {
-            dispatch(fetchLetters({}));
-        }
+        if (!lettersList || lettersList.length === 0) dispatch(fetchLetters({}));
     }, [dispatch, id]);
 
     useEffect(() => {
@@ -186,6 +148,7 @@ const SecretariatEditScreen = () => {
                 original_date: activeLetter.original_date || '',
                 destination_indicator: activeLetter.destination_indicator || '',
                 destination_date: activeLetter.destination_date || '',
+                delivery_responsible: activeLetter.delivery_responsible ? String(activeLetter.delivery_responsible) : '', // 🚀 لود پرسنل پیک
                 
                 internal_sender: activeLetter.internal_sender ? String(activeLetter.internal_sender) : '',
                 external_sender: activeLetter.external_sender_detail?.name || '',
@@ -215,13 +178,10 @@ const SecretariatEditScreen = () => {
         setFormData({ 
             ...formData, 
             letter_type: newType,
-            internal_sender: '', 
-            external_sender: '', 
-            internal_receiver: '', 
-            external_receiver: '',
-            // 🚀 ریست کردن فیلدهای مقصد هنگام تغییر نوع نامه
+            internal_sender: '', external_sender: '', internal_receiver: '', external_receiver: '',
             destination_indicator: newType !== 'OUTGOING' ? '' : formData.destination_indicator,
-            destination_date: newType !== 'OUTGOING' ? '' : formData.destination_date
+            destination_date: newType !== 'OUTGOING' ? '' : formData.destination_date,
+            delivery_responsible: newType !== 'OUTGOING' ? '' : formData.delivery_responsible
         });
     };
 
@@ -233,6 +193,11 @@ const SecretariatEditScreen = () => {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!formData.subject) return toast.error('موضوع الزامی است');
+        
+        // 🚀 اعتبارسنجی: اگر صادر شده است، حتما پیک انتخاب شود
+        if (formData.status === 'ISSUED' && formData.letter_type === 'OUTGOING' && !formData.delivery_responsible) {
+            return toast.error('لطفاً مسئول خروج (پیک) را مشخص کنید.');
+        }
 
         const fd = new FormData();
         Object.keys(formData).forEach(key => {
@@ -277,7 +242,6 @@ const SecretariatEditScreen = () => {
                 <span className={isDark ? "text-gray-300" : "text-gray-700"}>ویرایش اطلاعات</span>
             </div>
 
-            {/* 🚀 هدر اختصاصی و لوگوی متحرک */}
             <div className="flex flex-col items-center justify-center relative mb-8 mt-2">
                 <DirectionalLogo type={formData.letter_type} colorName={currentTypeConfig.color} />
                 <h2 className={`text-2xl mt-4 font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
@@ -291,7 +255,7 @@ const SecretariatEditScreen = () => {
 
                 <div className={`p-4 rounded-b-xl border border-t-0 shadow-sm ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
                     <h3 className="font-bold mb-4 border-b pb-2 opacity-80">اطلاعات ثبتی</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
                         <div>
                             <label className="block mb-1 text-xs font-bold opacity-80">نوع نامه</label>
                             <select className={inputClass} value={formData.letter_type} onChange={handleTypeChange}>
@@ -302,13 +266,25 @@ const SecretariatEditScreen = () => {
                         </div>
                         
                         {isLevelZeroOrAdmin && (
-                            <div>
-                                <label className="block mb-1 text-xs font-bold opacity-80 text-rose-600">وضعیت نامه</label>
-                                <select className={inputClass} value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                                    <option value="PENDING">در انتظار تایید</option>
-                                    <option value="APPROVED">تایید شده</option>
-                                    <option value="REJECTED">رد شده</option>
-                                </select>
+                            <div className="flex flex-col gap-3">
+                                <div>
+                                    <label className="block mb-1 text-xs font-bold opacity-80 text-rose-600">وضعیت نامه</label>
+                                    <select className={inputClass} value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                                        <option value="PENDING">در انتظار تایید</option>
+                                        <option value="APPROVED">تایید شده (آماده صدور)</option>
+                                        <option value="ISSUED">صادر شده (در دست پیک)</option>
+                                        <option value="REGISTERED">تکمیل شده (ثبت در مقصد)</option>
+                                        <option value="REJECTED">رد شده</option>
+                                    </select>
+                                </div>
+
+                                {/* 🚀 فیلد پیک فقط زمانی فعال/نمایش داده می‌شود که مدیر حالت صادرشده را انتخاب کند */}
+                                {formData.letter_type === 'OUTGOING' && formData.status === 'ISSUED' && (
+                                    <div className="p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                                        <label className="block mb-1 text-xs font-bold text-cyan-700 dark:text-cyan-400">مسئول تحویل (پیک) <span className="text-red-500">*</span></label>
+                                        <SearchablePersonnelSelect personnel={allPersonnel} value={formData.delivery_responsible} onChange={(val) => setFormData({ ...formData, delivery_responsible: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
+                                    </div>
+                                )}
                             </div>
                         )}
                         
@@ -332,7 +308,6 @@ const SecretariatEditScreen = () => {
                         </div>
                     </div>
                     
-                    {/* فیلدهای اختصاصی مدیران */}
                     {isLevelZeroOrAdmin && (
                         <div className={`col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-5 mt-5 p-4 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                             <div>
@@ -343,7 +318,6 @@ const SecretariatEditScreen = () => {
                                 <JalaliDatePicker name="original_date" label="تاریخ نامه چاپ شده" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} />
                             </div>
                             
-                            {/* 🚀 فیلدهای مقصد فقط در نامه‌های صادره نمایش داده می‌شوند */}
                             {formData.letter_type === 'OUTGOING' && (
                                 <>
                                     <div>
@@ -372,13 +346,7 @@ const SecretariatEditScreen = () => {
                             {formData.letter_type === 'INCOMING' ? (
                                 <input type="text" list="org-list" className={inputClass} value={formData.external_sender} onChange={(e) => setFormData({ ...formData, external_sender: e.target.value })} />
                             ) : (
-                                <SearchablePersonnelSelect 
-                                    personnel={allPersonnel} 
-                                    value={formData.internal_sender} 
-                                    onChange={(val) => setFormData({ ...formData, internal_sender: val })} 
-                                    placeholder="جستجو و انتخاب فرستنده..." 
-                                    isDark={isDark} 
-                                />
+                                <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_sender} onChange={(val) => setFormData({ ...formData, internal_sender: val })} placeholder="جستجو و انتخاب فرستنده..." isDark={isDark} />
                             )}
                         </div>
                         <div className={`space-y-3 p-4 rounded-lg transition-all duration-300 ${formData.letter_type === 'OUTGOING' ? 'bg-white dark:bg-gray-800 shadow-md ring-2 ring-orange-400' : 'bg-gray-500/5'}`}>
@@ -386,13 +354,7 @@ const SecretariatEditScreen = () => {
                             {formData.letter_type === 'OUTGOING' ? (
                                 <input type="text" list="org-list" className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
                             ) : (
-                                <SearchablePersonnelSelect 
-                                    personnel={allPersonnel} 
-                                    value={formData.internal_receiver} 
-                                    onChange={(val) => setFormData({ ...formData, internal_receiver: val })} 
-                                    placeholder="جستجو و انتخاب گیرنده..." 
-                                    isDark={isDark} 
-                                />
+                                <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_receiver} onChange={(val) => setFormData({ ...formData, internal_receiver: val })} placeholder="جستجو و انتخاب گیرنده..." isDark={isDark} />
                             )}
                         </div>
                     </div>
@@ -414,14 +376,10 @@ const SecretariatEditScreen = () => {
                     </div>
 
                     <div className={`mb-5 p-4 rounded-lg border shadow-sm ${isDark ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
-                        <label className="block mb-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">
-                            🔗 ارتباط سیستمی (این نامه پاسخی است به کدام نامه؟)
-                        </label>
+                        <label className="block mb-2 text-sm font-bold text-indigo-600 dark:text-indigo-400">🔗 ارتباط سیستمی (این نامه پاسخی است به کدام نامه؟)</label>
                         <select className={inputClass} value={formData.reference_letter} onChange={(e) => setFormData({ ...formData, reference_letter: e.target.value })}>
                             <option value="">-- مستقل (بدون ارتباط سیستمی) --</option>
-                            {lettersList?.filter(l => l.id !== parseInt(id)).map(l => (
-                                <option key={l.id} value={l.id}>نامه {l.indicator_number} ({l.subject})</option>
-                            ))}
+                            {lettersList?.filter(l => l.id !== parseInt(id)).map(l => (<option key={l.id} value={l.id}>نامه {l.indicator_number} ({l.subject})</option>))}
                         </select>
                     </div>
 

@@ -244,7 +244,7 @@ const SecretariatListScreen = () => {
                     </div>
                     <div>
                         <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                             دبیر خانه کل
+                             دبیر خانه آریو بنیان توس
                         </h1>
                         <span className="text-sm font-bold opacity-60">تعداد نامه‌ها (با احتساب فیلتر): {totalCount}</span>
                     </div>

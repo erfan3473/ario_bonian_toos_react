@@ -333,7 +333,7 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-[1002] w-full">
+    <header className="sticky top-0 z-[1002] w-full print:hidden">
       <div className={`${headerBg} shadow-none transition-colors duration-300`}>
         <div className="container mx-auto px-2 md:px-6">
           <div className="flex justify-between items-center pt-1 pb-0">
