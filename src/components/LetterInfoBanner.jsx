@@ -53,7 +53,7 @@ const LetterInfoBanner = ({ letter, isDark, translateEnum, getStatusStyle }) => 
 
                 {/* ۲. تاریخ ثبت اولیه */}
                 <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700/50">
-                    <span className="opacity-60 text-[10px] font-bold mb-1">تاریخ ثبت اولیه:</span>
+                    <span className="opacity-60 text-[10px] font-bold mb-1">تاریخ نگاشت اولیه:</span>
                     <span className="font-bold text-sm">{new Date(letter.created_at).toLocaleDateString('fa-IR')}</span>
                 </div>
 
