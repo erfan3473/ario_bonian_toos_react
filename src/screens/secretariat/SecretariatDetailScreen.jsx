@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { fetchLetterDetail, forwardLetter, fetchAllPersonnel, uploadAttachment, signLetter, deleteLetter, fetchLetterSmsLogs, refreshLetterSmsStatus, updateLetter, registerDestination, issueLetter } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaHistory, FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaUserEdit, FaUserCheck, FaUserClock, FaFont, FaBold, FaUnderline, FaPlus, FaMinus } from 'react-icons/fa';
+import { FaHistory, FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaUserEdit, FaUserCheck, FaUserClock, FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
 import axiosInstance from '../../api/axiosInstance'; 
@@ -11,6 +11,7 @@ import JalaliDatePicker from '../../components/JalaliDatePicker';
 
 import LetterInfoBanner from '../../components/LetterInfoBanner'; 
 import QRCode from 'react-qr-code';
+
 // 🚀 کامپوننت درگ و دراپ پیشرفته با نوار ابزار تنظیم استایل
 const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onStyleChange, children, className }) => {
     const [localPos, setLocalPos] = useState(position || { x: 0, y: 0 });
@@ -770,39 +771,50 @@ const SecretariatDetailScreen = () => {
 
                 {printMode === 'BLANK' && (
                     <DraggableElement id="company-footer" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-auto w-full pt-6">
-                        <div className="border-t-4 border-gray-400 print:border-black pt-4 flex flex-row justify-between items-end gap-2 text-gray-800 print:text-black">
+                        <div className="border-t-[3px] border-gray-400 print:border-black pt-4 flex justify-between items-end gap-4 text-gray-800 print:text-black">
                             
-                            {/* آدرس (سمت راست) */}
-                            <div className="flex flex-col text-right text-[11px] print:text-[12px] font-bold pb-1">
-                                <span className="text-sm print:text-base font-black mb-1">شرکت آریو بنیان توس</span>
-                                <span>مشهد، بلوار فلسطین، فلسطین ۱۴، پلاک ۱۴</span>
-                            </div>
-                            
-                            {/* ایمیل و سایت (وسط) */}
-                            <div className="flex flex-col items-center text-[10px] print:text-[11px] font-mono font-bold pb-1">
-                                <span>ariobonyantoos@gmail.com</span>
-                                <span>www.ariobonyantoos.com</span>
-                            </div>
-                            
-                            {/* تلفن‌ها (سمت چپ) */}
-                            <div className="flex flex-col text-left text-[10px] print:text-[11px] font-mono font-bold pb-1 mr-auto pl-4" dir="ltr">
-                                <span>Tel: 051 - 376 17880 | 376 46801</span>
-                                <span>Mob: 0910 555 0268 - 0915 255 3010</span>
-                            </div>
-
                             {/* 🚀 بارکد QR شیک با لوگو (گوشه چپ) */}
                             <div className="relative flex items-center justify-center p-1.5 bg-white border-2 border-gray-300 print:border-black rounded-xl">
                                 <QRCode
                                     value="https://www.ariobonyantoos.com/"
-                                    size={58}
+                                    size={100}
                                     level="H"
                                     fgColor="#000000"
                                     bgColor="#FFFFFF"
                                 />
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-5 h-5 bg-white rounded border border-gray-200 print:border-black flex items-center justify-center p-0.5">
+                                    <div className="w-6 h-6 bg-white rounded border border-gray-200 print:border-black flex items-center justify-center p-0.5">
                                         <img src={logo} alt="لوگو" className="w-full h-full object-contain" />
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* اطلاعات تماس (ستون راست) */}
+                            <div className="flex flex-col text-right text-[11px] print:text-[12px] font-bold space-y-1.5">
+                                
+                                <div className="flex items-center justify-end gap-2">
+                                    <span>مشهد، بلوار فلسطین، فلسطین ۱۴، پلاک ۱۴</span>
+                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMapMarkerAlt size={10} /></div>
+                                </div>
+                                
+                                <div className="flex items-center justify-end gap-2">
+                                    <span className="font-mono mt-1" dir="ltr">051 - 376 17880 | 376 46801</span>
+                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaPhoneAlt size={10} /></div>
+                                </div>
+                                
+                                <div className="flex items-center justify-end gap-2">
+                                    <span className="font-mono mt-1" dir="ltr">0910 555 0268 - 0915 255 3010</span>
+                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMobileAlt size={10} /></div>
+                                </div>
+                                
+                                <div className="flex items-center justify-end gap-2">
+                                    <span className="font-mono mt-1">ariobonyantoos@gmail.com</span>
+                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaEnvelope size={10} /></div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2">
+                                    <span className="font-mono mt-1">www.ariobonyantoos.com</span>
+                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaGlobe size={10} /></div>
                                 </div>
                             </div>
 
@@ -811,6 +823,7 @@ const SecretariatDetailScreen = () => {
                 )}
             </div>
 
+            {/* 🚀 بازگردانی کامل بخش‌های پایینی */}
             {(letter.reference_letter_detail || (letter.replies && letter.replies.length > 0)) && (
                 <div className={`p-4 mb-6 rounded-xl border-l-4 print:hidden mt-6 ${isDark ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-500'}`}>
                     {letter.reference_letter_detail && (

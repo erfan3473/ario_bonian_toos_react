@@ -48,7 +48,7 @@ const LetterInfoBanner = ({ letter, isDark, translateEnum, getStatusStyle }) => 
                 {/* ۱. شماره سیستمی */}
                 <div className="flex flex-col items-center text-center justify-center p-2 rounded-lg bg-blue-50 dark:bg-slate-900/50 border border-blue-100 dark:border-slate-700/50">
                     <span className="opacity-60 text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-1">شماره سیستمی:</span>
-                    <span className="font-mono font-black text-blue-700 dark:text-blue-400 text-sm">{letter.indicator_number}</span>
+                    <span className="font-mono text-[11px] font-black text-blue-700 dark:text-blue-400 ">{letter.indicator_number}</span>
                 </div>
 
                 {/* ۲. تاریخ ثبت اولیه */}
