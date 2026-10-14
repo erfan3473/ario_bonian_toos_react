@@ -219,3 +219,38 @@
 .quill-dark .ql-picker-item:hover {
   background-color: #4b5563 !important;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* فونت‌های رسمی اداری و نستعلیق */
+@font-face {
+  font-family: 'B Zar';
+  src: url('./assets/fonts/B-Zar/B Zar_0.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'B Lotus';
+  src: url('./assets/fonts/B-Lotus/B Lotus_0.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'IranNastaliq';
+  src: url('./assets/fonts/IranNastaliq/IranNastaliq.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
