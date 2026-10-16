@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { fetchLetterDetail, updateLetter, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaChevronLeft, FaChevronDown, FaExclamationTriangle, FaCalendarAlt, FaUserEdit } from 'react-icons/fa';
+import { FaChevronLeft, FaChevronDown, FaExclamationTriangle, FaCalendarAlt, FaUserEdit, FaTimes } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import logo from '../../assets/ario.png';
 
@@ -51,6 +51,80 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
                         </li>
                     ))}
                     {filtered.length === 0 && (<li className="p-2 text-sm opacity-50 text-center">موردی یافت نشد</li>)}
+                </ul>
+            )}
+        </div>
+    );
+};
+
+// 🚀 کامپوننت جدید برای انتخاب چندگانه و سرچ (رونوشت‌های سیستمی)
+const MultiSelectSearchable = ({ personnel, selectedValues, onChange, placeholder, isDark }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filtered = personnel?.filter(p => 
+        !selectedValues.includes(String(p.id)) && // عدم نمایش مواردی که قبلاً انتخاب شده‌اند
+        (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+         (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase())))
+    ) || [];
+
+    const handleSelect = (empId) => {
+        onChange([...selectedValues, String(empId)]);
+        setSearchTerm('');
+    };
+
+    const handleRemove = (empId, e) => {
+        e.stopPropagation();
+        onChange(selectedValues.filter(id => id !== String(empId)));
+    };
+
+    const inputClass = `w-full min-h-[42px] p-1.5 flex flex-wrap gap-1.5 items-center rounded-lg border focus-within:ring-2 transition cursor-text ${isDark ? 'bg-gray-800 border-gray-700 focus-within:ring-blue-500' : 'bg-white border-gray-300 focus-within:ring-blue-400'}`;
+
+    return (
+        <div className="relative w-full" ref={wrapperRef}>
+            <div className={inputClass} onClick={() => setIsOpen(true)}>
+                {/* 🚀 نمایش تگ‌های انتخاب شده */}
+                {selectedValues.map(val => {
+                    const emp = personnel.find(p => String(p.id) === String(val));
+                    if (!emp) return null;
+                    return (
+                        <span key={val} className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800">
+                            {emp.name}
+                            <FaTimes className="cursor-pointer opacity-70 hover:opacity-100" onClick={(e) => handleRemove(val, e)} />
+                        </span>
+                    );
+                })}
+                
+                {/* 🚀 اینپوت سرچ */}
+                <input 
+                    type="text" 
+                    className={`flex-1 min-w-[120px] outline-none bg-transparent text-sm p-1 ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`} 
+                    placeholder={selectedValues.length === 0 ? placeholder : 'جستجوی بیشتر...'} 
+                    value={searchTerm} 
+                    onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); }} 
+                    onFocus={() => setIsOpen(true)} 
+                />
+                <FaChevronDown className="absolute left-3 top-3.5 text-gray-400 pointer-events-none text-xs" />
+            </div>
+            
+            {isOpen && (
+                <ul className={`absolute z-10 w-full mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
+                    {filtered.map(emp => (
+                        <li key={emp.id} className={`p-2 cursor-pointer text-sm border-b ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`} onClick={() => handleSelect(emp.id)}>
+                            <div className="font-bold">{emp.name}</div>
+                            <div className="text-[10px] opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
+                        </li>
+                    ))}
+                    {filtered.length === 0 && (<li className="p-3 text-sm opacity-50 text-center font-bold">موردی یافت نشد یا انتخاب شده است</li>)}
                 </ul>
             )}
         </div>
@@ -181,11 +255,6 @@ const SecretariatEditScreen = () => {
         } else {
             setFormData({ ...formData, status: newStatus });
         }
-    };
-
-    const handleMultiSelectChange = (e) => {
-        const values = Array.from(e.target.selectedOptions, option => option.value);
-        setFormData({ ...formData, internal_cc_receivers: values });
     };
 
     const handleSubmit = (e) => {
@@ -460,11 +529,17 @@ const SecretariatEditScreen = () => {
                             <label className="block mb-1 text-[10px] font-bold opacity-80">رونوشت کاغذی (تایپ متن زیر نامه)</label>
                             <textarea rows="2" className={inputClass} value={formData.cc_text} onChange={(e) => setFormData({ ...formData, cc_text: e.target.value })}></textarea>
                         </div>
+                        
+                        {/* 🚀 فیلد جدید MultiSelectSearchable برای رونوشت سیستمی */}
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">ارسال رونوشت سیستمی</label>
-                            <select multiple className={`${inputClass} h-[58px]`} value={formData.internal_cc_receivers} onChange={handleMultiSelectChange}>
-                                {allPersonnel?.map(emp => (<option key={emp.id} value={emp.id} className="text-xs py-0.5">{emp.name}</option>))}
-                            </select>
+                            <MultiSelectSearchable 
+                                personnel={allPersonnel} 
+                                selectedValues={formData.internal_cc_receivers} 
+                                onChange={(vals) => setFormData({ ...formData, internal_cc_receivers: vals })} 
+                                placeholder="جستجو و انتخاب پرسنل..." 
+                                isDark={isDark} 
+                            />
                         </div>
                     </div>
 

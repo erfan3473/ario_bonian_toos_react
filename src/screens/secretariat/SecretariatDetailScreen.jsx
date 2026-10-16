@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { fetchLetterDetail, forwardLetter, fetchAllPersonnel, uploadAttachment, signLetter, deleteLetter, fetchLetterSmsLogs, refreshLetterSmsStatus, updateLetter, registerDestination, issueLetter } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaHistory, FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaUserEdit, FaUserCheck, FaUserClock, FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope } from 'react-icons/fa';
+import {  FaEye,FaEyeSlash ,FaHistory, FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaUserEdit, FaUserCheck, FaUserClock, FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
 import axiosInstance from '../../api/axiosInstance'; 
@@ -13,6 +13,7 @@ import LetterInfoBanner from '../../components/LetterInfoBanner';
 import QRCode from 'react-qr-code';
 
 // 🚀 کامپوننت درگ و دراپ پیشرفته با نوار ابزار تنظیم استایل
+// 🚀 کامپوننت درگ و دراپ پیشرفته با نوار ابزار تنظیم استایل و مخفی‌سازی
 const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onStyleChange, children, className }) => {
     const [localPos, setLocalPos] = useState(position || { x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
@@ -66,13 +67,17 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
         if (type === 'decrease') newStyle.fontSize = Math.max(8, (newStyle.fontSize || 16) - 1);
         if (type === 'bold') newStyle.fontWeight = newStyle.fontWeight === 'bold' ? 'normal' : 'bold';
         if (type === 'underline') newStyle.textDecoration = newStyle.textDecoration === 'underline' ? 'none' : 'underline';
+        if (type === 'visibility') newStyle.hidden = !newStyle.hidden; // 🚀 اکشن مخفی‌سازی
         if (onStyleChange) onStyleChange(id, newStyle);
     };
+
+    // 🚀 اگر کاربر المان را مخفی کرده باشد و در حالت پرینت باشیم، اصلاً رندر نمی‌شود!
+    if (currentStyle.hidden && !isEditMode) return null;
 
     return (
         <div
             onMouseDown={handleMouseDown}
-            className={`transition-none group ${isEditMode ? 'cursor-move outline-dashed outline-2 outline-blue-500 hover:bg-blue-500/5 z-50 relative rounded shadow-sm min-h-[20px] min-w-[20px]' : ''} ${className || ''}`}
+            className={`transition-none group ${isEditMode ? 'cursor-move outline-dashed outline-2 outline-blue-500 hover:bg-blue-500/5 z-50 relative rounded shadow-sm min-h-[20px] min-w-[20px]' : ''} ${currentStyle.hidden ? 'opacity-20 grayscale blur-[1px]' : ''} ${className || ''}`}
             style={{ transform: `translate(${localPos.x}px, ${localPos.y}px)` }}
         >
             {isEditMode && (
@@ -81,6 +86,10 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
                     <button type="button" onClick={(e) => handleFormat('decrease', e)} className="p-1 hover:bg-gray-600 rounded text-[10px]" title="کوچک‌نمایی"><FaMinus/></button>
                     <button type="button" onClick={(e) => handleFormat('bold', e)} className={`p-1 hover:bg-gray-600 rounded text-[10px] ${currentStyle.fontWeight === 'bold' ? 'bg-blue-500' : ''}`} title="ضخیم"><FaBold/></button>
                     <button type="button" onClick={(e) => handleFormat('underline', e)} className={`p-1 hover:bg-gray-600 rounded text-[10px] ${currentStyle.textDecoration === 'underline' ? 'bg-blue-500' : ''}`} title="خط‌کشی"><FaUnderline/></button>
+                    {/* 🚀 دکمه حذف/نمایش در پرینت */}
+                    <button type="button" onClick={(e) => handleFormat('visibility', e)} className={`p-1 hover:bg-gray-600 rounded text-[10px] ${currentStyle.hidden ? 'text-red-400' : 'text-emerald-400'}`} title={currentStyle.hidden ? 'بازگردانی به چاپ' : 'حذف از چاپ'}>
+                        {currentStyle.hidden ? <FaEyeSlash /> : <FaEye />}
+                    </button>
                 </div>
             )}
             <div style={{ 
@@ -238,6 +247,9 @@ const SecretariatDetailScreen = () => {
     const [layoutStyles, setLayoutStyles] = useState({});
     const [printFont, setPrintFont] = useState('Vazirmatn'); 
     const printMenuRef = useRef(null);
+    // 🚀 حالت ادیت ارجاعات
+    const [editingRefId, setEditingRefId] = useState(null);
+    const [editRefText, setEditRefText] = useState("");
 
     useEffect(() => {
         const savedPos = localStorage.getItem('printLayoutOffsets');
@@ -317,7 +329,17 @@ const SecretariatDetailScreen = () => {
             })
             .catch((err) => toast.error(err || 'خطا در ارجاع'));
     };
-
+    // 🚀 تابع ذخیره ویرایش ارجاع
+    const handleEditReferralSubmit = async (refId) => {
+        try {
+            await axiosInstance.put(`/secretariat/referrals/${refId}/update/`, { instruction: editRefText });
+            toast.success('متن ارجاع با موفقیت ویرایش شد.');
+            setEditingRefId(null);
+            dispatch(fetchLetterDetail(id));
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'خطا در ویرایش ارجاع');
+        }
+    };
     const handleScanUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -439,7 +461,10 @@ const SecretariatDetailScreen = () => {
                 {`@media print { 
                     @page { size: A4 portrait; margin: 0; } 
                     body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; } 
-                    .print-hidden { display: none !important; } 
+                    .print-hidden { display: none !important; }
+                    .flex-1 { display: block !important; }
+                    /* 🚀 جلوگیری از نصف شدن کادرها بین دو صفحه */
+                    .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
                 }`}
             </style>
 
@@ -616,25 +641,40 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* 🚀 تغییر فرم ارجاع: افزودن سرچ گیرنده و تبدیل اینپوت به تکست‌اریا */}
             {showForward && (
                 <div className={`p-4 rounded-xl border-l-4 border-indigo-500 print:hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-50'}`}>
-                    <form onSubmit={handleForward} className="flex flex-col md:flex-row gap-4 items-end">
-                        <div className="flex-1 w-full">
-                            <label className="block text-sm font-bold mb-2">گیرنده ارجاع</label>
-                            <select className={`w-full p-2.5 rounded-lg border outline-none ${isDark ? 'bg-slate-900 text-white border-slate-600' : 'bg-white text-gray-800 border-gray-300'}`} value={forwardData.receiver} onChange={(e) => setForwardData({ ...forwardData, receiver: e.target.value })}>
-                                <option value="">انتخاب...</option>
-                                {allPersonnel?.map((emp) => (<option key={emp.id} value={emp.id}>{emp.name}</option>))}
-                            </select>
+                    <form onSubmit={handleForward} className="flex flex-col gap-4">
+                        <div className="flex flex-col md:flex-row gap-4 items-start">
+                            <div className="w-full md:w-1/3">
+                                <label className="block text-sm font-bold mb-2">گیرنده ارجاع</label>
+                                <SearchablePersonnelSelect 
+                                    personnel={allPersonnel} 
+                                    value={forwardData.receiver} 
+                                    onChange={(val) => setForwardData({ ...forwardData, receiver: val })} 
+                                    placeholder="جستجو و انتخاب پرسنل..." 
+                                    isDark={isDark} 
+                                />
+                            </div>
+                            <div className="w-full md:w-2/3">
+                                <label className="block text-sm font-bold mb-2">شرح ارجاع</label>
+                                <textarea 
+                                    className={`w-full p-2.5 rounded-lg border outline-none ${isDark ? 'bg-slate-900 text-white border-slate-600' : 'bg-white border-gray-300 text-gray-800'}`} 
+                                    value={forwardData.instruction} 
+                                    onChange={(e) => setForwardData({ ...forwardData, instruction: e.target.value })}
+                                    rows="2"
+                                    placeholder="متن پاراف یا دستور خود را بنویسید..."
+                                />
+                            </div>
                         </div>
-                        <div className="flex-[2] w-full">
-                            <label className="block text-sm font-bold mb-2">شرح ارجاع</label>
-                            <input type="text" className={`w-full p-2.5 rounded-lg border outline-none ${isDark ? 'bg-slate-900 text-white border-slate-600' : 'bg-white border-gray-300 text-gray-800'}`} value={forwardData.instruction} onChange={(e) => setForwardData({ ...forwardData, instruction: e.target.value })} />
+                        <div className="flex justify-end">
+                            <button type="submit" disabled={forwarding} className="bg-indigo-600 text-white px-8 py-2.5 rounded-lg font-bold active:scale-95">
+                                {forwarding ? 'در حال ارسال...' : 'ارسال ارجاع'}
+                            </button>
                         </div>
-                        <button type="submit" disabled={forwarding} className="bg-indigo-600 text-white px-8 py-2.5 rounded-lg font-bold active:scale-95">{forwarding ? '...' : 'ارسال'}</button>
                     </form>
                 </div>
             )}
-
             {isLayoutEditMode && (
                 <div className="bg-amber-100 border border-amber-400 text-amber-800 p-3 rounded-xl mb-4 text-sm font-bold text-center print:hidden shadow-md animate-pulse">
                     ⚠️ حالت چیدمان فعال است. المان‌ها را جابجا یا ویرایش کنید. پس از اتمام، از منوی چاپ گزینه «✅ پایان چیدمان» را بزنید.
@@ -642,13 +682,12 @@ const SecretariatDetailScreen = () => {
             )}
 
             <div 
-                className={`p-6 md:p-10 rounded-none md:rounded-xl border shadow-sm mx-auto overflow-hidden relative 
-                ${letter.status === 'REJECTED' || letter.status === 'PENDING' ? 'opacity-50 grayscale print:hidden' : ''} 
-                print:block print:p-[1.5cm] print:border-none print:shadow-none bg-white text-gray-900 min-h-[1050px] print:min-h-[270mm] flex flex-col`}
-                style={{ maxWidth: '210mm', fontFamily: printFont }}
+                className={`p-8 md:p-10 border shadow-2xl mx-auto relative bg-white text-gray-900 flex flex-col overflow-visible print:block print:p-[1cm] print:border-none print:shadow-none print:min-h-0
+                ${letter.status === 'REJECTED' || letter.status === 'PENDING' ? 'opacity-50 grayscale print:hidden' : ''}`}
+                style={{ width: '100%', maxWidth: '210mm', minHeight: '280mm', fontFamily: printFont }}
             >
                 
-                <div className="flex-1">
+                <div className="flex-1 block">
                     <div className={`flex justify-between items-start pb-2 relative mt-4 md:mt-0`}>
                         <DraggableElement id="head-logo" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo']} styleData={layoutStyles['head-logo']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`flex flex-col items-center justify-center w-1/3 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
                             {letter.letter_type === 'INCOMING' && letter.external_sender_detail?.logo ? (
@@ -695,20 +734,20 @@ const SecretariatDetailScreen = () => {
 
                     <div className="space-y-3 mb-8 text-sm md:text-base print:text-base leading-relaxed mt-10 text-black">
                         <DraggableElement id="body-receiver" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                            <span className="w-24 opacity-80 font-normal">گیرنده (به):</span> 
+                            <span className="w-24 opacity-80 font-normal">  </span> 
                             <strong className="text-lg">{letter.final_receiver_name}</strong>
                         </DraggableElement>
 
                         {letter.receiver_persons && (
                             <DraggableElement id="body-receiver-titles" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-2 border-r-2 border-gray-400 print:border-black pr-3 ml-2 text-sm w-full">
-                                <span className="opacity-80 font-normal ml-2">عناوین:</span> 
+                                <span className="opacity-80 font-normal ml-2"> </span> 
                                 <p className="whitespace-pre-wrap font-bold leading-relaxed">{letter.receiver_persons}</p>
                             </DraggableElement>
                         )}
                         
                         <DraggableElement id="body-subject" isEditMode={isLayoutEditMode} position={layoutPositions['body-subject']} styleData={layoutStyles['body-subject']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-4 w-full">
-                            <span className="w-24 opacity-80 font-normal">موضوع:</span> 
-                            <strong className="text-lg border-b-2 border-gray-400 print:border-black pb-1 flex-1">{letter.subject}</strong>
+                            <span className="w-24 opacity-80 font-normal">موضوع: </span> 
+                            <strong className="text-lg flex-1">{letter.subject}</strong>
                         </DraggableElement>
 
                         {letter.reference_number && (
@@ -732,7 +771,7 @@ const SecretariatDetailScreen = () => {
                         </DraggableElement>
                     )}
 
-                    <div className="flex justify-between items-start pt-8 pb-10 relative text-black">
+                    <div className="flex justify-between items-start pt-8 pb-10 relative text-black avoid-break">
                         <DraggableElement id="footer-cc" isEditMode={isLayoutEditMode} position={layoutPositions['footer-cc']} styleData={layoutStyles['footer-cc']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 text-xs print:text-sm opacity-90">
                             {(letter.cc_text || letter.internal_cc_names?.length > 0) && (
                                 <div className="border-t border-gray-400 print:border-black pt-2 pr-2 inline-block min-w-[200px]">
@@ -745,10 +784,14 @@ const SecretariatDetailScreen = () => {
                         
                         <DraggableElement id="footer-dest" isEditMode={isLayoutEditMode} position={layoutPositions['footer-dest']} styleData={layoutStyles['footer-dest']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 flex justify-center items-center relative h-32">
                             {letter.letter_type === 'OUTGOING' && letter.destination_indicator && (
-                                <div className="absolute transform -rotate-12 border-[3px] border-red-600 text-red-600 px-4 py-2 rounded-xl flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '150px' }}>
-                                    <span className="text-xs font-black tracking-widest border-b border-red-600 w-full text-center pb-1 mb-1">ثبت در مقصد</span>
-                                    <span className="font-mono text-lg font-bold mt-1" dir="ltr">{letter.destination_indicator}</span>
-                                    {letter.destination_date && <span className="text-[10px] font-bold mt-1">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
+                                <div className="absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 px-5 py-3 rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '160px', boxShadow: 'inset 0 0 4px rgba(220,38,38,0.2)' }}>
+                                    <span className="text-sm font-black tracking-widest text-center mb-1">ثبت در مقصد</span>
+                                    
+                                    {/* 🚀 خط شکستگی/نقطه‌چین وسط مهر */}
+                                    <div className="w-full border-b-[3px] border-dashed border-red-600 my-1.5 opacity-70"></div>
+                                    
+                                    <span className="font-mono text-xl font-bold mt-1" dir="ltr">{letter.destination_indicator}</span>
+                                    {letter.destination_date && <span className="text-[11px] font-bold mt-1">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
                                 </div>
                             )}
                         </DraggableElement>
@@ -770,7 +813,7 @@ const SecretariatDetailScreen = () => {
                 </div>
 
                 {printMode === 'BLANK' && (
-                    <DraggableElement id="company-footer" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-auto w-full pt-6">
+                    <DraggableElement id="company-footer" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-auto w-full pt-6 avoid-break">
                         <div className="border-t-[3px] border-gray-400 print:border-black pt-4 flex justify-between items-end gap-4 text-gray-800 print:text-black">
                             
                             {/* 🚀 بارکد QR شیک با لوگو (گوشه چپ) */}
@@ -867,7 +910,7 @@ const SecretariatDetailScreen = () => {
                                         <FaSms size={14} />
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200">گیرنده: {log.to_user} ({log.phone})</span>
+                                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200"> {log.to_user} ({log.phone})</span>
                                         <span className="text-[10px] font-medium opacity-60 mt-0.5">
                                             {new Date(log.created_at).toLocaleString('fa-IR')}
                                         </span>
@@ -892,29 +935,56 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* 🚀 تغییر تاریخچه ارجاعات: امکان ویرایش متن ارجاع خود کاربر */}
             {letter.referrals && letter.referrals.length > 0 && (
                 <div className={`mt-6 pt-6 border-t border-dashed ${isDark ? 'border-gray-600' : 'border-gray-300'} print:hidden`}>
                     <h4 className="text-sm font-black mb-4 flex items-center gap-2 opacity-80 text-indigo-600"><FaHistory /> تاریخچه ارجاعات</h4>
                     <div className="space-y-3">
-                        {letter.referrals.map((ref) => (
-                            <div key={ref.id} className={`p-3 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
-                                <div className="flex justify-between items-center mb-1.5 border-b border-gray-200 dark:border-gray-700 pb-1.5">
-                                    <div className="flex items-center gap-2 text-[11px] font-bold">
-                                        <span className="text-blue-600 dark:text-blue-400">{ref.sender_name}</span>
-                                        <FaArrowLeft className="text-gray-400 text-[10px]" />
-                                        <span className="text-emerald-600 dark:text-emerald-400">{ref.receiver_name}</span>
+                        {letter.referrals.map((ref) => {
+                            const isMyReferral = ref.sender === userInfo?.id || isLevelZeroOrAdmin;
+                            
+                            return (
+                                <div key={ref.id} className={`p-3 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className="flex justify-between items-center mb-1.5 border-b border-gray-200 dark:border-gray-700 pb-1.5">
+                                        <div className="flex items-center gap-2 text-[11px] font-bold">
+                                            <span className="text-blue-600 dark:text-blue-400">{ref.sender_name}</span>
+                                            <FaArrowLeft className="text-gray-400 text-[10px]" />
+                                            <span className="text-emerald-600 dark:text-emerald-400">{ref.receiver_name}</span>
+                                        </div>
+                                        <span className="text-[9px] font-medium opacity-60 font-mono" dir="ltr">{new Date(ref.created_at).toLocaleString('fa-IR')}</span>
                                     </div>
-                                    <span className="text-[9px] font-medium opacity-60 font-mono" dir="ltr">{new Date(ref.created_at).toLocaleString('fa-IR')}</span>
+                                    
+                                    {editingRefId === ref.id ? (
+                                        <div className="mt-2 flex flex-col gap-2">
+                                            <textarea 
+                                                className={`w-full p-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-gray-800 border-gray-300'}`}
+                                                value={editRefText}
+                                                onChange={(e) => setEditRefText(e.target.value)}
+                                                rows="2"
+                                            />
+                                            <div className="flex gap-2 justify-end">
+                                                <button onClick={() => setEditingRefId(null)} className="text-xs px-4 py-1.5 bg-gray-400 hover:bg-gray-500 text-white rounded font-bold transition">انصراف</button>
+                                                <button onClick={() => handleEditReferralSubmit(ref.id)} className="text-xs px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition">ذخیره ویرایش</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-xs leading-relaxed font-bold text-gray-800 dark:text-gray-200 mt-1 flex justify-between items-start gap-2 group">
+                                            <div>
+                                                {ref.instruction ? <span className="whitespace-pre-wrap"><span className="opacity-50 text-[10px] ml-1">شرح:</span> {ref.instruction}</span> : <span className="opacity-40 italic font-normal">فقط ارجاع</span>}
+                                            </div>
+                                            {isMyReferral && (
+                                                <button onClick={() => { setEditingRefId(ref.id); setEditRefText(ref.instruction || ''); }} className="text-blue-500 hover:text-blue-700 p-1 opacity-0 group-hover:opacity-100 transition-opacity" title="ویرایش متن ارجاع">
+                                                    <FaEdit size={13} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-xs leading-relaxed font-bold text-gray-800 dark:text-gray-200">
-                                    {ref.instruction ? <span className="whitespace-pre-wrap"><span className="opacity-50 text-[10px] ml-1">شرح:</span> {ref.instruction}</span> : <span className="opacity-40 italic font-normal">فقط ارجاع</span>}
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
-
             <div className={`p-5 rounded-xl border print:hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold flex items-center gap-2 opacity-80"><FaPaperclip /> پیوست‌ها ({letter.attachments?.length || 0})</h3>
