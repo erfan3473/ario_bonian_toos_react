@@ -431,7 +431,8 @@ const SecretariatDetailScreen = () => {
         'INCOMING': 'وارده', 'OUTGOING': 'صادره', 'INTERNAL': 'داخلی',
         'NORMAL': 'عادی', 'URGENT': 'فوری', 'VERY_URGENT': 'خیلی فوری',
         'CONFIDENTIAL': 'محرمانه', 'SECRET': 'سری',
-        'PENDING': 'در انتظار تایید', 'APPROVED': 'آماده صدور', 'ISSUED': 'در دست پیک', 'REGISTERED': 'تکمیل شده', 'REJECTED': 'رد شده'
+        'PENDING': 'در انتظار تایید', 'APPROVED': 'آماده صدور', 'ISSUED': 'در دست پیک',
+         'REGISTERED': 'تکمیل شده', 'REJECTED': 'رد شده', 'DOCUMENT': 'اسناد',  
     }[val] || val);
 
     const getStatusStyle = (status) => {
@@ -689,16 +690,19 @@ const SecretariatDetailScreen = () => {
                 
                 <div className="flex-1 block">
                     <div className={`flex justify-between items-start pb-2 relative mt-4 md:mt-0`}>
-                        <DraggableElement id="head-logo" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo']} styleData={layoutStyles['head-logo']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`flex flex-col items-center justify-center w-1/3 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
-                            {letter.letter_type === 'INCOMING' && letter.external_sender_detail?.logo ? (
-                                <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain mb-2 print:h-16" />
-                            ) : (
-                                <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain mb-2 print:h-16 print:grayscale-0" />
-                            )}
-                            <span className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
-                                {letter.final_sender_name}
-                            </span>
-                        </DraggableElement>
+                        <div className={`flex flex-col items-center justify-start pt-2 w-1/3 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
+                            <DraggableElement id="head-logo-img" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
+                                {letter.letter_type === 'INCOMING' && letter.external_sender_detail?.logo ? (
+                                    <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
+                                ) : (
+                                    <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
+                                )}
+                            </DraggableElement>
+                            
+                            <DraggableElement id="head-logo-name" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-name']} styleData={layoutStyles['head-logo-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
+                                <span>{letter.final_sender_name}</span>
+                            </DraggableElement>
+                        </div>
                         
                         <DraggableElement id="head-besmella" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`flex flex-col items-center justify-start w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
                             <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black">به نام خدا</span>
@@ -733,10 +737,12 @@ const SecretariatDetailScreen = () => {
                     </DraggableElement>
 
                     <div className="space-y-3 mb-8 text-sm md:text-base print:text-base leading-relaxed mt-10 text-black">
-                        <DraggableElement id="body-receiver" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                            <span className="w-24 opacity-80 font-normal">  </span> 
-                            <strong className="text-lg">{letter.final_receiver_name}</strong>
-                        </DraggableElement>
+                        {letter.final_receiver_name && letter.final_receiver_name !== "-" && (
+                            <DraggableElement id="body-receiver" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
+                                <span className="w-24 opacity-80 font-normal">گیرنده : </span> 
+                                <strong className="text-lg">{letter.final_receiver_name}</strong>
+                            </DraggableElement>
+                        )}
 
                         {letter.receiver_persons && (
                             <DraggableElement id="body-receiver-titles" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-2 border-r-2 border-gray-400 print:border-black pr-3 ml-2 text-sm w-full">
@@ -812,7 +818,7 @@ const SecretariatDetailScreen = () => {
                     </div>
                 </div>
 
-                {printMode === 'BLANK' && (
+                {printMode === 'BLANK' && letter.letter_type !== 'INCOMING' && (
                     <DraggableElement id="company-footer" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-auto w-full pt-6 avoid-break">
                         <div className="border-t-[3px] border-gray-400 print:border-black pt-4 flex justify-between items-end gap-4 text-gray-800 print:text-black">
                             
@@ -836,7 +842,7 @@ const SecretariatDetailScreen = () => {
                             <div className="flex flex-col text-right text-[11px] print:text-[12px] font-bold space-y-1.5">
                                 
                                 <div className="flex items-center justify-end gap-2">
-                                    <span>مشهد، بلوار فلسطین، فلسطین ۱۴، پلاک ۱۴</span>
+                                    <span>مشهد، هاشمیه ۵۱، پلاک ۱۳۶</span>
                                     <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMapMarkerAlt size={10} /></div>
                                 </div>
                                 

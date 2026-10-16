@@ -80,19 +80,21 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 const DirectionalLogo = ({ type }) => {
     const isOutward = type === 'OUTGOING';
     const isInternal = type === 'INTERNAL';
+    const isDocument = type === 'DOCUMENT';
 
     const theme = type === 'INCOMING' ? { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' } :
                   type === 'OUTGOING' ? { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' } :
+                  type === 'DOCUMENT' ? { bg: 'bg-slate-100 dark:bg-slate-900/40', border: 'border-slate-500', text: 'text-slate-600 dark:text-slate-400' } :
                   { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' };
 
     return (
         <div className={`relative w-12 h-12 shrink-0 flex items-center justify-center rounded-xl shadow-sm border transition-all duration-500 ${theme.bg} ${theme.border}`}>
             <img src={logo} alt="لوگو" className="w-7 h-7 object-contain z-10 relative opacity-90" />
-            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : 'rotate-0'}`}>
+            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : isDocument ? 'rotate-180' : 'rotate-0'}`}>
                 {[0, 90, 180, 270].map((rotation, i) => (
                     <div key={i} className="absolute inset-0 flex items-start justify-center" style={{ transform: `rotate(${rotation}deg)` }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-2.5 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}>
-                            {isInternal ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-2.5 ${!isInternal && !isOutward && !isDocument ? 'rotate-180' : 'rotate-0'}`}>
+                            {isInternal || isDocument ? (
                                 <><path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>
                             ) : (
                                 <><path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" /></>
@@ -147,7 +149,13 @@ const SecretariatListScreen = () => {
     }, [dispatch]);
 
     useEffect(() => {
-        dispatch(fetchLetters({ type: filterType, search: debouncedSearch, page: page, jalali_year: selectedYear || null, sender: senderFilter, ordering: ordering }));
+        const params = { search: debouncedSearch, page: page, jalali_year: selectedYear || null, sender: senderFilter, ordering: ordering };
+        if (filterType === 'DELETED') {
+            params.status = 'DELETED';
+        } else {
+            params.type = filterType;
+        }
+        dispatch(fetchLetters(params));
     }, [dispatch, filterType, debouncedSearch, page, selectedYear, senderFilter, ordering]);
 
     useEffect(() => {
@@ -195,6 +203,8 @@ const SecretariatListScreen = () => {
             case 'INCOMING': return 'مکاتبات وارده';
             case 'OUTGOING': return 'مکاتبات صادره';
             case 'INTERNAL': return 'مکاتبات داخلی';
+            case 'DOCUMENT': return 'اسناد';
+            case 'DELETED': return 'زباله‌دان';
             default: return 'همه مکاتبات';
         }
     };
@@ -234,6 +244,8 @@ const SecretariatListScreen = () => {
                             { label: 'وارده', value: 'INCOMING' },
                             { label: 'صادره', value: 'OUTGOING' },
                             { label: 'داخلی', value: 'INTERNAL' },
+                            { label: 'اسناد', value: 'DOCUMENT' },
+                            { label: 'زباله‌دان', value: 'DELETED' },
                         ].map((tab) => (
                             <button
                                 key={tab.value}
@@ -482,9 +494,10 @@ const SecretariatListScreen = () => {
                                                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black tracking-wide ${
                                                         letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400 border border-green-500/20' :
                                                         letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400 border border-orange-500/20' :
+                                                        letter.letter_type === 'DOCUMENT' ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-400 border border-slate-500/20' :
                                                         'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border border-purple-500/20'
                                                     }`}>
-                                                        {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : 'داخلی'}
+                                                        {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : letter.letter_type === 'DOCUMENT' ? 'اسناد' : 'داخلی'}
                                                     </span>
                                                     
                                                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white ${
