@@ -403,28 +403,27 @@ const SecretariatEditScreen = () => {
                                 </div>
                             </div>
 
-                            {canArchive && (
+                            {/* 🚀 تغییر مهم: فقط مدیریت می‌تواند این بخش را ببیند */}
+                            {isBoardMember && (
                                 <div className="flex flex-col gap-2">
                                     <label className="block text-xs font-black opacity-80 text-rose-600 flex justify-between">
-                                        وضعیت نامه ({isBoardMember ? 'دسترسی هیئت مدیره' : 'دسترسی بایگانی'})
+                                        وضعیت نامه (دسترسی مدیریت)
                                         {(formData.status === 'PENDING' || formData.status === 'APPROVED' || formData.status === 'ISSUED') && activeLetter.status === 'REGISTERED' && (
                                             <span className="text-orange-500 flex items-center gap-1 text-[9px]"><FaExclamationTriangle/> بازگشت وضعیت</span>
                                         )}
                                     </label>
+                                    
+                                    {/* 🚀 ساده‌سازی آپشن‌ها چون فقط مدیر آن‌ها را می‌بیند */}
                                     <select className={`${inputClass} font-bold py-2.5 bg-rose-50 border-rose-200 dark:bg-rose-900/10 dark:border-rose-800/50`} value={formData.status} onChange={handleStatusChange}>
                                         <option value="PENDING">در انتظار تایید</option>
-                                        <option value="APPROVED" disabled={!isBoardMember}>
-                                            تایید شده (آماده صدور) {!isBoardMember ? '🔒 (مخصوص مدیریت)' : ''}
-                                        </option>
-                                        <option value="ISSUED" disabled={!isBoardMember && ['PENDING', 'REJECTED', 'DELETED'].includes(activeLetter.status)}>
+                                        <option value="APPROVED">تایید شده (آماده صدور)</option>
+                                        <option value="ISSUED" disabled={['PENDING', 'REJECTED', 'DELETED'].includes(activeLetter.status)}>
                                             صادر شده (در دست پیک)
                                         </option>
-                                        <option value="REGISTERED" disabled={!isBoardMember && ['PENDING', 'REJECTED', 'DELETED'].includes(activeLetter.status)}>
+                                        <option value="REGISTERED" disabled={['PENDING', 'REJECTED', 'DELETED'].includes(activeLetter.status)}>
                                             تکمیل شده (ثبت در مقصد)
                                         </option>
-                                        <option value="REJECTED" disabled={!isBoardMember}>
-                                            رد شده {!isBoardMember ? '🔒 (مخصوص مدیریت)' : ''}
-                                        </option>
+                                        <option value="REJECTED">رد شده</option>
                                         <option value="DELETED">🗑️ حذف شده (زباله‌دان)</option>
                                     </select>
                                     

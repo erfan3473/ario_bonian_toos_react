@@ -56,16 +56,23 @@ const LetterInfoBanner = ({ letter, isDark, translateEnum, getStatusStyle }) => 
         }`}>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 w-full">
                 
-                {/* ۱. شماره سیستمی */}
+                {/* ۱. شماره سیستمی و ثبت نهایی */}
                 <div className={`flex flex-col items-center text-center justify-center p-2 rounded-lg border ${
                     isDeleted 
                         ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50' 
                         : 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-slate-700/50'
                 }`}>
                     <span className={`opacity-60 text-[10px] font-bold mb-1 ${isDeleted ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>شماره سیستمی:</span>
-                    <span className={`font-mono text-[11px] font-black ${isDeleted ? 'line-through text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                    <span className={`font-mono text-[11px] font-black ${letter.original_number ? 'mb-1' : ''} ${isDeleted ? 'line-through text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
                         {letter.indicator_number}
                     </span>
+                    {/* 🚀 نمایش فوری شماره ثبت نهایی در صورت وجود */}
+                    {letter.original_number && (
+                        <div className="w-full flex flex-col items-center border-t border-blue-200 dark:border-slate-700 pt-1 mt-1">
+                            <span className="opacity-70 text-[10px] font-black text-emerald-700 dark:text-emerald-400 mb-0.5">شماره ثبت اصلی:</span>
+                            <span className="font-mono text-xs font-black text-emerald-600 dark:text-emerald-400">{letter.original_number}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* ۲. تاریخ ثبت اولیه */}

@@ -189,7 +189,20 @@ const DirectionalLogo = ({ type, colorName }) => {
         </div>
     );
 };
+// 🚀 تابع تبدیل آنی اعداد انگلیسی به فارسی
+const toPersianDigits = (str) => {
+    if (!str) return '';
+    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return str.toString().replace(/[0-9]/g, x => persianDigits[x]);
+};
 
+// 🚀 تولید شناسه با پیشوندهای فارسی (ص، و، د، ا) و اعداد فارسی
+    const generateIndicator = (type) => {
+        const prefix = type === 'INTERNAL' ? 'د' : type === 'INCOMING' ? 'و' : type === 'DOCUMENT' ? 'ا' : 'ص';
+        const randomCode = Math.floor(1000 + Math.random() * 9000);
+        const datePart = new Date().toLocaleDateString('fa-IR').replace(/\//g, '');
+        return toPersianDigits(`${prefix}-${datePart}-${randomCode}`);
+    };
 const SecretariatCreateScreen = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -367,7 +380,7 @@ const SecretariatCreateScreen = () => {
                     
                     <div className="w-full md:w-64 border-t md:border-t-0 md:border-r border-blue-200/50 dark:border-slate-700 pt-3 md:pt-0 md:pr-4 flex flex-col justify-center">
                         <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex items-center gap-1 text-gray-700 dark:text-gray-300">
-                            <FaCalendarAlt /> تاریخ تشکیل پرونده
+                            <FaCalendarAlt /> تاریخ تشکیل مکاتبه
                         </label>
                         <div className={`p-2 rounded-lg text-center font-bold text-xs border bg-white/50 dark:bg-gray-900/50 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-800'}`}>
                             مورخ {formalDate}

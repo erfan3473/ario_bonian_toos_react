@@ -121,7 +121,7 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
     );
 };
 
-const LetterProgressStepper = ({ status, isDark }) => {
+const LetterProgressStepper = ({ status, letterType, isDark }) => {
     if (status === 'DELETED') {
         return (
             <div className={`p-4 rounded-xl border mb-6 print:hidden flex items-center justify-center gap-3 ${isDark ? 'bg-red-950/40 border-red-800' : 'bg-red-50 border-red-300'}`}>
@@ -140,50 +140,71 @@ const LetterProgressStepper = ({ status, isDark }) => {
         );
     }
 
-    const steps = [
-        { key: 'PENDING', label: 'ثبت اولیه', icon: '📝' },
-        { key: 'APPROVED', label: 'تایید و امضا', icon: '✅' },
-        { key: 'ISSUED', label: 'خروج از شرکت', icon: '🏃‍♂️' },
-        { key: 'REGISTERED', label: 'تکمیل و بایگانی', icon: '📂' }
+    // 🚀 داینامیک شدن مراحل + تغییر نام مرحله دوم برای نامه‌های غیر صادره
+    const steps = letterType === 'OUTGOING' ? [
+        { key: 'PENDING', label: 'ثبت اولیه', icon: <FaEdit /> },
+        { key: 'APPROVED', label: 'تایید و امضا', icon: <FaPenNib /> },
+        { key: 'ISSUED', label: 'خروج از شرکت', icon: <FaPaperPlane /> },
+        { key: 'REGISTERED', label: 'بایگانی', icon: <FaCheckCircle /> }
+    ] : [
+        { key: 'PENDING', label: 'ثبت اولیه', icon: <FaEdit /> },
+        { key: 'APPROVED', label: 'تایید و بایگانی', icon: <FaCheckCircle /> }
     ];
 
-    const getStepIndex = (s) => steps.findIndex(step => step.key === s);
-    const currentIndex = getStepIndex(status);
+    let currentIndex = steps.findIndex(step => step.key === status);
+    
+    if (currentIndex === -1) {
+        if (['ISSUED', 'REGISTERED'].includes(status)) currentIndex = steps.length - 1;
+        else currentIndex = 0;
+    }
+
+    // 🚀 پیش‌روی خط: اگر در مرحله آخر نیستیم، خط ۴۵٪ به سمت مرحله بعدی پیش می‌رود تا واضح‌تر باشد
+    const isLastStep = currentIndex === steps.length - 1;
+    const progressOffset = isLastStep ? 0 : 0.45; 
+    const progressPercentage = Math.min(100, ((Math.max(0, currentIndex) + progressOffset) / (steps.length - 1)) * 100);
 
     return (
-        <div className={`p-6 rounded-xl border mb-4 print:hidden ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-            <h4 className="text-xs font-black opacity-50 mb-6 text-center">وضعیت فعلی پرونده مکاتباتی</h4>
-            <div className="flex items-center justify-between relative">
-                <div className={`absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 z-0 ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
-                <div 
-                    className="absolute top-1/2 right-0 h-1 -translate-y-1/2 z-0 bg-blue-500 transition-all duration-700 ease-out"
-                    style={{ width: `${(Math.max(0, currentIndex) / (steps.length - 1)) * 100}%` }}
-                ></div>
+        <div className={`p-8 rounded-2xl border mb-6 print:hidden shadow-sm overflow-hidden ${isDark ? 'bg-slate-900/40 border-slate-700/60' : 'bg-white border-gray-100'}`}>
+            <h4 className={`text-[11px] font-black mb-10 text-center opacity-60 tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>مسیر گردش مکاتبات</h4>
+            
+            <div className="flex items-center justify-between relative max-w-3xl mx-auto px-4 md:px-8">
+                
+                {/* 🚀 نوار پس‌زمینه (استفاده از right-5/left-5 برای تنظیم دقیق خط از مرکز دایره‌ها) */}
+                <div className={`absolute top-1/2 right-5 left-5 md:right-6 md:left-6 h-1.5 -translate-y-1/2 rounded-full z-0 ${isDark ? 'bg-slate-800' : 'bg-gray-200'}`}>
+                    {/* نوار پیشرفت روشن */}
+                    <div 
+                        className="absolute top-0 right-0 h-full rounded-full z-0 bg-blue-500 transition-all duration-1000 ease-out"
+                        style={{ width: `${progressPercentage}%` }}
+                    ></div>
+                </div>
 
                 {steps.map((step, index) => {
                     const isCompleted = index < currentIndex;
                     const isActive = index === currentIndex;
 
-                    let bgClass = isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-300';
+                    let bgClass = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200';
                     let textClass = isDark ? 'text-gray-500' : 'text-gray-400';
-                    let iconClass = 'opacity-50 grayscale';
+                    let iconWrapperClass = isDark ? 'text-gray-600' : 'text-gray-300';
 
                     if (isCompleted) {
-                        bgClass = 'bg-blue-500 border-blue-500 shadow-lg shadow-blue-500/30';
-                        textClass = 'text-blue-600 dark:text-blue-400';
-                        iconClass = 'opacity-100 grayscale-0 text-white';
+                        bgClass = 'bg-blue-500 border-blue-500 shadow-sm';
+                        textClass = 'text-blue-600 dark:text-blue-400 font-bold';
+                        iconWrapperClass = 'text-white';
                     } else if (isActive) {
-                        bgClass = 'bg-white dark:bg-slate-800 border-4 border-blue-500 shadow-xl shadow-blue-500/40 ring-4 ring-blue-500/20';
+                        // حذف Glow و Pulse - جایگزین با یک حاشیه ضخیم و رنگ اصلی
+                        bgClass = 'bg-white dark:bg-slate-800 border-4 border-blue-500';
                         textClass = 'text-blue-600 dark:text-blue-400 font-black';
-                        iconClass = 'opacity-100 grayscale-0 scale-110';
+                        iconWrapperClass = 'text-blue-600 dark:text-blue-400';
                     }
 
                     return (
-                        <div key={step.key} className="relative z-10 flex flex-col items-center gap-2">
-                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full border-2 flex items-center justify-center text-lg md:text-xl transition-all duration-500 ${bgClass}`}>
-                                <span className={iconClass}>{step.icon}</span>
+                        <div key={step.key} className="relative z-10 flex flex-col items-center gap-3">
+                            <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-lg md:text-xl transition-all duration-700 ${isActive ? 'scale-110' : ''} ${bgClass}`}>
+                                <span className={iconWrapperClass}>{step.icon}</span>
                             </div>
-                            <span className={`text-[10px] md:text-xs font-bold transition-all duration-500 ${textClass}`}>{step.label}</span>
+                            <span className={`absolute -bottom-7 text-[10px] md:text-xs whitespace-nowrap transition-all duration-500 ${textClass}`}>
+                                {step.label}
+                            </span>
                         </div>
                     );
                 })}
@@ -563,7 +584,7 @@ const SecretariatDetailScreen = () => {
                 <span className={isDark ? "text-gray-300" : "text-gray-700"}>نامه {letter.indicator_number}</span>
             </div>
 
-            <LetterProgressStepper status={letter.status} isDark={isDark} />
+            <LetterProgressStepper status={letter.status} letterType={letter.letter_type} isDark={isDark} />
 
             <LetterInfoBanner letter={letter} isDark={isDark} translateEnum={translateEnum} getStatusStyle={getStatusStyle} />
 
