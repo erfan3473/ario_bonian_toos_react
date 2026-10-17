@@ -505,7 +505,7 @@ const SecretariatListScreen = () => {
                                                     </div>
                                                     {letter.original_number && (
                                                         <div className="flex flex-col border-t border-gray-100 dark:border-gray-700 pt-1">
-                                                            <span className="text-[9px] opacity-60 font-bold mb-0.5">روی برگه :</span>
+                                                            <span className="text-[9px] opacity-60 font-bold mb-0.5"> شماره نامه :</span>
                                                             <bdi className="text-[11px] font-mono font-bold text-right" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
                                                                 {letter.original_number}
                                                             </bdi>

@@ -35,7 +35,6 @@ const StaticDirectionalLogo = ({ type, status }) => {
         </div>
     );
 };
-
 const LetterInfoBanner = ({ letter, isDark, translateEnum, getStatusStyle }) => {
     const formatDateTimeExact = (dateString) => {
         if (!dateString) return '';
@@ -47,6 +46,31 @@ const LetterInfoBanner = ({ letter, isDark, translateEnum, getStatusStyle }) => 
     };
 
     const isDeleted = letter.status === 'DELETED';
+
+    // 🚀 تابع جادویی برای نمایش بی‌نقص شماره‌های ترکیبی
+    const renderFormattedNumber = (numStr) => {
+        if (!numStr) return null;
+        
+        // اگر شماره شامل اسلش است
+        if (numStr.includes('/')) {
+            const parts = numStr.split('/');
+            // با تنظیم dir="ltr" در Flexbox:
+            // parts[0] (یعنی حرف "ص") در سمت چپ قرار می‌گیرد
+            // parts[2] (یعنی شماره "۰۰۲") در سمت راست قرار می‌گیرد
+            return (
+                <span className="inline-flex items-center gap-[3px] font-mono text-[13px] font-black" dir="ltr">
+                    <span>{parts[0]}</span>
+                    <span className="text-gray-400 opacity-60">/</span>
+                    <span>{parts[1]}</span>
+                    <span className="text-gray-400 opacity-60">/</span>
+                    <span>{parts[2]}</span>
+                </span>
+            );
+        }
+        
+        // در غیر این صورت حالت عادی LTR اعمال می‌شود
+        return <span dir="ltr">{numStr}</span>;
+    };
 
     return (
         <div className={`p-4 md:p-5 rounded-2xl border print:hidden shadow-sm flex flex-col md:flex-row flex-wrap gap-4 ${
@@ -63,14 +87,18 @@ const LetterInfoBanner = ({ letter, isDark, translateEnum, getStatusStyle }) => 
                         : 'bg-blue-50 dark:bg-slate-900/50 border-blue-100 dark:border-slate-700/50'
                 }`}>
                     <span className={`opacity-60 text-[10px] font-bold mb-1 ${isDeleted ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>شماره سیستمی:</span>
+                    
                     <span className={`font-mono text-[11px] font-black ${letter.original_number ? 'mb-1' : ''} ${isDeleted ? 'line-through text-red-700 dark:text-red-400' : 'text-blue-700 dark:text-blue-400'}`}>
-                        {letter.indicator_number}
+                        {renderFormattedNumber(letter.indicator_number)}
                     </span>
-                    {/* 🚀 نمایش فوری شماره ثبت نهایی در صورت وجود */}
+                    
+                    {/* 🚀 نمایش شماره ثبت نهایی با حل قطعی مشکل چیدمان */}
                     {letter.original_number && (
                         <div className="w-full flex flex-col items-center border-t border-blue-200 dark:border-slate-700 pt-1 mt-1">
                             <span className="opacity-70 text-[10px] font-black text-emerald-700 dark:text-emerald-400 mb-0.5">شماره ثبت اصلی:</span>
-                            <span className="font-mono text-xs font-black text-emerald-600 dark:text-emerald-400">{letter.original_number}</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                                {renderFormattedNumber(letter.original_number)}
+                            </span>
                         </div>
                     )}
                 </div>

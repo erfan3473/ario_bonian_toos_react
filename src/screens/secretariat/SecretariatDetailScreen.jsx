@@ -140,7 +140,6 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
         );
     }
 
-    // 🚀 داینامیک شدن مراحل + تغییر نام مرحله دوم برای نامه‌های غیر صادره
     const steps = letterType === 'OUTGOING' ? [
         { key: 'PENDING', label: 'ثبت اولیه', icon: <FaEdit /> },
         { key: 'APPROVED', label: 'تایید و امضا', icon: <FaPenNib /> },
@@ -158,7 +157,6 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
         else currentIndex = 0;
     }
 
-    // 🚀 پیش‌روی خط: اگر در مرحله آخر نیستیم، خط ۴۵٪ به سمت مرحله بعدی پیش می‌رود تا واضح‌تر باشد
     const isLastStep = currentIndex === steps.length - 1;
     const progressOffset = isLastStep ? 0 : 0.45; 
     const progressPercentage = Math.min(100, ((Math.max(0, currentIndex) + progressOffset) / (steps.length - 1)) * 100);
@@ -169,9 +167,7 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
             
             <div className="flex items-center justify-between relative max-w-3xl mx-auto px-4 md:px-8">
                 
-                {/* 🚀 نوار پس‌زمینه (استفاده از right-5/left-5 برای تنظیم دقیق خط از مرکز دایره‌ها) */}
                 <div className={`absolute top-1/2 right-5 left-5 md:right-6 md:left-6 h-1.5 -translate-y-1/2 rounded-full z-0 ${isDark ? 'bg-slate-800' : 'bg-gray-200'}`}>
-                    {/* نوار پیشرفت روشن */}
                     <div 
                         className="absolute top-0 right-0 h-full rounded-full z-0 bg-blue-500 transition-all duration-1000 ease-out"
                         style={{ width: `${progressPercentage}%` }}
@@ -191,7 +187,6 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
                         textClass = 'text-blue-600 dark:text-blue-400 font-bold';
                         iconWrapperClass = 'text-white';
                     } else if (isActive) {
-                        // حذف Glow و Pulse - جایگزین با یک حاشیه ضخیم و رنگ اصلی
                         bgClass = 'bg-white dark:bg-slate-800 border-4 border-blue-500';
                         textClass = 'text-blue-600 dark:text-blue-400 font-black';
                         iconWrapperClass = 'text-blue-600 dark:text-blue-400';
@@ -263,6 +258,25 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 };
 
 const SecretariatDetailScreen = () => {
+    const renderFormattedNumber = (numStr) => {
+        if (!numStr) return null;
+        
+        if (numStr.includes('/')) {
+            const parts = numStr.split('/');
+            return (
+                <span className="inline-flex items-center gap-[3px] font-mono text-[13px] font-black" dir="ltr">
+                    <span>{parts[0]}</span>
+                    <span className="text-gray-400 opacity-60">/</span>
+                    <span>{parts[1]}</span>
+                    <span className="text-gray-400 opacity-60">/</span>
+                    <span>{parts[2]}</span>
+                </span>
+            );
+        }
+        
+        return <span dir="ltr">{numStr}</span>;
+    };
+
     const { id } = useParams();
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -532,7 +546,6 @@ const SecretariatDetailScreen = () => {
         
     const canReply = isValidReplyStatus && !isCreator && (isReceiver || isLevelZeroOrAdmin);
 
-    // 🚀 آدرس مستقیم همین نامه برای تولید QR Code
     const currentLetterUrl = typeof window !== 'undefined' 
         ? `${window.location.origin}/secretariat/${letter.id}` 
         : `http://localhost:5173/secretariat/${letter.id}`;
@@ -541,7 +554,7 @@ const SecretariatDetailScreen = () => {
         <div className="max-w-4xl mx-auto p-4 space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
             <style type="text/css">
                 {`@media print { 
-                    @page { size: A4 portrait; margin: 0; } 
+                    @page { size: A4 portrait; margin: 5mm; } 
                     body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; } 
                     .print-hidden { display: none !important; }
                     .flex-1 { display: block !important; }
@@ -718,7 +731,10 @@ const SecretariatDetailScreen = () => {
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto lg:justify-end border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-slate-700 pt-3 lg:pt-0 lg:pr-4">
                     {isLevelZeroOrAdmin && letter.status === 'PENDING' && (
                         <>
-                            <button onClick={() => handleSimpleApproval('APPROVE')} disabled={isApproving} className="flex items-center gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-2 rounded-lg font-bold transition text-xs shadow-md"><FaCheckCircle /> تایید صدور</button>
+                            {/* 🚀 تغییر متن دکمه برای نامه‌های وارده به "تایید و بایگانی" */}
+                            <button onClick={() => handleSimpleApproval('APPROVE')} disabled={isApproving} className="flex items-center gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-2 rounded-lg font-bold transition text-xs shadow-md">
+                                <FaCheckCircle /> {letter.letter_type === 'INCOMING' ? 'تایید و بایگانی' : 'تایید صدور'}
+                            </button>
                             <button onClick={() => handleSimpleApproval('REJECT')} disabled={isApproving} className="flex items-center gap-1.5 bg-rose-600 text-white hover:bg-rose-700 px-3 py-2 rounded-lg font-bold transition text-xs shadow-md"><FaTimesCircle /> رد نامه</button>
                         </>
                     )}
@@ -823,13 +839,12 @@ const SecretariatDetailScreen = () => {
             )}
 
             <div 
-                className={`p-8 md:p-10 border shadow-2xl mx-auto relative bg-white text-gray-900 flex flex-col overflow-visible print:block print:p-[1cm] print:border-none print:shadow-none print:min-h-0
+                className={`p-8 md:p-10 border shadow-2xl mx-auto relative bg-white text-gray-900 flex flex-col overflow-visible print:block print:p-0 print:border-none print:shadow-none print:min-h-0
                 ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                 style={{ width: '100%', maxWidth: '210mm', minHeight: '280mm', fontFamily: printFont }}
             >
                 <div className="flex-1 block">
                     <div className={`flex justify-between items-start pb-2 relative mt-4 md:mt-0`}>
-                        {/* ستون راست: لوگو (اگر وارده بود و لوگو نداشت، شارینگان نشان می‌دهد) */}
                         <div className={`flex flex-col items-center justify-start pt-2 w-1/3 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
                             <DraggableElement id="head-logo-img" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
                                 {letter.letter_type === 'INCOMING' ? (
@@ -850,20 +865,18 @@ const SecretariatDetailScreen = () => {
                             </DraggableElement>
                         </div>
                         
-                        {/* 🚀 ستون وسط: وسط‌چین شدن قطعی عبارت «به نام خدا» */}
                         <DraggableElement id="head-besmella" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
                             <div className="w-full flex justify-center items-center text-center">
                                 <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black text-center">به نام خدا</span>
                             </div>
                         </DraggableElement>
 
-                        {/* 🚀 ستون چپ: شماره، تاریخ، پیوست + QR Code اختصاصی لینک همین نامه در کنار آن‌ها */}
                         <div className="flex items-start justify-end gap-3 w-1/3 pt-2 md:pt-4 text-black">
                             <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold items-end space-y-2.5">
                                 {letter.original_number ? (
                                     <DraggableElement id="head-number" isEditMode={isLayoutEditMode} position={layoutPositions['head-number']} styleData={layoutStyles['head-number']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
                                         <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>شماره : </span>
-                                        <bdi className="font-mono font-bold print:text-sm">{letter.original_number}</bdi>
+                                        {renderFormattedNumber(letter.original_number)}
                                     </DraggableElement>
                                 ) : (
                                     <div className="flex items-center gap-2 text-gray-400 print:hidden"><span className="font-normal">شماره :</span><span>پس از تایید</span></div>
@@ -882,7 +895,6 @@ const SecretariatDetailScreen = () => {
                                 </DraggableElement>
                             </div>
 
-                            {/* 🚀 QR Code اختصاصی لینک مستقیم همین نامه */}
                             <DraggableElement id="head-letter-qr" isEditMode={isLayoutEditMode} position={layoutPositions['head-letter-qr']} styleData={layoutStyles['head-letter-qr']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="shrink-0">
                                 <div className="p-1 bg-white border border-gray-300 print:border-black rounded-md flex flex-col items-center justify-center shadow-sm" title={currentLetterUrl}>
                                     <QRCode
@@ -919,7 +931,6 @@ const SecretariatDetailScreen = () => {
                             <strong className="text-lg flex-1">{letter.subject}</strong>
                         </DraggableElement>
 
-                        {/* 🚀 نمایش عطف سیستمی (شماره + موضوع در لینک) و عطف دستی */}
                         {(letter.reference_letter_detail || letter.reference_number) && (
                             <DraggableElement id="body-ref" isEditMode={isLayoutEditMode} position={layoutPositions['body-ref']} styleData={layoutStyles['body-ref']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-4 w-full">
                                 <span className="w-24 opacity-80">عطف به:</span> 
@@ -967,11 +978,15 @@ const SecretariatDetailScreen = () => {
                         </DraggableElement>
                         
                         <DraggableElement id="footer-dest" isEditMode={isLayoutEditMode} position={layoutPositions['footer-dest']} styleData={layoutStyles['footer-dest']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 flex justify-center items-center relative h-32">
-                            {letter.letter_type === 'OUTGOING' && letter.destination_indicator && (
+                            {((letter.letter_type === 'OUTGOING' || letter.letter_type === 'INCOMING') && letter.destination_indicator) && (
                                 <div className="absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 px-5 py-3 rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '160px', boxShadow: 'inset 0 0 4px rgba(220,38,38,0.2)' }}>
-                                    <span className="text-sm font-black tracking-widest text-center mb-1">ثبت در مقصد</span>
+                                    <span className="text-sm font-black tracking-widest text-center mb-1">
+                                        {letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه' : 'ثبت در مقصد'}
+                                    </span>
                                     <div className="w-full border-b-[3px] border-dashed border-red-600 my-1.5 opacity-70"></div>
-                                    <span className="font-mono text-xl font-bold mt-1" dir="ltr">{letter.destination_indicator}</span>
+                                    <span className="font-mono text-xl font-bold mt-1" dir="ltr">
+                                        {renderFormattedNumber(letter.destination_indicator)}
+                                    </span>
                                     {letter.destination_date && <span className="text-[11px] font-bold mt-1">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
                                 </div>
                             )}
@@ -1038,7 +1053,6 @@ const SecretariatDetailScreen = () => {
                 )}
             </div>
 
-            {/* 🚀 نمایش شماره نامه + موضوع در باکس عطف و پاسخ‌های پایین صفحه */}
             {(letter.reference_letter_detail || (letter.replies && letter.replies.length > 0)) && (
                 <div className={`p-4 mb-6 rounded-xl border-l-4 print:hidden mt-6 ${isDark ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-500'}`}>
                     {letter.reference_letter_detail && (

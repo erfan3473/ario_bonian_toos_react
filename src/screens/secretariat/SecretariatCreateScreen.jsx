@@ -9,6 +9,35 @@ import logo from '../../assets/ario.png';
 
 const DRAFT_KEY = 'secretariat_create_draft';
 
+// 🚀 تابع تبدیل آنی اعداد انگلیسی به فارسی
+const toPersianDigits = (str) => {
+    if (!str) return '';
+    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return str.toString().replace(/[0-9]/g, x => persianDigits[x]);
+};
+
+// 🚀 تابع جادویی نمایش بی‌نقص شماره‌های ترکیبی (مشابه بخش جزئیات)
+const renderFormattedNumber = (numStr) => {
+    if (!numStr) return null;
+    if (numStr.includes('/')) {
+        const parts = numStr.split('/');
+        return (
+            <span className="inline-flex items-center gap-[3px] font-mono text-[13px] font-black" dir="ltr">
+                <span>{parts[0]}</span>
+                <span className="text-gray-400 opacity-60">/</span>
+                <span>{parts[1]}</span>
+                {parts[2] !== undefined && (
+                    <>
+                        <span className="text-gray-400 opacity-60">/</span>
+                        <span>{parts[2]}</span>
+                    </>
+                )}
+            </span>
+        );
+    }
+    return <span dir="ltr">{numStr}</span>;
+};
+
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -85,7 +114,6 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
-// 🚀 کامپوننت انتخاب چندگانه و سرچ (رونوشت‌های سیستمی)
 const MultiSelectSearchable = ({ personnel, selectedValues, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -189,20 +217,7 @@ const DirectionalLogo = ({ type, colorName }) => {
         </div>
     );
 };
-// 🚀 تابع تبدیل آنی اعداد انگلیسی به فارسی
-const toPersianDigits = (str) => {
-    if (!str) return '';
-    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    return str.toString().replace(/[0-9]/g, x => persianDigits[x]);
-};
 
-// 🚀 تولید شناسه با پیشوندهای فارسی (ص، و، د، ا) و اعداد فارسی
-    const generateIndicator = (type) => {
-        const prefix = type === 'INTERNAL' ? 'د' : type === 'INCOMING' ? 'و' : type === 'DOCUMENT' ? 'ا' : 'ص';
-        const randomCode = Math.floor(1000 + Math.random() * 9000);
-        const datePart = new Date().toLocaleDateString('fa-IR').replace(/\//g, '');
-        return toPersianDigits(`${prefix}-${datePart}-${randomCode}`);
-    };
 const SecretariatCreateScreen = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -212,7 +227,6 @@ const SecretariatCreateScreen = () => {
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { userInfo } = useSelector((state) => state.userLogin);
     
-    // 🚀 دسترسی بایگانی (شامل هیئت مدیره و مسئول دبیرخانه)
     const isBoardMember = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0);
     const canArchive = isBoardMember || Boolean(userInfo?.employee?.position?.can_archive_letters);
 
@@ -221,6 +235,8 @@ const SecretariatCreateScreen = () => {
 
     const { creating, createSuccess, error, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
     const lettersList = Array.isArray(lettersData) ? lettersData : (lettersData?.results || []);
+
+    const bossEmployee = allPersonnel?.find(emp => emp.code_meli === '54123');
 
     const [attachments, setAttachments] = useState(null);
     const [formData, setFormData] = useState({
@@ -233,12 +249,11 @@ const SecretariatCreateScreen = () => {
 
     const formalDate = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
 
-    // 🚀 تولید شناسه با پیشوند DOC برای اسناد
     const generateIndicator = (type) => {
         const prefix = type === 'INTERNAL' ? 'INT' : type === 'INCOMING' ? 'INC' : type === 'DOCUMENT' ? 'DOC' : 'OUT';
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         const datePart = new Date().toLocaleDateString('fa-IR').replace(/\//g, '');
-        return `${prefix}-${datePart}-${randomCode}`;
+        return `${prefix}-${toPersianDigits(datePart)}-${toPersianDigits(randomCode)}`;
     };
 
     useEffect(() => {
@@ -268,6 +283,12 @@ const SecretariatCreateScreen = () => {
     }, [dispatch, replyData, myEmployeeId]);
 
     useEffect(() => {
+        if (formData.letter_type === 'OUTGOING' && bossEmployee && formData.internal_sender !== String(bossEmployee.id)) {
+            setFormData(prev => ({ ...prev, internal_sender: String(bossEmployee.id) }));
+        }
+    }, [bossEmployee, formData.letter_type, formData.internal_sender]);
+
+    useEffect(() => {
         if (formData.indicator_number && !replyData) localStorage.setItem(DRAFT_KEY, JSON.stringify(formData));
     }, [formData, replyData]);
 
@@ -289,11 +310,15 @@ const SecretariatCreateScreen = () => {
     };
 
     const handleTypeChange = (newType) => {
+        let newInternalSender = '';
+        if (newType === 'INTERNAL' || newType === 'DOCUMENT') newInternalSender = myEmployeeId;
+        else if (newType === 'OUTGOING') newInternalSender = bossEmployee ? String(bossEmployee.id) : '';
+
         setFormData(prev => ({ 
             ...prev, 
             letter_type: newType, 
             indicator_number: generateIndicator(newType),
-            internal_sender: (newType === 'INTERNAL' || newType === 'DOCUMENT') ? myEmployeeId : '', 
+            internal_sender: newInternalSender, 
             external_sender: '', 
             internal_receiver: '', 
             external_receiver: '',
@@ -359,7 +384,7 @@ const SecretariatCreateScreen = () => {
                 <div className={`p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row gap-6 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-blue-50/50 border-blue-200/50'}`}>
                     <div className="flex-1">
                         <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex justify-between items-center text-blue-600 dark:text-blue-400">
-                            <span className="flex items-center gap-1"><FaHashtag /> شناسه پیگیری موقت</span>
+                            <span className="flex items-center gap-1"><FaHashtag /> شناسه پیگیری موقت (سیستمی)</span>
                             <button type="button" onClick={() => setFormData(prev => ({ ...prev, indicator_number: generateIndicator(formData.letter_type) }))} className="text-blue-500 hover:text-blue-700 flex items-center gap-1 transition bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded">
                                 <FaMagic /> <span className="hidden sm:inline">تولید مجدد</span>
                             </button>
@@ -367,13 +392,15 @@ const SecretariatCreateScreen = () => {
                         <input type="text" dir="ltr" className={`${inputClass} font-mono font-black text-left bg-white/50 dark:bg-gray-900/50 cursor-not-allowed border-blue-200 dark:border-blue-900/50 text-blue-800 dark:text-blue-300 tracking-widest`} value={formData.indicator_number} readOnly />
                     </div>
 
-                    {(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') && (
+                    {(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT' || formData.letter_type === 'OUTGOING') && (
                         <div className="flex-1 border-t md:border-t-0 md:border-r border-blue-200/50 dark:border-slate-700 pt-3 md:pt-0 md:pr-6 flex flex-col justify-center">
                             <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                                <FaUserEdit /> ثبت‌کننده / فرستنده (شما)
+                                <FaUserEdit /> {formData.letter_type === 'OUTGOING' ? 'فرستنده (شرکت)' : 'ثبت‌کننده / فرستنده (شما)'}
                             </label>
                             <div className={`p-2 rounded-lg text-center font-bold text-xs border bg-white/50 dark:bg-gray-900/50 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-800'}`}>
-                                {myName}
+                                {formData.letter_type === 'OUTGOING' 
+                                    ? (bossEmployee ? `${bossEmployee.name} (${bossEmployee.position_title || 'مدیریت'})` : 'نامشخص (در حال دریافت...)') 
+                                    : myName}
                             </div>
                         </div>
                     )}
@@ -388,7 +415,6 @@ const SecretariatCreateScreen = () => {
                     </div>
                 </div>
 
-                {/* باکس ماهیت و دسترسی */}
                 <div className="flex flex-col shadow-sm rounded-xl">
                     <div className={`h-1.5 w-full rounded-t-xl transition-all duration-500 ${
                         formData.letter_type === 'INCOMING' ? 'bg-gradient-to-r from-green-400 to-green-600' :
@@ -436,29 +462,30 @@ const SecretariatCreateScreen = () => {
                             </div>
                         </div>
 
+                        {/* 🚀 اضافه کردن فیلد شماره چاپی دستی (original_number) با پیش‌نمایش هوشمند */}
                         {canArchive && (
-                            <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800' : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'}`}>
-                                <div className="md:col-span-4 border-b border-black/10 dark:border-white/10 pb-1 mb-1">
-                                    <h4 className="text-[11px] font-bold opacity-80">مدیریت بایگانی فیزیکی</h4>
-                                </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-3 rounded-lg border bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800">
                                 <div>
-                                    <label className="block mb-1 text-[10px] font-bold opacity-80">شماره چاپی دستی</label>
-                                    <input type="text" dir="rtl" placeholder="مثلاً ۱۴۰۵/۱۲۴/م" className={`${inputClass} text-right font-mono text-xs`} value={formData.original_number} onChange={(e) => setFormData({ ...formData, original_number: e.target.value })} />
+                                    <label className="block mb-1 text-[10px] font-bold opacity-80 flex justify-between items-center text-emerald-700 dark:text-emerald-400">
+                                        <span>شماره چاپی دستی / ثبت اصلی</span>
+                                        {formData.original_number && (
+                                            <span className="bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-700">
+                                                پیش‌نمایش: {renderFormattedNumber(formData.original_number)}
+                                            </span>
+                                        )}
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        dir="rtl" 
+                                        placeholder="مثلاً ۱۴۰۵/۱۲۴/م" 
+                                        className={`${inputClass} text-right font-mono text-xs`} 
+                                        value={formData.original_number} 
+                                        onChange={(e) => setFormData({ ...formData, original_number: toPersianDigits(e.target.value) })} 
+                                    />
                                 </div>
                                 <div className="relative">
                                     <JalaliDatePicker name="original_date" label="تاریخ نامه کاغذی" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} placeholder="انتخاب تاریخ" />
                                 </div>
-                                {formData.letter_type === 'OUTGOING' && (
-                                    <>
-                                        <div>
-                                            <label className="block mb-1 text-[10px] font-bold opacity-80 text-indigo-700 dark:text-indigo-400">شماره دریافت در مقصد</label>
-                                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700 text-xs`} value={formData.destination_indicator} onChange={(e) => setFormData({ ...formData, destination_indicator: e.target.value })} />
-                                        </div>
-                                        <div className="relative">
-                                            <JalaliDatePicker name="destination_date" label="تاریخ تحویل به مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} placeholder="انتخاب تاریخ" />
-                                        </div>
-                                    </>
-                                )}
                             </div>
                         )}
                     </div>
@@ -473,28 +500,26 @@ const SecretariatCreateScreen = () => {
                     <h3 className="font-bold text-sm mb-3 border-b border-gray-200 dark:border-gray-700 pb-2 opacity-80">ارتباطات و موضوع</h3>
                     <datalist id="org-list">{organizations?.map(org => (<option key={org.id} value={org.name} />))}</datalist>
 
-                    <div className={`grid grid-cols-1 ${(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-4 mb-4`}>
-                        {formData.letter_type !== 'INTERNAL' && formData.letter_type !== 'DOCUMENT' && (
-                            <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'INCOMING' ? 'bg-white dark:bg-gray-800 shadow-sm border-green-300' : 'bg-black/5 border-transparent'}`}>
-                                <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'INCOMING' ? 'text-green-600' : 'text-blue-600'}`}>اطلاعات مبدأ (فرستنده)</span>
-                                {formData.letter_type === 'INCOMING' ? (
-                                    <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_sender} onChange={(e) => setFormData({ ...formData, external_sender: e.target.value })} />
-                                ) : (
-                                    <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_sender} onChange={(val) => setFormData({ ...formData, internal_sender: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
-                                )}
+                    <div className={`grid grid-cols-1 ${formData.letter_type === 'INCOMING' ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 mb-4`}>
+                        {formData.letter_type === 'INCOMING' && (
+                            <div className="space-y-2 p-3 rounded-lg border bg-white dark:bg-gray-800 shadow-sm border-green-300">
+                                <span className="text-[11px] font-bold opacity-80 block text-green-600">اطلاعات مبدأ (فرستنده خارجی)</span>
+                                <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_sender} onChange={(e) => setFormData({ ...formData, external_sender: e.target.value })} />
                             </div>
                         )}
 
-                        <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-white dark:bg-gray-800 shadow-sm border-orange-300' : 'bg-black/5 border-transparent'}`}>
-                            <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'OUTGOING' ? 'text-orange-600' : 'text-indigo-600'}`}>
-                                {formData.letter_type === 'DOCUMENT' ? 'مخاطب / مرتبط با (اختیاری)' : 'اطلاعات مقصد (گیرنده)'}
-                            </span>
-                            {formData.letter_type === 'OUTGOING' ? (
-                                <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
-                            ) : (
-                                <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_receiver} onChange={(val) => setFormData({ ...formData, internal_receiver: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
-                            )}
-                        </div>
+                        {(formData.letter_type === 'OUTGOING' || formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') && (
+                            <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-white dark:bg-gray-800 shadow-sm border-orange-300' : 'bg-black/5 border-transparent'}`}>
+                                <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'OUTGOING' ? 'text-orange-600' : 'text-indigo-600'}`}>
+                                    {formData.letter_type === 'DOCUMENT' ? 'مخاطب / مرتبط با (اختیاری)' : 'اطلاعات مقصد (گیرنده)'}
+                                </span>
+                                {formData.letter_type === 'OUTGOING' ? (
+                                    <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
+                                ) : (
+                                    <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_receiver} onChange={(val) => setFormData({ ...formData, internal_receiver: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -526,11 +551,11 @@ const SecretariatCreateScreen = () => {
                         </div>
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">عطف به (شماره دستی)</label>
-                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })} />
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: toPersianDigits(e.target.value) })} />
                         </div>
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">شماره قرارداد مرتبط</label>
-                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })} />
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: toPersianDigits(e.target.value) })} />
                         </div>
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">پیوست (متن روی سربرگ)</label>

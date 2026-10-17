@@ -7,6 +7,35 @@ import { FaChevronLeft, FaChevronDown, FaExclamationTriangle, FaCalendarAlt, FaU
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import logo from '../../assets/ario.png';
 
+// 🚀 تابع تبدیل آنی اعداد انگلیسی به فارسی
+const toPersianDigits = (str) => {
+    if (!str) return '';
+    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return str.toString().replace(/[0-9]/g, x => persianDigits[x]);
+};
+
+// 🚀 تابع جادویی نمایش بی‌نقص شماره‌های ترکیبی (مشابه بخش جزئیات)
+const renderFormattedNumber = (numStr) => {
+    if (!numStr) return null;
+    if (numStr.includes('/')) {
+        const parts = numStr.split('/');
+        return (
+            <span className="inline-flex items-center gap-[3px] font-mono text-[13px] font-black" dir="ltr">
+                <span>{parts[0]}</span>
+                <span className="text-gray-400 opacity-60">/</span>
+                <span>{parts[1]}</span>
+                {parts[2] !== undefined && (
+                    <>
+                        <span className="text-gray-400 opacity-60">/</span>
+                        <span>{parts[2]}</span>
+                    </>
+                )}
+            </span>
+        );
+    }
+    return <span dir="ltr">{numStr}</span>;
+};
+
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -57,7 +86,6 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
-// 🚀 کامپوننت انتخاب چندگانه و سرچ (رونوشت‌های سیستمی)
 const MultiSelectSearchable = ({ personnel, selectedValues, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -178,10 +206,11 @@ const SecretariatEditScreen = () => {
     const { activeLetter, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
     const lettersList = Array.isArray(lettersData) ? lettersData : (lettersData?.results || []);
 
-    // 🚀 تفکیک دقیق دسترسی هیئت مدیره و مسئول بایگانی (هم از userInfo و هم از سریالایزر بک‌اند)
     const isBoardMember = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0) || Boolean(activeLetter?.can_approve);
     const canArchive = isBoardMember || Boolean(userInfo?.employee?.position?.can_archive_letters) || Boolean(activeLetter?.can_manage_secretariat);
     const myEmployeeId = userInfo?.employee?.id ? String(userInfo.employee.id) : '';
+
+    const bossEmployee = allPersonnel?.find(emp => emp.code_meli === '54123');
 
     const [updating, setUpdating] = useState(false);
     
@@ -203,7 +232,6 @@ const SecretariatEditScreen = () => {
 
     useEffect(() => {
         if (activeLetter && String(activeLetter.id) === String(id)) {
-            // استخراج ایمن آیدی‌های رونوشت (چه عدد باشند چه آبجکت)
             const normalizedCC = Array.isArray(activeLetter.internal_cc_receivers)
                 ? activeLetter.internal_cc_receivers.map(item => (typeof item === 'object' && item !== null ? String(item.id) : String(item)))
                 : [];
@@ -241,11 +269,21 @@ const SecretariatEditScreen = () => {
         }
     }, [activeLetter, id, myEmployeeId]);
 
+    useEffect(() => {
+        if (formData.letter_type === 'OUTGOING' && bossEmployee && formData.internal_sender !== String(bossEmployee.id)) {
+            setFormData(prev => ({ ...prev, internal_sender: String(bossEmployee.id) }));
+        }
+    }, [bossEmployee, formData.letter_type, formData.internal_sender]);
+
     const handleTypeChange = (newType) => {
+        let newInternalSender = '';
+        if (newType === 'INTERNAL' || newType === 'DOCUMENT') newInternalSender = formData.internal_sender || myEmployeeId;
+        else if (newType === 'OUTGOING') newInternalSender = bossEmployee ? String(bossEmployee.id) : '';
+
         setFormData(prev => ({ 
             ...prev, 
             letter_type: newType,
-            internal_sender: (newType === 'INTERNAL' || newType === 'DOCUMENT') ? (prev.internal_sender || myEmployeeId) : '', 
+            internal_sender: newInternalSender, 
             external_sender: '', 
             internal_receiver: '', 
             external_receiver: '',
@@ -282,7 +320,6 @@ const SecretariatEditScreen = () => {
         Object.keys(formData).forEach(key => {
             if (Array.isArray(formData[key])) {
                 if (formData[key].length === 0) {
-                    // 🚀 ارسال رشته خالی وقتی تمام رونوشت‌ها حذف شده‌اند تا بک‌اند لیست را پاک کند
                     fd.append(key, '');
                 } else {
                     formData[key].forEach(val => fd.append(key, val));
@@ -353,18 +390,20 @@ const SecretariatEditScreen = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
                 
                 <div className={`p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row gap-6 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-blue-50/50 border-blue-200/50'}`}>
-                    {(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') && (
+                    {(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT' || formData.letter_type === 'OUTGOING') && (
                         <div className="flex-1 flex flex-col justify-center">
                             <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                                <FaUserEdit /> فرستنده / ثبت‌کننده
+                                <FaUserEdit /> {formData.letter_type === 'OUTGOING' ? 'فرستنده (رسمی شرکت)' : 'فرستنده / ثبت‌کننده'}
                             </label>
                             <div className={`p-2 rounded-lg text-center font-bold text-xs border bg-white/50 dark:bg-gray-900/50 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-800'}`}>
-                                {activeLetter?.internal_sender_name || activeLetter?.created_by_name || 'نامشخص'}
+                                {formData.letter_type === 'OUTGOING' 
+                                    ? (bossEmployee ? `${bossEmployee.name} (${bossEmployee.position_title || 'مدیریت'})` : 'نامشخص (در حال دریافت...)') 
+                                    : (activeLetter?.internal_sender_name || activeLetter?.created_by_name || 'نامشخص')}
                             </div>
                         </div>
                     )}
                     
-                    <div className={`flex-1 ${(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') ? 'border-t md:border-t-0 md:border-r border-blue-200/50 dark:border-slate-700 pt-3 md:pt-0 md:pr-4' : ''} flex flex-col justify-center`}>
+                    <div className={`flex-1 ${(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT' || formData.letter_type === 'OUTGOING') ? 'border-t md:border-t-0 md:border-r border-blue-200/50 dark:border-slate-700 pt-3 md:pt-0 md:pr-4' : ''} flex flex-col justify-center`}>
                         <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex items-center gap-1 text-gray-700 dark:text-gray-300">
                             <FaCalendarAlt /> تاریخ ثبت اولیه
                         </label>
@@ -403,7 +442,6 @@ const SecretariatEditScreen = () => {
                                 </div>
                             </div>
 
-                            {/* 🚀 تغییر مهم: فقط مدیریت می‌تواند این بخش را ببیند */}
                             {isBoardMember && (
                                 <div className="flex flex-col gap-2">
                                     <label className="block text-xs font-black opacity-80 text-rose-600 flex justify-between">
@@ -412,8 +450,6 @@ const SecretariatEditScreen = () => {
                                             <span className="text-orange-500 flex items-center gap-1 text-[9px]"><FaExclamationTriangle/> بازگشت وضعیت</span>
                                         )}
                                     </label>
-                                    
-                                    {/* 🚀 ساده‌سازی آپشن‌ها چون فقط مدیر آن‌ها را می‌بیند */}
                                     <select className={`${inputClass} font-bold py-2.5 bg-rose-50 border-rose-200 dark:bg-rose-900/10 dark:border-rose-800/50`} value={formData.status} onChange={handleStatusChange}>
                                         <option value="PENDING">در انتظار تایید</option>
                                         <option value="APPROVED">تایید شده (آماده صدور)</option>
@@ -462,8 +498,15 @@ const SecretariatEditScreen = () => {
                                     <h4 className="text-[11px] font-bold opacity-80">مدیریت بایگانی فیزیکی</h4>
                                 </div>
                                 <div>
-                                    <label className="block mb-1 text-[10px] font-bold opacity-80">شماره چاپی دستی</label>
-                                    <input type="text" dir="rtl" placeholder="مثلاً ۱۴۰۵/۱۲۴/م" className={`${inputClass} text-right font-mono text-xs`} value={formData.original_number} onChange={(e) => setFormData({ ...formData, original_number: e.target.value })} />
+                                    <label className="block mb-1 text-[10px] font-bold opacity-80 flex justify-between items-center">
+                                        <span>شماره چاپی دستی</span>
+                                        {formData.original_number && (
+                                            <span className="text-blue-600 dark:text-blue-400">
+                                                پیش‌نمایش: {renderFormattedNumber(formData.original_number)}
+                                            </span>
+                                        )}
+                                    </label>
+                                    <input type="text" dir="rtl" placeholder="مثلاً ۱۴۰۵/۱۲۴/م" className={`${inputClass} text-right font-mono text-xs`} value={formData.original_number} onChange={(e) => setFormData({ ...formData, original_number: toPersianDigits(e.target.value) })} />
                                 </div>
                                 <div className="relative">
                                     <JalaliDatePicker name="original_date" label="تاریخ نامه کاغذی" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} placeholder="انتخاب تاریخ" />
@@ -472,7 +515,7 @@ const SecretariatEditScreen = () => {
                                     <>
                                         <div>
                                             <label className="block mb-1 text-[10px] font-bold opacity-80 text-indigo-700 dark:text-indigo-400">شماره دریافت در مقصد</label>
-                                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700 text-xs`} value={formData.destination_indicator} onChange={(e) => setFormData({ ...formData, destination_indicator: e.target.value })} />
+                                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700 text-xs`} value={formData.destination_indicator} onChange={(e) => setFormData({ ...formData, destination_indicator: toPersianDigits(e.target.value) })} />
                                         </div>
                                         <div className="relative">
                                             <JalaliDatePicker name="destination_date" label="تاریخ تحویل به مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} placeholder="انتخاب تاریخ" />
@@ -493,41 +536,39 @@ const SecretariatEditScreen = () => {
                     <h3 className="font-bold text-sm mb-3 border-b border-gray-200 dark:border-gray-700 pb-2 opacity-80">ارتباطات و موضوع</h3>
                     <datalist id="org-list">{organizations?.map(org => (<option key={org.id} value={org.name} />))}</datalist>
 
-                    <div className={`grid grid-cols-1 ${(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-4 mb-4`}>
-                        {formData.letter_type !== 'INTERNAL' && formData.letter_type !== 'DOCUMENT' && (
-                            <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'INCOMING' ? 'bg-white dark:bg-gray-800 shadow-sm border-green-300' : 'bg-black/5 border-transparent'}`}>
-                                <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'INCOMING' ? 'text-green-600' : 'text-blue-600'}`}>اطلاعات مبدأ (فرستنده)</span>
-                                {formData.letter_type === 'INCOMING' ? (
-                                    <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_sender} onChange={(e) => setFormData({ ...formData, external_sender: e.target.value })} />
-                                ) : (
-                                    <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_sender} onChange={(val) => setFormData({ ...formData, internal_sender: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
-                                )}
+                    <div className={`grid grid-cols-1 ${formData.letter_type === 'INCOMING' ? 'md:grid-cols-2' : 'md:grid-cols-1'} gap-4 mb-4`}>
+                        {formData.letter_type === 'INCOMING' && (
+                            <div className="space-y-2 p-3 rounded-lg border bg-white dark:bg-gray-800 shadow-sm border-green-300">
+                                <span className="text-[11px] font-bold opacity-80 block text-green-600">اطلاعات مبدأ (فرستنده خارجی)</span>
+                                <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_sender} onChange={(e) => setFormData({ ...formData, external_sender: e.target.value })} />
                             </div>
                         )}
 
-                        <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-white dark:bg-gray-800 shadow-sm border-orange-300' : 'bg-black/5 border-transparent'}`}>
-                            <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'OUTGOING' ? 'text-orange-600' : 'text-indigo-600'}`}>
-                                {formData.letter_type === 'DOCUMENT' ? 'مخاطب / مرتبط با (اختیاری)' : 'اطلاعات مقصد (گیرنده)'}
-                            </span>
-                            {formData.letter_type === 'OUTGOING' ? (
-                                <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
-                            ) : (
-                                <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_receiver} onChange={(val) => setFormData({ ...formData, internal_receiver: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
-                            )}
-                        </div>
+                        {(formData.letter_type === 'OUTGOING' || formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') && (
+                            <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-white dark:bg-gray-800 shadow-sm border-orange-300' : 'bg-black/5 border-transparent'}`}>
+                                <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'OUTGOING' ? 'text-orange-600' : 'text-indigo-600'}`}>
+                                    {formData.letter_type === 'DOCUMENT' ? 'مخاطب / مرتبط با (اختیاری)' : 'اطلاعات مقصد (گیرنده)'}
+                                </span>
+                                {formData.letter_type === 'OUTGOING' ? (
+                                    <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
+                                ) : (
+                                    <SearchablePersonnelSelect personnel={allPersonnel} value={formData.internal_receiver} onChange={(val) => setFormData({ ...formData, internal_receiver: val })} placeholder="انتخاب پرسنل..." isDark={isDark} />
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                         <div>
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">عنوان و سمت گیرنده ( دپارتمان یا سازمان )</label>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">سمت و عناوین گیرنده</label>
                             <textarea rows="1" className={inputClass} value={formData.manual_receiver_name} onChange={(e) => setFormData({ ...formData, manual_receiver_name: e.target.value })}></textarea>
                         </div>
                         <div>
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">اسم ذکر شده در محل امضا</label>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">نام نوشته شده در محل امضا</label>
                             <textarea rows="1" className={inputClass} value={formData.manual_sender_name} onChange={(e) => setFormData({ ...formData, manual_sender_name: e.target.value })}></textarea>
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">اسامی اشخاص گیرنده</label>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">اشخاص گیرنده اسامی</label>
                             <textarea rows="1" className={inputClass} value={formData.receiver_persons} onChange={(e) => setFormData({ ...formData, receiver_persons: e.target.value })}></textarea>
                         </div>
                     </div>
@@ -550,14 +591,14 @@ const SecretariatEditScreen = () => {
                         </div>
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">عطف به (شماره دستی)</label>
-                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })} />
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: toPersianDigits(e.target.value) })} />
                         </div>
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">شماره قرارداد مرتبط</label>
-                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })} />
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: toPersianDigits(e.target.value) })} />
                         </div>
                         <div>
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">پیوست (متن)</label>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">پیوست (متن روی سربرگ)</label>
                             <input type="text" className={inputClass} value={formData.attachment_note} onChange={(e) => setFormData({ ...formData, attachment_note: e.target.value })} />
                         </div>
                     </div>
