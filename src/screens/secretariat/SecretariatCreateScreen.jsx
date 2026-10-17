@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { createLetter, clearCreateSuccess, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import { FaMagic, FaTrashAlt, FaChevronDown, FaChevronLeft, FaCalendarAlt, FaHashtag, FaUserEdit } from 'react-icons/fa';
+import { FaMagic, FaTrashAlt, FaChevronDown, FaChevronLeft, FaCalendarAlt, FaHashtag, FaUserEdit, FaTimes } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import logo from '../../assets/ario.png';
 
@@ -16,7 +16,7 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 
     useEffect(() => {
         if (value) {
-            const selected = personnel.find(p => String(p.id) === String(value));
+            const selected = personnel?.find(p => String(p.id) === String(value));
             if (selected) setSearchTerm(`${selected.name} - ${selected.position_title || 'بدون سمت'}`);
         } else {
             setSearchTerm('');
@@ -31,10 +31,10 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = personnel.filter(p => 
+    const filtered = personnel?.filter(p => 
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    ) || [];
 
     const inputClass = `w-full p-2 text-sm rounded-lg border focus:ring-2 focus:outline-none transition ${isDark ? 'bg-gray-800 border-gray-700 text-white focus:ring-blue-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-blue-400'}`;
 
@@ -85,25 +85,99 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
+// 🚀 کامپوننت انتخاب چندگانه و سرچ (رونوشت‌های سیستمی)
+const MultiSelectSearchable = ({ personnel, selectedValues, onChange, placeholder, isDark }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const filtered = personnel?.filter(p => 
+        !selectedValues.includes(String(p.id)) &&
+        (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+         (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase())))
+    ) || [];
+
+    const handleSelect = (empId) => {
+        onChange([...selectedValues, String(empId)]);
+        setSearchTerm('');
+    };
+
+    const handleRemove = (empId, e) => {
+        e.stopPropagation();
+        onChange(selectedValues.filter(id => id !== String(empId)));
+    };
+
+    const inputClass = `w-full min-h-[42px] p-1.5 flex flex-wrap gap-1.5 items-center rounded-lg border focus-within:ring-2 transition cursor-text ${isDark ? 'bg-gray-800 border-gray-700 focus-within:ring-blue-500' : 'bg-white border-gray-300 focus-within:ring-blue-400'}`;
+
+    return (
+        <div className="relative w-full" ref={wrapperRef}>
+            <div className={inputClass} onClick={() => setIsOpen(true)}>
+                {selectedValues.map(val => {
+                    const emp = personnel?.find(p => String(p.id) === String(val));
+                    if (!emp) return null;
+                    return (
+                        <span key={val} className="flex items-center gap-1.5 px-2 py-1 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 text-xs font-bold border border-blue-200 dark:border-blue-800">
+                            {emp.name}
+                            <FaTimes className="cursor-pointer opacity-70 hover:opacity-100" onClick={(e) => handleRemove(val, e)} />
+                        </span>
+                    );
+                })}
+                
+                <input 
+                    type="text" 
+                    className={`flex-1 min-w-[120px] outline-none bg-transparent text-sm p-1 ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`} 
+                    placeholder={selectedValues.length === 0 ? placeholder : 'جستجوی بیشتر...'} 
+                    value={searchTerm} 
+                    onChange={(e) => { setSearchTerm(e.target.value); setIsOpen(true); }} 
+                    onFocus={() => setIsOpen(true)} 
+                />
+                <FaChevronDown className="absolute left-3 top-3.5 text-gray-400 pointer-events-none text-xs" />
+            </div>
+            
+            {isOpen && (
+                <ul className={`absolute z-10 w-full mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
+                    {filtered.map(emp => (
+                        <li key={emp.id} className={`p-2 cursor-pointer text-sm border-b ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`} onClick={() => handleSelect(emp.id)}>
+                            <div className="font-bold">{emp.name}</div>
+                            <div className="text-[10px] opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
+                        </li>
+                    ))}
+                    {filtered.length === 0 && (<li className="p-3 text-sm opacity-50 text-center font-bold">موردی یافت نشد یا انتخاب شده است</li>)}
+                </ul>
+            )}
+        </div>
+    );
+};
+
 const DirectionalLogo = ({ type, colorName }) => {
     const isOutward = type === 'OUTGOING';
     const isInternal = type === 'INTERNAL';
+    const isDocument = type === 'DOCUMENT';
 
     const colorMaps = {
         green: { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' },
         orange: { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' },
         purple: { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' },
+        slate: { bg: 'bg-slate-100 dark:bg-slate-900/40', border: 'border-slate-500', text: 'text-slate-600 dark:text-slate-400' },
     };
     const theme = colorMaps[colorName] || colorMaps.purple;
 
     return (
         <div className={`relative w-16 h-16 shrink-0 flex items-center justify-center rounded-2xl shadow-sm border-2 transition-all duration-500 ${theme.bg} ${theme.border}`}>
             <img src={logo} alt="لوگو" className="w-10 h-10 object-contain z-10 relative" />
-            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : 'rotate-0'}`}>
+            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : isDocument ? 'rotate-180' : 'rotate-0'}`}>
                 {[0, 90, 180, 270].map((rotation, i) => (
                     <div key={i} className="absolute inset-0 flex items-start justify-center" style={{ transform: `rotate(${rotation}deg)` }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-3 ${!isInternal && !isOutward ? 'rotate-180' : 'rotate-0'}`}>
-                            {isInternal ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-3 ${!isInternal && !isOutward && !isDocument ? 'rotate-180' : 'rotate-0'}`}>
+                            {isInternal || isDocument ? (
                                 <><path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></>
                             ) : (
                                 <><path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /><path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" /></>
@@ -124,9 +198,11 @@ const SecretariatCreateScreen = () => {
 
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { userInfo } = useSelector((state) => state.userLogin);
-    const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0);
+    
+    // 🚀 دسترسی بایگانی (شامل هیئت مدیره و مسئول دبیرخانه)
+    const isBoardMember = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0);
+    const canArchive = isBoardMember || Boolean(userInfo?.employee?.position?.can_archive_letters);
 
-    // 🚀 واکشی اطلاعات پرسنلی شخص لاگین شده
     const myEmployeeId = userInfo?.employee?.id ? String(userInfo.employee.id) : '';
     const myName = userInfo?.employee?.name || (userInfo?.first_name ? `${userInfo.first_name} ${userInfo.last_name}` : userInfo?.username || 'شما');
 
@@ -139,13 +215,14 @@ const SecretariatCreateScreen = () => {
         destination_indicator: '', destination_date: '', internal_sender: '', external_sender: '', internal_receiver: '',
         external_receiver: '', receiver_persons: '', manual_sender_name: '', manual_receiver_name: '', 
         urgency: 'NORMAL', confidentiality: 'NORMAL', has_physical_copy: true, physical_archive_location: '',
-        attachment_note: '', contract_number: '', reference_number: '', reference_letter: '', cc_text: '', internal_cc_receivers: [], 
+        attachment_note: '', contract_number: '', reference_number: '', reference_letter: '', cc_text: '', internal_cc_receivers: [], body: ''
     });
 
     const formalDate = new Intl.DateTimeFormat('fa-IR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date());
 
+    // 🚀 تولید شناسه با پیشوند DOC برای اسناد
     const generateIndicator = (type) => {
-        const prefix = type === 'INTERNAL' ? 'INT' : type === 'INCOMING' ? 'INC' : 'OUT';
+        const prefix = type === 'INTERNAL' ? 'INT' : type === 'INCOMING' ? 'INC' : type === 'DOCUMENT' ? 'DOC' : 'OUT';
         const randomCode = Math.floor(1000 + Math.random() * 9000);
         const datePart = new Date().toLocaleDateString('fa-IR').replace(/\//g, '');
         return `${prefix}-${datePart}-${randomCode}`;
@@ -167,9 +244,9 @@ const SecretariatCreateScreen = () => {
             if (savedDraft) {
                 try {
                     const parsedDraft = JSON.parse(savedDraft);
-                    // در صورت داخلی بودن حتما فرستنده را به شخص جاری تغییر می‌دهیم
-                    if (parsedDraft.letter_type === 'INTERNAL') parsedDraft.internal_sender = myEmployeeId;
-                    
+                    if (parsedDraft.letter_type === 'INTERNAL' || parsedDraft.letter_type === 'DOCUMENT') {
+                        parsedDraft.internal_sender = myEmployeeId;
+                    }
                     setFormData({ ...parsedDraft, indicator_number: generateIndicator(parsedDraft.letter_type || 'INTERNAL') });
                     toast('فرم ناتمام قبلی بازیابی شد', { icon: '♻', duration: 3000 });
                 } catch (err) { setFormData(prev => ({ ...prev, indicator_number: generateIndicator('INTERNAL'), internal_sender: myEmployeeId })); }
@@ -198,24 +275,18 @@ const SecretariatCreateScreen = () => {
         }
     };
 
-    // 🚀 تغییر منطق: تنظیم اتوماتیک فرستنده به خود شخص برای نامه داخلی
     const handleTypeChange = (newType) => {
         setFormData(prev => ({ 
             ...prev, 
             letter_type: newType, 
             indicator_number: generateIndicator(newType),
-            internal_sender: newType === 'INTERNAL' ? myEmployeeId : '', 
+            internal_sender: (newType === 'INTERNAL' || newType === 'DOCUMENT') ? myEmployeeId : '', 
             external_sender: '', 
             internal_receiver: '', 
             external_receiver: '',
             destination_indicator: newType !== 'OUTGOING' ? '' : prev.destination_indicator,
             destination_date: newType !== 'OUTGOING' ? '' : prev.destination_date
         }));
-    };
-
-    const handleMultiSelectChange = (e) => {
-        const values = Array.from(e.target.selectedOptions, option => option.value);
-        setFormData({ ...formData, internal_cc_receivers: values });
     };
 
     const handleSubmit = (e) => {
@@ -242,7 +313,8 @@ const SecretariatCreateScreen = () => {
     const typeConfigs = {
         'INCOMING': { color: 'green', text: 'وارده' },
         'OUTGOING': { color: 'orange', text: 'صادره' },
-        'INTERNAL': { color: 'purple', text: 'داخلی' }
+        'INTERNAL': { color: 'purple', text: 'داخلی' },
+        'DOCUMENT': { color: 'slate', text: 'سند / مدرک' }
     };
     const currentTypeConfig = typeConfigs[formData.letter_type] || typeConfigs['INTERNAL'];
 
@@ -257,7 +329,7 @@ const SecretariatCreateScreen = () => {
             <div className="flex flex-col items-center justify-center relative mb-5 mt-1">
                 <DirectionalLogo type={formData.letter_type} colorName={currentTypeConfig.color} />
                 <h2 className={`text-xl mt-3 font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                    {replyData ? 'ثبت پاسخ نامه' : `ثبت مکاتبه ${currentTypeConfig.text}`}
+                    {replyData ? 'ثبت پاسخ نامه' : `ثبت مکاتبه (${currentTypeConfig.text})`}
                 </h2>
                 <button 
                     type="button" 
@@ -271,7 +343,6 @@ const SecretariatCreateScreen = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
                 
-                {/* 🚀 اطلاعات سیستمی و ثابت (شماره، تاریخ، فرستنده داخلی) */}
                 <div className={`p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row gap-6 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-blue-50/50 border-blue-200/50'}`}>
                     <div className="flex-1">
                         <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex justify-between items-center text-blue-600 dark:text-blue-400">
@@ -283,11 +354,10 @@ const SecretariatCreateScreen = () => {
                         <input type="text" dir="ltr" className={`${inputClass} font-mono font-black text-left bg-white/50 dark:bg-gray-900/50 cursor-not-allowed border-blue-200 dark:border-blue-900/50 text-blue-800 dark:text-blue-300 tracking-widest`} value={formData.indicator_number} readOnly />
                     </div>
 
-                    {/* 🚀 فیلد ثابت اطلاعات فرستنده (فقط برای نامه داخلی نمایش داده می‌شود) */}
-                    {formData.letter_type === 'INTERNAL' && (
+                    {(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') && (
                         <div className="flex-1 border-t md:border-t-0 md:border-r border-blue-200/50 dark:border-slate-700 pt-3 md:pt-0 md:pr-6 flex flex-col justify-center">
                             <label className="block mb-1.5 text-[11px] font-bold opacity-80 flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                                <FaUserEdit /> فرستنده (شما)
+                                <FaUserEdit /> ثبت‌کننده / فرستنده (شما)
                             </label>
                             <div className={`p-2 rounded-lg text-center font-bold text-xs border bg-white/50 dark:bg-gray-900/50 ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-800'}`}>
                                 {myName}
@@ -307,13 +377,18 @@ const SecretariatCreateScreen = () => {
 
                 {/* باکس ماهیت و دسترسی */}
                 <div className="flex flex-col shadow-sm rounded-xl">
-                    <div className={`h-1.5 w-full rounded-t-xl transition-all duration-500 bg-gradient-to-r from-${currentTypeConfig.color}-400 to-${currentTypeConfig.color}-600`} />
+                    <div className={`h-1.5 w-full rounded-t-xl transition-all duration-500 ${
+                        formData.letter_type === 'INCOMING' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                        formData.letter_type === 'OUTGOING' ? 'bg-gradient-to-r from-orange-400 to-orange-600' :
+                        formData.letter_type === 'DOCUMENT' ? 'bg-gradient-to-r from-slate-400 to-slate-600' :
+                        'bg-gradient-to-r from-purple-400 to-purple-600'
+                    }`} />
                     <div className={`p-4 rounded-b-xl border border-t-0 ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
                         <h3 className="font-bold text-sm mb-3 border-b border-gray-200 dark:border-gray-700 pb-2 opacity-80">ماهیت و دسترسی</h3>
                         
                         <div className="mb-4">
                             <label className="block mb-2 text-xs font-black opacity-80 text-center md:text-right">نوع مکاتبه (ماهیت)</label>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                 <button type="button" onClick={() => handleTypeChange('INTERNAL')} className={`py-2 rounded-lg font-bold text-xs transition-all duration-300 border-2 flex items-center justify-center gap-1.5 ${formData.letter_type === 'INTERNAL' ? 'bg-purple-100 border-purple-500 text-purple-700 shadow-md dark:bg-purple-900/40 dark:text-purple-300' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'}`}>
                                     <span className="text-base">🏢</span> داخلی
                                 </button>
@@ -322,6 +397,9 @@ const SecretariatCreateScreen = () => {
                                 </button>
                                 <button type="button" onClick={() => handleTypeChange('OUTGOING')} className={`py-2 rounded-lg font-bold text-xs transition-all duration-300 border-2 flex items-center justify-center gap-1.5 ${formData.letter_type === 'OUTGOING' ? 'bg-orange-100 border-orange-500 text-orange-700 shadow-md dark:bg-orange-900/40 dark:text-orange-300' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'}`}>
                                     <span className="text-base">📤</span> صادره
+                                </button>
+                                <button type="button" onClick={() => handleTypeChange('DOCUMENT')} className={`py-2 rounded-lg font-bold text-xs transition-all duration-300 border-2 flex items-center justify-center gap-1.5 ${formData.letter_type === 'DOCUMENT' ? 'bg-slate-200 border-slate-500 text-slate-800 shadow-md dark:bg-slate-700 dark:border-slate-400 dark:text-slate-200' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400'}`}>
+                                    <span className="text-base">📁</span> اسناد
                                 </button>
                             </div>
                         </div>
@@ -345,7 +423,7 @@ const SecretariatCreateScreen = () => {
                             </div>
                         </div>
 
-                        {isLevelZeroOrAdmin && (
+                        {canArchive && (
                             <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800' : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800'}`}>
                                 <div className="md:col-span-4 border-b border-black/10 dark:border-white/10 pb-1 mb-1">
                                     <h4 className="text-[11px] font-bold opacity-80">مدیریت بایگانی فیزیکی</h4>
@@ -376,14 +454,14 @@ const SecretariatCreateScreen = () => {
                 <div className={`p-4 rounded-xl border shadow-sm transition-all duration-500 ${
                     formData.letter_type === 'INCOMING' ? (isDark ? 'bg-green-900/10 border-green-800/50' : 'bg-green-50/50 border-green-200') :
                     formData.letter_type === 'OUTGOING' ? (isDark ? 'bg-orange-900/10 border-orange-800/50' : 'bg-orange-50/50 border-orange-200') :
+                    formData.letter_type === 'DOCUMENT' ? (isDark ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200') :
                     (isDark ? 'bg-purple-900/10 border-purple-800/50' : 'bg-purple-50/50 border-purple-200')
                 }`}>
                     <h3 className="font-bold text-sm mb-3 border-b border-gray-200 dark:border-gray-700 pb-2 opacity-80">ارتباطات و موضوع</h3>
                     <datalist id="org-list">{organizations?.map(org => (<option key={org.id} value={org.name} />))}</datalist>
 
-                    {/* 🚀 فیلد فرستنده فقط برای نامه‌های غیر داخلی (وارده و صادره) نمایش داده می‌شود */}
-                    <div className={`grid grid-cols-1 ${formData.letter_type === 'INTERNAL' ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-4 mb-4`}>
-                        {formData.letter_type !== 'INTERNAL' && (
+                    <div className={`grid grid-cols-1 ${(formData.letter_type === 'INTERNAL' || formData.letter_type === 'DOCUMENT') ? 'md:grid-cols-1' : 'md:grid-cols-2'} gap-4 mb-4`}>
+                        {formData.letter_type !== 'INTERNAL' && formData.letter_type !== 'DOCUMENT' && (
                             <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'INCOMING' ? 'bg-white dark:bg-gray-800 shadow-sm border-green-300' : 'bg-black/5 border-transparent'}`}>
                                 <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'INCOMING' ? 'text-green-600' : 'text-blue-600'}`}>اطلاعات مبدأ (فرستنده)</span>
                                 {formData.letter_type === 'INCOMING' ? (
@@ -395,7 +473,9 @@ const SecretariatCreateScreen = () => {
                         )}
 
                         <div className={`space-y-2 p-3 rounded-lg border ${formData.letter_type === 'OUTGOING' ? 'bg-white dark:bg-gray-800 shadow-sm border-orange-300' : 'bg-black/5 border-transparent'}`}>
-                            <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'OUTGOING' ? 'text-orange-600' : 'text-indigo-600'}`}>اطلاعات مقصد (گیرنده)</span>
+                            <span className={`text-[11px] font-bold opacity-80 block ${formData.letter_type === 'OUTGOING' ? 'text-orange-600' : 'text-indigo-600'}`}>
+                                {formData.letter_type === 'DOCUMENT' ? 'مخاطب / مرتبط با (اختیاری)' : 'اطلاعات مقصد (گیرنده)'}
+                            </span>
                             {formData.letter_type === 'OUTGOING' ? (
                                 <input type="text" list="org-list" placeholder="نام سازمان..." className={inputClass} value={formData.external_receiver} onChange={(e) => setFormData({ ...formData, external_receiver: e.target.value })} />
                             ) : (
@@ -414,14 +494,14 @@ const SecretariatCreateScreen = () => {
                             <textarea rows="1" className={inputClass} value={formData.manual_sender_name} onChange={(e) => setFormData({ ...formData, manual_sender_name: e.target.value })}></textarea>
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block mb-1 text-[10px] font-bold opacity-80"> اشخاص گیرنده اسامی</label>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">اشخاص گیرنده اسامی</label>
                             <textarea rows="1" className={inputClass} value={formData.receiver_persons} onChange={(e) => setFormData({ ...formData, receiver_persons: e.target.value })}></textarea>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="md:col-span-3">
-                            <label className="block mb-1 text-xs font-bold opacity-80 text-blue-600">موضوع اصلی نامه <span className="text-red-500">*</span></label>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="md:col-span-4">
+                            <label className="block mb-1 text-xs font-bold opacity-80 text-blue-600">موضوع اصلی نامه / سند <span className="text-red-500">*</span></label>
                             <input type="text" className={`${inputClass} font-bold text-sm py-2.5 border-blue-300 dark:border-blue-700`} value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} required />
                         </div>
                         <div>
@@ -436,6 +516,10 @@ const SecretariatCreateScreen = () => {
                             <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })} />
                         </div>
                         <div>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">شماره قرارداد مرتبط</label>
+                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })} />
+                        </div>
+                        <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">پیوست (متن روی سربرگ)</label>
                             <input type="text" className={inputClass} value={formData.attachment_note} onChange={(e) => setFormData({ ...formData, attachment_note: e.target.value })} />
                         </div>
@@ -444,24 +528,24 @@ const SecretariatCreateScreen = () => {
 
                 <div className={`p-5 rounded-xl border ${isDark ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
                     <div className="mb-4">
-                        <label className="block mb-1 text-xs font-bold opacity-80">متن یا چکیده نامه</label>
+                        <label className="block mb-1 text-xs font-bold opacity-80">متن یا چکیده نامه / سند</label>
                         <textarea rows="6" className={inputClass} value={formData.body} onChange={(e) => setFormData({ ...formData, body: e.target.value })}></textarea>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 rounded-lg bg-gray-500/5 border border-gray-500/10">
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">رونوشت کاغذی (تایپ متن زیر نامه)</label>
-                            <textarea rows="3" placeholder="مثال: رونوشت به واحد مالی جهت اطلاع" className={inputClass} value={formData.cc_text} onChange={(e) => setFormData({ ...formData, cc_text: e.target.value })}></textarea>
+                            <textarea rows="2" placeholder="مثال: رونوشت به واحد مالی جهت اطلاع" className={inputClass} value={formData.cc_text} onChange={(e) => setFormData({ ...formData, cc_text: e.target.value })}></textarea>
                         </div>
                         <div>
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">ارسال رونوشت سیستمی (نگه داشتن Ctrl برای چند انتخاب)</label>
-                            <select multiple className={`${inputClass} h-[84px]`} value={formData.internal_cc_receivers} onChange={handleMultiSelectChange}>
-                                {allPersonnel?.map(emp => (
-                                    <option key={`cc-${emp.id}`} value={emp.id}>
-                                        {emp.name} - {emp.position_title || 'بدون سمت'}
-                                    </option>
-                                ))}
-                            </select>
+                            <label className="block mb-1 text-[10px] font-bold opacity-80">ارسال رونوشت سیستمی</label>
+                            <MultiSelectSearchable 
+                                personnel={allPersonnel} 
+                                selectedValues={formData.internal_cc_receivers} 
+                                onChange={(vals) => setFormData({ ...formData, internal_cc_receivers: vals })} 
+                                placeholder="جستجو و انتخاب پرسنل..." 
+                                isDark={isDark} 
+                            />
                         </div>
                     </div>
 
@@ -473,7 +557,7 @@ const SecretariatCreateScreen = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center p-4 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <label className="flex items-center gap-2 cursor-pointer text-sm font-bold opacity-80">
                             <input type="checkbox" className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" checked={formData.has_physical_copy} onChange={(e) => setFormData({ ...formData, has_physical_copy: e.target.checked })} />
-                            نامه دارای نسخه فیزیکی (کاغذی) است
+                            دارای نسخه فیزیکی (کاغذی) است
                         </label>
                         {formData.has_physical_copy && (
                             <input type="text" placeholder="محل بایگانی زونکن (مثلا: زونکن قراردادهای الف)" className={inputClass} value={formData.physical_archive_location} onChange={(e) => setFormData({ ...formData, physical_archive_location: e.target.value })} />

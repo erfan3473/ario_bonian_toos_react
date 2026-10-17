@@ -5,7 +5,7 @@ import { fetchLetters, fetchAllPersonnel } from '../../features/secretariat/secr
 import { 
     FaPlus, FaSearch, FaPaperclip, FaExclamationCircle, FaUserSecret, 
     FaInbox, FaChevronLeft, FaChevronDown, FaAngleRight, FaAngleLeft, 
-    FaSortAmountDown, FaSortAmountUp, FaCheckCircle
+    FaSortAmountDown, FaSortAmountUp, FaCheckCircle, FaTrashRestore, FaTrash, FaFileAlt
 } from 'react-icons/fa';
 
 import logo from '../../assets/ario.png';
@@ -76,13 +76,15 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
-// 🚀 لوگوی متحرک (اضافه شده به صفحه لیست)
-const DirectionalLogo = ({ type }) => {
+// 🚀 لوگوی متحرک با پشتیبانی از وضعیت حذف شده و اسناد
+const DirectionalLogo = ({ type, status }) => {
     const isOutward = type === 'OUTGOING';
     const isInternal = type === 'INTERNAL';
     const isDocument = type === 'DOCUMENT';
+    const isDeleted = status === 'DELETED';
 
-    const theme = type === 'INCOMING' ? { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' } :
+    const theme = isDeleted ? { bg: 'bg-red-100 dark:bg-red-900/30 grayscale', border: 'border-red-400', text: 'text-red-500 dark:text-red-400' } :
+                  type === 'INCOMING' ? { bg: 'bg-green-100 dark:bg-green-900/40', border: 'border-green-500', text: 'text-green-600 dark:text-green-400' } :
                   type === 'OUTGOING' ? { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' } :
                   type === 'DOCUMENT' ? { bg: 'bg-slate-100 dark:bg-slate-900/40', border: 'border-slate-500', text: 'text-slate-600 dark:text-slate-400' } :
                   { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' };
@@ -204,8 +206,25 @@ const SecretariatListScreen = () => {
             case 'OUTGOING': return 'مکاتبات صادره';
             case 'INTERNAL': return 'مکاتبات داخلی';
             case 'DOCUMENT': return 'اسناد';
-            case 'DELETED': return 'زباله‌دان';
+            case 'DELETED': return 'زباله‌دان (حذف شده‌ها)';
             default: return 'همه مکاتبات';
+        }
+    };
+
+    const renderStatusBadge = (status) => {
+        switch (status) {
+            case 'REGISTERED':
+                return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white bg-emerald-500"><FaCheckCircle /> تکمیل شده</span>;
+            case 'ISSUED':
+                return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white bg-cyan-500">🏃‍♂️ در دست پیک</span>;
+            case 'APPROVED':
+                return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white bg-blue-500">📄 آماده صدور</span>;
+            case 'REJECTED':
+                return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white bg-rose-500">❌ رد شده</span>;
+            case 'DELETED':
+                return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white bg-gray-600 dark:bg-red-900 border border-red-500"><FaTrash size={9} /> حذف شده</span>;
+            default:
+                return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white bg-orange-400">⏳ در انتظار</span>;
         }
     };
 
@@ -222,16 +241,18 @@ const SecretariatListScreen = () => {
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
-                        <FaInbox size={18} />
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${filterType === 'DELETED' ? 'bg-gradient-to-br from-red-600 to-rose-700' : 'bg-gradient-to-br from-blue-600 to-indigo-600'}`}>
+                        {filterType === 'DELETED' ? <FaTrash size={16} /> : <FaInbox size={18} />}
                     </div>
                     <div>
-                        <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>دبیر خانه کل</h1>
-                        <span className="text-sm font-bold opacity-60">تعداد نامه‌ها (با احتساب فیلتر): {totalCount}</span>
+                        <h1 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                            {filterType === 'DELETED' ? 'زباله‌دان دبیرخانه' : 'دبیرخانه کل'}
+                        </h1>
+                        <span className="text-sm font-bold opacity-60">تعداد موارد (با احتساب فیلتر): {totalCount}</span>
                     </div>
                 </div>
                 <Link to="/secretariat/create" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition text-sm font-bold shadow-md shadow-blue-900/20 active:scale-95">
-                    <FaPlus size={12} /> ثبت نامه جدید
+                    <FaPlus size={12} /> ثبت نامه / سند جدید
                 </Link>
             </div>
 
@@ -244,23 +265,29 @@ const SecretariatListScreen = () => {
                             { label: 'وارده', value: 'INCOMING' },
                             { label: 'صادره', value: 'OUTGOING' },
                             { label: 'داخلی', value: 'INTERNAL' },
-                            { label: 'اسناد', value: 'DOCUMENT' },
-                            { label: 'زباله‌دان', value: 'DELETED' },
-                        ].map((tab) => (
-                            <button
-                                key={tab.value}
-                                onClick={() => handleFilterChange(setFilterType, tab.value)}
-                                className={`px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${
-                                    filterType === tab.value
-                                        ? 'bg-blue-600 text-white shadow-md'
-                                        : isDark
-                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
+                            { label: '📁 اسناد', value: 'DOCUMENT' },
+                            { label: '🗑️ زباله‌دان', value: 'DELETED', isTrash: true },
+                        ].map((tab) => {
+                            const isActive = filterType === tab.value;
+                            let activeClass = 'bg-blue-600 text-white shadow-md';
+                            if (tab.isTrash && isActive) activeClass = 'bg-red-600 text-white shadow-md shadow-red-500/20';
+
+                            return (
+                                <button
+                                    key={tab.value}
+                                    onClick={() => handleFilterChange(setFilterType, tab.value)}
+                                    className={`px-4 py-2 rounded-lg text-sm font-bold transition whitespace-nowrap ${
+                                        isActive
+                                            ? activeClass
+                                            : isDark
+                                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
                     </div>
 
                     <div className="flex flex-col md:flex-row w-full xl:w-auto gap-3">
@@ -413,7 +440,9 @@ const SecretariatListScreen = () => {
             ) : lettersList?.length === 0 ? (
                 <div className={`text-center py-24 rounded-2xl border ${isDark ? 'border-gray-800 bg-gray-800/30' : 'border-gray-200 bg-gray-50/50'}`}>
                     <FaInbox size={48} className="mx-auto mb-4 opacity-20" />
-                    <h3 className="text-lg font-bold opacity-70 mb-1">هیچ مکاتبه‌ای یافت نشد</h3>
+                    <h3 className="text-lg font-bold opacity-70 mb-1">
+                        {filterType === 'DELETED' ? 'زباله‌دان خالی است' : 'هیچ مکاتبه‌ای یافت نشد'}
+                    </h3>
                     <p className="text-sm opacity-50">با تغییر فیلترها یا کلمات جستجو مجدداً تلاش کنید.</p>
                 </div>
             ) : (
@@ -434,6 +463,7 @@ const SecretariatListScreen = () => {
                                 const currentMonth = getMonthName(letter.created_at);
                                 const previousMonth = index > 0 ? getMonthName(lettersList[index - 1].created_at) : null;
                                 const showDivider = currentMonth !== previousMonth;
+                                const isDeletedLetter = letter.status === 'DELETED';
 
                                 return (
                                     <React.Fragment key={letter.id}>
@@ -452,13 +482,16 @@ const SecretariatListScreen = () => {
 
                                         <tr 
                                             onClick={() => navigate(`/secretariat/${letter.id}`)}
-                                            className={`cursor-pointer group transition-colors duration-200 ${isDark ? 'hover:bg-gray-700/50 bg-gray-800' : 'hover:bg-blue-50/50 bg-white'}`}
+                                            className={`cursor-pointer group transition-colors duration-200 ${
+                                                isDeletedLetter 
+                                                    ? (isDark ? 'bg-red-950/20 hover:bg-red-900/30' : 'bg-red-50/30 hover:bg-red-50/70') 
+                                                    : (isDark ? 'hover:bg-gray-700/50 bg-gray-800' : 'hover:bg-blue-50/50 bg-white')
+                                            }`}
                                         >
-                                            {/* 🚀 1. ردیف و جایگزینی با لوگوی چرخشی */}
                                             <td className="px-5 py-4 whitespace-nowrap text-center">
                                                 <div className="flex flex-col items-center justify-center gap-2">
                                                     <span className="text-xs font-bold opacity-40">{(page - 1) * 12 + index + 1}</span>
-                                                    <DirectionalLogo type={letter.letter_type} />
+                                                    <DirectionalLogo type={letter.letter_type} status={letter.status} />
                                                 </div>
                                             </td>
 
@@ -466,7 +499,7 @@ const SecretariatListScreen = () => {
                                                 <div className="flex flex-col gap-2">
                                                     <div className="flex flex-col">
                                                         <span className="text-[9px] opacity-60 font-bold mb-0.5">سیستمی:</span>
-                                                        <span className={`font-mono font-bold text-[13px] ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                        <span className={`font-mono font-bold text-[13px] ${isDeletedLetter ? 'line-through text-red-500' : isDark ? 'text-blue-400' : 'text-blue-600'}`}>
                                                             {letter.indicator_number}
                                                         </span>
                                                     </div>
@@ -494,35 +527,19 @@ const SecretariatListScreen = () => {
                                                     <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-black tracking-wide ${
                                                         letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400 border border-green-500/20' :
                                                         letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400 border border-orange-500/20' :
-                                                        letter.letter_type === 'DOCUMENT' ? 'bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-400 border border-slate-500/20' :
+                                                        letter.letter_type === 'DOCUMENT' ? 'bg-slate-200 text-slate-800 dark:bg-slate-600/30 dark:text-slate-300 border border-slate-500/30' :
                                                         'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border border-purple-500/20'
                                                     }`}>
-                                                        {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : letter.letter_type === 'DOCUMENT' ? 'اسناد' : 'داخلی'}
+                                                        {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : letter.letter_type === 'DOCUMENT' ? '📁 اسناد' : 'داخلی'}
                                                     </span>
                                                     
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black shadow-sm text-white ${
-                                                        letter.status === 'REGISTERED' ? 'bg-emerald-500' :
-                                                        letter.status === 'ISSUED' ? 'bg-cyan-500' :
-                                                        letter.status === 'APPROVED' ? 'bg-blue-500' :
-                                                        letter.status === 'REJECTED' ? 'bg-rose-500' : 
-                                                        'bg-orange-400'
-                                                    }`}>
-                                                        {letter.status === 'REGISTERED' ? <FaCheckCircle/> : 
-                                                         letter.status === 'ISSUED' ? '🏃‍♂️' : 
-                                                         letter.status === 'APPROVED' ? '📄' : 
-                                                         letter.status === 'REJECTED' ? '❌' : '⏳'}
-                                                        
-                                                        {letter.status === 'REGISTERED' ? 'تکمیل شده' : 
-                                                         letter.status === 'ISSUED' ? 'در دست پیک' : 
-                                                         letter.status === 'APPROVED' ? 'آماده صدور' : 
-                                                         letter.status === 'REJECTED' ? 'رد شده' : 'در انتظار'}
-                                                    </span>
+                                                    {renderStatusBadge(letter.status)}
                                                 </div>
                                             </td>
 
                                             <td className="px-5 py-4 max-w-xs md:max-w-md">
                                                 <div className="flex items-start gap-2 mb-1">
-                                                    <span className={`font-bold text-[13px] leading-relaxed ${isDark ? 'text-gray-100' : 'text-gray-900'}`} title={letter.subject}>
+                                                    <span className={`font-bold text-[13px] leading-relaxed ${isDeletedLetter ? 'line-through opacity-70' : ''} ${isDark ? 'text-gray-100' : 'text-gray-900'}`} title={letter.subject}>
                                                         {letter.subject}
                                                     </span>
                                                     {letter.attachments?.length > 0 && (
@@ -590,7 +607,7 @@ const SecretariatListScreen = () => {
                                                         <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                                                             <div className="flex flex-col">
-                                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">تاریخ جاپ شده روی نامه </span>
+                                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">تاریخ چاپ روی نامه</span>
                                                                 <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                                                     {formatPersianDate(letter.original_date)}
                                                                 </span>

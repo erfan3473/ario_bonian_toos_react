@@ -100,7 +100,7 @@ const CustomPositionNode = ({ data }) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-2">
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span
             className="text-[10px] px-2 py-0.5 rounded-md font-bold shadow-sm"
             style={{ backgroundColor: `${data.color_hex}20`, color: data.color_hex }}
@@ -109,6 +109,9 @@ const CustomPositionNode = ({ data }) => {
           </span>
           {data.can_enter_boq_items && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700'}`}>✅ فهرست‌بها</span>
+          )}
+          {data.can_archive_letters && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${isDark ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-700'}`}>📁 بایگانی</span>
           )}
         </div>
 
@@ -155,7 +158,9 @@ const PositionsSettings = () => {
   const [formData, setFormData] = useState({
     title: '', code: '', hierarchy_level: 3, parent_position: null,
     report_type: 'WORKER', color_hex: '#3B82F6',
-    can_enter_boq_items: false, description: '',
+    can_enter_boq_items: false, 
+    can_archive_letters: false, // 👈 اضافه شد
+    description: '',
   });
 
   const maxLevel = (positions || []).reduce((max, p) => Math.max(max, p.hierarchy_level || 0), 3);
@@ -284,9 +289,14 @@ const PositionsSettings = () => {
     const position = positionsRef.current.find((p) => p.id === id);
     if (position) {
       setFormData({
-        title: position.title, code: position.code, hierarchy_level: position.hierarchy_level || 3,
-        parent_position: position.parent_position, report_type: position.report_type || 'WORKER',
-        color_hex: position.color_hex || '#3B82F6', can_enter_boq_items: position.can_enter_boq_items || false,
+        title: position.title, 
+        code: position.code, 
+        hierarchy_level: position.hierarchy_level || 3,
+        parent_position: position.parent_position, 
+        report_type: position.report_type || 'WORKER',
+        color_hex: position.color_hex || '#3B82F6', 
+        can_enter_boq_items: position.can_enter_boq_items || false,
+        can_archive_letters: position.can_archive_letters || false, // 👈 اضافه شد
         description: position.description || '',
       });
       setEditingId(position.id);
@@ -295,7 +305,13 @@ const PositionsSettings = () => {
   };
 
   const resetForm = () => {
-    setFormData({ title: '', code: '', hierarchy_level: 3, parent_position: null, report_type: 'WORKER', color_hex: '#3B82F6', can_enter_boq_items: false, description: '' });
+    setFormData({ 
+      title: '', code: '', hierarchy_level: 3, parent_position: null, 
+      report_type: 'WORKER', color_hex: '#3B82F6', 
+      can_enter_boq_items: false, 
+      can_archive_letters: false, // 👈 اضافه شد
+      description: '' 
+    });
     setEditingId(null);
     setShowSidebar(false);
   };
@@ -426,6 +442,12 @@ const PositionsSettings = () => {
             <label className={`flex items-center gap-3 cursor-pointer p-4 rounded-xl border transition-colors ${isDark ? 'bg-gray-800 border-gray-700 hover:bg-gray-700/80' : 'bg-white border-gray-200 shadow-sm hover:bg-gray-50'}`}>
               <input type="checkbox" checked={formData.can_enter_boq_items} onChange={(e) => setFormData({ ...formData, can_enter_boq_items: e.target.checked })} className={`w-5 h-5 rounded cursor-pointer transition-colors focus:ring-blue-500 text-blue-600 ${isDark ? 'border-gray-600 bg-gray-700' : 'border-gray-300 bg-white'}`} />
               <span className={`font-bold text-sm ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>✅ دسترسی ثبت فهرست‌بها</span>
+            </label>
+
+            {/* 👇 اضافه کردن چک‌باکس بایگانی دبیرخانه */}
+            <label className={`flex items-center gap-3 cursor-pointer p-4 rounded-xl border transition-colors ${isDark ? 'bg-gray-800 border-gray-700 hover:bg-gray-700/80' : 'bg-white border-gray-200 shadow-sm hover:bg-gray-50'}`}>
+              <input type="checkbox" checked={formData.can_archive_letters} onChange={(e) => setFormData({ ...formData, can_archive_letters: e.target.checked })} className={`w-5 h-5 rounded cursor-pointer transition-colors focus:ring-purple-500 text-purple-600 ${isDark ? 'border-gray-600 bg-gray-700' : 'border-gray-300 bg-white'}`} />
+              <span className={`font-bold text-sm ${isDark ? 'text-gray-300' : 'text-gray-800'}`}>📁 دسترسی بایگانی دبیرخانه</span>
             </label>
 
             <div className={`pt-6 border-t flex gap-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>

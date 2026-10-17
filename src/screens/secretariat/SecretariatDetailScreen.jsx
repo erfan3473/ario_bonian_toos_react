@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { fetchLetterDetail, forwardLetter, fetchAllPersonnel, uploadAttachment, signLetter, deleteLetter, fetchLetterSmsLogs, refreshLetterSmsStatus, updateLetter, registerDestination, issueLetter } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
-import {  FaEye,FaEyeSlash ,FaHistory, FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaUserEdit, FaUserCheck, FaUserClock, FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaHistory, FaArrowRight, FaArrowLeft, FaShare, FaPrint, FaPaperclip, FaDownload, FaCamera, FaPenNib, FaTrash, FaTrashRestore, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
 import axiosInstance from '../../api/axiosInstance'; 
@@ -12,8 +12,28 @@ import JalaliDatePicker from '../../components/JalaliDatePicker';
 import LetterInfoBanner from '../../components/LetterInfoBanner'; 
 import QRCode from 'react-qr-code';
 
-// 🚀 کامپوننت درگ و دراپ پیشرفته با نوار ابزار تنظیم استایل
-// 🚀 کامپوننت درگ و دراپ پیشرفته با نوار ابزار تنظیم استایل و مخفی‌سازی
+// 🚀 نشان اختصاصی شارینگان/مهر سازمان بیرونی برای نامه‌های وارده فاقد لوگو
+const SharinganIncomingLogo = () => (
+    <div className="h-14 w-14 md:h-16 md:w-16 print:h-16 print:w-16 flex items-center justify-center rounded-full p-0.5">
+        <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm">
+            {/* حلقه بیرونی و زمینه قرمز شارینگان */}
+            <circle cx="50" cy="50" r="46" fill="#dc2626" stroke="#111827" strokeWidth="4" />
+            {/* حلقه میانی (مسیر توموئه‌ها) */}
+            <circle cx="50" cy="50" r="28" fill="none" stroke="#111827" strokeWidth="1.8" strokeDasharray="4 2" opacity="0.7" />
+            {/* مردمک مرکزی */}
+            <circle cx="50" cy="50" r="11" fill="#111827" />
+            <circle cx="50" cy="50" r="4" fill="#dc2626" opacity="0.6" />
+            {/* سه توموئه (Tomoe) چرخشی */}
+            {[0, 120, 240].map((deg) => (
+                <g key={deg} transform={`rotate(${deg} 50 50)`}>
+                    <circle cx="50" cy="22" r="6.5" fill="#111827" />
+                    <path d="M 50 15.5 C 60 15.5, 65 25, 55 31 C 59 25, 55 20, 50 22 Z" fill="#111827" />
+                </g>
+            ))}
+        </svg>
+    </div>
+);
+
 const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onStyleChange, children, className }) => {
     const [localPos, setLocalPos] = useState(position || { x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
@@ -67,11 +87,10 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
         if (type === 'decrease') newStyle.fontSize = Math.max(8, (newStyle.fontSize || 16) - 1);
         if (type === 'bold') newStyle.fontWeight = newStyle.fontWeight === 'bold' ? 'normal' : 'bold';
         if (type === 'underline') newStyle.textDecoration = newStyle.textDecoration === 'underline' ? 'none' : 'underline';
-        if (type === 'visibility') newStyle.hidden = !newStyle.hidden; // 🚀 اکشن مخفی‌سازی
+        if (type === 'visibility') newStyle.hidden = !newStyle.hidden;
         if (onStyleChange) onStyleChange(id, newStyle);
     };
 
-    // 🚀 اگر کاربر المان را مخفی کرده باشد و در حالت پرینت باشیم، اصلاً رندر نمی‌شود!
     if (currentStyle.hidden && !isEditMode) return null;
 
     return (
@@ -86,7 +105,6 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
                     <button type="button" onClick={(e) => handleFormat('decrease', e)} className="p-1 hover:bg-gray-600 rounded text-[10px]" title="کوچک‌نمایی"><FaMinus/></button>
                     <button type="button" onClick={(e) => handleFormat('bold', e)} className={`p-1 hover:bg-gray-600 rounded text-[10px] ${currentStyle.fontWeight === 'bold' ? 'bg-blue-500' : ''}`} title="ضخیم"><FaBold/></button>
                     <button type="button" onClick={(e) => handleFormat('underline', e)} className={`p-1 hover:bg-gray-600 rounded text-[10px] ${currentStyle.textDecoration === 'underline' ? 'bg-blue-500' : ''}`} title="خط‌کشی"><FaUnderline/></button>
-                    {/* 🚀 دکمه حذف/نمایش در پرینت */}
                     <button type="button" onClick={(e) => handleFormat('visibility', e)} className={`p-1 hover:bg-gray-600 rounded text-[10px] ${currentStyle.hidden ? 'text-red-400' : 'text-emerald-400'}`} title={currentStyle.hidden ? 'بازگردانی به چاپ' : 'حذف از چاپ'}>
                         {currentStyle.hidden ? <FaEyeSlash /> : <FaEye />}
                     </button>
@@ -104,6 +122,15 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
 };
 
 const LetterProgressStepper = ({ status, isDark }) => {
+    if (status === 'DELETED') {
+        return (
+            <div className={`p-4 rounded-xl border mb-6 print:hidden flex items-center justify-center gap-3 ${isDark ? 'bg-red-950/40 border-red-800' : 'bg-red-50 border-red-300'}`}>
+                <FaTrash className="text-red-500 text-xl" />
+                <span className="font-bold text-red-700 dark:text-red-400">این نامه در زباله‌دان قرار دارد (حذف شده).</span>
+            </div>
+        );
+    }
+
     if (status === 'REJECTED') {
         return (
             <div className={`p-4 rounded-xl border mb-6 print:hidden flex items-center justify-center gap-3 ${isDark ? 'bg-rose-900/20 border-rose-800' : 'bg-rose-50 border-rose-200'}`}>
@@ -130,7 +157,7 @@ const LetterProgressStepper = ({ status, isDark }) => {
                 <div className={`absolute top-1/2 left-0 right-0 h-1 -translate-y-1/2 z-0 ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
                 <div 
                     className="absolute top-1/2 right-0 h-1 -translate-y-1/2 z-0 bg-blue-500 transition-all duration-700 ease-out"
-                    style={{ width: `${(currentIndex / (steps.length - 1)) * 100}%` }}
+                    style={{ width: `${(Math.max(0, currentIndex) / (steps.length - 1)) * 100}%` }}
                 ></div>
 
                 {steps.map((step, index) => {
@@ -221,9 +248,10 @@ const SecretariatDetailScreen = () => {
     
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { userInfo } = useSelector((state) => state.userLogin);
-    const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0);
-
     const { activeLetter: letter, loadingDetail, forwarding, allPersonnel, smsLogs, refreshingSms } = useSelector((state) => state.secretariat);
+
+    const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0) || letter?.can_approve;
+    const hasSecretariatPerm = isLevelZeroOrAdmin || (userInfo?.employee?.position?.can_archive_letters === true) || letter?.can_manage_secretariat;
 
     const [showForward, setShowForward] = useState(false);
     const [forwardData, setForwardData] = useState({ receiver: '', instruction: '' });
@@ -247,45 +275,56 @@ const SecretariatDetailScreen = () => {
     const [layoutStyles, setLayoutStyles] = useState({});
     const [printFont, setPrintFont] = useState('Vazirmatn'); 
     const printMenuRef = useRef(null);
-    // 🚀 حالت ادیت ارجاعات
+
     const [editingRefId, setEditingRefId] = useState(null);
     const [editRefText, setEditRefText] = useState("");
 
     useEffect(() => {
-        const savedPos = localStorage.getItem('printLayoutOffsets');
+        const posKey = `printLayoutOffsets_${printMode}`;
+        const styleKey = `printLayoutStyles_${printMode}`;
+
+        const savedPos = localStorage.getItem(posKey) || (printMode === 'BLANK' ? localStorage.getItem('printLayoutOffsets') : null);
         if (savedPos) {
-            try { setLayoutPositions(JSON.parse(savedPos)); } catch(e) {}
+            try { setLayoutPositions(JSON.parse(savedPos)); } catch (e) { setLayoutPositions({}); }
+        } else {
+            setLayoutPositions({});
         }
-        const savedStyles = localStorage.getItem('printLayoutStyles');
+
+        const savedStyles = localStorage.getItem(styleKey) || (printMode === 'BLANK' ? localStorage.getItem('printLayoutStyles') : null);
         if (savedStyles) {
-            try { setLayoutStyles(JSON.parse(savedStyles)); } catch(e) {}
+            try { setLayoutStyles(JSON.parse(savedStyles)); } catch (e) { setLayoutStyles({}); }
+        } else {
+            setLayoutStyles({});
         }
+
         const savedFont = localStorage.getItem('printLayoutFont');
         if (savedFont) {
             setPrintFont(savedFont);
         }
-    }, []);
+    }, [printMode]);
 
     const handleUpdatePosition = (elementId, newPos) => {
         const updated = { ...layoutPositions, [elementId]: newPos };
         setLayoutPositions(updated);
-        localStorage.setItem('printLayoutOffsets', JSON.stringify(updated));
+        localStorage.setItem(`printLayoutOffsets_${printMode}`, JSON.stringify(updated));
     };
 
     const handleUpdateStyle = (elementId, newStyle) => {
         const updated = { ...layoutStyles, [elementId]: newStyle };
         setLayoutStyles(updated);
-        localStorage.setItem('printLayoutStyles', JSON.stringify(updated));
+        localStorage.setItem(`printLayoutStyles_${printMode}`, JSON.stringify(updated));
     };
 
     const handleResetLayout = () => {
         setLayoutPositions({});
         setLayoutStyles({});
-        setPrintFont('Vazirmatn');
-        localStorage.removeItem('printLayoutOffsets');
-        localStorage.removeItem('printLayoutStyles');
-        localStorage.removeItem('printLayoutFont');
-        toast.success('چیدمان، استایل‌ها و فونت به حالت اولیه برگشت.');
+        localStorage.removeItem(`printLayoutOffsets_${printMode}`);
+        localStorage.removeItem(`printLayoutStyles_${printMode}`);
+        if (printMode === 'BLANK') {
+            localStorage.removeItem('printLayoutOffsets');
+            localStorage.removeItem('printLayoutStyles');
+        }
+        toast.success(`چیدمان حالت «${printMode === 'BLANK' ? 'برگه معمولی' : 'سربرگ آرم‌دار'}» به حالت اولیه برگشت.`);
     };
 
     const handleFontChange = (fontName) => {
@@ -329,7 +368,7 @@ const SecretariatDetailScreen = () => {
             })
             .catch((err) => toast.error(err || 'خطا در ارجاع'));
     };
-    // 🚀 تابع ذخیره ویرایش ارجاع
+
     const handleEditReferralSubmit = async (refId) => {
         try {
             await axiosInstance.put(`/secretariat/referrals/${refId}/update/`, { instruction: editRefText });
@@ -340,6 +379,7 @@ const SecretariatDetailScreen = () => {
             toast.error(err.response?.data?.detail || 'خطا در ویرایش ارجاع');
         }
     };
+
     const handleScanUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -359,10 +399,24 @@ const SecretariatDetailScreen = () => {
     };
 
     const handleDelete = () => {
-        if (window.confirm('آیا از حذف این نامه اطمینان دارید؟')) {
+        if (window.confirm('آیا از انتقال این نامه به زباله‌دان اطمینان دارید؟')) {
             dispatch(deleteLetter(id)).unwrap()
-                .then(() => { toast.success('نامه حذف شد'); navigate('/secretariat'); })
+                .then(() => { 
+                    toast.success('نامه به زباله‌دان منتقل شد'); 
+                    navigate('/secretariat', { state: { filter: 'DELETED' } }); 
+                })
                 .catch(err => toast.error(err || 'خطا در حذف نامه'));
+        }
+    };
+
+    const handleRestore = () => {
+        if (window.confirm('آیا می‌خواهید این نامه را از زباله‌دان بازیابی کنید؟')) {
+            dispatch(updateLetter({ id, payload: { status: 'PENDING' } })).unwrap()
+                .then(() => {
+                    toast.success('نامه با موفقیت بازیابی شد و به وضعیت در انتظار تایید برگشت.');
+                    dispatch(fetchLetterDetail(id));
+                })
+                .catch(err => toast.error(err || 'خطا در بازیابی نامه'));
         }
     };
 
@@ -422,17 +476,17 @@ const SecretariatDetailScreen = () => {
         setShowPrintMenu(false);
         setTimeout(() => {
             window.print();
-        }, 200);
+        }, 250);
     };
 
     if (loadingDetail || !letter) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
 
     const translateEnum = (val) => ({
-        'INCOMING': 'وارده', 'OUTGOING': 'صادره', 'INTERNAL': 'داخلی',
+        'INCOMING': 'وارده', 'OUTGOING': 'صادره', 'INTERNAL': 'داخلی', 'DOCUMENT': 'اسناد',
         'NORMAL': 'عادی', 'URGENT': 'فوری', 'VERY_URGENT': 'خیلی فوری',
         'CONFIDENTIAL': 'محرمانه', 'SECRET': 'سری',
         'PENDING': 'در انتظار تایید', 'APPROVED': 'آماده صدور', 'ISSUED': 'در دست پیک',
-         'REGISTERED': 'تکمیل شده', 'REJECTED': 'رد شده', 'DOCUMENT': 'اسناد',  
+        'REGISTERED': 'تکمیل شده', 'REJECTED': 'رد شده', 'DELETED': 'حذف شده (زباله‌دان)'
     }[val] || val);
 
     const getStatusStyle = (status) => {
@@ -441,6 +495,7 @@ const SecretariatDetailScreen = () => {
             case 'ISSUED': return 'bg-cyan-100 text-cyan-700 border-cyan-300';
             case 'APPROVED': return 'bg-blue-100 text-blue-700 border-blue-300';
             case 'REJECTED': return 'bg-rose-100 text-rose-700 border-rose-300';
+            case 'DELETED': return 'bg-red-100 text-red-800 border-red-400';
             default: return 'bg-orange-100 text-orange-700 border-orange-300';
         }
     };
@@ -456,6 +511,11 @@ const SecretariatDetailScreen = () => {
         
     const canReply = isValidReplyStatus && !isCreator && (isReceiver || isLevelZeroOrAdmin);
 
+    // 🚀 آدرس مستقیم همین نامه برای تولید QR Code
+    const currentLetterUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/secretariat/${letter.id}` 
+        : `http://localhost:5173/secretariat/${letter.id}`;
+
     return (
         <div className="max-w-4xl mx-auto p-4 space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
             <style type="text/css">
@@ -464,7 +524,6 @@ const SecretariatDetailScreen = () => {
                     body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; } 
                     .print-hidden { display: none !important; }
                     .flex-1 { display: block !important; }
-                    /* 🚀 جلوگیری از نصف شدن کادرها بین دو صفحه */
                     .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
                 }`}
             </style>
@@ -497,8 +556,8 @@ const SecretariatDetailScreen = () => {
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold print:hidden mb-2 overflow-x-auto whitespace-nowrap h-6">
                 <Link to="/secretariat" className="text-blue-500 hover:text-blue-700 transition">دبیرخانه</Link>
                 <FaChevronLeft className="text-[10px] text-gray-400" />
-                <Link to="/secretariat" state={{ filter: letter.letter_type }} className="text-blue-500 hover:text-blue-700 transition">
-                    مکاتبات {translateEnum(letter.letter_type)}
+                <Link to="/secretariat" state={{ filter: letter.status === 'DELETED' ? 'DELETED' : letter.letter_type }} className="text-blue-500 hover:text-blue-700 transition">
+                    {letter.status === 'DELETED' ? 'زباله‌دان' : `مکاتبات ${translateEnum(letter.letter_type)}`}
                 </Link>
                 <FaChevronLeft className="text-[10px] text-gray-400" />
                 <span className={isDark ? "text-gray-300" : "text-gray-700"}>نامه {letter.indicator_number}</span>
@@ -508,7 +567,7 @@ const SecretariatDetailScreen = () => {
 
             <LetterInfoBanner letter={letter} isDark={isDark} translateEnum={translateEnum} getStatusStyle={getStatusStyle} />
 
-            {(isDeliveryPerson || isLevelZeroOrAdmin) && letter.letter_type === 'OUTGOING' && ['ISSUED', 'APPROVED'].includes(letter.status) && (
+            {(isDeliveryPerson || hasSecretariatPerm) && letter.letter_type === 'OUTGOING' && ['ISSUED', 'APPROVED'].includes(letter.status) && (
                 <div className={`p-5 md:p-6 rounded-2xl border-2 border-emerald-500 shadow-xl print:hidden ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50'}`}>
                     <h3 className="text-emerald-700 dark:text-emerald-400 font-black mb-3 flex items-center gap-2 text-lg">
                         <FaCheckCircle /> {isDeliveryPerson ? 'شما مسئول تحویل این نامه هستید' : 'ثبت اطلاعات مقصد'}
@@ -549,7 +608,7 @@ const SecretariatDetailScreen = () => {
                         </button>
                     )}
                     
-                    {isLevelZeroOrAdmin && letter.letter_type === 'OUTGOING' && letter.status === 'APPROVED' && (
+                    {hasSecretariatPerm && letter.letter_type === 'OUTGOING' && letter.status === 'APPROVED' && (
                         <button onClick={() => setShowIssueModal(true)} className="flex items-center gap-1.5 bg-cyan-600 text-white hover:bg-cyan-700 px-4 py-2 rounded-lg font-bold transition text-sm shadow-md">
                             <FaPaperPlane /> تحویل به پیک
                         </button>
@@ -559,56 +618,80 @@ const SecretariatDetailScreen = () => {
                         <button onClick={() => setShowSignaturePad(!showSignaturePad)} className="flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-lg font-bold transition text-sm shadow-md"><FaPenNib /> امضا</button>
                     )}
                     
-                    <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 ml-2">
-                        <div className="relative" ref={printMenuRef}>
-                            <button onClick={() => setShowPrintMenu(!showPrintMenu)} className="flex items-center gap-1.5 bg-gray-800 text-white hover:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white px-4 py-2 rounded-lg font-bold transition text-sm shadow-md">
-                                <FaPrint /> چاپ <FaChevronDown className="text-[10px] ml-1 opacity-70" />
-                            </button>
-                            {showPrintMenu && (
-                                <div className={`absolute top-full mt-2 right-0 w-64 rounded-xl shadow-2xl overflow-hidden z-50 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
-                                    <button onClick={() => handlePrintAction('BLANK')} className={`w-full text-right px-4 py-3 text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-gray-200' : 'border-gray-100 text-gray-800'}`}>
-                                        📄 چاپ برگه معمولی
-                                    </button>
-                                    <button onClick={() => handlePrintAction('LETTERHEAD')} className={`w-full text-right px-4 py-3 text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-blue-400' : 'border-gray-100 text-blue-600'}`}>
-                                        🖨️ چاپ روی سربرگ آرم‌دار
-                                    </button>
-                                    
-                                    <div className={`p-3 border-b ${isDark ? 'border-slate-700 bg-gray-900' : 'border-gray-100 bg-gray-50'}`}>
-                                        <label className="block text-[10px] font-bold opacity-60 mb-2 flex items-center gap-1"><FaFont/> فونت رسمی پرینت</label>
-                                        <select 
-                                            value={printFont} 
-                                            onChange={(e) => handleFontChange(e.target.value)}
-                                            className={`w-full p-2 rounded text-xs outline-none border ${isDark ? 'bg-slate-800 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
-                                            style={{ fontFamily: printFont }}
-                                        >
-                                            <option value="Vazirmatn" style={{ fontFamily: 'Vazirmatn' }}>وزیرمتن (سیستم)</option>
-                                            <option value="'B Zar', Tahoma" style={{ fontFamily: "'B Zar', Tahoma" }}>ب زر (B Zar)</option>
-                                            <option value="'B Lotus', Tahoma" style={{ fontFamily: "'B Lotus', Tahoma" }}>ب لوتوس (B Lotus)</option>
-                                            <option value="'B Nazanin', Tahoma" style={{ fontFamily: "'B Nazanin', Tahoma" }}>ب نازنین (B Nazanin)</option>
-                                            <option value="'B Mitra', Tahoma" style={{ fontFamily: "'B Mitra', Tahoma" }}>ب میترا (B Mitra)</option>
-                                            <option value="'IranNastaliq', Tahoma" style={{ fontFamily: "'IranNastaliq', Tahoma" }}>ایران نستعلیق (IranNastaliq)</option>
-                                        </select>
-                                    </div>
+                    {letter.status !== 'DELETED' && (
+                        <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700 ml-2">
+                            <div className="relative" ref={printMenuRef}>
+                                <button onClick={() => setShowPrintMenu(!showPrintMenu)} className="flex items-center gap-1.5 bg-gray-800 text-white hover:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white px-4 py-2 rounded-lg font-bold transition text-sm shadow-md">
+                                    <FaPrint /> چاپ ({printMode === 'BLANK' ? 'معمولی' : 'سربرگ'}) <FaChevronDown className="text-[10px] ml-1 opacity-70" />
+                                </button>
+                                {showPrintMenu && (
+                                    <div className={`absolute top-full mt-2 right-0 w-72 rounded-xl shadow-2xl overflow-hidden z-50 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                                        <div className={`p-2 border-b text-[11px] font-bold ${isDark ? 'bg-slate-900 border-slate-700 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
+                                            انتخاب قالب پیش‌نمایش و چیدمان:
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-1 p-2 border-b dark:border-slate-700">
+                                            <button 
+                                                type="button"
+                                                onClick={() => setPrintMode('BLANK')} 
+                                                className={`py-2 px-2 rounded-lg text-xs font-bold transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+                                            >
+                                                📄 برگه معمولی
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => setPrintMode('LETTERHEAD')} 
+                                                className={`py-2 px-2 rounded-lg text-xs font-bold transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+                                            >
+                                                🖨️ سربرگ آرم‌دار
+                                            </button>
+                                        </div>
 
-                                    <div className="p-2 bg-gray-50 dark:bg-gray-900">
-                                        <button 
-                                            onClick={() => { setIsLayoutEditMode(!isLayoutEditMode); setShowPrintMenu(false); }} 
-                                            className={`w-full flex items-center justify-center gap-2 text-center px-4 py-2 rounded-lg text-xs font-bold transition ${isLayoutEditMode ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md' : 'bg-white border dark:bg-gray-800 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                                        >
-                                            {isLayoutEditMode ? '✅ پایان چیدمان' : '🛠️ تنظیم چیدمان فیلدها'}
+                                        <button onClick={() => handlePrintAction('BLANK')} className={`w-full text-right px-4 py-3 text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-gray-200' : 'border-gray-100 text-gray-800'}`}>
+                                            🚀 چاپ فوری برگه معمولی
                                         </button>
+                                        <button onClick={() => handlePrintAction('LETTERHEAD')} className={`w-full text-right px-4 py-3 text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-blue-400' : 'border-gray-100 text-blue-600'}`}>
+                                            🚀 چاپ فوری روی سربرگ آرم‌دار
+                                        </button>
+                                        
+                                        <div className={`p-3 border-b ${isDark ? 'border-slate-700 bg-gray-900' : 'border-gray-100 bg-gray-50'}`}>
+                                            <label className="block text-[10px] font-bold opacity-60 mb-2 flex items-center gap-1"><FaFont/> فونت رسمی پرینت</label>
+                                            <select 
+                                                value={printFont} 
+                                                onChange={(e) => handleFontChange(e.target.value)}
+                                                className={`w-full p-2 rounded text-xs outline-none border ${isDark ? 'bg-slate-800 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                                                style={{ fontFamily: printFont }}
+                                            >
+                                                <option value="Vazirmatn" style={{ fontFamily: 'Vazirmatn' }}>وزیرمتن (سیستم)</option>
+                                                <option value="'B Zar', Tahoma" style={{ fontFamily: "'B Zar', Tahoma" }}>ب زر (B Zar)</option>
+                                                <option value="'B Lotus', Tahoma" style={{ fontFamily: "'B Lotus', Tahoma" }}>ب لوتوس (B Lotus)</option>
+                                                <option value="'B Nazanin', Tahoma" style={{ fontFamily: "'B Nazanin', Tahoma" }}>ب نازنین (B Nazanin)</option>
+                                                <option value="'B Mitra', Tahoma" style={{ fontFamily: "'B Mitra', Tahoma" }}>ب میترا (B Mitra)</option>
+                                                <option value="'IranNastaliq', Tahoma" style={{ fontFamily: "'IranNastaliq', Tahoma" }}>ایران نستعلیق (IranNastaliq)</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="p-2 bg-gray-50 dark:bg-gray-900">
+                                            <button 
+                                                onClick={() => { setIsLayoutEditMode(!isLayoutEditMode); setShowPrintMenu(false); }} 
+                                                className={`w-full flex items-center justify-center gap-2 text-center px-4 py-2 rounded-lg text-xs font-bold transition ${isLayoutEditMode ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md' : 'bg-white border dark:bg-gray-800 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                            >
+                                                {isLayoutEditMode ? '✅ پایان چیدمان' : `🛠️ تنظیم چیدمان (${printMode === 'BLANK' ? 'برگه معمولی' : 'سربرگ'})`}
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+                            </div>
+                            {isLayoutEditMode && (
+                                <button onClick={handleResetLayout} className="flex items-center gap-1.5 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 px-3 py-2 rounded-lg font-bold transition text-xs shadow-sm">
+                                    🔄 ریست ({printMode === 'BLANK' ? 'معمولی' : 'سربرگ'})
+                                </button>
                             )}
                         </div>
-                        {isLayoutEditMode && (
-                            <button onClick={handleResetLayout} className="flex items-center gap-1.5 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 px-3 py-2 rounded-lg font-bold transition text-xs shadow-sm">
-                                🔄 ریست
-                            </button>
-                        )}
-                    </div>
+                    )}
 
-                    <button onClick={() => setShowForward(!showForward)} className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-4 py-2 rounded-lg font-bold transition text-sm shadow-sm"><FaShare /> ارجاع</button>
+                    {letter.status !== 'DELETED' && (
+                        <button onClick={() => setShowForward(!showForward)} className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 px-4 py-2 rounded-lg font-bold transition text-sm shadow-sm"><FaShare /> ارجاع</button>
+                    )}
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto lg:justify-end border-t lg:border-t-0 lg:border-r border-gray-200 dark:border-slate-700 pt-3 lg:pt-0 lg:pr-4">
@@ -619,10 +702,18 @@ const SecretariatDetailScreen = () => {
                         </>
                     )}
                     
-                    {((letter.status === 'PENDING' && (letter.created_by === userInfo?.id || letter.created_by?.id === userInfo?.id)) || isLevelZeroOrAdmin) && (
+                    {letter.status === 'DELETED' && hasSecretariatPerm && (
+                        <button onClick={handleRestore} className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-md">
+                            <FaTrashRestore /> بازیابی از زباله‌دان
+                        </button>
+                    )}
+
+                    {((letter.status === 'PENDING' && isCreator) || hasSecretariatPerm) && (
                         <>
                             <button onClick={() => navigate(`/secretariat/${id}/edit`)} className="flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 dark:hover:bg-amber-900/40 px-3 py-2 rounded-lg text-xs font-bold transition"><FaEdit /> ویرایش</button>
-                            <button onClick={handleDelete} className="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 px-3 py-2 rounded-lg text-xs font-bold transition"><FaTrash /> حذف</button>
+                            {letter.status !== 'DELETED' && (
+                                <button onClick={handleDelete} className="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 px-3 py-2 rounded-lg text-xs font-bold transition"><FaTrash /> حذف</button>
+                            )}
                         </>
                     )}
                     <button onClick={() => navigate('/secretariat')} className="flex items-center justify-center gap-1.5 bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-xs font-bold transition ml-auto lg:ml-0"><FaArrowLeft /> بازگشت</button>
@@ -642,7 +733,6 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* 🚀 تغییر فرم ارجاع: افزودن سرچ گیرنده و تبدیل اینپوت به تکست‌اریا */}
             {showForward && (
                 <div className={`p-4 rounded-xl border-l-4 border-indigo-500 print:hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-50'}`}>
                     <form onSubmit={handleForward} className="flex flex-col gap-4">
@@ -676,77 +766,129 @@ const SecretariatDetailScreen = () => {
                     </form>
                 </div>
             )}
+
             {isLayoutEditMode && (
-                <div className="bg-amber-100 border border-amber-400 text-amber-800 p-3 rounded-xl mb-4 text-sm font-bold text-center print:hidden shadow-md animate-pulse">
-                    ⚠️ حالت چیدمان فعال است. المان‌ها را جابجا یا ویرایش کنید. پس از اتمام، از منوی چاپ گزینه «✅ پایان چیدمان» را بزنید.
+                <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-4 rounded-xl mb-4 text-sm font-bold flex flex-col md:flex-row items-center justify-between gap-4 print:hidden shadow-md">
+                    <div className="flex items-center gap-2">
+                        <span>⚠️ در حال ویرایش چیدمان برای حالت:</span>
+                        <div className="inline-flex bg-white rounded-lg p-1 border border-amber-300 shadow-inner">
+                            <button
+                                type="button"
+                                onClick={() => setPrintMode('BLANK')}
+                                className={`px-3 py-1 rounded-md text-xs font-black transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                📄 برگه معمولی (سفید)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPrintMode('LETTERHEAD')}
+                                className={`px-3 py-1 rounded-md text-xs font-black transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                🖨️ سربرگ آرم‌دار
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs opacity-75">هر دو حالت به صورت جداگانه ذخیره می‌شوند.</span>
+                        <button
+                            type="button"
+                            onClick={() => setIsLayoutEditMode(false)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow transition"
+                        >
+                            ✅ پایان چیدمان
+                        </button>
+                    </div>
                 </div>
             )}
 
             <div 
                 className={`p-8 md:p-10 border shadow-2xl mx-auto relative bg-white text-gray-900 flex flex-col overflow-visible print:block print:p-[1cm] print:border-none print:shadow-none print:min-h-0
-                ${letter.status === 'REJECTED' || letter.status === 'PENDING' ? 'opacity-50 grayscale print:hidden' : ''}`}
+                ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                 style={{ width: '100%', maxWidth: '210mm', minHeight: '280mm', fontFamily: printFont }}
             >
-                
                 <div className="flex-1 block">
                     <div className={`flex justify-between items-start pb-2 relative mt-4 md:mt-0`}>
-                        <div className={`flex flex-col items-center justify-start pt-2 w-1/3 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
+                        {/* ستون راست: لوگو (اگر وارده بود و لوگو نداشت، شارینگان نشان می‌دهد) */}
+                        <div className={`flex flex-col items-center justify-start pt-2 w-1/3 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
                             <DraggableElement id="head-logo-img" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
-                                {letter.letter_type === 'INCOMING' && letter.external_sender_detail?.logo ? (
-                                    <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
+                                {letter.letter_type === 'INCOMING' ? (
+                                    letter.external_sender_detail?.logo ? (
+                                        <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
+                                    ) : (
+                                        <SharinganIncomingLogo />
+                                    )
                                 ) : (
                                     <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
                                 )}
                             </DraggableElement>
                             
                             <DraggableElement id="head-logo-name" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-name']} styleData={layoutStyles['head-logo-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
-                                <span>{letter.final_sender_name}</span>
+                                <div className="w-full text-center">
+                                    <span>{letter.final_sender_name}</span>
+                                </div>
                             </DraggableElement>
                         </div>
                         
-                        <DraggableElement id="head-besmella" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`flex flex-col items-center justify-start w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
-                            <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black">به نام خدا</span>
+                        {/* 🚀 ستون وسط: وسط‌چین شدن قطعی عبارت «به نام خدا» */}
+                        <DraggableElement id="head-besmella" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
+                            <div className="w-full flex justify-center items-center text-center">
+                                <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black text-center">به نام خدا</span>
+                            </div>
                         </DraggableElement>
 
-                        <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold w-1/3 items-end space-y-2.5 pt-2 md:pt-4 text-black">
-                            {letter.original_number ? (
-                                <DraggableElement id="head-number" isEditMode={isLayoutEditMode} position={layoutPositions['head-number']} styleData={layoutStyles['head-number']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
-                                    <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>شماره : </span>
-                                    <bdi className="font-mono font-bold print:text-sm">{letter.original_number}</bdi>
+                        {/* 🚀 ستون چپ: شماره، تاریخ، پیوست + QR Code اختصاصی لینک همین نامه در کنار آن‌ها */}
+                        <div className="flex items-start justify-end gap-3 w-1/3 pt-2 md:pt-4 text-black">
+                            <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold items-end space-y-2.5">
+                                {letter.original_number ? (
+                                    <DraggableElement id="head-number" isEditMode={isLayoutEditMode} position={layoutPositions['head-number']} styleData={layoutStyles['head-number']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
+                                        <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>شماره : </span>
+                                        <bdi className="font-mono font-bold print:text-sm">{letter.original_number}</bdi>
+                                    </DraggableElement>
+                                ) : (
+                                    <div className="flex items-center gap-2 text-gray-400 print:hidden"><span className="font-normal">شماره :</span><span>پس از تایید</span></div>
+                                )}
+                                
+                                {letter.original_date && (
+                                    <DraggableElement id="head-date" isEditMode={isLayoutEditMode} position={layoutPositions['head-date']} styleData={layoutStyles['head-date']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
+                                        <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>تاریخ :</span> 
+                                        <span className="print:text-sm">{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span>
+                                    </DraggableElement>
+                                )}
+                                
+                                <DraggableElement id="head-attachment" isEditMode={isLayoutEditMode} position={layoutPositions['head-attachment']} styleData={layoutStyles['head-attachment']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
+                                    <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>پیوست:</span> 
+                                    <span className="print:text-sm">{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span>
                                 </DraggableElement>
-                            ) : (
-                                <div className="flex items-center gap-2 text-gray-400 print:hidden"><span className="font-normal">شماره :</span><span>پس از تایید</span></div>
-                            )}
-                            
-                            {letter.original_date && (
-                                <DraggableElement id="head-date" isEditMode={isLayoutEditMode} position={layoutPositions['head-date']} styleData={layoutStyles['head-date']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
-                                    <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>تاریخ :</span> 
-                                    <span className="print:text-sm">{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span>
-                                </DraggableElement>
-                            )}
-                            
-                            <DraggableElement id="head-attachment" isEditMode={isLayoutEditMode} position={layoutPositions['head-attachment']} styleData={layoutStyles['head-attachment']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
-                                <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>پیوست:</span> 
-                                <span className="print:text-sm">{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span>
+                            </div>
+
+                            {/* 🚀 QR Code اختصاصی لینک مستقیم همین نامه */}
+                            <DraggableElement id="head-letter-qr" isEditMode={isLayoutEditMode} position={layoutPositions['head-letter-qr']} styleData={layoutStyles['head-letter-qr']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="shrink-0">
+                                <div className="p-1 bg-white border border-gray-300 print:border-black rounded-md flex flex-col items-center justify-center shadow-sm" title={currentLetterUrl}>
+                                    <QRCode
+                                        value={currentLetterUrl}
+                                        size={54}
+                                        level="M"
+                                        fgColor="#000000"
+                                        bgColor="#FFFFFF"
+                                    />
+                                </div>
                             </DraggableElement>
                         </div>
                     </div>
 
-                    <DraggableElement id="header-divider" isEditMode={isLayoutEditMode} position={layoutPositions['header-divider']} styleData={layoutStyles['header-divider']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-full mb-6 ${printMode === 'LETTERHEAD' ? 'print:invisible' : ''}`}>
+                    <DraggableElement id="header-divider" isEditMode={isLayoutEditMode} position={layoutPositions['header-divider']} styleData={layoutStyles['header-divider']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-full mb-6 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
                         <div className="border-b-4 border-gray-400 print:border-black w-full"></div>
                     </DraggableElement>
 
                     <div className="space-y-3 mb-8 text-sm md:text-base print:text-base leading-relaxed mt-10 text-black">
                         {letter.final_receiver_name && letter.final_receiver_name !== "-" && (
                             <DraggableElement id="body-receiver" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                                <span className="w-24 opacity-80 font-normal">گیرنده : </span> 
                                 <strong className="text-lg">{letter.final_receiver_name}</strong>
                             </DraggableElement>
                         )}
 
                         {letter.receiver_persons && (
-                            <DraggableElement id="body-receiver-titles" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-2 border-r-2 border-gray-400 print:border-black pr-3 ml-2 text-sm w-full">
-                                <span className="opacity-80 font-normal ml-2"> </span> 
+                            <DraggableElement id="body-receiver-titles" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-2 text-sm w-full">
                                 <p className="whitespace-pre-wrap font-bold leading-relaxed">{letter.receiver_persons}</p>
                             </DraggableElement>
                         )}
@@ -756,10 +898,25 @@ const SecretariatDetailScreen = () => {
                             <strong className="text-lg flex-1">{letter.subject}</strong>
                         </DraggableElement>
 
-                        {letter.reference_number && (
+                        {/* 🚀 نمایش عطف سیستمی (شماره + موضوع در لینک) و عطف دستی */}
+                        {(letter.reference_letter_detail || letter.reference_number) && (
                             <DraggableElement id="body-ref" isEditMode={isLayoutEditMode} position={layoutPositions['body-ref']} styleData={layoutStyles['body-ref']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-4 w-full">
                                 <span className="w-24 opacity-80">عطف به:</span> 
-                                <strong className="text-base font-mono" dir="ltr">{letter.reference_number}</strong>
+                                <div className="flex flex-wrap items-center gap-2 flex-1">
+                                    {letter.reference_letter_detail && (
+                                        <Link 
+                                            to={`/secretariat/${letter.reference_letter_detail.id}`} 
+                                            onClick={(e) => isLayoutEditMode && e.preventDefault()}
+                                            className="font-bold text-blue-700 print:text-black hover:underline"
+                                        >
+                                            نامه {letter.reference_letter_detail.indicator_number} ({letter.reference_letter_detail.subject})
+                                        </Link>
+                                    )}
+                                    {letter.reference_letter_detail && letter.reference_number && <span className="opacity-50">|</span>}
+                                    {letter.reference_number && (
+                                        <strong className="text-base font-mono" dir="ltr">{letter.reference_number}</strong>
+                                    )}
+                                </div>
                             </DraggableElement>
                         )}
 
@@ -792,10 +949,7 @@ const SecretariatDetailScreen = () => {
                             {letter.letter_type === 'OUTGOING' && letter.destination_indicator && (
                                 <div className="absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 px-5 py-3 rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '160px', boxShadow: 'inset 0 0 4px rgba(220,38,38,0.2)' }}>
                                     <span className="text-sm font-black tracking-widest text-center mb-1">ثبت در مقصد</span>
-                                    
-                                    {/* 🚀 خط شکستگی/نقطه‌چین وسط مهر */}
                                     <div className="w-full border-b-[3px] border-dashed border-red-600 my-1.5 opacity-70"></div>
-                                    
                                     <span className="font-mono text-xl font-bold mt-1" dir="ltr">{letter.destination_indicator}</span>
                                     {letter.destination_date && <span className="text-[11px] font-bold mt-1">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
                                 </div>
@@ -821,8 +975,6 @@ const SecretariatDetailScreen = () => {
                 {printMode === 'BLANK' && letter.letter_type !== 'INCOMING' && (
                     <DraggableElement id="company-footer" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-auto w-full pt-6 avoid-break">
                         <div className="border-t-[3px] border-gray-400 print:border-black pt-4 flex justify-between items-end gap-4 text-gray-800 print:text-black">
-                            
-                            {/* 🚀 بارکد QR شیک با لوگو (گوشه چپ) */}
                             <div className="relative flex items-center justify-center p-1.5 bg-white border-2 border-gray-300 print:border-black rounded-xl">
                                 <QRCode
                                     value="https://www.ariobonyantoos.com/"
@@ -838,60 +990,53 @@ const SecretariatDetailScreen = () => {
                                 </div>
                             </div>
 
-                            {/* اطلاعات تماس (ستون راست) */}
                             <div className="flex flex-col text-right text-[11px] print:text-[12px] font-bold space-y-1.5">
-                                
                                 <div className="flex items-center justify-end gap-2">
                                     <span>مشهد، هاشمیه ۵۱، پلاک ۱۳۶</span>
                                     <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMapMarkerAlt size={10} /></div>
                                 </div>
-                                
                                 <div className="flex items-center justify-end gap-2">
                                     <span className="font-mono mt-1" dir="ltr">051 - 376 17880 | 376 46801</span>
                                     <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaPhoneAlt size={10} /></div>
                                 </div>
-                                
                                 <div className="flex items-center justify-end gap-2">
                                     <span className="font-mono mt-1" dir="ltr">0910 555 0268 - 0915 255 3010</span>
                                     <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMobileAlt size={10} /></div>
                                 </div>
-                                
                                 <div className="flex items-center justify-end gap-2">
                                     <span className="font-mono mt-1">ariobonyantoos@gmail.com</span>
                                     <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaEnvelope size={10} /></div>
                                 </div>
-
                                 <div className="flex items-center justify-end gap-2">
                                     <span className="font-mono mt-1">www.ariobonyantoos.com</span>
                                     <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaGlobe size={10} /></div>
                                 </div>
                             </div>
-
                         </div>
                     </DraggableElement>
                 )}
             </div>
 
-            {/* 🚀 بازگردانی کامل بخش‌های پایینی */}
+            {/* 🚀 نمایش شماره نامه + موضوع در باکس عطف و پاسخ‌های پایین صفحه */}
             {(letter.reference_letter_detail || (letter.replies && letter.replies.length > 0)) && (
                 <div className={`p-4 mb-6 rounded-xl border-l-4 print:hidden mt-6 ${isDark ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-500'}`}>
                     {letter.reference_letter_detail && (
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
                             <FaArrowRight className="text-blue-500 text-xs" />
-                            <span className="text-sm font-bold opacity-80">پاسخی است به:</span>
-                            <Link to={`/secretariat/${letter.reference_letter_detail.id}`} className="text-sm font-bold text-blue-600 hover:underline">
-                                نامه {letter.reference_letter_detail.indicator_number}
+                            <span className="text-sm font-bold opacity-80">پاسخی است به (عطف سیستمی):</span>
+                            <Link to={`/secretariat/${letter.reference_letter_detail.id}`} className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                                نامه {letter.reference_letter_detail.indicator_number} — {letter.reference_letter_detail.subject}
                             </Link>
                         </div>
                     )}
                     {letter.replies && letter.replies.length > 0 && (
                         <div className="flex items-start gap-2 mt-2">
                             <FaLink className="text-blue-500 text-xs mt-1" />
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold opacity-80 mb-1">پاسخ‌های این نامه:</span>
+                            <div className="flex flex-col space-y-1">
+                                <span className="text-sm font-bold opacity-80 mb-1">پاسخ‌های ثبت‌شده برای این نامه:</span>
                                 {letter.replies.map(reply => (
-                                    <Link key={reply.id} to={`/secretariat/${reply.id}`} className="text-sm font-bold text-emerald-600 hover:underline before:content-['•'] before:ml-2">
-                                        نامه {reply.indicator_number}
+                                    <Link key={reply.id} to={`/secretariat/${reply.id}`} className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:underline before:content-['•'] before:ml-2">
+                                        نامه {reply.indicator_number} — {reply.subject}
                                     </Link>
                                 ))}
                             </div>
@@ -941,7 +1086,6 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* 🚀 تغییر تاریخچه ارجاعات: امکان ویرایش متن ارجاع خود کاربر */}
             {letter.referrals && letter.referrals.length > 0 && (
                 <div className={`mt-6 pt-6 border-t border-dashed ${isDark ? 'border-gray-600' : 'border-gray-300'} print:hidden`}>
                     <h4 className="text-sm font-black mb-4 flex items-center gap-2 opacity-80 text-indigo-600"><FaHistory /> تاریخچه ارجاعات</h4>
@@ -970,7 +1114,7 @@ const SecretariatDetailScreen = () => {
                                             />
                                             <div className="flex gap-2 justify-end">
                                                 <button onClick={() => setEditingRefId(null)} className="text-xs px-4 py-1.5 bg-gray-400 hover:bg-gray-500 text-white rounded font-bold transition">انصراف</button>
-                                                <button onClick={() => handleEditReferralSubmit(ref.id)} className="text-xs px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition">ذخیره ویرایش</button>
+                                                <button onClick={() => handleEditReferralSubmit(ref.id)} className="text-xs px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition">ذخیره</button>
                                             </div>
                                         </div>
                                     ) : (
@@ -991,6 +1135,7 @@ const SecretariatDetailScreen = () => {
                     </div>
                 </div>
             )}
+
             <div className={`p-5 rounded-xl border print:hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold flex items-center gap-2 opacity-80"><FaPaperclip /> پیوست‌ها ({letter.attachments?.length || 0})</h3>
