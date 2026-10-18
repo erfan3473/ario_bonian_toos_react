@@ -20,10 +20,35 @@ import {
 } from './taskConstants'; 
 import { ConfirmModal, ForwardModal, ReturnModal } from './TaskModals';
 import TaskSmsSection from './TaskSmsSection';
-import AssigneePickerPanel, { AssigneeChip } from './AssigneePickerPanel';
+import AssigneePickerPanel, { AssigneeChip, Avatar } from './AssigneePickerPanel';
 
-const APPROVAL_RULES = [ { value: 'ANY_ASSIGNEE', label: 'تایید توسط یک نفر کافیست' }, { value: 'ALL_ASSIGNEES', label: 'تایید همه اجباری است' } ];
-const APPROVER_RULES = [ { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } ];
+const APPROVAL_RULES = [ 
+    { value: 'ANY_ASSIGNEE', label: 'تایید توسط یک نفر کافیست' }, 
+    { value: 'ALL_ASSIGNEES', label: 'تایید همه اجباری است' } 
+];
+const APPROVER_RULES = [ 
+    { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, 
+    { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } 
+];
+
+const ASSIGNEE_STATE_OPTIONS = [
+    { value: 'PENDING', label: 'در انتظار اقدام' },
+    { value: 'IN_PROGRESS', label: 'در حال انجام' },
+    { value: 'APPROVED', label: 'تایید / انجام شد' },
+    { value: 'REJECTED', label: 'رد شد' },
+    { value: 'FORWARDED', label: 'ارجاع داده شد' },
+    { value: 'SKIPPED', label: 'گذر شده' },
+];
+
+const APPROVER_STATUS_OPTIONS = [
+    { value: 'PENDING', label: 'در انتظار اقدام' },
+    { value: 'FORWARDED', label: 'ارجاع داده شد' },
+    { value: 'RETURNED', label: 'برگشت به مرحله قبل' },
+    { value: 'RESUBMITTED', label: 'بررسی مجدد' },
+    { value: 'APPROVED', label: 'تایید شد' },
+    { value: 'REJECTED', label: 'رد شد' },
+    { value: 'SKIPPED', label: 'رد شده/غیرفعال' },
+];
 
 const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const dispatch = useDispatch();
@@ -33,7 +58,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     
     const { uploadingFile, addingComment, freezingTemplate, subordinates, loadingSubordinates, editingTask, taskTypes } = useSelector(s => s.task);
 
-    // تشخیص دقیق سطح دسترسی برای هیئت مدیره
+    // بررسی دقیق سطح دسترسی برای هیئت مدیره و ادمین
     const myEmployeeRecord = subordinates?.find(e => e.user_id === currentUserId);
     const isBoard = myEmployeeRecord?.hierarchy_level === 0;
     const isAdminOrBoard = isAdmin || isBoard;
@@ -54,8 +79,11 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const [showContactModal, setShowContactModal] = useState(false);
     const [contactSelectedIds, setContactSelectedIds] = useState([]);
     
+    // استیت‌های مدال ادیت
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editData, setEditData] = useState({ title: '', note: '', urgency: 'MEDIUM', task_type: '', status: 'PENDING', deadlineDate: '', deadlineTime: '23:59' });
+    const [editData, setEditData] = useState({ 
+        title: '', note: '', urgency: 'MEDIUM', task_type: '', status: 'PENDING', deadlineDate: '', deadlineTime: '23:59' 
+    });
     const [editStages, setEditStages] = useState([]);
     const [activeEditElement, setActiveEditElement] = useState({ id: null, type: 'STAGE' });
 
@@ -66,7 +94,6 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const { task, logs, files = [] } = taskData;
     const stages = task?.stages || []; 
     const currentActiveStage = stages.find(s => s.status === 'ACTIVE');
-    const activeStageName = currentActiveStage ? (currentActiveStage.stage_name || `مرحله ${currentActiveStage.step_index}`) : null;
     
     let myPendingAction = null;
     let pendingActionContext = { type: null, name: '', require_file: false, rolesText: '' };
@@ -108,6 +135,21 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
 
         const loadedStages = stages.map((s, idx) => {
             const [sDate, sTime] = s.deadline ? moment(s.deadline).format('YYYY-MM-DD HH:mm').split(' ') : ['', '23:59'];
+            
+            // استخراج وضعیت‌های قبلی هر مجری
+            const initialAssigneeStates = {};
+            (s.assignees || []).forEach(a => {
+                const uid = a.user || a.user_id;
+                if (uid) initialAssigneeStates[uid] = a.state || 'PENDING';
+            });
+
+            // استخراج وضعیت‌های قبلی هر ناظر میانی
+            const initialApproverStatuses = {};
+            (s.intermediate_approvers_details || s.approval_records || []).forEach(ap => {
+                const uid = ap.id || ap.user || ap.user_id;
+                if (uid) initialApproverStatuses[uid] = ap.status || 'PENDING';
+            });
+
             return {
                 id: s.id, 
                 stageName: s.stage_name || `مرحله ${idx + 1}`,
@@ -117,8 +159,10 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 status: s.status || 'PENDING',
                 requireFile: !!s.require_file,
                 assignees: s.assignees?.map(a => a.user || a.user_id) || [],
+                assigneeStates: initialAssigneeStates,
                 approvalRule: s.approval_rule || 'ANY_ASSIGNEE',
                 nextStageApprovers: s.intermediate_approvers_details?.map(ap => ap.id) || [],
+                approverStatuses: initialApproverStatuses,
                 approverRule: s.approver_rule || 'ALL_APPROVERS'
             };
         });
@@ -133,7 +177,19 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const handleAddEditStage = () => {
         const newId = `new-${Date.now()}`;
         const newStage = {
-            id: newId, stageName: `مرحله ${editStages.length + 1}`, description: '', deadlineDate: '', deadlineTime: '23:59', status: 'PENDING', requireFile: false, assignees: [], approvalRule: 'ANY_ASSIGNEE', nextStageApprovers: [], approverRule: 'ALL_APPROVERS'
+            id: newId, 
+            stageName: `مرحله ${editStages.length + 1}`, 
+            description: '', 
+            deadlineDate: '', 
+            deadlineTime: '23:59', 
+            status: 'PENDING', 
+            requireFile: false, 
+            assignees: [], 
+            assigneeStates: {},
+            approvalRule: 'ANY_ASSIGNEE', 
+            nextStageApprovers: [], 
+            approverStatuses: {},
+            approverRule: 'ALL_APPROVERS'
         };
         setEditStages([...editStages, newStage]);
         setActiveEditElement({ id: newId, type: 'STAGE' });
@@ -153,8 +209,19 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const handleEditAssigneeChange = (selectedIds) => {
         setEditStages(editStages.map(s => {
             if (s.id === activeEditElement.id) {
-                if (activeEditElement.type === 'STAGE') return { ...s, assignees: selectedIds };
-                return { ...s, nextStageApprovers: selectedIds };
+                if (activeEditElement.type === 'STAGE') {
+                    const newStates = { ...(s.assigneeStates || {}) };
+                    selectedIds.forEach(uid => {
+                        if (!newStates[uid]) newStates[uid] = 'PENDING';
+                    });
+                    return { ...s, assignees: selectedIds, assigneeStates: newStates };
+                } else {
+                    const newStatuses = { ...(s.approverStatuses || {}) };
+                    selectedIds.forEach(uid => {
+                        if (!newStatuses[uid]) newStatuses[uid] = 'PENDING';
+                    });
+                    return { ...s, nextStageApprovers: selectedIds, approverStatuses: newStatuses };
+                }
             }
             return s;
         }));
@@ -163,8 +230,45 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const handleRemoveEditAssignee = (stageId, type, empIdToRemove) => {
         setEditStages(editStages.map(s => {
             if (s.id === stageId) {
-                if (type === 'STAGE') return { ...s, assignees: s.assignees.filter(id => id !== empIdToRemove) };
-                return { ...s, nextStageApprovers: s.nextStageApprovers.filter(id => id !== empIdToRemove) };
+                if (type === 'STAGE') {
+                    const newStates = { ...(s.assigneeStates || {}) };
+                    delete newStates[empIdToRemove];
+                    return { ...s, assignees: s.assignees.filter(id => id !== empIdToRemove), assigneeStates: newStates };
+                } else {
+                    const newStatuses = { ...(s.approverStatuses || {}) };
+                    delete newStatuses[empIdToRemove];
+                    return { ...s, nextStageApprovers: s.nextStageApprovers.filter(id => id !== empIdToRemove), approverStatuses: newStatuses };
+                }
+            }
+            return s;
+        }));
+    };
+
+    const updateAssigneeState = (stageId, userId, newState) => {
+        setEditStages(editStages.map(s => {
+            if (s.id === stageId) {
+                return {
+                    ...s,
+                    assigneeStates: {
+                        ...(s.assigneeStates || {}),
+                        [userId]: newState
+                    }
+                };
+            }
+            return s;
+        }));
+    };
+
+    const updateApproverStatus = (stageId, userId, newStatus) => {
+        setEditStages(editStages.map(s => {
+            if (s.id === stageId) {
+                return {
+                    ...s,
+                    approverStatuses: {
+                        ...(s.approverStatuses || {}),
+                        [userId]: newStatus
+                    }
+                };
             }
             return s;
         }));
@@ -210,8 +314,10 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 status: s.status,
                 require_file: s.requireFile,
                 assignee_ids: s.assignees,
-                approval_rule: s.approvalRule,
+                assignee_states: s.assigneeStates || {},
                 intermediate_approvers: s.nextStageApprovers,
+                approver_statuses: s.approverStatuses || {},
+                approval_rule: s.approvalRule,
                 approver_rule: s.approverRule
             }))
         };
@@ -225,6 +331,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
         }
     };
 
+    // محاسبه دسترسی‌های اقدام کاربر فعلی در مرحله فعال
     if (stages && stages.length > 0) {
         for (const stage of stages) {
             if (stage.status !== 'ACTIVE') continue;
@@ -359,141 +466,141 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     return (
         <div className={`h-full flex flex-col overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-white'}`}>
 
-        {/* ── هدر ── */}
-        <div className={`px-5 py-4 border-b flex-shrink-0 z-10 shadow-sm relative ${isDark ? 'border-zinc-700 bg-zinc-900' : 'border-gray-300 bg-white'}`}>
-            <div className="absolute top-4 left-5 flex items-center gap-2 z-20">
-                {isCreatorOrAdmin && (
-                    <button
-                        onClick={openEditModal}
-                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
-                            isDark
-                                ? 'bg-blue-600/25 text-blue-300 border-blue-500/55 hover:bg-blue-600/40 hover:border-blue-400/70'
-                                : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 hover:border-blue-400'
-                        }`}
-                    >
-                        <FaEdit size={12} />
-                        ویرایش
-                    </button>
-                )}
-                {isAdminOrBoard && (
-                    <button
-                        onClick={() => setTemplateModal(true)}
-                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
-                            isDark
-                                ? 'bg-purple-600/25 text-purple-300 border-purple-500/55 hover:bg-purple-600/40 hover:border-purple-400/70'
-                                : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 hover:border-purple-400'
-                        }`}
-                    >
-                        <FaSnowflake size={12} />
-                        فریز
-                    </button>
-                )}
-            </div>
-
-            <div className="relative mb-3 mt-8 sm:mt-0">
-                <div className="px-2 lg:px-48 text-center">
-                    <h2 className={`font-bold text-lg mb-2 leading-tight ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
-                        <span className={`text-xs font-normal ml-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>عنوان:</span>
-                        {task.title}
-                    </h2>
-                    {task.note && (
-                        <>
-                            <div className={`w-2/3 mx-auto my-3 border-t ${isDark ? 'border-zinc-700' : 'border-gray-400'}`}></div>
-                            <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                {task.note}
-                            </p>
-                        </>
+            {/* ── هدر ── */}
+            <div className={`px-5 py-4 border-b flex-shrink-0 z-10 shadow-sm relative ${isDark ? 'border-zinc-700 bg-zinc-900' : 'border-gray-300 bg-white'}`}>
+                <div className="absolute top-4 left-5 flex items-center gap-2 z-20">
+                    {isCreatorOrAdmin && (
+                        <button
+                            onClick={openEditModal}
+                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
+                                isDark
+                                    ? 'bg-blue-600/25 text-blue-300 border-blue-500/55 hover:bg-blue-600/40 hover:border-blue-400/70'
+                                    : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 hover:border-blue-400'
+                            }`}
+                        >
+                            <FaEdit size={12} />
+                            ویرایش
+                        </button>
+                    )}
+                    {isAdminOrBoard && (
+                        <button
+                            onClick={() => setTemplateModal(true)}
+                            className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border transition-colors ${
+                                isDark
+                                    ? 'bg-purple-600/25 text-purple-300 border-purple-500/55 hover:bg-purple-600/40 hover:border-purple-400/70'
+                                    : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 hover:border-purple-400'
+                            }`}
+                        >
+                            <FaSnowflake size={12} />
+                            فریز
+                        </button>
                     )}
                 </div>
-            </div>
 
-            <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                {task.created_by_name && (
+                <div className="relative mb-3 mt-8 sm:mt-0">
+                    <div className="px-2 lg:px-48 text-center">
+                        <h2 className={`font-bold text-lg mb-2 leading-tight ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                            <span className={`text-xs font-normal ml-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>عنوان:</span>
+                            {task.title}
+                        </h2>
+                        {task.note && (
+                            <>
+                                <div className={`w-2/3 mx-auto my-3 border-t ${isDark ? 'border-zinc-700' : 'border-gray-400'}`}></div>
+                                <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    {task.note}
+                                </p>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {task.created_by_name && (
+                        <div className="flex items-center gap-1.5">
+                            <FaUser className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+                            <span>آمر: <span className={isDark ? 'text-gray-200' : 'text-gray-800'}>{task.created_by_name}</span></span>
+                        </div>
+                    )}
                     <div className="flex items-center gap-1.5">
-                        <FaUser className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-                        <span>آمر: <span className={isDark ? 'text-gray-200' : 'text-gray-800'}>{task.created_by_name}</span></span>
+                        <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} />
+                        <span>تاریخ ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
                     </div>
-                )}
-                <div className="flex items-center gap-1.5">
-                    <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} />
-                    <span>تاریخ ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
+                    {task.deadline && (
+                        <div className={`flex items-center gap-1.5 font-semibold ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
+                            <FaClock />
+                            <span>مهلت: {moment(task.deadline).format('jYYYY/jMM/jDD - HH:mm')}</span>
+                        </div>
+                    )}
                 </div>
-                {task.deadline && (
-                    <div className={`flex items-center gap-1.5 font-semibold ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
-                        <FaClock />
-                        <span>مهلت: {moment(task.deadline).format('jYYYY/jMM/jDD - HH:mm')}</span>
-                    </div>
-                )}
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-                {onBack && (
-                    <button onClick={onBack} className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-sm transition-colors border ${isDark ? 'bg-zinc-800 text-blue-400 hover:bg-zinc-700 border-zinc-600' : 'bg-gray-100 text-blue-600 hover:bg-gray-200 border-gray-300'}`}>
-                        <FaChevronRight size={12} />
-                        <span className="text-sm font-medium">بازگشت</span>
-                    </button>
-                )}
-                <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-sm border ${STATUS_COLORS[task.status] || ''}`}>
-                    <span className="font-normal opacity-75">وضعیت کلی:</span>
-                    {STATUS_LABELS[task.status] || task.status}
-                </span>
-                <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-sm border ${isDark ? 'text-zinc-300 bg-zinc-800/60 border-zinc-600' : 'text-gray-700 bg-gray-100 border-gray-300'}`}>
-                    <span className="font-normal opacity-75">نوع ماموریت:</span>
-                    {task.task_type_label || task.task_type || 'بدون دسته‌بندی'}
-                </span>
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-sm border ${URGENCY_COLORS[task.urgency] || URGENCY_COLORS.MEDIUM}`}>
-                    فوریت: {URGENCY_LABELS[task.urgency] || task.urgency || 'متوسط'}
-                </span>
-
-                {currentActiveStage && !['DONE', 'REJECTED', 'CANCELLED'].includes(task.status) && (
-                    <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-sm border ${isDark ? 'text-blue-300 bg-blue-900/40 border-blue-700/50' : 'text-blue-700 bg-blue-50 border-blue-300'}`}>
-                        <span className="font-normal opacity-75">مرحله جاری:</span>
-                        <span className={`w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-bold ${isDark ? 'bg-blue-800 text-blue-100' : 'bg-blue-200 text-blue-800'}`}>
-                            {currentActiveStage.step_index}
-                        </span>
-                        <span>{currentActiveStage.stage_name || 'بدون عنوان'}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                    {onBack && (
+                        <button onClick={onBack} className={`lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-sm transition-colors border ${isDark ? 'bg-zinc-800 text-blue-400 hover:bg-zinc-700 border-zinc-600' : 'bg-gray-100 text-blue-600 hover:bg-gray-200 border-gray-300'}`}>
+                            <FaChevronRight size={12} />
+                            <span className="text-sm font-medium">بازگشت</span>
+                        </button>
+                    )}
+                    <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-sm border ${STATUS_COLORS[task.status] || ''}`}>
+                        <span className="font-normal opacity-75">وضعیت کلی:</span>
+                        {STATUS_LABELS[task.status] || task.status}
                     </span>
+                    <span className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-sm border ${isDark ? 'text-zinc-300 bg-zinc-800/60 border-zinc-600' : 'text-gray-700 bg-gray-100 border-gray-300'}`}>
+                        <span className="font-normal opacity-75">نوع ماموریت:</span>
+                        {task.task_type_label || task.task_type || 'بدون دسته‌بندی'}
+                    </span>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-sm border ${URGENCY_COLORS[task.urgency] || URGENCY_COLORS.MEDIUM}`}>
+                        فوریت: {URGENCY_LABELS[task.urgency] || task.urgency || 'متوسط'}
+                    </span>
+
+                    {currentActiveStage && !['DONE', 'REJECTED', 'CANCELLED'].includes(task.status) && (
+                        <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-sm border ${isDark ? 'text-blue-300 bg-blue-900/40 border-blue-700/50' : 'text-blue-700 bg-blue-50 border-blue-300'}`}>
+                            <span className="font-normal opacity-75">مرحله جاری:</span>
+                            <span className={`w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-bold ${isDark ? 'bg-blue-800 text-blue-100' : 'bg-blue-200 text-blue-800'}`}>
+                                {currentActiveStage.step_index}
+                            </span>
+                            <span>{currentActiveStage.stage_name || 'بدون عنوان'}</span>
+                        </span>
+                    )}
+                </div>
+                
+                {isWaitingForAssignees && !myPendingAction && (
+                    <div className="mt-4 p-4 bg-orange-500/15 border border-orange-500/50 rounded-sm">
+                        <div className="flex items-center gap-2">
+                            <FaClock className="text-orange-400 text-lg shrink-0" />
+                            <div className="flex flex-col">
+                                <span className="text-orange-400 text-xs font-bold mb-1">نقش شما: {pendingActionContext.rolesText}</span>
+                                <p className="text-orange-300 text-sm font-semibold">
+                                    {pendingActionContext.rolesText.includes('مجری') ? 'شما کار خود را انجام داده‌اید. منتظر بمانید تا سایر مجریان نیز تمام کنند.' : 'لطفاً منتظر بمانید تا مجریان کارشان را به اتمام برسانند.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {myPendingAction && (
+                    <div className="mt-4 p-4 bg-blue-500/15 border border-blue-500/50 rounded-sm">
+                        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-blue-400 text-[11px] font-bold bg-blue-500/15 px-2 py-0.5 rounded-sm border border-blue-500/30 w-fit">نقش شما: {pendingActionContext.rolesText}</span>
+                                <p className="text-blue-300 text-sm font-semibold">اقدام شما برای «{pendingActionContext.name}» نیاز است</p>
+                            </div>
+                            {pendingActionContext.require_file && (
+                                <span className="flex items-center gap-1 text-[10px] bg-red-300/20 text-yellow-100/ px-2 py-1 rounded-sm border border-yellow-500/40 font-bold"><FaPaperclip /> ارسال فایل الزامیست</span>
+                            )}
+                        </div>
+                        <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3">
+                            <button onClick={() => setModal('approve')} className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-green-900/40"><FaCheckCircle /> تایید</button>
+                            {pendingActionContext.type !== 'APPROVER' && (
+                                <button onClick={() => setModal('forward')} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40"><FaArrowLeft /> ارجاع</button>
+                            )}
+                            {pendingActionContext.type === 'APPROVER' && (
+                                <button onClick={() => setModal('return')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-orange-900/40"><FaUndo /> برگشت جهت اصلاح</button>
+                            )}
+                            <button onClick={() => setModal('reject')} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-red-900/40"><FaTimesCircle /> رد کردن</button>
+                        </div>
+                    </div>
                 )}
             </div>
-            
-            {isWaitingForAssignees && !myPendingAction && (
-                <div className="mt-4 p-4 bg-orange-500/15 border border-orange-500/50 rounded-sm">
-                    <div className="flex items-center gap-2">
-                        <FaClock className="text-orange-400 text-lg shrink-0" />
-                        <div className="flex flex-col">
-                            <span className="text-orange-400 text-xs font-bold mb-1">نقش شما: {pendingActionContext.rolesText}</span>
-                            <p className="text-orange-300 text-sm font-semibold">
-                                {pendingActionContext.rolesText.includes('مجری') ? 'شما کار خود را انجام داده‌اید. منتظر بمانید تا سایر مجریان نیز تمام کنند.' : 'لطفاً منتظر بمانید تا مجریان کارشان را به اتمام برسانند.'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {myPendingAction && (
-                <div className="mt-4 p-4 bg-blue-500/15 border border-blue-500/50 rounded-sm">
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                        <div className="flex flex-col gap-1.5">
-                            <span className="text-blue-400 text-[11px] font-bold bg-blue-500/15 px-2 py-0.5 rounded-sm border border-blue-500/30 w-fit">نقش شما: {pendingActionContext.rolesText}</span>
-                            <p className="text-blue-300 text-sm font-semibold">اقدام شما برای «{pendingActionContext.name}» نیاز است</p>
-                        </div>
-                        {pendingActionContext.require_file && (
-                            <span className="flex items-center gap-1 text-[10px] bg-red-300/20 text-yellow-100/ px-2 py-1 rounded-sm border border-yellow-500/40 font-bold"><FaPaperclip /> ارسال فایل الزامیست</span>
-                        )}
-                    </div>
-                    <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3">
-                        <button onClick={() => setModal('approve')} className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-green-900/40"><FaCheckCircle /> تایید</button>
-                        {pendingActionContext.type !== 'APPROVER' && (
-                            <button onClick={() => setModal('forward')} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40"><FaArrowLeft /> ارجاع</button>
-                        )}
-                        {pendingActionContext.type === 'APPROVER' && (
-                            <button onClick={() => setModal('return')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-orange-900/40"><FaUndo /> برگشت جهت اصلاح</button>
-                        )}
-                        <button onClick={() => setModal('reject')} className="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm py-2.5 rounded-sm transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-red-900/40"><FaTimesCircle /> رد کردن</button>
-                    </div>
-                </div>
-            )}
-        </div>
 
             {/* ── محتوا ── */}
             <div className="flex-1 overflow-y-auto p-5 space-y-8 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none]">
@@ -896,7 +1003,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                             <React.Fragment key={stage.id}>
                                                 <div
                                                     onClick={() => setActiveEditElement({ id: stage.id, type: 'STAGE' })}
-                                                    className={`shrink-0 w-[300px] rounded-xl border-2 flex flex-col cursor-pointer shadow-sm my-2 transition-all
+                                                    className={`shrink-0 w-[310px] rounded-xl border-2 flex flex-col cursor-pointer shadow-sm my-2 transition-all
                                                     ${activeEditElement.id === stage.id && activeEditElement.type === 'STAGE'
                                                         ? 'border-blue-500 ' + (isDark ? 'bg-slate-800' : 'bg-blue-50/30') 
                                                         : 'border-slate-600/50 ' + (isDark ? 'bg-slate-800/60' : 'bg-white')}`}
@@ -932,7 +1039,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                         
                                                         {isAdminOrBoard && (
                                                             <div className="flex flex-col gap-1.5">
-                                                                <span className="text-xs font-bold text-gray-500">وضعیت مرحله:</span>
+                                                                <span className="text-xs font-bold text-gray-500">وضعیت کل مرحله:</span>
                                                                 <select 
                                                                     value={stage.status} 
                                                                     onChange={e => updateEditStageField(stage.id, 'status', e.target.value)}
@@ -968,26 +1075,61 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                             </div>
                                                         </div>
 
+                                                        {/* مسئولین همراه با امکان تغییر وضعیت فردی */}
                                                         <div className="mt-2 flex-1 flex flex-col gap-2">
-                                                            <span className="text-xs font-bold text-gray-500">مسئولین:</span>
+                                                            <span className="text-xs font-bold text-gray-500">مسئولین و وضعیت فردی:</span>
                                                             {stage.assignees.length === 0 ? (
                                                                 <div className="flex-1 min-h-[50px] flex items-center justify-center text-xs text-gray-400 border border-dashed border-gray-500/30 rounded-lg p-2">بدون مسئول</div>
                                                             ) : (
-                                                                <div className="flex flex-wrap gap-1.5">
-                                                                {stage.assignees.map(empId => {
-                                                                    const emp = subordinates?.find(e => e.user_id === empId);
-                                                                    return emp ? <AssigneeChip key={empId} emp={emp} onRemove={(id) => handleRemoveEditAssignee(stage.id, 'STAGE', id)} /> : <span key={empId} className="text-xs">کاربر {empId}</span>;
-                                                                })}
+                                                                <div className="flex flex-col gap-1.5">
+                                                                    {stage.assignees.map(empId => {
+                                                                        const emp = subordinates?.find(e => e.user_id === empId);
+                                                                        return (
+                                                                            <div key={empId} className={`flex items-center justify-between p-1.5 rounded-lg border gap-1.5 ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                                                    <Avatar emp={emp || { name: `کاربر ${empId}`, user_id: empId }} size="sm" />
+                                                                                    <span className="text-xs font-bold truncate">{emp?.name || `کاربر ${empId}`}</span>
+                                                                                </div>
+                                                                                {isAdminOrBoard ? (
+                                                                                    <select
+                                                                                        value={stage.assigneeStates?.[empId] || 'PENDING'}
+                                                                                        onChange={(e) => updateAssigneeState(stage.id, empId, e.target.value)}
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        className={`text-[10px] font-semibold py-1 px-1.5 rounded border outline-none ${
+                                                                                            isDark ? 'bg-slate-800 text-gray-200 border-slate-600' : 'bg-white text-gray-800 border-gray-300'
+                                                                                        }`}
+                                                                                    >
+                                                                                        {ASSIGNEE_STATE_OPTIONS.map(opt => (
+                                                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                ) : (
+                                                                                    <span className="text-[10px] text-gray-400 font-medium">
+                                                                                        {ASSIGNEE_STATE_OPTIONS.find(o => o.value === (stage.assigneeStates?.[empId] || 'PENDING'))?.label}
+                                                                                    </span>
+                                                                                )}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => { e.stopPropagation(); handleRemoveEditAssignee(stage.id, 'STAGE', empId); }}
+                                                                                    className="text-red-400 hover:text-red-500 p-1"
+                                                                                    title="حذف مسئول"
+                                                                                >
+                                                                                    <FaTimes size={11} />
+                                                                                </button>
+                                                                            </div>
+                                                                        );
+                                                                    })}
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
 
+                                                {/* تاییدیه میانی و وضعیت ناظران */}
                                                 <div className="shrink-0 flex items-center justify-center px-2 self-center my-2">
                                                     <div 
                                                         onClick={() => setActiveEditElement({ id: stage.id, type: 'LINK' })}
-                                                        className={`w-40 min-h-[140px] rounded-xl border-2 flex flex-col items-center p-3 cursor-pointer transition-all ${
+                                                        className={`w-52 min-h-[150px] rounded-xl border-2 flex flex-col items-center p-3 cursor-pointer transition-all ${
                                                             activeEditElement.id === stage.id && activeEditElement.type === 'LINK'
                                                             ? 'border-orange-500 bg-orange-500/10' : 'border-dashed border-orange-500/50 bg-orange-500/5'
                                                         }`}
@@ -996,14 +1138,48 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                                         <select value={stage.approverRule} onChange={(e) => updateEditStageField(stage.id, 'approverRule', e.target.value)} onClick={e => e.stopPropagation()} className={`w-full text-xs p-1.5 mb-3 rounded-lg border outline-none ${isDark ? 'bg-slate-900 border-orange-500/30 text-orange-400' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
                                                             {APPROVER_RULES.map(rule => <option key={rule.value} value={rule.value}>{rule.label}</option>)}
                                                         </select>
-                                                        <div className="flex-1 flex flex-col gap-2 w-full items-center justify-center">
+                                                        
+                                                        <div className="flex-1 flex flex-col gap-1.5 w-full items-center justify-center">
                                                             {stage.nextStageApprovers.length === 0 ? (
                                                                 <div className="text-orange-500/40 flex flex-col items-center"><FaArrowLeft size={16} className="mb-1" /><span className="text-xs">مستقیم</span></div>
                                                             ) : (
-                                                                <div className="w-full flex flex-wrap gap-1.5 items-center justify-center">
+                                                                <div className="w-full flex flex-col gap-1.5 items-center justify-center">
                                                                     {stage.nextStageApprovers.map(empId => {
                                                                         const emp = subordinates?.find(e => e.user_id === empId);
-                                                                        return emp ? <AssigneeChip key={empId} emp={emp} onRemove={(id) => handleRemoveEditAssignee(stage.id, 'LINK', id)} /> : <span key={empId} className="text-xs">کاربر {empId}</span>;
+                                                                        return (
+                                                                            <div key={empId} className={`w-full flex items-center justify-between p-1.5 rounded-lg border gap-1 text-[10px] ${isDark ? 'bg-slate-900 border-orange-500/30' : 'bg-orange-50 border-orange-200'}`}>
+                                                                                <div className="flex items-center gap-1 min-w-0 flex-1">
+                                                                                    <Avatar emp={emp || { name: `کاربر ${empId}`, user_id: empId }} size="sm" />
+                                                                                    <span className="truncate font-semibold">{emp?.name || `کاربر ${empId}`}</span>
+                                                                                </div>
+                                                                                {isAdminOrBoard ? (
+                                                                                    <select
+                                                                                        value={stage.approverStatuses?.[empId] || 'PENDING'}
+                                                                                        onChange={(e) => updateApproverStatus(stage.id, empId, e.target.value)}
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        className={`text-[9px] font-bold p-1 rounded border outline-none ${
+                                                                                            isDark ? 'bg-slate-800 text-orange-300 border-slate-700' : 'bg-white text-orange-800 border-orange-300'
+                                                                                        }`}
+                                                                                    >
+                                                                                        {APPROVER_STATUS_OPTIONS.map(opt => (
+                                                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                                                        ))}
+                                                                                    </select>
+                                                                                ) : (
+                                                                                    <span className="text-[9px] text-orange-400 font-bold">
+                                                                                        {APPROVER_STATUS_OPTIONS.find(o => o.value === (stage.approverStatuses?.[empId] || 'PENDING'))?.label}
+                                                                                    </span>
+                                                                                )}
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => { e.stopPropagation(); handleRemoveEditAssignee(stage.id, 'LINK', empId); }}
+                                                                                    className="text-red-400 hover:text-red-500 p-0.5"
+                                                                                    title="حذف ناظر"
+                                                                                >
+                                                                                    <FaTimes size={10} />
+                                                                                </button>
+                                                                            </div>
+                                                                        );
                                                                     })}
                                                                     <FaArrowLeft size={12} className="text-orange-500 mt-2" />
                                                                 </div>

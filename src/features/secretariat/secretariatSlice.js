@@ -129,6 +129,21 @@ export const issueLetter = createAsyncThunk('secretariat/issueLetter', async ({ 
     }
 });
 
+// 🚀 اکشن‌های تنظیمات پیامک بر اساس نوع نامه
+export const fetchLetterTypeSmsSettings = createAsyncThunk('secretariat/fetchLetterTypeSmsSettings', async (type, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.get('/secretariat/sms-type-settings/', { params: { type } });
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
+
+export const updateLetterTypeSmsSettings = createAsyncThunk('secretariat/updateLetterTypeSmsSettings', async (payload, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.post('/secretariat/sms-type-settings/', payload);
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
+
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
