@@ -40,13 +40,17 @@ import { fetchNotifications, addNotificationFromWS, markNotificationsRead } from
 import AssetVerifyScreen from './screens/AssetVerifyScreen';
 import WebAttendanceScreen from './screens/WebAttendanceScreen';
 import AiAgentScreen from './screens/AiAgentScreen';
-// 👇 ایمپورت صفحات دبیرخانه
 
+// صفحات دبیرخانه
 import DomainQRScreen from './screens/DomainQRScreen';
 import SecretariatListScreen from './screens/secretariat/SecretariatListScreen';
 import SecretariatCreateScreen from './screens/secretariat/SecretariatCreateScreen';
 import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScreen';
 import SecretariatEditScreen from './screens/secretariat/SecretariatEditScreen';
+
+// کامپوننت پیشنهاد نصب PWA
+import InstallPwaPrompt from './components/InstallPwaPrompt';
+
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -84,10 +88,8 @@ function App() {
       }
 
       if (notifData.type === 'notification') {
-        
         const isChat = notifData.notif_type === 'CHAT_MESSAGE';
         const isTask = notifData.notif_type && notifData.notif_type.startsWith('TASK_');
-        
         const isRoutine = notifData.notif_type === 'SYSTEM_MESSAGE' && 
                           notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER';
 
@@ -189,7 +191,6 @@ function App() {
       <Toaster /> 
       <Header />
       <main className="flex-grow w-full px-2 sm:px-4 pt-0 pb-4">
-
         <div
           className={`${
             isDark
@@ -237,7 +238,7 @@ function App() {
             <Route path="/routines/templates" element={<RoutineTemplatesPage />} /> 
             <Route path="/attendance" element={<ProtectedRoute><WebAttendanceScreen /></ProtectedRoute>} />
 
-            {/* 👇 مسیرهای جدید دبیرخانه */}
+            {/* مسیرهای دبیرخانه */}
             <Route path="/secretariat" element={<ProtectedRoute><SecretariatListScreen /></ProtectedRoute>} />
             <Route path="/secretariat/create" element={<ProtectedRoute><SecretariatCreateScreen /></ProtectedRoute>} />
             <Route path="/secretariat/:id" element={<ProtectedRoute><SecretariatDetailScreen /></ProtectedRoute>} />
@@ -247,8 +248,11 @@ function App() {
         </div>
       </main>
 
+      {/* کامپوننت پیشنهاد نصب دقیقاً در این محل قرار می‌گیرد */}
+      <InstallPwaPrompt />
+
       <footer className={`print:hidden ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"} p-3 text-center text-sm mt-auto transition-colors duration-300`}>
-        &copy; {new Date().getFullYear()} - سامانه مدیریت پروژه آریو بنیان توس
+        &copy; {new Date().getFullYear()} سامانه مدیریت پروژه آریو بنیان توس
       </footer>
     </div>
   );

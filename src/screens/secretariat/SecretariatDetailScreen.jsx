@@ -14,16 +14,18 @@ import {
     FaTrashRestore, FaEdit, FaChevronLeft, FaReply, FaLink, FaCheckCircle, 
     FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, 
     FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, 
-    FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope 
+    FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope, FaExternalLinkAlt,
+    FaFilePdf, FaFileImage, FaUndo
 } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
+import sarbargImg from '../../assets/sarbarg.png'; // تصویر سربرگ فیزیکی A4
 import axiosInstance from '../../api/axiosInstance'; 
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import LetterInfoBanner from '../../components/LetterInfoBanner'; 
 import QRCode from 'react-qr-code';
 
-// 🚀 نشان اختصاصی شارینگان/مهر سازمان بیرونی برای نامه‌های وارده فاقد لوگو
+// نشان مهر سازمان بیرونی برای نامه‌های وارده فاقد لوگو
 const SharinganIncomingLogo = () => (
     <div className="h-14 w-14 md:h-16 md:w-16 print:h-16 print:w-16 flex items-center justify-center rounded-full p-0.5">
         <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm">
@@ -41,23 +43,25 @@ const SharinganIncomingLogo = () => (
     </div>
 );
 
-// 🚀 المان قابل جابجایی بهینه‌شده برای رفع لگ و حساسیت ماوس
+// المان درگ‌شدنی مهندسی‌شده بدون تغییر اندازه کادر یا پرش
 const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onStyleChange, children, className, label }) => {
     const [localPos, setLocalPos] = useState(position || { x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
-    
+
     const startPos = useRef({ x: 0, y: 0 });
     const posRef = useRef(position || { x: 0, y: 0 });
     const currentStyle = styleData || {};
 
     useEffect(() => {
-        posRef.current = position || { x: 0, y: 0 };
-        setLocalPos(position || { x: 0, y: 0 });
+        const p = position || { x: 0, y: 0 };
+        posRef.current = p;
+        setLocalPos(p);
     }, [position]);
 
     const handleMouseDown = (e) => {
         if (!isEditMode) return;
+        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
         e.stopPropagation();
         setIsDragging(true);
         startPos.current = {
@@ -72,8 +76,8 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
         const handleMouseMove = (e) => {
             if (!isDragging) return;
             const newPos = {
-                x: e.clientX - startPos.current.x,
-                y: e.clientY - startPos.current.y
+                x: Math.round(e.clientX - startPos.current.x),
+                y: Math.round(e.clientY - startPos.current.y)
             };
             posRef.current = newPos;
             setLocalPos(newPos);
@@ -112,8 +116,14 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
     const handleFormat = (type, e) => {
         e.stopPropagation(); 
         let newStyle = { ...currentStyle };
-        if (type === 'increase') newStyle.fontSize = (newStyle.fontSize || 16) + 1;
-        if (type === 'decrease') newStyle.fontSize = Math.max(8, (newStyle.fontSize || 16) - 1);
+        if (type === 'increase') {
+            newStyle.fontSize = (newStyle.fontSize || 16) + 1;
+            newStyle.scale = Math.round(((newStyle.scale || 1) + 0.1) * 100) / 100;
+        }
+        if (type === 'decrease') {
+            newStyle.fontSize = Math.max(8, (newStyle.fontSize || 16) - 1);
+            newStyle.scale = Math.max(0.3, Math.round(((newStyle.scale || 1) - 0.1) * 100) / 100);
+        }
         if (type === 'bold') newStyle.fontWeight = newStyle.fontWeight === 'bold' ? 'normal' : 'bold';
         if (type === 'underline') newStyle.textDecoration = newStyle.textDecoration === 'underline' ? 'none' : 'underline';
         if (type === 'visibility') newStyle.hidden = !newStyle.hidden;
@@ -126,19 +136,19 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
         <div
             onMouseDown={handleMouseDown}
             onContextMenu={handleContextMenu}
-            className={`transition-all group ${
+            className={`relative group ${
                 isEditMode 
-                    ? `cursor-move border border-dashed rounded p-0.5 relative ${
-                        isDragging 
-                            ? 'bg-amber-500/30 border-2 border-amber-600 shadow-2xl z-[9999] scale-[1.02]' 
-                            : 'border-blue-400 bg-blue-500/10 hover:bg-blue-500/25 hover:border-blue-600 shadow-sm'
-                    }` 
+                    ? 'cursor-move outline outline-1 outline-dashed outline-blue-400 select-none hover:outline-blue-600' 
                     : ''
-            } ${currentStyle.hidden ? 'opacity-20 grayscale blur-[1px]' : ''} ${className || ''}`}
-            style={{ transform: `translate(${localPos.x}px, ${localPos.y}px)` }}
+            } ${isDragging ? 'outline-2 outline-amber-500 z-50' : ''} ${
+                currentStyle.hidden ? 'opacity-20 grayscale blur-[1px]' : ''
+            } ${className || ''}`}
+            style={{ 
+                transform: `translate3d(${localPos.x}px, ${localPos.y}px, 0)`
+            }}
         >
             {isEditMode && (
-                <span className="absolute -top-3 right-0 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded shadow pointer-events-none z-30 opacity-80 group-hover:opacity-100">
+                <span className="absolute -top-3.5 right-0 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded shadow pointer-events-none z-30 opacity-80 group-hover:opacity-100 whitespace-nowrap">
                     {label || id}
                 </span>
             )}
@@ -303,23 +313,37 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 const SecretariatDetailScreen = () => {
     const renderFormattedNumber = (numStr) => {
         if (!numStr) return null;
-        if (numStr.includes('/')) {
-            const parts = numStr.split('/');
+        const str = String(numStr);
+        if (str.includes('/')) {
+            const parts = str.split('/');
             return (
-                <span className="inline-flex items-center gap-[3px] font-mono text-[13px] font-black" dir="ltr">
-                    <span>{parts[0]}</span>
-                    <span className="text-gray-400 opacity-60">/</span>
-                    <span>{parts[1]}</span>
-                    {parts[2] !== undefined && (
-                        <>
-                            <span className="text-gray-400 opacity-60">/</span>
-                            <span>{parts[2]}</span>
-                        </>
-                    )}
+                <span 
+                    className="inline-flex items-center font-mono font-black tracking-tighter" 
+                    dir="ltr" 
+                    style={{ fontSize: 'inherit', letterSpacing: '-0.04em' }}
+                >
+                    {parts.map((part, index) => (
+                        <React.Fragment key={index}>
+                            {index > 0 && (
+                                <span className="text-gray-400 opacity-60 font-normal mx-[1px]">
+                                    /
+                                </span>
+                            )}
+                            <span>{part}</span>
+                        </React.Fragment>
+                    ))}
                 </span>
             );
         }
-        return <span dir="ltr">{numStr}</span>;
+        return (
+            <span 
+                dir="ltr" 
+                className="font-mono font-black tracking-tighter" 
+                style={{ fontSize: 'inherit', letterSpacing: '-0.04em' }}
+            >
+                {numStr}
+            </span>
+        );
     };
 
     const { id } = useParams();
@@ -330,7 +354,6 @@ const SecretariatDetailScreen = () => {
     const { userInfo } = useSelector((state) => state.userLogin);
     const { activeLetter: letter, loadingDetail, forwarding, allPersonnel, smsLogs, refreshingSms } = useSelector((state) => state.secretariat);
 
-    // 🚀 دسترسی‌های کاربری تفکیک‌شده
     const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0) || letter?.can_approve;
     const isBoardMember = Boolean(
         userInfo?.is_admin || 
@@ -344,7 +367,10 @@ const SecretariatDetailScreen = () => {
     const [forwardData, setForwardData] = useState({ receiver: '', instruction: '' });
 
     const sigCanvas = useRef({});
-    const [showSignaturePad, setShowSignaturePad] = useState(false);
+    const [showSignatureModal, setShowSignatureModal] = useState(false);
+    const [signatureTab, setSignatureTab] = useState('default');
+    const [uploadFile, setUploadFile] = useState(null);
+    const [uploadPreview, setUploadPreview] = useState('');
     const [signing, setSigning] = useState(false);
     const [canvasWidth, setCanvasWidth] = useState(380);
 
@@ -358,6 +384,7 @@ const SecretariatDetailScreen = () => {
     const [printMode, setPrintMode] = useState('BLANK');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
     const [isLayoutEditMode, setIsLayoutEditMode] = useState(false);
+    const [showLetterheadBg, setShowLetterheadBg] = useState(true);
     const [layoutPositions, setLayoutPositions] = useState({});
     const [layoutStyles, setLayoutStyles] = useState({});
     const [history, setHistory] = useState([]);
@@ -366,6 +393,11 @@ const SecretariatDetailScreen = () => {
 
     const [editingRefId, setEditingRefId] = useState(null);
     const [editRefText, setEditRefText] = useState("");
+
+    const visualAttachments = (letter?.attachments || []).filter(att => {
+        const url = (att.url || att.file || att.name || '').toLowerCase();
+        return /\.(jpe?g|png|webp|gif|bmp|svg|pdf)(\?.*)?$/i.test(url);
+    });
 
     useEffect(() => {
         const posKey = `printLayoutOffsets_${printMode}`;
@@ -449,7 +481,6 @@ const SecretariatDetailScreen = () => {
         localStorage.setItem('printLayoutFont', fontName);
     };
 
-    // 🚀 واکشی اطلاعات نامه، پرسنل و پیامک‌ها در لود صفحه
     useEffect(() => {
         dispatch(fetchLetterDetail(id));
         dispatch(fetchAllPersonnel());
@@ -460,10 +491,10 @@ const SecretariatDetailScreen = () => {
 
     useEffect(() => {
         const handleResize = () => setCanvasWidth(window.innerWidth < 450 ? window.innerWidth - 64 : 380);
-        if (showSignaturePad) handleResize();
+        if (showSignatureModal && signatureTab === 'draw') handleResize();
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
-    }, [showSignaturePad]);
+    }, [showSignatureModal, signatureTab]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -507,13 +538,55 @@ const SecretariatDetailScreen = () => {
             .catch(() => toast.error('خطا در آپلود سند', { id: uploadToast }));
     };
 
-    const handleSaveSignature = async () => {
-        if (sigCanvas.current.isEmpty()) return toast.error("لطفا امضا را رسم کنید");
+    const handleSignDefault = async () => {
+        setSigning(true);
+        try {
+            await axiosInstance.post(`/secretariat/${id}/sign/`, { use_default: true });
+            toast.success('امضای رسمی مدیرعامل با موفقیت درج شد.');
+            setShowSignatureModal(false);
+            dispatch(fetchLetterDetail(id));
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'خطا در ثبت امضای پیش‌فرض');
+        } finally {
+            setSigning(false);
+        }
+    };
+
+    const handleUploadSignatureSubmit = async () => {
+        if (!uploadFile) return toast.error('لطفاً ابتدا فایل امضا را انتخاب کنید.');
+        setSigning(true);
+        try {
+            const formData = new FormData();
+            formData.append('signature_file', uploadFile);
+            await axiosInstance.post(`/secretariat/${id}/sign/`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            toast.success('فایل امضا با موفقیت روی نامه درج شد.');
+            setShowSignatureModal(false);
+            setUploadFile(null);
+            setUploadPreview('');
+            dispatch(fetchLetterDetail(id));
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'خطا در آپلود فایل امضا');
+        } finally {
+            setSigning(false);
+        }
+    };
+
+    const handleSaveDrawnSignature = async () => {
+        if (!sigCanvas.current || sigCanvas.current.isEmpty()) return toast.error("لطفاً ابتدا امضا را رسم کنید.");
         const signatureBase64 = sigCanvas.current.getCanvas().toDataURL('image/png');
         setSigning(true);
-        const signPromise = dispatch(signLetter({ letterId: id, signature: signatureBase64 })).unwrap();
-        toast.promise(signPromise, { loading: 'ارسال امضا...', success: 'امضا ثبت شد!', error: 'خطا' });
-        signPromise.then(() => setShowSignaturePad(false)).finally(() => setSigning(false));
+        try {
+            await axiosInstance.post(`/secretariat/${id}/sign/`, { signature: signatureBase64 });
+            toast.success('امضای رسم‌شده با موفقیت ثبت شد.');
+            setShowSignatureModal(false);
+            dispatch(fetchLetterDetail(id));
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'خطا در ثبت امضا');
+        } finally {
+            setSigning(false);
+        }
     };
 
     const handleDelete = () => {
@@ -567,7 +640,6 @@ const SecretariatDetailScreen = () => {
             .finally(() => setIsApproving(false));
     };
 
-    // 🚀 استعلام تکی وضعیت پیامک از مخابرات
     const handleRefreshSms = (logId) => {
         const loadingToast = toast.loading('در حال استعلام از مخابرات...');
         dispatch(refreshLetterSmsStatus(logId)).unwrap()
@@ -595,7 +667,7 @@ const SecretariatDetailScreen = () => {
         setShowPrintMenu(false);
         setTimeout(() => {
             window.print();
-        }, 250);
+        }, 300);
     };
 
     if (loadingDetail || !letter) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
@@ -634,21 +706,62 @@ const SecretariatDetailScreen = () => {
         : `http://localhost:5173/secretariat/${letter.id}`;
 
     return (
-        <div className="max-w-4xl mx-auto p-4 space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
+        <div className="max-w-5xl mx-auto p-4 space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
             <style type="text/css">
                 {`
                     .draggable-content strong, .draggable-content b {
                         font-weight: inherit !important;
                     }
+                    /* 🚀 اجبار عناصر داخلی به تبعیت از سایز جدید با کلیک راست */
+                    .draggable-content[style*="font-size"] * {
+                        font-size: inherit !important;
+                    }
                     @media print { 
-                        @page { size: A4 portrait; margin: 4mm; } 
-                        body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; } 
-                        .print-hidden { display: none !important; }
-                        .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
+                        @page { 
+                            size: A4 portrait; 
+                            margin: 0 !important; 
+                        }
+                        html, body { 
+                            margin: 0 !important; 
+                            padding: 0 !important; 
+                            width: 210mm !important;
+                            height: 297mm !important;
+                            background: white !important; 
+                            color: black !important; 
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            overflow: hidden !important;
+                        } 
+                        body * {
+                            visibility: hidden !important;
+                        }
+                        #letter-a4-sheet, #letter-a4-sheet * {
+                            visibility: visible !important;
+                        }
+                        #letter-a4-sheet {
+                            position: fixed !important;
+                            top: 0 !important;
+                            left: 0 !important;
+                            width: 210mm !important;
+                            height: 297mm !important;
+                            max-height: 297mm !important;
+                            margin: 0 !important;
+                            padding: 12mm 15mm 12mm 15mm !important;
+                            box-sizing: border-box !important;
+                            border: none !important;
+                            box-shadow: none !important;
+                            overflow: hidden !important;
+                            background-image: none !important;
+                            background-color: transparent !important;
+                            page-break-after: avoid !important;
+                            page-break-before: avoid !important;
+                            break-inside: avoid !important;
+                        }
                     }
                 `}
             </style>
 
+            {/* مودال پیگیری تحویل و پیک */}
             {showIssueModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:hidden">
                     <div className={`w-full max-w-md p-6 rounded-2xl shadow-2xl ${isDark ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}>
@@ -674,6 +787,151 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* مودال انتخاب روش درج امضا */}
+            {showSignatureModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 print:hidden">
+                    <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border ${isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-gray-800 border-gray-100'}`}>
+                        <div className="flex items-center justify-between border-b px-6 py-4 border-gray-200 dark:border-slate-700">
+                            <h3 className="font-black text-base flex items-center gap-2">
+                                <FaPenNib className="text-emerald-500" /> انتخاب روش درج امضای نامه
+                            </h3>
+                            <button onClick={() => setShowSignatureModal(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                        </div>
+
+                        <div className="flex border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-900/30 text-xs font-bold">
+                            <button
+                                type="button"
+                                onClick={() => setSignatureTab('default')}
+                                className={`flex-1 py-3 transition ${signatureTab === 'default' ? 'border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                ⭐ امضای رسمی مدیرعامل
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSignatureTab('upload')}
+                                className={`flex-1 py-3 transition ${signatureTab === 'upload' ? 'border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                📁 آپلود فایل امضا (PNG/SVG)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSignatureTab('draw')}
+                                className={`flex-1 py-3 transition ${signatureTab === 'draw' ? 'border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-slate-800' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                ✏️ رسم دستی با قلم
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            {signatureTab === 'default' && (
+                                <div className="text-center space-y-4 py-2">
+                                    <div className="p-4 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/20">
+                                        <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mb-1">
+                                            امضای رسمی و تاییدشده مدیرعامل شرکت
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                            این امضا به صورت مستقیم و بدون افت کیفیت از فایل ذخیره شده در سرور خوانده شده و با زمینه شفاف روی نامه می‌نشیند.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleSignDefault}
+                                        disabled={signing}
+                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <FaPenNib /> {signing ? 'در حال ثبت...' : 'درج فوری امضای مدیرعامل روی نامه'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {signatureTab === 'upload' && (
+                                <div className="space-y-4">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                        لطفاً فایل امضای شفاف بدون پس‌زمینه (Transparent PNG یا SVG) را انتخاب کنید:
+                                    </p>
+                                    <input
+                                        type="file"
+                                        accept=".png, .svg"
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+                                            setUploadFile(file);
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => setUploadPreview(reader.result);
+                                            reader.readAsDataURL(file);
+                                        }}
+                                        className="block w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                                    />
+
+                                    {uploadPreview && (
+                                        <div 
+                                            style={{
+                                                backgroundImage: `linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)`,
+                                                backgroundSize: '16px 16px',
+                                                backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                                                backgroundColor: '#f9fafb'
+                                            }}
+                                            className="h-32 w-full rounded-xl border border-dashed border-gray-300 flex items-center justify-center p-2"
+                                        >
+                                            <img src={uploadPreview} alt="پیش‌نمایش امضا" className="max-h-full max-w-full object-contain" />
+                                        </div>
+                                    )}
+
+                                    <button
+                                        type="button"
+                                        onClick={handleUploadSignatureSubmit}
+                                        disabled={signing || !uploadFile}
+                                        className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition disabled:opacity-50 text-sm"
+                                    >
+                                        {signing ? 'در حال ارسال...' : 'آپلود و اعمال امضا روی نامه'}
+                                    </button>
+                                </div>
+                            )}
+
+                            {signatureTab === 'draw' && (
+                                <div className="flex flex-col items-center space-y-3">
+                                    <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 overflow-hidden w-full flex justify-center">
+                                        <SignatureCanvas 
+                                            ref={sigCanvas} 
+                                            penColor="darkblue" 
+                                            canvasProps={{ width: canvasWidth, height: 180, className: 'sigCanvas cursor-crosshair touch-none bg-white' }} 
+                                        />
+                                    </div>
+                                    <div className="flex gap-2 w-full">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => sigCanvas.current?.clear()} 
+                                            className="flex-1 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 text-gray-700 dark:text-gray-200 text-xs font-bold rounded-lg transition"
+                                        >
+                                            پاک کردن
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={handleSaveDrawnSignature} 
+                                            disabled={signing} 
+                                            className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition disabled:opacity-50"
+                                        >
+                                            {signing ? 'در حال ثبت...' : 'ثبت امضای دستی'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end bg-gray-50 dark:bg-slate-900/50 px-6 py-3 border-t border-gray-200 dark:border-slate-700">
+                            <button
+                                type="button"
+                                onClick={() => setShowSignatureModal(false)}
+                                className="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                            >
+                                انصراف
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Breadcrumb */}
             <div className="flex flex-wrap items-center gap-2 text-xs font-bold print:hidden mb-2 overflow-x-auto whitespace-nowrap h-6">
                 <Link to="/secretariat" className="text-blue-500 hover:text-blue-700 transition">دبیرخانه</Link>
                 <FaChevronLeft className="text-[10px] text-gray-400" />
@@ -684,10 +942,15 @@ const SecretariatDetailScreen = () => {
                 <span className={isDark ? "text-gray-300" : "text-gray-700"}>نامه {letter.indicator_number}</span>
             </div>
 
-            <LetterProgressStepper status={letter.status} letterType={letter.letter_type} isDark={isDark} />
+            <div className="print:hidden">
+                <LetterProgressStepper status={letter.status} letterType={letter.letter_type} isDark={isDark} />
+            </div>
 
-            <LetterInfoBanner letter={letter} isDark={isDark} translateEnum={translateEnum} getStatusStyle={getStatusStyle} />
+            <div className="print:hidden">
+                <LetterInfoBanner letter={letter} isDark={isDark} translateEnum={translateEnum} getStatusStyle={getStatusStyle} />
+            </div>
 
+            {/* فرم ثبت اطلاعات مقصد */}
             {(isDeliveryPerson || hasSecretariatPerm) && letter.letter_type === 'OUTGOING' && ['ISSUED', 'APPROVED'].includes(letter.status) && (
                 <div className={`p-5 md:p-6 rounded-2xl border-2 border-emerald-500 shadow-xl print:hidden ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50'}`}>
                     <h3 className="text-emerald-700 dark:text-emerald-400 font-black mb-3 flex items-center gap-2 text-lg">
@@ -698,13 +961,26 @@ const SecretariatDetailScreen = () => {
                     </p>
                     <form onSubmit={handleRegisterDestination} className="flex flex-col md:flex-row gap-4 items-end">
                         <div className="w-full md:w-1/3">
-                            <label className="block text-xs font-bold mb-2">شماره ثبت در مقصد <span className="text-red-500">*</span></label>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <label className="block text-xs font-bold">
+                                    شماره ثبت در مقصد <span className="text-red-500">*</span>
+                                </label>
+                                {destData.indicator && (
+                                    <div className="bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 shadow-sm">
+                                        {renderFormattedNumber(destData.indicator)}
+                                    </div>
+                                )}
+                            </div>
                             <input 
-                                type="text" dir="ltr" required 
-                                className={`w-full p-2.5 rounded-lg border outline-none text-left font-mono font-bold focus:ring-2 focus:ring-emerald-500 ${isDark ? 'bg-slate-800 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'}`} 
+                                type="text" 
+                                dir="ltr" 
+                                required 
+                                className={`w-full p-2.5 rounded-lg border outline-none text-center font-mono font-black text-sm tracking-widest focus:ring-2 focus:ring-emerald-500 transition ${
+                                    isDark ? 'bg-slate-800 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                }`} 
                                 value={destData.indicator} 
                                 onChange={e => setDestData({...destData, indicator: e.target.value})} 
-                                placeholder="مثال: 1405/852" 
+                                placeholder="ص/۱۴۰۵/۰۰۶ مثال:" 
                             />
                         </div>
                         <div className="w-full md:w-1/3 relative">
@@ -720,8 +996,8 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* نوار ابزار اقدامات نامه */}
             <div className={`p-4 rounded-xl border flex flex-col lg:flex-row gap-4 items-center justify-between print:hidden ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-                
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                     {canReply && (
                         <button onClick={() => navigate('/secretariat/create', { state: { replyTo: { id: letter.id, indicator: letter.indicator_number, subject: letter.subject } } })} className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-4 py-2 rounded-lg font-bold transition text-sm shadow-sm">
@@ -735,8 +1011,13 @@ const SecretariatDetailScreen = () => {
                         </button>
                     )}
 
-                    {!letter.drawn_signature && letter.letter_type !== 'INCOMING' && ['APPROVED', 'ISSUED'].includes(letter.status) && (
-                        <button onClick={() => setShowSignaturePad(!showSignaturePad)} className="flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-lg font-bold transition text-sm shadow-md"><FaPenNib /> امضا</button>
+                    {hasSecretariatPerm && letter.letter_type !== 'INCOMING' && ['APPROVED', 'ISSUED'].includes(letter.status) && (
+                        <button 
+                            onClick={() => setShowSignatureModal(true)} 
+                            className="flex items-center gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-lg font-bold transition text-sm shadow-md"
+                        >
+                            <FaPenNib /> {(letter.drawn_signature || letter.signature) ? 'تغییر امضا' : 'درج امضا'}
+                        </button>
                     )}
                     
                     {letter.status !== 'DELETED' && (
@@ -752,14 +1033,14 @@ const SecretariatDetailScreen = () => {
                                         </div>
                                         <div className="grid grid-cols-2 gap-1 p-2 border-b dark:border-slate-700">
                                             <button 
-                                                type="button"
+                                                type="button" 
                                                 onClick={() => setPrintMode('BLANK')} 
                                                 className={`py-2 px-2 rounded-lg text-xs font-bold transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
                                             >
                                                 📄 برگه معمولی
                                             </button>
                                             <button 
-                                                type="button"
+                                                type="button" 
                                                 onClick={() => setPrintMode('LETTERHEAD')} 
                                                 className={`py-2 px-2 rounded-lg text-xs font-bold transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
                                             >
@@ -843,19 +1124,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             </div>
 
-            {showSignaturePad && (
-                <div className={`p-4 rounded-xl border-2 border-green-500 print:hidden flex flex-col items-center ${isDark ? 'bg-slate-800' : 'bg-green-50'}`}>
-                    <h4 className="font-bold mb-3 text-green-700">امضای دیجیتال خود را رسم کنید</h4>
-                    <div className="bg-white rounded-lg border-2 border-dashed border-gray-400 overflow-hidden w-full max-w-sm flex justify-center">
-                        <SignatureCanvas ref={sigCanvas} penColor="darkblue" canvasProps={{ width: canvasWidth, height: 200, className: 'sigCanvas cursor-crosshair touch-none bg-white' }} />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                        <button onClick={() => sigCanvas.current.clear()} disabled={signing} className="px-5 py-2 bg-gray-300 hover:bg-gray-400 rounded-lg text-sm font-bold text-gray-800">پاک کردن</button>
-                        <button onClick={handleSaveSignature} disabled={signing} className="px-5 py-2 bg-green-600 text-white rounded-lg text-sm font-bold">{signing ? 'پردازش...' : 'تایید امضا'}</button>
-                    </div>
-                </div>
-            )}
-
+            {/* فرم ارجاع نامه */}
             {showForward && (
                 <div className={`p-4 rounded-xl border-l-4 border-indigo-500 print:hidden ${isDark ? 'bg-slate-800' : 'bg-indigo-50'}`}>
                     <form onSubmit={handleForward} className="flex flex-col gap-4">
@@ -890,254 +1159,463 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* 🚀 نوار ابزار پیشرفته تنظیم چیدمان همراه با دو اسلایدر عرض متن و فاصله عمودی */}
             {isLayoutEditMode && (
-                <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-4 rounded-xl mb-4 text-sm font-bold flex flex-col md:flex-row items-center justify-between gap-4 print:hidden shadow-md">
-                    <div className="flex items-center gap-2">
-                        <span>⚠️ در حال ویرایش چیدمان (کلیک راست روی هر آیتم برای منوی آپشن‌ها | Ctrl+Z برای بازگشت):</span>
+                <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-4 rounded-xl mb-4 text-xs font-bold flex flex-col md:flex-row items-center justify-between gap-4 print:hidden shadow-md">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span className="font-black text-sm">🛠️ تنظیمات چیدمان:</span>
+                        
                         <div className="inline-flex bg-white rounded-lg p-1 border border-amber-300 shadow-inner">
                             <button
                                 type="button"
                                 onClick={() => setPrintMode('BLANK')}
-                                className={`px-3 py-1 rounded-md text-xs font-black transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                                className={`px-2.5 py-1 rounded text-xs font-black transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
                             >
-                                📄 برگه معمولی (سفید)
+                                📄 برگه معمولی
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setPrintMode('LETTERHEAD')}
-                                className={`px-3 py-1 rounded-md text-xs font-black transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                                className={`px-2.5 py-1 rounded text-xs font-black transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
                             >
                                 🖨️ سربرگ آرم‌دار
                             </button>
                         </div>
+
+                        {/* اسلایدر عرض بدنه متن (شکست خطوط و تعداد سطرها) */}
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 shadow-sm">
+                            <span className="whitespace-nowrap">عرض کادر متن:</span>
+                            <input 
+                                type="range" 
+                                min="60" 
+                                max="100" 
+                                step="1"
+                                value={layoutStyles['body-content']?.widthPercent || 100}
+                                onChange={(e) => handleUpdateStyle('body-content', {
+                                    ...layoutStyles['body-content'],
+                                    widthPercent: Number(e.target.value)
+                                })}
+                                className="w-20 accent-blue-600 cursor-pointer"
+                                title="کم کردن عرض باعث شکسته شدن متن و افزایش تعداد سطرها می‌شود"
+                            />
+                            <span className="font-mono text-[11px] text-blue-700 w-8">{layoutStyles['body-content']?.widthPercent || 100}%</span>
+                        </div>
+
+
+                        {printMode === 'LETTERHEAD' && (
+                            <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 select-none shadow-sm">
+                                <input 
+                                    type="checkbox" 
+                                    checked={showLetterheadBg} 
+                                    onChange={(e) => setShowLetterheadBg(e.target.checked)} 
+                                    className="rounded text-blue-600"
+                                />
+                                <span>پیش‌نمایش تصویر سربرگ</span>
+                            </label>
+                        )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setIsLayoutEditMode(false)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg text-xs font-black shadow transition"
-                        >
-                            ✅ پایان چیدمان
-                        </button>
-                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setIsLayoutEditMode(false)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-xs font-black shadow transition shrink-0"
+                    >
+                        ✅ پایان چیدمان
+                    </button>
                 </div>
             )}
 
-            <div 
-                className={`p-8 md:p-10 border shadow-2xl mx-auto relative bg-white text-gray-900 flex flex-col overflow-visible print:block print:p-0 print:border-none print:shadow-none print:min-h-0
-                ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
-                style={{ width: '100%', maxWidth: '210mm', minHeight: '280mm', fontFamily: printFont }}
-            >
-                <div className="flex-1 block">
-                    <div className={`flex justify-between items-start pb-2 relative mt-4 md:mt-0`}>
-                        <div className={`flex flex-col items-center justify-start pt-2 w-1/3 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
-                            <DraggableElement id="head-logo-img" label="لوگو" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
-                                {letter.letter_type === 'INCOMING' ? (
-                                    letter.external_sender_detail?.logo ? (
-                                        <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
-                                    ) : (
-                                        <SharinganIncomingLogo />
-                                    )
-                                ) : (
-                                    <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
-                                )}
-                            </DraggableElement>
-                            
-                            <DraggableElement id="head-logo-name" label="نام سازمان" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-name']} styleData={layoutStyles['head-logo-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
-                                <div className="w-full text-center">
-                                    <span>{letter.final_sender_name}</span>
-                                </div>
-                            </DraggableElement>
-                        </div>
+            {/* 🌟 برگه رسمی دقیق A4 */}
+            <div className="w-full overflow-x-auto flex justify-center py-4 print:p-0 print:m-0 print:overflow-visible">
+                <div 
+                    id="letter-a4-sheet"
+                    className={`relative bg-white text-gray-900 flex flex-col justify-between shadow-2xl border print:shadow-none print:border-none
+                    ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
+                    style={{ 
+                        width: '210mm', 
+                        height: '297mm',
+                        maxHeight: '297mm',
+                        padding: '12mm 15mm 12mm 15mm',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                        fontFamily: printFont,
+                        backgroundImage: (printMode === 'LETTERHEAD' && showLetterheadBg) ? `url(${sarbargImg})` : 'none',
+                        backgroundSize: '210mm 297mm',
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'top center'
+                    }}
+                >
+                    <div className="flex-1 flex flex-col overflow-hidden">
                         
-                        <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
-                            <div className="w-full flex justify-center items-center text-center">
-                                <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black text-center">به نام خدا</span>
-                            </div>
-                        </DraggableElement>
-
-                        <div className="flex items-start justify-end gap-3 w-1/3 pt-2 md:pt-4 text-black">
-                            <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold items-end space-y-2.5">
-                                {letter.original_number ? (
-                                    <DraggableElement id="head-number" label="شماره نامه" isEditMode={isLayoutEditMode} position={layoutPositions['head-number']} styleData={layoutStyles['head-number']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
-                                        <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>شماره : </span>
-                                        {renderFormattedNumber(letter.original_number)}
-                                    </DraggableElement>
-                                ) : (
-                                    <div className="flex items-center gap-2 text-gray-400 print:hidden"><span className="font-normal">شماره :</span><span>پس از تایید</span></div>
-                                )}
+                        {/* هدر نامه */}
+                        <div className="flex justify-between items-start pb-2 relative mt-1 shrink-0">
+                            <div className={`flex flex-col items-center justify-start pt-1 w-1/3 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
+                                <DraggableElement id="head-logo-img" label="لوگو" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
+                                    {letter.letter_type === 'INCOMING' ? (
+                                        letter.external_sender_detail?.logo ? (
+                                            <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
+                                        ) : (
+                                            <SharinganIncomingLogo />
+                                        )
+                                    ) : (
+                                        <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
+                                    )}
+                                </DraggableElement>
                                 
-                                {letter.original_date && (
-                                    <DraggableElement id="head-date" label="تاریخ نامه" isEditMode={isLayoutEditMode} position={layoutPositions['head-date']} styleData={layoutStyles['head-date']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
-                                        <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>تاریخ :</span> 
-                                        <span className="print:text-sm">{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span>
-                                    </DraggableElement>
-                                )}
-                                
-                                <DraggableElement id="head-attachment" label="پیوست" isEditMode={isLayoutEditMode} position={layoutPositions['head-attachment']} styleData={layoutStyles['head-attachment']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
-                                    <span className={`opacity-80 font-normal ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>پیوست:</span> 
-                                    <span className="print:text-sm">{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span>
+                                <DraggableElement id="head-logo-name" label="نام سازمان" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-name']} styleData={layoutStyles['head-logo-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
+                                    <div className="w-full text-center">
+                                        <span>{letter.final_sender_name}</span>
+                                    </div>
                                 </DraggableElement>
                             </div>
+                            
+                            <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
+                                <div className="w-full flex justify-center items-center text-center">
+                                    <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black text-center">به نام خدا</span>
+                                </div>
+                            </DraggableElement>
 
-                            <DraggableElement id="head-letter-qr" label="بارکد QR" isEditMode={isLayoutEditMode} position={layoutPositions['head-letter-qr']} styleData={layoutStyles['head-letter-qr']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="shrink-0">
+                            {/* شماره، تاریخ، پیوست و بارکد QR */}
+                            <div className="flex items-start justify-end gap-3 w-1/3 pt-1 text-black">
+                                <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold items-end space-y-2">
+                                    {letter.original_number ? (
+                                        <DraggableElement id="head-number" label="شماره نامه" isEditMode={isLayoutEditMode} position={layoutPositions['head-number']} styleData={layoutStyles['head-number']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
+                                            {printMode !== 'LETTERHEAD' && <span className="opacity-80 font-normal">شماره : </span>}
+                                            {renderFormattedNumber(letter.original_number)}
+                                        </DraggableElement>
+                                    ) : (
+                                        <div className="flex items-center gap-2 text-gray-400 print:hidden">
+                                            {printMode !== 'LETTERHEAD' && <span className="font-normal">شماره : </span>}
+                                            <span>پس از تایید</span>
+                                        </div>
+                                    )}
+                                    
+                                    {letter.original_date && (
+                                        <DraggableElement id="head-date" label="تاریخ نامه" isEditMode={isLayoutEditMode} position={layoutPositions['head-date']} styleData={layoutStyles['head-date']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
+                                            {printMode !== 'LETTERHEAD' && <span className="opacity-80 font-normal">تاریخ : </span>}
+                                            <span className="print:text-sm">{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span>
+                                        </DraggableElement>
+                                    )}
+                                    
+                                    <DraggableElement id="head-attachment" label="پیوست" isEditMode={isLayoutEditMode} position={layoutPositions['head-attachment']} styleData={layoutStyles['head-attachment']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-center gap-2">
+                                        {printMode !== 'LETTERHEAD' && <span className="opacity-80 font-normal">پیوست: </span>}
+                                        <span className="print:text-sm">{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span>
+                                    </DraggableElement>
+                                </div>
+
+                                <DraggableElement id="head-letter-qr" label="بارکد QR" isEditMode={isLayoutEditMode} position={layoutPositions['head-letter-qr']} styleData={layoutStyles['head-letter-qr']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="shrink-0 relative">
+                                {/* دکمه‌های شناور تنظیم سریع اندازه در حالت ادیت */}
+                                {isLayoutEditMode && (
+                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-900/90 text-white px-2 py-0.5 rounded-full text-[10px] font-mono shadow-xl z-40 select-none whitespace-nowrap print:hidden">
+                                        <button 
+                                            type="button" 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const curScale = layoutStyles['head-letter-qr']?.scale || 1;
+                                                handleUpdateStyle('head-letter-qr', { 
+                                                    ...layoutStyles['head-letter-qr'], 
+                                                    scale: Math.max(0.5, Math.round((curScale - 0.1) * 10) / 10) 
+                                                });
+                                            }}
+                                            className="p-1 hover:text-amber-400 font-bold"
+                                            title="کوچک‌تر"
+                                        >
+                                            <FaMinus size={8} />
+                                        </button>
+                                        <span className="text-[10px] text-amber-300 px-1 font-bold">
+                                            {Math.round((layoutStyles['head-letter-qr']?.scale || 1) * 100)}%
+                                        </span>
+                                        <button 
+                                            type="button" 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const curScale = layoutStyles['head-letter-qr']?.scale || 1;
+                                                handleUpdateStyle('head-letter-qr', { 
+                                                    ...layoutStyles['head-letter-qr'], 
+                                                    scale: Math.min(2.2, Math.round((curScale + 0.1) * 10) / 10) 
+                                                });
+                                            }}
+                                            className="p-1 hover:text-amber-400 font-bold"
+                                            title="بزرگ‌تر"
+                                        >
+                                            <FaPlus size={8} />
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="p-1 bg-white border border-gray-300 print:border-black rounded-md flex flex-col items-center justify-center shadow-sm" title={currentLetterUrl}>
                                     <QRCode
                                         value={currentLetterUrl}
-                                        size={54}
+                                        size={Math.round(50 * (layoutStyles['head-letter-qr']?.scale || 1))}
                                         level="M"
                                         fgColor="#000000"
                                         bgColor="#FFFFFF"
                                     />
                                 </div>
                             </DraggableElement>
+                            </div>
                         </div>
-                    </div>
 
-                    <DraggableElement id="header-divider" label="خط جداکننده هدر" isEditMode={isLayoutEditMode} position={layoutPositions['header-divider']} styleData={layoutStyles['header-divider']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-full mb-6 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
-                        <div className="border-b-4 border-gray-400 print:border-black w-full"></div>
-                    </DraggableElement>
-
-                    <div className="space-y-3 mb-8 text-sm md:text-base print:text-base leading-relaxed mt-10 text-black">
-                        {letter.final_receiver_name && letter.final_receiver_name !== "-" && (
-                            <DraggableElement id="body-receiver" label="مخاطب/گیرنده" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                                <strong className="text-lg">{letter.final_receiver_name}</strong>
-                            </DraggableElement>
-                        )}
-
-                        {letter.receiver_persons && (
-                            <DraggableElement id="body-receiver-titles" label="عناوین گیرنده" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-2 text-sm w-full">
-                                <p className="whitespace-pre-wrap font-bold leading-relaxed">{letter.receiver_persons}</p>
-                            </DraggableElement>
-                        )}
-                        
-                        <DraggableElement id="body-subject" label="موضوع نامه" isEditMode={isLayoutEditMode} position={layoutPositions['body-subject']} styleData={layoutStyles['body-subject']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-4 w-full">
-                            <span className="w-24 opacity-80 font-normal shrink-0">موضوع: </span> 
-                            <strong className="text-lg flex-1">{letter.subject}</strong>
+                        {/* خط جداکننده زیر هدر */}
+                        <DraggableElement id="header-divider" label="خط جداکننده هدر" isEditMode={isLayoutEditMode} position={layoutPositions['header-divider']} styleData={layoutStyles['header-divider']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-full mb-4 shrink-0 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
+                            <div className="border-b-4 border-gray-400 print:border-black w-full"></div>
                         </DraggableElement>
 
-                        {(letter.reference_letter_detail || letter.reference_number) && (
-                            <DraggableElement id="body-ref" label="عطف به" isEditMode={isLayoutEditMode} position={layoutPositions['body-ref']} styleData={layoutStyles['body-ref']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-4 w-full">
-                                <span className="w-24 opacity-80 shrink-0">عطف به:</span> 
-                                <div className="flex flex-wrap items-center gap-2 flex-1">
-                                    {letter.reference_letter_detail && (
-                                        <Link 
-                                            to={`/secretariat/${letter.reference_letter_detail.id}`} 
-                                            onClick={(e) => isLayoutEditMode && e.preventDefault()}
-                                            className="font-bold text-blue-700 print:text-black hover:underline"
-                                        >
-                                            نامه {letter.reference_letter_detail.indicator_number} ({letter.reference_letter_detail.subject})
-                                        </Link>
-                                    )}
-                                    {letter.reference_letter_detail && letter.reference_number && <span className="opacity-50">|</span>}
-                                    {letter.reference_number && (
-                                        <strong className="text-base font-mono" dir="ltr">{letter.reference_number}</strong>
-                                    )}
-                                </div>
-                            </DraggableElement>
-                        )}
-
-                        {letter.contract_number && (
-                            <DraggableElement id="body-contract" label="شماره قرارداد" isEditMode={isLayoutEditMode} position={layoutPositions['body-contract']} styleData={layoutStyles['body-contract']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                                <span className="w-24 opacity-80 shrink-0">شماره قرارداد:</span> 
-                                <strong className="text-base font-mono" dir="ltr">{letter.contract_number}</strong>
-                            </DraggableElement>
-                        )}
-                    </div>
-
-                    {letter.body && (
-                        <DraggableElement id="body-content" label="متن اصلی نامه" isEditMode={isLayoutEditMode} position={layoutPositions['body-content']} styleData={layoutStyles['body-content']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="text-justify leading-loose min-h-[350px] mb-12 text-sm md:text-base print:text-base whitespace-pre-wrap font-medium text-black">
-                            {letter.body}
-                        </DraggableElement>
-                    )}
-
-                    <div className="flex justify-between items-start pt-8 pb-10 relative text-black avoid-break">
-                        <DraggableElement id="footer-cc" label="رونوشت" isEditMode={isLayoutEditMode} position={layoutPositions['footer-cc']} styleData={layoutStyles['footer-cc']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 text-xs print:text-sm opacity-90">
-                            {(letter.cc_text || letter.internal_cc_names?.length > 0) && (
-                                <div className="border-t border-gray-400 print:border-black pt-2 pr-2 inline-block min-w-[200px]">
-                                    <strong className="block mb-2 text-sm">رونوشت:</strong>
-                                    {letter.cc_text && <p className="whitespace-pre-wrap mb-1">{letter.cc_text}</p>}
-                                    {letter.internal_cc_names?.map((name, i) => <div key={i}>- {name}</div>)}
-                                </div>
+                        {/* مشخصات مخاطب و موضوع */}
+                        <div className="space-y-2 mb-4 text-sm md:text-base print:text-base leading-relaxed text-black shrink-0">
+                            {letter.final_receiver_name && letter.final_receiver_name !== "-" && (
+                                <DraggableElement id="body-receiver" label="مخاطب/گیرنده" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
+                                    <strong className="text-lg">{letter.final_receiver_name}</strong>
+                                </DraggableElement>
                             )}
-                        </DraggableElement>
-                        
-                        <DraggableElement id="footer-dest" label="مهر ثبت مقصد" isEditMode={isLayoutEditMode} position={layoutPositions['footer-dest']} styleData={layoutStyles['footer-dest']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 flex justify-center items-center relative h-32">
-                            {((letter.letter_type === 'OUTGOING' || letter.letter_type === 'INCOMING') && letter.destination_indicator) && (
-                                <div className="absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 px-5 py-3 rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '160px', boxShadow: 'inset 0 0 4px rgba(220,38,38,0.2)' }}>
-                                    <span className="text-sm font-black tracking-widest text-center mb-1">
-                                        {letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه' : 'ثبت در مقصد'}
-                                    </span>
-                                    <div className="w-full border-b-[3px] border-dashed border-red-600 my-1.5 opacity-70"></div>
-                                    <span className="font-mono text-xl font-bold mt-1" dir="ltr">
-                                        {renderFormattedNumber(letter.destination_indicator)}
-                                    </span>
-                                    {letter.destination_date && <span className="text-[11px] font-bold mt-1">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
-                                </div>
-                            )}
-                        </DraggableElement>
 
-                        <div className="w-1/3 flex flex-col items-center text-center relative">
-                            <DraggableElement id="footer-sign-title" label="عنوان امضا" isEditMode={isLayoutEditMode} position={layoutPositions['footer-sign-title']} styleData={layoutStyles['footer-sign-title']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 text-sm print:text-base w-full font-bold">
-                                مهر و امضا
+                            {letter.receiver_persons && (
+                                <DraggableElement id="body-receiver-titles" label="عناوین گیرنده" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-1 text-sm w-full">
+                                    <p className="whitespace-pre-wrap font-bold leading-relaxed">{letter.receiver_persons}</p>
+                                </DraggableElement>
+                            )}
+                            
+                            <DraggableElement id="body-subject" label="موضوع نامه" isEditMode={isLayoutEditMode} position={layoutPositions['body-subject']} styleData={layoutStyles['body-subject']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-2 w-full">
+                                <span className="w-24 opacity-80 font-normal shrink-0">موضوع: </span> 
+                                <strong className="text-lg flex-1">{letter.subject}</strong>
                             </DraggableElement>
-                            <DraggableElement id="footer-sign-img" label="تصویر امضا" isEditMode={isLayoutEditMode} position={layoutPositions['footer-sign-img']} styleData={layoutStyles['footer-sign-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="h-20 flex justify-center items-center w-full">
-                                {letter.drawn_signature ? <img src={letter.drawn_signature} alt="امضا" className="h-24 object-contain mix-blend-multiply" /> : <div className="h-20"></div>}
-                            </DraggableElement>
-                            {letter.manual_sender_name && (
-                                <DraggableElement id="footer-sign-name" label="نام امضاکننده" isEditMode={isLayoutEditMode} position={layoutPositions['footer-sign-name']} styleData={layoutStyles['footer-sign-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-2 text-center w-full font-bold text-base print:text-lg whitespace-pre-wrap leading-relaxed">
-                                    {letter.manual_sender_name}
+
+                            {(letter.reference_letter_detail || letter.reference_number) && (
+                                <DraggableElement id="body-ref" label="عطف به" isEditMode={isLayoutEditMode} position={layoutPositions['body-ref']} styleData={layoutStyles['body-ref']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-2 w-full">
+                                    <span className="w-24 opacity-80 shrink-0">عطف به:</span> 
+                                    <div className="flex flex-wrap items-center gap-2 flex-1">
+                                        {letter.reference_letter_detail && (
+                                            <Link 
+                                                to={`/secretariat/${letter.reference_letter_detail.id}`} 
+                                                onClick={(e) => isLayoutEditMode && e.preventDefault()}
+                                                className="font-bold text-blue-700 print:text-black hover:underline"
+                                            >
+                                                نامه {letter.reference_letter_detail.indicator_number} ({letter.reference_letter_detail.subject})
+                                            </Link>
+                                        )}
+                                        {letter.reference_letter_detail && letter.reference_number && <span className="opacity-50">|</span>}
+                                        {letter.reference_number && (
+                                            <strong className="text-base font-mono" dir="ltr">{letter.reference_number}</strong>
+                                        )}
+                                    </div>
+                                </DraggableElement>
+                            )}
+
+                            {letter.contract_number && (
+                                <DraggableElement id="body-contract" label="شماره قرارداد" isEditMode={isLayoutEditMode} position={layoutPositions['body-contract']} styleData={layoutStyles['body-contract']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
+                                    <span className="w-24 opacity-80 shrink-0">شماره قرارداد:</span> 
+                                    <strong className="text-base font-mono" dir="ltr">{letter.contract_number}</strong>
                                 </DraggableElement>
                             )}
                         </div>
-                    </div>
-                </div>
 
-                {printMode === 'BLANK' && letter.letter_type !== 'INCOMING' && (
-                    <DraggableElement id="company-footer" label="پاورقی شرکت" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mt-auto w-full pt-6 avoid-break">
-                        <div className="border-t-[3px] border-gray-400 print:border-black pt-4 flex justify-between items-end gap-4 text-gray-800 print:text-black">
-                            <div className="relative flex items-center justify-center p-1.5 bg-white border-2 border-gray-300 print:border-black rounded-xl">
-                                <QRCode
-                                    value="https://www.ariobonyantoos.com/"
-                                    size={100}
-                                    level="H"
-                                    fgColor="#000000"
-                                    bgColor="#FFFFFF"
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-6 h-6 bg-white rounded border border-gray-200 print:border-black flex items-center justify-center p-0.5">
-                                        <img src={logo} alt="لوگو" className="w-full h-full object-contain" />
+                        {/* متن اصلی نامه با قابلیت تنظیم عرض پاراگراف و کنترل خطوط */}
+                        {letter.body && (
+                            <DraggableElement 
+                                id="body-content" 
+                                label="متن اصلی نامه" 
+                                isEditMode={isLayoutEditMode} 
+                                position={layoutPositions['body-content']} 
+                                styleData={layoutStyles['body-content']} 
+                                onStyleChange={handleUpdateStyle} 
+                                onDragEnd={handleUpdatePosition} 
+                                className="text-justify leading-loose flex-1 text-sm md:text-base print:text-base whitespace-pre-wrap font-medium text-black overflow-hidden"
+                            >
+                                <div 
+                                    style={{ 
+                                        width: `${layoutStyles['body-content']?.widthPercent || 100}%`,
+                                        margin: '0 auto',
+                                        transition: 'width 0.15s ease-out'
+                                    }}
+                                >
+                                    {letter.body}
+                                </div>
+                            </DraggableElement>
+                        )}
+
+                        
+
+                        {/* ردیف پایینی شامل رونوشت، مهر مقصد و المان‌های کاملاً تفکیک‌شده امضا */}
+                        <div className="flex justify-between items-end pb-2 relative text-black avoid-break mt-auto shrink-0">
+                            
+                            {/* رونوشت */}
+                            <DraggableElement id="footer-cc" label="رونوشت" isEditMode={isLayoutEditMode} position={layoutPositions['footer-cc']} styleData={layoutStyles['footer-cc']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 text-xs print:text-sm opacity-90">
+                                {(letter.cc_text || letter.internal_cc_names?.length > 0) && (
+                                    <div className="border-t border-gray-400 print:border-black pt-2 pr-2 inline-block min-w-[180px]">
+                                        <strong className="block mb-1 text-sm">رونوشت:</strong>
+                                        {letter.cc_text && <p className="whitespace-pre-wrap mb-1">{letter.cc_text}</p>}
+                                        {letter.internal_cc_names?.map((name, i) => <div key={i}>- {name}</div>)}
+                                    </div>
+                                )}
+                            </DraggableElement>
+                            
+                            {/* مهر ثبت مقصد */}
+                            <DraggableElement id="footer-dest" label="مهر ثبت مقصد" isEditMode={isLayoutEditMode} position={layoutPositions['footer-dest']} styleData={layoutStyles['footer-dest']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 flex justify-center items-center relative h-28">
+                                {((letter.letter_type === 'OUTGOING' || letter.letter_type === 'INCOMING') && letter.destination_indicator) && (
+                                    <div className="absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 px-4 py-2 rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '150px' }}>
+                                        <span className="text-xs font-black tracking-widest text-center mb-1">
+                                            {letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه' : 'ثبت در مقصد'}
+                                        </span>
+                                        <div className="w-full border-b-[2px] border-dashed border-red-600 my-1 opacity-70"></div>
+                                        <span className="font-mono text-lg font-bold mt-0.5" dir="ltr">
+                                            {renderFormattedNumber(letter.destination_indicator)}
+                                        </span>
+                                        {letter.destination_date && <span className="text-[10px] font-bold mt-0.5">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
+                                    </div>
+                                )}
+                            </DraggableElement>
+
+                            {/* 🚀 ستون امضا با اجزای کاملاً تفکیک‌شده و درگ مستقل */}
+                            <div className="w-1/3 flex flex-col items-center text-center relative">
+                                
+                                {/* ۱. عنوان مهر و امضا (مستقل) */}
+                                <DraggableElement 
+                                    id="footer-sign-title" 
+                                    label="عنوان امضا" 
+                                    isEditMode={isLayoutEditMode} 
+                                    position={layoutPositions['footer-sign-title']} 
+                                    styleData={layoutStyles['footer-sign-title']} 
+                                    onStyleChange={handleUpdateStyle} 
+                                    onDragEnd={handleUpdatePosition} 
+                                    className="mb-1 text-sm font-bold w-full text-center"
+                                >
+                                    مهر و امضا
+                                </DraggableElement>
+
+                                {/* ۲. تصویر امضا با تولبار مقیاس در ادیت (مستقل) */}
+                                <DraggableElement 
+                                    id="footer-sign-img" 
+                                    label="تصویر امضا" 
+                                    isEditMode={isLayoutEditMode} 
+                                    position={layoutPositions['footer-sign-img']} 
+                                    styleData={layoutStyles['footer-sign-img']} 
+                                    onStyleChange={handleUpdateStyle} 
+                                    onDragEnd={handleUpdatePosition} 
+                                    className="flex flex-col justify-center items-center w-full min-h-[85px] my-1 relative"
+                                >
+                                    {isLayoutEditMode && (
+                                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-900/90 text-white px-2 py-0.5 rounded-full text-[10px] font-mono shadow-xl z-40 select-none whitespace-nowrap print:hidden">
+                                            <button 
+                                                type="button" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const curScale = layoutStyles['footer-sign-img']?.scale || 1;
+                                                    handleUpdateStyle('footer-sign-img', { 
+                                                        ...layoutStyles['footer-sign-img'], 
+                                                        scale: Math.max(0.4, Math.round((curScale - 0.1) * 10) / 10) 
+                                                    });
+                                                }}
+                                                className="p-1 hover:text-amber-400 font-bold"
+                                                title="کوچک‌تر"
+                                            >
+                                                <FaMinus size={8} />
+                                            </button>
+                                            <span className="text-[10px] text-amber-300 px-1 font-bold">
+                                                {Math.round((layoutStyles['footer-sign-img']?.scale || 1) * 100)}%
+                                            </span>
+                                            <button 
+                                                type="button" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const curScale = layoutStyles['footer-sign-img']?.scale || 1;
+                                                    handleUpdateStyle('footer-sign-img', { 
+                                                        ...layoutStyles['footer-sign-img'], 
+                                                        scale: Math.min(2.0, Math.round((curScale + 0.1) * 10) / 10) 
+                                                    });
+                                                }}
+                                                className="p-1 hover:text-amber-400 font-bold"
+                                                title="بزرگ‌تر"
+                                            >
+                                                <FaPlus size={8} />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {(letter.drawn_signature || letter.signature || letter.signature_image || letter.signature_url) ? (
+                                        <img 
+                                            src={letter.drawn_signature || letter.signature || letter.signature_image || letter.signature_url} 
+                                            alt="امضا" 
+                                            style={{ 
+                                                height: `${Math.round(90 * (layoutStyles['footer-sign-img']?.scale || 1))}px`,
+                                                maxHeight: '150px',
+                                                width: 'auto',
+                                                maxWidth: '100%',
+                                                objectFit: 'contain'
+                                            }}
+                                            className="mix-blend-multiply select-none pointer-events-none drop-shadow-sm" 
+                                        />
+                                    ) : (
+                                        <div className="h-16 w-full flex items-center justify-center border border-dashed border-gray-200 rounded text-gray-300 text-xs print:border-none">
+                                            محل امضا
+                                        </div>
+                                    )}
+                                </DraggableElement>
+
+                                {/* ۳. نام و سمت امضاکننده (مستقل) */}
+                                <DraggableElement 
+                                    id="footer-sign-name" 
+                                    label="نام امضاکننده" 
+                                    isEditMode={isLayoutEditMode} 
+                                    position={layoutPositions['footer-sign-name']} 
+                                    styleData={layoutStyles['footer-sign-name']} 
+                                    onStyleChange={handleUpdateStyle} 
+                                    onDragEnd={handleUpdatePosition} 
+                                    className="mt-1 text-center w-full font-bold text-sm whitespace-pre-wrap leading-relaxed"
+                                >
+                                    {letter.manual_sender_name || letter.final_sender_name || 'مدیرعامل'}
+                                </DraggableElement>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* پاورقی شرکت (تنها در برگه معمولی چاپ می‌شود و در سربرگ آرم‌دار مخفی است) */}
+                    {printMode === 'BLANK' && letter.letter_type !== 'INCOMING' && (
+                        <DraggableElement id="company-footer" label="پاورقی شرکت" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-full pt-2 avoid-break mt-auto shrink-0">
+                            <div className="border-t-[3px] border-gray-400 print:border-black pt-2 flex justify-between items-end gap-4 text-gray-800 print:text-black">
+                                <div className="relative flex items-center justify-center p-1 bg-white border-2 border-gray-300 print:border-black rounded-lg">
+                                    <QRCode
+                                        value="https://www.ariobonyantoos.com/"
+                                        size={68}
+                                        level="H"
+                                        fgColor="#000000"
+                                        bgColor="#FFFFFF"
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                        <div className="w-5 h-5 bg-white rounded border border-gray-200 print:border-black flex items-center justify-center p-0.5">
+                                            <img src={logo} alt="لوگو" className="w-full h-full object-contain" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col text-right text-[10px] print:text-[11px] font-bold space-y-1">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span>مشهد، هاشمیه ۵۱، پلاک ۱۳۶</span>
+                                        <div className="w-4 h-4 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMapMarkerAlt size={9} /></div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span className="font-mono" dir="ltr">051 - 376 17880 | 376 46801</span>
+                                        <div className="w-4 h-4 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaPhoneAlt size={9} /></div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span className="font-mono" dir="ltr">0910 555 0268 - 0915 255 3010</span>
+                                        <div className="w-4 h-4 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMobileAlt size={9} /></div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span className="font-mono">ariobonyantoos@gmail.com</span>
+                                        <div className="w-4 h-4 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaEnvelope size={9} /></div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span className="font-mono">www.ariobonyantoos.com</span>
+                                        <div className="w-4 h-4 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaGlobe size={9} /></div>
                                     </div>
                                 </div>
                             </div>
-
-                            <div className="flex flex-col text-right text-[11px] print:text-[12px] font-bold space-y-1.5">
-                                <div className="flex items-center justify-end gap-2">
-                                    <span>مشهد، هاشمیه ۵۱، پلاک ۱۳۶</span>
-                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMapMarkerAlt size={10} /></div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="font-mono mt-1" dir="ltr">051 - 376 17880 | 376 46801</span>
-                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaPhoneAlt size={10} /></div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="font-mono mt-1" dir="ltr">0910 555 0268 - 0915 255 3010</span>
-                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMobileAlt size={10} /></div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="font-mono mt-1">ariobonyantoos@gmail.com</span>
-                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaEnvelope size={10} /></div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="font-mono mt-1">www.ariobonyantoos.com</span>
-                                    <div className="w-5 h-5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaGlobe size={10} /></div>
-                                </div>
-                            </div>
-                        </div>
-                    </DraggableElement>
-                )}
+                        </DraggableElement>
+                    )}
+                </div>
             </div>
 
+            {/* بخش عطف و پاسخ‌ها */}
             {(letter.reference_letter_detail || (letter.replies && letter.replies.length > 0)) && (
                 <div className={`p-4 mb-6 rounded-xl border-l-4 print:hidden mt-6 ${isDark ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-500'}`}>
                     {letter.reference_letter_detail && (
@@ -1165,7 +1643,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* 🚀 وضعیت پیامک‌های ارسالی (اطلاع‌رسانی ثبت نامه و تحویل به پیک) برای تمامی انواع نامه‌ها */}
+            {/* بخش لاگ پیامک‌ها */}
             {isBoardMember && smsLogs && smsLogs.length > 0 && (
                 <div className={`mt-6 pt-6 border-t border-dashed ${isDark ? 'border-gray-600' : 'border-gray-300'} print:hidden`}>
                     <div className="flex justify-between items-center mb-4">
@@ -1173,7 +1651,7 @@ const SecretariatDetailScreen = () => {
                             <FaSms /> وضعیت پیامک‌های ارسالی (اطلاع‌رسانی و پیگیری)
                         </h4>
                         <button 
-                            type="button"
+                            type="button" 
                             onClick={() => dispatch(fetchLetterSmsLogs(id))}
                             className="text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 font-bold transition active:scale-95"
                             title="به‌روزرسانی لیست پیامک‌ها"
@@ -1227,13 +1705,13 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* بخش ارجاعات */}
             {letter.referrals && letter.referrals.length > 0 && (
                 <div className={`mt-6 pt-6 border-t border-dashed ${isDark ? 'border-gray-600' : 'border-gray-300'} print:hidden`}>
                     <h4 className="text-sm font-black mb-4 flex items-center gap-2 opacity-80 text-indigo-600"><FaHistory /> تاریخچه ارجاعات</h4>
                     <div className="space-y-3">
                         {letter.referrals.map((ref) => {
                             const isMyReferral = ref.sender === userInfo?.id || isLevelZeroOrAdmin;
-                            
                             return (
                                 <div key={ref.id} className={`p-3 rounded-lg border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                     <div className="flex justify-between items-center mb-1.5 border-b border-gray-200 dark:border-gray-700 pb-1.5">
@@ -1248,8 +1726,8 @@ const SecretariatDetailScreen = () => {
                                     {editingRefId === ref.id ? (
                                         <div className="mt-2 flex flex-col gap-2">
                                             <textarea 
-                                                className={`w-full p-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-gray-800 border-gray-300'}`}
-                                                value={editRefText}
+                                                className={`w-full p-2 rounded-lg border text-sm outline-none ${isDark ? 'bg-slate-800 text-white border-slate-600' : 'bg-white text-gray-800 border-gray-300'}`} 
+                                                value={editRefText} 
                                                 onChange={(e) => setEditRefText(e.target.value)}
                                                 rows="2"
                                             />
@@ -1277,6 +1755,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
+            {/* بخش پیوست‌ها */}
             <div className={`p-5 rounded-xl border print:hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold flex items-center gap-2 opacity-80"><FaPaperclip /> پیوست‌ها ({letter.attachments?.length || 0})</h3>

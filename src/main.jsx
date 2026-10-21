@@ -5,10 +5,9 @@ import { BrowserRouter } from 'react-router-dom';
 
 import store from './store';
 import App from './App';
-import './index.css'
-import 'leaflet/dist/leaflet.css'; // استایل‌های نقشه
+import './index.css';
+import 'leaflet/dist/leaflet.css';
 
-// نکته مهم: React.StrictMode حذف شد تا لگ‌های نقشه در حالت Draw رفع شود
 ReactDOM.createRoot(document.getElementById('root')).render(
   <Provider store={store}>
     <BrowserRouter>
@@ -16,3 +15,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </Provider>
 );
+
+// ثبت Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .catch((err) => console.error('Service Worker registration error:', err));
+  });
+}

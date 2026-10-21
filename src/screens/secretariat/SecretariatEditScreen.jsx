@@ -7,33 +7,31 @@ import { FaChevronLeft, FaChevronDown, FaExclamationTriangle, FaCalendarAlt, FaU
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import logo from '../../assets/ario.png';
 
-// 🚀 تابع تبدیل آنی اعداد انگلیسی به فارسی
+// 🚀 تبدیل اعداد انگلیسی به فارسی
 const toPersianDigits = (str) => {
     if (!str) return '';
     const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
     return str.toString().replace(/[0-9]/g, x => persianDigits[x]);
 };
 
-// 🚀 تابع جادویی نمایش بی‌نقص شماره‌های ترکیبی (مشابه بخش جزئیات)
-const renderFormattedNumber = (numStr) => {
+// 🚀 تابع نمایش نامحدود و استاندارد شماره‌های اسلش‌دار
+const renderFormattedNumber = (numStr, customClass = "text-[13px]") => {
     if (!numStr) return null;
-    if (numStr.includes('/')) {
-        const parts = numStr.split('/');
+    const str = String(numStr);
+    if (str.includes('/')) {
+        const parts = str.split('/');
         return (
-            <span className="inline-flex items-center gap-[3px] font-mono text-[13px] font-black" dir="ltr">
-                <span>{parts[0]}</span>
-                <span className="text-gray-400 opacity-60">/</span>
-                <span>{parts[1]}</span>
-                {parts[2] !== undefined && (
-                    <>
-                        <span className="text-gray-400 opacity-60">/</span>
-                        <span>{parts[2]}</span>
-                    </>
-                )}
+            <span className={`inline-flex items-center gap-[3px] font-mono font-black ${customClass}`} dir="ltr">
+                {parts.map((part, index) => (
+                    <React.Fragment key={index}>
+                        {index > 0 && <span className="text-gray-400 opacity-60 font-normal">/</span>}
+                        <span>{part}</span>
+                    </React.Fragment>
+                ))}
             </span>
         );
     }
-    return <span dir="ltr">{numStr}</span>;
+    return <span dir="ltr" className={`font-mono font-bold ${customClass}`}>{str}</span>;
 };
 
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
@@ -44,7 +42,9 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     useEffect(() => {
         if (value) {
             const selected = personnel?.find(p => String(p.id) === String(value));
-            if (selected) setSearchTerm(`${selected.name} - ${selected.position_title || 'بدون سمت'}`);
+            if (selected) {
+                setSearchTerm(selected.position_title ? `${selected.name} (${selected.position_title})` : selected.name);
+            }
         } else {
             setSearchTerm('');
         }
@@ -58,10 +58,10 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = personnel?.filter(p => 
+    const filtered = (personnel || []).filter(p => 
         p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase()))
-    ) || [];
+    );
 
     const inputClass = `w-full p-2 text-sm rounded-lg border focus:ring-2 focus:outline-none transition ${isDark ? 'bg-gray-800 border-gray-700 text-white focus:ring-blue-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-blue-400'}`;
 
@@ -74,7 +74,7 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
                 <ul className={`absolute z-10 w-full mt-1 max-h-52 overflow-y-auto rounded-lg border shadow-lg ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}>
                     <li className={`p-2 cursor-pointer text-sm font-bold opacity-70 ${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`} onClick={() => { onChange(''); setIsOpen(false); }}>-- نامشخص / ثبت دستی در پایین --</li>
                     {filtered.map(emp => (
-                        <li key={emp.id} className={`p-2 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`} onClick={() => { onChange(emp.id.toString()); setSearchTerm(`${emp.name} - ${emp.position_title || 'بدون سمت'}`); setIsOpen(false); }}>
+                        <li key={emp.id} className={`p-2 cursor-pointer text-sm border-t ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`} onClick={() => { onChange(emp.id.toString()); setSearchTerm(emp.position_title ? `${emp.name} (${emp.position_title})` : emp.name); setIsOpen(false); }}>
                             <div className="font-bold">{emp.name}</div>
                             <div className="text-[10px] opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
                         </li>
@@ -99,11 +99,11 @@ const MultiSelectSearchable = ({ personnel, selectedValues, onChange, placeholde
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = personnel?.filter(p => 
+    const filtered = (personnel || []).filter(p => 
         !selectedValues.includes(String(p.id)) &&
         (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
          (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase())))
-    ) || [];
+    );
 
     const handleSelect = (empId) => {
         onChange([...selectedValues, String(empId)]);
@@ -375,15 +375,19 @@ const SecretariatEditScreen = () => {
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold mb-3 opacity-80">
                 <Link to="/secretariat" className="text-blue-500 hover:text-blue-700 transition">دبیرخانه</Link>
                 <FaChevronLeft className="text-[9px]" />
-                <Link to={`/secretariat/${id}`} className="text-blue-500 hover:text-blue-700 transition">نامه {activeLetter.indicator_number}</Link>
+                <Link to={`/secretariat/${id}`} className="text-blue-500 hover:text-blue-700 transition">
+                    نامه {renderFormattedNumber(activeLetter.indicator_number, "text-[11px]")}
+                </Link>
                 <FaChevronLeft className="text-[9px]" />
                 <span>ویرایش اطلاعات</span>
             </div>
 
             <div className="flex flex-col items-center justify-center relative mb-5 mt-1">
                 <DirectionalLogo type={formData.letter_type} colorName={currentTypeConfig.color} />
-                <h2 className={`text-xl mt-3 font-black ${isDark ? 'text-white' : 'text-gray-800'}`}>
-                    ویرایش مکاتبه (اندیکاتور: {activeLetter.indicator_number})
+                <h2 className={`text-xl mt-3 font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>
+                    <span>ویرایش مکاتبه (اندیکاتور:</span>
+                    {renderFormattedNumber(activeLetter.indicator_number, "text-xl text-blue-600 dark:text-blue-400")}
+                    <span>)</span>
                 </h2>
             </div>
 
@@ -498,15 +502,22 @@ const SecretariatEditScreen = () => {
                                     <h4 className="text-[11px] font-bold opacity-80">مدیریت بایگانی فیزیکی</h4>
                                 </div>
                                 <div>
-                                    <label className="block mb-1 text-[10px] font-bold opacity-80 flex justify-between items-center">
-                                        <span>شماره چاپی دستی</span>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-[10px] font-bold opacity-80">شماره چاپی دستی</label>
                                         {formData.original_number && (
                                             <span className="text-blue-600 dark:text-blue-400">
-                                                پیش‌نمایش: {renderFormattedNumber(formData.original_number)}
+                                                {renderFormattedNumber(formData.original_number, "text-[11px]")}
                                             </span>
                                         )}
-                                    </label>
-                                    <input type="text" dir="rtl" placeholder="مثلاً ۱۴۰۵/۱۲۴/م" className={`${inputClass} text-right font-mono text-xs`} value={formData.original_number} onChange={(e) => setFormData({ ...formData, original_number: toPersianDigits(e.target.value) })} />
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        dir="ltr" 
+                                        placeholder="ص/۱۴۰۵/۱۲۴/م" 
+                                        className={`${inputClass} text-center font-mono font-black text-xs tracking-wider`} 
+                                        value={formData.original_number} 
+                                        onChange={(e) => setFormData({ ...formData, original_number: toPersianDigits(e.target.value) })} 
+                                    />
                                 </div>
                                 <div className="relative">
                                     <JalaliDatePicker name="original_date" label="تاریخ نامه کاغذی" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} placeholder="انتخاب تاریخ" />
@@ -514,8 +525,22 @@ const SecretariatEditScreen = () => {
                                 {formData.letter_type === 'OUTGOING' && (
                                     <>
                                         <div>
-                                            <label className="block mb-1 text-[10px] font-bold opacity-80 text-indigo-700 dark:text-indigo-400">شماره دریافت در مقصد</label>
-                                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono border-indigo-300 dark:border-indigo-700 text-xs`} value={formData.destination_indicator} onChange={(e) => setFormData({ ...formData, destination_indicator: toPersianDigits(e.target.value) })} />
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-[10px] font-bold opacity-80 text-indigo-700 dark:text-indigo-400">شماره دریافت در مقصد</label>
+                                                {formData.destination_indicator && (
+                                                    <span className="text-indigo-600 dark:text-indigo-400">
+                                                        {renderFormattedNumber(formData.destination_indicator, "text-[11px]")}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <input 
+                                                type="text" 
+                                                dir="ltr" 
+                                                placeholder="مثال: ۱۴۰۵/۸۵۲"
+                                                className={`${inputClass} text-center font-mono font-black border-indigo-300 dark:border-indigo-700 text-xs tracking-wider`} 
+                                                value={formData.destination_indicator} 
+                                                onChange={(e) => setFormData({ ...formData, destination_indicator: toPersianDigits(e.target.value) })} 
+                                            />
                                         </div>
                                         <div className="relative">
                                             <JalaliDatePicker name="destination_date" label="تاریخ تحویل به مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} placeholder="انتخاب تاریخ" />
@@ -590,12 +615,40 @@ const SecretariatEditScreen = () => {
                             </select>
                         </div>
                         <div>
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">عطف به (شماره دستی)</label>
-                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.reference_number} onChange={(e) => setFormData({ ...formData, reference_number: toPersianDigits(e.target.value) })} />
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold opacity-80">عطف به (شماره دستی)</label>
+                                {formData.reference_number && (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                        {renderFormattedNumber(formData.reference_number, "text-[10px]")}
+                                    </span>
+                                )}
+                            </div>
+                            <input 
+                                type="text" 
+                                dir="ltr" 
+                                placeholder="مثلاً ۱۴۰۴/۱۲"
+                                className={`${inputClass} text-center font-mono font-black text-xs tracking-wider`} 
+                                value={formData.reference_number} 
+                                onChange={(e) => setFormData({ ...formData, reference_number: toPersianDigits(e.target.value) })} 
+                            />
                         </div>
                         <div>
-                            <label className="block mb-1 text-[10px] font-bold opacity-80">شماره قرارداد مرتبط</label>
-                            <input type="text" dir="rtl" className={`${inputClass} text-right font-mono text-xs`} value={formData.contract_number} onChange={(e) => setFormData({ ...formData, contract_number: toPersianDigits(e.target.value) })} />
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold opacity-80">شماره قرارداد مرتبط</label>
+                                {formData.contract_number && (
+                                    <span className="text-blue-600 dark:text-blue-400">
+                                        {renderFormattedNumber(formData.contract_number, "text-[10px]")}
+                                    </span>
+                                )}
+                            </div>
+                            <input 
+                                type="text" 
+                                dir="ltr" 
+                                placeholder="مثلاً ۹۹/ق/۱۲"
+                                className={`${inputClass} text-center font-mono font-black text-xs tracking-wider`} 
+                                value={formData.contract_number} 
+                                onChange={(e) => setFormData({ ...formData, contract_number: toPersianDigits(e.target.value) })} 
+                            />
                         </div>
                         <div>
                             <label className="block mb-1 text-[10px] font-bold opacity-80">پیوست (متن روی سربرگ)</label>

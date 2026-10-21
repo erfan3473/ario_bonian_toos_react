@@ -41,6 +41,30 @@ const HighlightedText = ({ text, highlight }) => {
     );
 };
 
+// 🚀 کامپوننت فرمت‌دهی شماره‌های اسلش‌دار و اداری بر اساس الگوی استاندارد برگه رسمی
+const renderFormattedNumber = (numStr, customClass = "text-[13px]", highlight = null) => {
+    if (!numStr) return null;
+    const str = String(numStr);
+    if (str.includes('/')) {
+        const parts = str.split('/');
+        return (
+            <span className={`inline-flex items-center gap-[3px] font-mono font-black ${customClass}`} dir="ltr">
+                {parts.map((part, idx) => (
+                    <React.Fragment key={idx}>
+                        {idx > 0 && <span className="text-gray-400 dark:text-gray-500 opacity-60 font-normal">/</span>}
+                        <span>{highlight ? <HighlightedText text={part} highlight={highlight} /> : part}</span>
+                    </React.Fragment>
+                ))}
+            </span>
+        );
+    }
+    return (
+        <span dir="ltr" className={`font-mono font-bold ${customClass}`}>
+            {highlight ? <HighlightedText text={str} highlight={highlight} /> : str}
+        </span>
+    );
+};
+
 const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, isDark }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -67,11 +91,11 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const filtered = personnel?.filter(
+    const filtered = (personnel || []).filter(
         (p) =>
             p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (p.position_title && p.position_title.toLowerCase().includes(searchTerm.toLowerCase()))
-    ) || [];
+    );
 
     const inputClass = `w-full py-2.5 px-4 text-sm rounded-lg border focus:ring-2 focus:outline-none transition ${
         isDark ? 'bg-gray-900 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
@@ -340,10 +364,10 @@ const SecretariatListScreen = () => {
         }
     };
 
-    const filteredPersonnelForModal = allPersonnel?.filter(p => 
+    const filteredPersonnelForModal = (allPersonnel || []).filter(p => 
         p.name?.toLowerCase().includes(personnelSearch.toLowerCase()) || 
         (p.position_title && p.position_title.toLowerCase().includes(personnelSearch.toLowerCase()))
-    ) || [];
+    );
 
     return (
         <div className="p-3 sm:p-5 max-w-7xl mx-auto space-y-5">
@@ -512,8 +536,16 @@ const SecretariatListScreen = () => {
                                                         </div>
                                                         <div className="w-2/4 text-center font-black text-xs sm:text-sm pt-0.5">بسمه تعالی</div>
                                                         <div className="w-1/4 text-left text-[9px] font-mono font-bold leading-relaxed">
-                                                            <div className="whitespace-nowrap">ش: <HighlightedText text={letter.indicator_number} highlight={searchQuery} /></div>
-                                                            {letter.original_number && <div className="whitespace-nowrap" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>ف: <HighlightedText text={letter.original_number} highlight={searchQuery} /></div>}
+                                                            <div className="whitespace-nowrap flex items-center justify-end gap-1">
+                                                                <span className="opacity-70">ش:</span>
+                                                                {renderFormattedNumber(letter.indicator_number, "text-[10px]", searchQuery)}
+                                                            </div>
+                                                            {letter.original_number && (
+                                                                <div className="whitespace-nowrap flex items-center justify-end gap-1">
+                                                                    <span className="opacity-70">ف:</span>
+                                                                    {renderFormattedNumber(letter.original_number, "text-[10px]", searchQuery)}
+                                                                </div>
+                                                            )}
                                                             <div>ت: {new Date(letter.created_at).toLocaleDateString('fa-IR')}</div>
                                                         </div>
                                                     </div>
@@ -522,7 +554,12 @@ const SecretariatListScreen = () => {
                                                         {matches.map((m, idx) => (
                                                             <div key={idx} className="flex gap-1 border-b border-gray-100 pb-1 mt-1">
                                                                 <span className="opacity-60 min-w-[70px]">{m.label}:</span> 
-                                                                <span className="flex-1 leading-tight"><HighlightedText text={m.text} highlight={searchQuery} /></span>
+                                                                <span className="flex-1 leading-tight">
+                                                                    {['شماره سیستمی', 'شماره فیزیکی', 'شماره قرارداد'].includes(m.label)
+                                                                        ? renderFormattedNumber(m.text, "text-[11px]", searchQuery)
+                                                                        : <HighlightedText text={m.text} highlight={searchQuery} />
+                                                                    }
+                                                                </span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -543,11 +580,10 @@ const SecretariatListScreen = () => {
                     </div>
                 </div>
 
-                {/* بخش سال بایگانی و مرتب‌سازی بهینه‌شده برای گوشی و صفحات بزرگ */}
+                {/* بخش سال بایگانی و مرتب‌سازی */}
                 <div className={`pt-3.5 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
                     <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between w-full min-w-0">
                         
-                        {/* بخش سال‌ها با مهار کامل اسکرول و عدم پرش کادر */}
                         <div className="flex items-center gap-2 min-w-0 w-full md:w-auto">
                             <span className="text-xs font-bold opacity-70 whitespace-nowrap shrink-0">سال بایگانی:</span>
                             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 w-full min-w-0 touch-pan-x" style={{ scrollbarWidth: 'none' }}>
@@ -579,7 +615,6 @@ const SecretariatListScreen = () => {
                             </div>
                         </div>
 
-                        {/* بخش دکمه‌های مرتب‌سازی */}
                         <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 md:border-r md:pr-4 border-gray-200 dark:border-gray-700 shrink-0 self-end md:self-auto">
                             <button 
                                 type="button"
@@ -655,9 +690,9 @@ const SecretariatListScreen = () => {
                                             <div className="flex items-center gap-2.5">
                                                 <DirectionalLogo type={letter.letter_type} status={letter.status} />
                                                 <div className="flex flex-col">
-                                                    <span className={`font-mono font-bold text-sm ${isDeletedLetter ? 'line-through text-red-500' : isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                        {letter.indicator_number}
-                                                    </span>
+                                                    <div className={`${isDeletedLetter ? 'line-through text-red-500' : isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                        {renderFormattedNumber(letter.indicator_number, "text-sm")}
+                                                    </div>
                                                     <span className="text-[10px] opacity-50 font-bold">
                                                         ردیف {(page - 1) * 12 + index + 1}
                                                     </span>
@@ -721,7 +756,10 @@ const SecretariatListScreen = () => {
                                         <div className="flex items-center justify-between pt-1 text-[10px] opacity-70 border-t border-dashed border-gray-100 dark:border-gray-700/60">
                                             <span>ثبت: {formatPersianDate(letter.created_at)}</span>
                                             {letter.original_number && (
-                                                <span dir="ltr" className="font-mono">فیزیکی: {letter.original_number}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span>فیزیکی:</span>
+                                                    {renderFormattedNumber(letter.original_number, "text-[10px]")}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -736,7 +774,7 @@ const SecretariatListScreen = () => {
                             <thead className={`text-[11px] uppercase tracking-wider font-black ${isDark ? 'bg-gray-900/50 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
                                 <tr>
                                     <th className="px-5 py-4 w-12 text-center">ردیف</th>
-                                    <th className="px-5 py-4 w-40">شماره‌ها</th>
+                                    <th className="px-5 py-4 w-44">شماره‌ها</th>
                                     <th className="px-5 py-4 w-28">نوع / وضعیت</th>
                                     <th className="px-5 py-4 max-w-md">موضوع و مشخصات</th>
                                     <th className="px-5 py-4 w-32">مبدأ / مقصد</th>
@@ -780,28 +818,31 @@ const SecretariatListScreen = () => {
                                                     </div>
                                                 </td>
 
+                                                {/* ستون شماره‌ها با چینش حرفه‌ای و استایل شیک اسلش‌دار */}
                                                 <td className="px-5 py-4 whitespace-nowrap">
                                                     <div className="flex flex-col gap-2">
                                                         <div className="flex flex-col">
                                                             <span className="text-[9px] opacity-60 font-bold mb-0.5">سیستمی:</span>
-                                                            <span className={`font-mono font-bold text-[13px] ${isDeletedLetter ? 'line-through text-red-500' : isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                                                                {letter.indicator_number}
-                                                            </span>
+                                                            <div className={`${isDeletedLetter ? 'line-through text-red-500' : isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                                                {renderFormattedNumber(letter.indicator_number, "text-[13px]")}
+                                                            </div>
                                                         </div>
+
                                                         {letter.original_number && (
                                                             <div className="flex flex-col border-t border-gray-100 dark:border-gray-700 pt-1">
-                                                                <span className="text-[9px] opacity-60 font-bold mb-0.5"> شماره نامه :</span>
-                                                                <bdi className="text-[11px] font-mono font-bold text-right" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
-                                                                    {letter.original_number}
-                                                                </bdi>
+                                                                <span className="text-[9px] opacity-60 font-bold mb-0.5">شماره نامه :</span>
+                                                                <div className="text-right">
+                                                                    {renderFormattedNumber(letter.original_number, "text-[11px]")}
+                                                                </div>
                                                             </div>
                                                         )}
+
                                                         {letter.destination_indicator && (
                                                             <div className="flex flex-col border-t border-gray-100 dark:border-gray-700 pt-1">
                                                                 <span className="text-[9px] opacity-60 font-bold mb-0.5 text-emerald-600">ثبت مقصد:</span>
-                                                                <bdi className="text-[11px] font-mono font-bold text-right text-emerald-600" dir="ltr" style={{ unicodeBidi: 'plaintext' }}>
-                                                                    {letter.destination_indicator}
-                                                                </bdi>
+                                                                <div className="text-right text-emerald-600 dark:text-emerald-400">
+                                                                    {renderFormattedNumber(letter.destination_indicator, "text-[11px] text-emerald-600 dark:text-emerald-400")}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -880,166 +921,166 @@ const SecretariatListScreen = () => {
                                                             <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
                                                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                                                 <div className="flex flex-col">
-                                                                <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest">تایید مدیریت</span>
-                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                                    {formatPersianDate(letter.approved_at)}
-                                                                </span>
+                                                                    <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-widest">تایید مدیریت</span>
+                                                                    <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                        {formatPersianDate(letter.approved_at)}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    {letter.original_date && (
-                                                        <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">تاریخ چاپ روی نامه</span>
-                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                                    {formatPersianDate(letter.original_date)}
-                                                                </span>
+                                                        {letter.original_date && (
+                                                            <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[8px] font-bold opacity-60 uppercase tracking-widest">تاریخ چاپ روی نامه</span>
+                                                                    <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                        {formatPersianDate(letter.original_date)}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
-                                                    {letter.destination_date && (
-                                                        <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">ثبت مقصد</span>
-                                                                <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                                    {formatPersianDate(letter.destination_date)}
-                                                                </span>
+                                                        {letter.destination_date && (
+                                                            <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">ثبت مقصد</span>
+                                                                    <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                        {formatPersianDate(letter.destination_date)}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </React.Fragment>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {totalPages > 1 && (
-                    <div className={`px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t ${isDark ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
-                        <div className="text-xs font-bold opacity-60">
-                            صفحه {page} از {totalPages} (مجموع: {totalCount} مورد)
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button 
-                                disabled={page === 1} 
-                                onClick={() => setPage(page - 1)} 
-                                className="px-3 py-1.5 rounded-lg flex items-center gap-1 bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 text-xs font-bold"
-                            >
-                                <FaAngleRight /> صفحه قبل
-                            </button>
-                            <button 
-                                disabled={page === totalPages} 
-                                onClick={() => setPage(page + 1)} 
-                                className="px-3 py-1.5 rounded-lg flex items-center gap-1 bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 text-xs font-bold"
-                            >
-                                صفحه بعد <FaAngleLeft />
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        )}
-
-        {/* مودال تنظیمات پیامک */}
-        {isSmsModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                <div className={`w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl p-4 sm:p-6 space-y-4 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
-                    <div className="flex justify-between items-center border-b pb-3 border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-2">
-                            <FaCog className="text-amber-500 text-lg" />
-                            <h3 className="font-black text-sm sm:text-base">تنظیمات پیامک اطلاع‌رسانی ({getFilterName(filterType)})</h3>
-                        </div>
-                        <button onClick={() => setIsSmsModalOpen(false)} className="text-gray-400 hover:text-red-500 transition">
-                            <FaTimes size={16} />
-                        </button>
-                    </div>
-
-                    <div className="p-3 rounded-xl border flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                        <div className="pr-1">
-                            <span className="font-bold text-xs block">ارسال خودکار پیامک فعال باشد؟</span>
-                            <span className="text-[10px] opacity-60">در صورت فعال بودن، پس از ثبت مکاتبه، به افراد منتخب زیر پیامک ارسال می‌شود.</span>
-                        </div>
-                        <input 
-                            type="checkbox" 
-                            checked={smsActive} 
-                            onChange={(e) => setSmsActive(e.target.checked)}
-                            className="w-5 h-5 accent-blue-600 rounded cursor-pointer shrink-0" 
-                        />
-                    </div>
-
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="text-xs font-black opacity-80">انتخاب اعضای دریافت‌کننده پیامک:</label>
-                            <span className="text-[10px] font-bold text-blue-500">انتخاب شده: {selectedRecipientIds.length} نفر</span>
-                        </div>
-
-                        <input
-                            type="text"
-                            placeholder="جستجوی پرسنل..."
-                            value={personnelSearch}
-                            onChange={(e) => setPersonnelSearch(e.target.value)}
-                            className={`w-full mb-2 p-2.5 text-xs rounded-lg border focus:ring-1 focus:outline-none transition ${isDark ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
-                        />
-
-                        <div className="max-h-52 overflow-y-auto space-y-2 p-2 border rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                            {filteredPersonnelForModal.length === 0 ? (
-                                <div className="p-4 text-center text-xs opacity-50 font-bold">پرسنلی یافت نشد</div>
-                            ) : (
-                                filteredPersonnelForModal.map((emp) => {
-                                    const isSelected = selectedRecipientIds.includes(String(emp.id));
-                                    return (
-                                        <div 
-                                            key={emp.id} 
-                                            onClick={() => toggleRecipient(emp.id)}
-                                            className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
-                                                isSelected 
-                                                    ? 'bg-blue-100 border-blue-400 text-blue-900 dark:bg-blue-900/40 dark:border-blue-700 dark:text-blue-200 font-black' 
-                                                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
-                                            }`}
-                                        >
-                                            <div>
-                                                <div className="text-xs">{emp.name}</div>
-                                                <div className="text-[10px] opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
-                                            </div>
-                                            <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-400'}`}>
-                                                {isSelected && <FaCheck size={10} />}
-                                            </div>
-                                        </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </React.Fragment>
                                     );
-                                })
-                            )}
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className={`px-4 sm:px-5 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 border-t ${isDark ? 'border-gray-700 bg-gray-900/50' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className="text-xs font-bold opacity-60">
+                                صفحه {page} از {totalPages} (مجموع: {totalCount} مورد)
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    disabled={page === 1} 
+                                    onClick={() => setPage(page - 1)} 
+                                    className="px-3 py-1.5 rounded-lg flex items-center gap-1 bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 text-xs font-bold"
+                                >
+                                    <FaAngleRight /> صفحه قبل
+                                </button>
+                                <button 
+                                    disabled={page === totalPages} 
+                                    onClick={() => setPage(page + 1)} 
+                                    className="px-3 py-1.5 rounded-lg flex items-center gap-1 bg-white border border-gray-300 text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 text-xs font-bold"
+                                >
+                                    صفحه بعد <FaAngleLeft />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* مودال تنظیمات پیامک */}
+            {isSmsModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className={`w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl p-4 sm:p-6 space-y-4 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                        <div className="flex justify-between items-center border-b pb-3 border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2">
+                                <FaCog className="text-amber-500 text-lg" />
+                                <h3 className="font-black text-sm sm:text-base">تنظیمات پیامک اطلاع‌رسانی ({getFilterName(filterType)})</h3>
+                            </div>
+                            <button onClick={() => setIsSmsModalOpen(false)} className="text-gray-400 hover:text-red-500 transition">
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        <div className="p-3 rounded-xl border flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                            <div className="pr-1">
+                                <span className="font-bold text-xs block">ارسال خودکار پیامک فعال باشد؟</span>
+                                <span className="text-[10px] opacity-60">در صورت فعال بودن، پس از ثبت مکاتبه، به افراد منتخب زیر پیامک ارسال می‌شود.</span>
+                            </div>
+                            <input 
+                                type="checkbox" 
+                                checked={smsActive} 
+                                onChange={(e) => setSmsActive(e.target.checked)}
+                                className="w-5 h-5 accent-blue-600 rounded cursor-pointer shrink-0" 
+                            />
+                        </div>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-black opacity-80">انتخاب اعضای دریافت‌کننده پیامک:</label>
+                                <span className="text-[10px] font-bold text-blue-500">انتخاب شده: {selectedRecipientIds.length} نفر</span>
+                            </div>
+
+                            <input
+                                type="text"
+                                placeholder="جستجوی پرسنل..."
+                                value={personnelSearch}
+                                onChange={(e) => setPersonnelSearch(e.target.value)}
+                                className={`w-full mb-2 p-2.5 text-xs rounded-lg border focus:ring-1 focus:outline-none transition ${isDark ? 'bg-gray-900 border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'}`}
+                            />
+
+                            <div className="max-h-52 overflow-y-auto space-y-2 p-2 border rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                                {filteredPersonnelForModal.length === 0 ? (
+                                    <div className="p-4 text-center text-xs opacity-50 font-bold">پرسنلی یافت نشد</div>
+                                ) : (
+                                    filteredPersonnelForModal.map((emp) => {
+                                        const isSelected = selectedRecipientIds.includes(String(emp.id));
+                                        return (
+                                            <div 
+                                                key={emp.id} 
+                                                onClick={() => toggleRecipient(emp.id)}
+                                                className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition ${
+                                                    isSelected 
+                                                        ? 'bg-blue-100 border-blue-400 text-blue-900 dark:bg-blue-900/40 dark:border-blue-700 dark:text-blue-200 font-black' 
+                                                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
+                                                }`}
+                                            >
+                                                <div>
+                                                    <div className="text-xs">{emp.name}</div>
+                                                    <div className="text-[10px] opacity-60 mt-0.5">{emp.position_title || 'بدون سمت'}</div>
+                                                </div>
+                                                <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-400'}`}>
+                                                    {isSelected && <FaCheck size={10} />}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <button 
+                                type="button" 
+                                onClick={() => setIsSmsModalOpen(false)}
+                                className="px-4 py-2 rounded-lg bg-gray-500 text-white hover:bg-gray-600 text-xs font-bold"
+                            >
+                                انصراف
+                            </button>
+                            <button 
+                                type="button" 
+                                disabled={savingSettings}
+                                onClick={handleSaveSmsSettings}
+                                className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold shadow-md disabled:opacity-50"
+                            >
+                                {savingSettings ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+                            </button>
                         </div>
                     </div>
-
-                    <div className="flex justify-end gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <button 
-                            type="button" 
-                            onClick={() => setIsSmsModalOpen(false)}
-                            className="px-4 py-2 rounded-lg bg-gray-500 text-white hover:bg-gray-600 text-xs font-bold"
-                        >
-                            انصراف
-                        </button>
-                        <button 
-                            type="button" 
-                            disabled={savingSettings}
-                            onClick={handleSaveSmsSettings}
-                            className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold shadow-md disabled:opacity-50"
-                        >
-                            {savingSettings ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
-                        </button>
-                    </div>
                 </div>
-            </div>
-        )}
+            )}
 
-    </div>
+        </div>
     );
 };
 
