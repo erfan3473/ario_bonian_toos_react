@@ -11,23 +11,88 @@ import {
   createTask, 
   fetchTaskTypes,
   fetchSubordinates,
-  fetchAllTasksAdmin // 👈 اضافه شده
+  fetchAllTasksAdmin,
+  deleteTask
 } from '../features/task/taskSlice';
 import TaskWorkflowCreateModal from '../components/Task/TaskWorkflowCreateModal';
 import AssigneePickerPanel, { AssigneeChip } from '../components/Task/AssigneePickerPanel';
 import {
   FaInbox, FaPaperPlane, FaPlus, FaSpinner, FaClock, FaUser, FaChevronLeft,
-  FaSearch, FaTimes, FaLayerGroup, FaBolt, FaLock, FaSitemap, FaTrash, FaAlignRight, FaPaperclip, FaArrowLeft, FaListUl
+  FaSearch, FaTimes, FaLayerGroup, FaBolt, FaLock, FaSitemap, FaTrash, FaAlignRight, 
+  FaPaperclip, FaArrowLeft, FaListUl, FaFilter, FaSortAmountDown, FaUndo, FaChevronDown,
+  FaCheckCircle, FaTimesCircle
 } from 'react-icons/fa';
 
 const TASK_TYPE_LABELS = { PAYROLL_FORM: 'تکمیل فرم حقوق', PURCHASE: 'خرید/تدارکات', REPORT: 'گزارش‌دهی' };
 const STATUS_COLORS = { PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30', IN_PROGRESS: 'bg-blue-500/10 text-blue-500 border-blue-500/30', DONE: 'bg-green-500/10 text-green-500 border-green-500/30', REJECTED: 'bg-red-500/10 text-red-500 border-red-500/30', CANCELLED: 'bg-gray-500/10 text-gray-500 border-gray-500/30' };
 const STATUS_LABELS = { PENDING: 'در انتظار', IN_PROGRESS: 'در جریان', DONE: 'انجام شده', REJECTED: 'رد شده', CANCELLED: 'لغو شده' };
+
+const ASSIGNEE_STATE_CONFIG = {
+  PENDING: { label: 'در انتظار اقدام', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+  IN_PROGRESS: { label: 'در حال انجام', color: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
+  APPROVED: { label: 'انجام داد / تایید', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+  REJECTED: { label: 'رد کرد', color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' },
+  FORWARDED: { label: 'ارجاع داد', color: 'text-teal-500 bg-teal-500/10 border-teal-500/20' },
+  SKIPPED: { label: 'عبور مرحله', color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' },
+};
+
+const APPROVER_STATUS_CONFIG = {
+  PENDING: { label: 'در انتظار تایید', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
+  APPROVED: { label: 'تایید کرد', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+  REJECTED: { label: 'رد کرد', color: 'text-rose-500 bg-rose-500/10 border-rose-500/20' },
+  RETURNED: { label: 'برگشت داد', color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' },
+  RESUBMITTED: { label: 'اصلاح شده', color: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
+  FORWARDED: { label: 'ارجاع داد', color: 'text-teal-500 bg-teal-500/10 border-teal-500/20' },
+  SKIPPED: { label: 'گذر شده', color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' },
+};
+
 const URGENCY_LABELS = { LOW: 'کم', MEDIUM: 'متوسط', HIGH: 'زیاد', CRITICAL: 'بحرانی' };
 const URGENCY_COLORS = { LOW: 'bg-gray-500/10 text-gray-400 border-gray-500/30', MEDIUM: 'bg-blue-500/10 text-blue-400 border-blue-500/30', HIGH: 'bg-orange-500/10 text-orange-400 border-orange-500/30', CRITICAL: 'bg-red-500/10 text-red-400 border-red-500/30' };
 const URGENCY_OPTIONS = [ { value: 'LOW', label: 'کم' }, { value: 'MEDIUM', label: 'متوسط' }, { value: 'HIGH', label: 'زیاد' }, { value: 'CRITICAL', label: 'بحرانی' } ];
 const APPROVAL_RULES = [ { value: 'ANY_ASSIGNEE', label: 'تایید توسط یک نفر کافیست' }, { value: 'ALL_ASSIGNEES', label: 'تایید همه اجباری است' } ];
 const APPROVER_RULES = [ { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } ];
+
+const URGENCY_WEIGHT = {
+  CRITICAL: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+};
+
+const AVATAR_BG_COLORS = [
+  'bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-amber-600', 
+  'bg-rose-600', 'bg-cyan-600', 'bg-indigo-600'
+];
+
+const CircleAvatar = ({ user, isDark, roleLabel = '', size = 'w-6 h-6 text-[9px]' }) => {
+  const initial = user?.name ? user.name.trim()[0] : '?';
+  const colorIndex = (user?.id || 1) % AVATAR_BG_COLORS.length;
+  const bgColor = AVATAR_BG_COLORS[colorIndex];
+
+  if (user?.avatar_url) {
+    return (
+      <img
+        src={user.avatar_url}
+        alt={user.name}
+        title={`${user.name} ${roleLabel ? `(${roleLabel})` : ''}`}
+        className={`${size} rounded-full object-cover border-2 shadow-sm shrink-0 ${
+          isDark ? 'border-gray-800' : 'border-white'
+        }`}
+      />
+    );
+  }
+
+  return (
+    <div
+      title={`${user.name} ${roleLabel ? `(${roleLabel})` : ''}`}
+      className={`${size} rounded-full flex items-center justify-center font-bold text-white border-2 shadow-sm shrink-0 ${bgColor} ${
+        isDark ? 'border-gray-800' : 'border-white'
+      }`}
+    >
+      {initial}
+    </div>
+  );
+};
 
 const TaskListPage = () => {
   const dispatch = useDispatch();
@@ -38,7 +103,6 @@ const TaskListPage = () => {
   const { userInfo } = useSelector((state) => state.userLogin);
   const isAdmin = userInfo?.is_admin || userInfo?.is_staff || userInfo?.is_superuser;
   
-  // 👈 اضافه شدن allTasks و loadingAllTasks
   const { 
     inbox, sentTasks, allTasks, 
     loadingInbox, loadingSent, loadingAllTasks, 
@@ -51,17 +115,29 @@ const TaskListPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const [search, setSearch] = useState('');
-  
+  const [deletingId, setDeletingId] = useState(null);
+
+  // استیت کنترل باز بودن پاپ‌اور دراپ‌دان افراد (شناسه تسک + نوع لیست: 'assignees' یا 'approvers')
+  const [openDropdown, setOpenDropdown] = useState(null); // { taskId, type: 'assignees' | 'approvers' }
+
+  // بستن دراپ‌دان در صورت کلیک در هر کجای صفحه
+  useEffect(() => {
+    const handleGlobalClick = () => setOpenDropdown(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('created_desc');
+
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [templateFormData, setTemplateFormData] = useState({ title: '', note: '', task_type: '', urgency: 'MEDIUM' });
 
-  // === استیت‌های ورک‌فلو ===
   const [stages, setStages] = useState([
     { id: 'stage-1', stageName: 'مرحله ۱', description: '', deadlineDate: '', deadlineTime: '23:59', requireFile: false, assignees: [], approvalRule: 'ANY_ASSIGNEE', nextStageApprovers: [], approverRule: 'ALL_APPROVERS' }
   ]);
   const [activeElement, setActiveElement] = useState({ id: 'stage-1', type: 'STAGE' });
 
-  // 👈 آپدیت افکت برای تب سوم
   useEffect(() => {
     if (userInfo) {
       if (activeTab === 'inbox') dispatch(fetchMyTaskInbox());
@@ -78,30 +154,78 @@ const TaskListPage = () => {
     }
   }, [showTemplatePanel, dispatch, templates.length, taskTypes.length, subordinates?.length]);
 
-  // 👈 بهینه‌سازی: تشخیص لیست و وضعیت لودینگ جاری
   const currentList = activeTab === 'inbox' ? inbox : activeTab === 'sent' ? sentTasks : (allTasks || []);
   const isListLoading = activeTab === 'inbox' ? loadingInbox : activeTab === 'sent' ? loadingSent : loadingAllTasks;
 
-  // 👈 بهینه‌سازی: استفاده از useMemo برای فیلتر کردن (جلوگیری از افت پرفورمنس در لیست‌های طولانی)
-  const filteredList = useMemo(() => {
-    if (!search.trim()) return currentList;
-    const s = search.toLowerCase();
-    return currentList.filter((t) => 
-      t.title?.toLowerCase().includes(s) || 
-      t.note?.toLowerCase().includes(s) || 
-      t.created_by_name?.toLowerCase().includes(s) || 
-      (URGENCY_LABELS[t.urgency] || '').toLowerCase().includes(s)
-    );
-  }, [currentList, search]);
+  const processedList = useMemo(() => {
+    let result = [...currentList];
 
-  const handleTabChange = (tab) => { setSearchParams({ tab }); setSearch(''); };
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      result = result.filter((t) => 
+        t.title?.toLowerCase().includes(s) || 
+        t.note?.toLowerCase().includes(s) || 
+        t.created_by_name?.toLowerCase().includes(s) || 
+        (URGENCY_LABELS[t.urgency] || '').toLowerCase().includes(s)
+      );
+    }
+
+    if (statusFilter !== 'ALL') {
+      result = result.filter((t) => t.status === statusFilter);
+    }
+
+    result.sort((a, b) => {
+      if (sortBy === 'created_desc') return new Date(b.created_at) - new Date(a.created_at);
+      if (sortBy === 'created_asc') return new Date(a.created_at) - new Date(b.created_at);
+
+      if (sortBy === 'deadline_asc') {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(a.deadline) - new Date(b.deadline);
+      }
+      if (sortBy === 'deadline_desc') {
+        if (!a.deadline) return 1;
+        if (!b.deadline) return -1;
+        return new Date(b.deadline) - new Date(a.deadline);
+      }
+
+      if (sortBy === 'urgency_desc') {
+        return (URGENCY_WEIGHT[b.urgency] || 0) - (URGENCY_WEIGHT[a.urgency] || 0);
+      }
+      if (sortBy === 'urgency_asc') {
+        return (URGENCY_WEIGHT[a.urgency] || 0) - (URGENCY_WEIGHT[b.urgency] || 0);
+      }
+
+      return 0;
+    });
+
+    return result;
+  }, [currentList, search, statusFilter, sortBy]);
+
+  const handleTabChange = (tab) => { 
+    setSearchParams({ tab }); 
+    setSearch(''); 
+    setOpenDropdown(null);
+  };
+  
   const handleTaskClick = (taskId) => navigate(`/tasks/${taskId}`, { state: { returnTab: activeTab } });
   
+  const handleDeleteTask = async (e, taskId, taskTitle) => {
+    e.stopPropagation();
+    if (!window.confirm(`آیا از حذف ماموریت «${taskTitle}» اطمینان کامل دارید؟ این عملیات غیرقابل بازگشت است.`)) {
+      return;
+    }
+    setDeletingId(taskId);
+    await dispatch(deleteTask(taskId));
+    setDeletingId(null);
+  };
+
   const handleCreateSuccess = () => {
     setShowCreateModal(false);
     setShowTemplatePanel(false);
     dispatch(fetchMyTaskInbox());
     dispatch(fetchSentTasks());
+    if (isAdmin) dispatch(fetchAllTasksAdmin());
   };
 
   const handleSelectTemplate = (e) => {
@@ -245,6 +369,24 @@ const TaskListPage = () => {
     }
   };
 
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('ALL');
+    setSortBy('created_desc');
+  };
+
+  const hasActiveFilters = search !== '' || statusFilter !== 'ALL' || sortBy !== 'created_desc';
+
+  // سوئیچ دراپ‌دان افراد
+  const toggleDropdown = (e, taskId, type) => {
+    e.stopPropagation();
+    if (openDropdown?.taskId === taskId && openDropdown?.type === type) {
+      setOpenDropdown(null);
+    } else {
+      setOpenDropdown({ taskId, type });
+    }
+  };
+
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} dir="rtl">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
@@ -279,7 +421,6 @@ const TaskListPage = () => {
             </div>
             
             <div className="flex flex-col w-full">
-              {/* بخش بالا: انتخاب قالب */}
               <div className={`flex flex-col md:flex-row md:items-center gap-4 mb-5 pb-5 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
                 <div className="w-full md:w-1/3">
                   <label className="block text-sm mb-1.5 font-bold">قالب را انتخاب کنید</label>
@@ -311,7 +452,6 @@ const TaskListPage = () => {
                 )}
               </div>
 
-              {/* بخش پایین: فرم اصلی */}
               <div className="w-full space-y-3">
                 {selectedTemplate ? (
                     <>
@@ -323,10 +463,7 @@ const TaskListPage = () => {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="flex items-center gap-1.5 text-xs mb-1.5 font-bold">دسته‌بندی {isFrozen('task_type') && <FaLock className="text-purple-500 text-[10px]" />}</label>
-                                    <select value={templateFormData.task_type} onChange={(e) => setTemplateFormData({...templateFormData, task_type: e.target.value})} disabled={isFrozen('task_type')} className={`w-full p-2.5 text-sm rounded-lg border outline-none ${isFrozen('task_type') ? 'opacity-50 cursor-not-allowed' : ''} ${isDark ? 'bg-gray-900 border-gray-600' : 'bg-white border-gray-300'}`}>
-                                        <option value="">انتخاب...</option>
-                                        {taskTypes?.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                                    </select>
+                                    <select value={templateFormData.task_type} onChange={(e) => setTemplateFormData({...templateFormData, task_type: e.target.value})} disabled={isFrozen('task_type')} className={`w-full p-2.5 text-sm rounded-lg border outline-none ${isFrozen('task_type') ? 'opacity-50 cursor-not-allowed' : ''} ${isDark ? 'bg-gray-900 border-gray-600' : 'bg-white border-gray-300'}`} />
                                 </div>
                                 <div>
                                     <label className="flex items-center gap-1.5 text-xs mb-1.5 font-bold">فوریت {isFrozen('urgency') && <FaLock className="text-purple-500 text-[10px]" />}</label>
@@ -344,7 +481,6 @@ const TaskListPage = () => {
                             </h4>
                             
                             <div className="flex flex-col xl:flex-row gap-4 h-auto xl:h-[480px]">
-                                {/* خط مونتاژ مراحل */}
                                 <div className={`flex-1 overflow-x-auto overflow-y-auto pb-2 px-2 flex items-start gap-3 rounded-xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-gray-200'}`}>
                                     {stages.map((stage, index) => (
                                         <React.Fragment key={stage.id}>
@@ -533,7 +669,6 @@ const TaskListPage = () => {
             )}
           </button>
 
-          {/* 👈 تب اضافه شده برای ادمین (کل سازمان) */}
           {isAdmin && (
             <button
               onClick={() => handleTabChange('all')}
@@ -556,42 +691,116 @@ const TaskListPage = () => {
           )}
         </div>
 
-        {/* جستجو */}
-        <div className="mb-6">
-          <div className={`flex items-center gap-2 border rounded-xl px-4 py-3 transition-colors ${
-            isDark ? 'bg-gray-800 border-gray-700 focus-within:border-blue-500' : 'bg-white border-gray-300 focus-within:border-blue-500'
-          }`}>
-            <FaSearch className={`${isDark ? 'text-gray-500' : 'text-gray-400'} shrink-0`} size={14} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="جستجو در عنوان، توضیحات یا سازنده..."
-              className={`bg-transparent text-sm flex-1 outline-none ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className={`${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'} transition-colors`}
-              >
-                <FaTimes size={14} />
-              </button>
+        {/* 🌟 بخش نوار ابزار جستجو و فیلترها 🌟 */}
+        <div className={`p-4 rounded-2xl border mb-6 space-y-3 ${isDark ? 'bg-gray-800/80 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+          <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+            
+            {/* ۱. باکس جستجو */}
+            <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3.5 py-2.5 transition-colors ${
+              isDark ? 'bg-gray-900 border-gray-700 focus-within:border-blue-500' : 'bg-gray-50 border-gray-300 focus-within:border-blue-500'
+            }`}>
+              <FaSearch className={`${isDark ? 'text-gray-500' : 'text-gray-400'} shrink-0`} size={13} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="جستجو در عنوان، توضیحات یا نام آمر..."
+                className={`bg-transparent text-xs sm:text-sm flex-1 outline-none ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className={`${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'} transition-colors`}
+                >
+                  <FaTimes size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* ۲. فیلتر وضعیت پرونده */}
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0 ${
+                isDark ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-700'
+              }`}>
+                <FaFilter className="text-blue-500" size={12} />
+                <span>وضعیت:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-transparent outline-none cursor-pointer pr-1 font-bold"
+                >
+                  <option value="ALL" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>همه وضعیت‌ها</option>
+                  <option value="PENDING" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>در انتظار</option>
+                  <option value="IN_PROGRESS" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>در جریان</option>
+                  <option value="DONE" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>انجام شده</option>
+                  <option value="REJECTED" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>رد شده</option>
+                  <option value="CANCELLED" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>لغو شده</option>
+                </select>
+              </div>
+
+              {/* ۳. انتخاب مرتب‌سازی */}
+              <div className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold shrink-0 ${
+                isDark ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-700'
+              }`}>
+                <FaSortAmountDown className="text-purple-500" size={12} />
+                <span>ترتیب:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-transparent outline-none cursor-pointer pr-1 font-bold"
+                >
+                  <optgroup label="تاریخ ایجاد" className={isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700'}>
+                    <option value="created_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>جدیدترین تاریخ ایجاد</option>
+                    <option value="created_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>قدیمی‌ترین تاریخ ایجاد</option>
+                  </optgroup>
+                  <optgroup label="فوریت" className={isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700'}>
+                    <option value="urgency_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>بیشترین فوریت (بحرانی به کم)</option>
+                    <option value="urgency_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>کمترین فوریت (کم به بحرانی)</option>
+                  </optgroup>
+                  <optgroup label="مهلت اقدام (ددلاین)" className={isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700'}>
+                    <option value="deadline_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>نزدیک‌ترین مهلت (فوری‌تر)</option>
+                    <option value="deadline_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>دورترین مهلت</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              {hasActiveFilters && (
+                <button
+                  onClick={resetFilters}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-colors flex items-center gap-1 ${
+                    isDark 
+                      ? 'border-gray-700 bg-gray-900 text-gray-400 hover:text-white hover:bg-gray-700' 
+                      : 'border-gray-300 bg-gray-50 text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                  title="بازنشانی فیلترها"
+                >
+                  <FaUndo size={11} />
+                </button>
+              )}
+            </div>
+
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-200/50 dark:border-gray-700/50">
+            <span>نمایش <strong>{processedList.length}</strong> از مجموع <strong>{currentList.length}</strong> ماموریت</span>
+            {statusFilter !== 'ALL' && (
+              <span className="text-blue-500 font-bold">فیلتر وضعیت: {STATUS_LABELS[statusFilter]}</span>
             )}
           </div>
         </div>
 
-        {/* لیست task‌ها (با استفاده از متغیر ایزوله شده isListLoading) */}
+        {/* لیست task‌ها */}
         {isListLoading ? (
           <div className="flex justify-center items-center py-20">
             <FaSpinner className="animate-spin text-blue-500 text-4xl" />
           </div>
-        ) : filteredList.length === 0 ? (
+        ) : processedList.length === 0 ? (
           <div className="text-center py-20">
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
               <FaInbox size={32} className={isDark ? 'text-gray-600' : 'text-gray-400'} />
             </div>
             <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-              {search.trim()
-                ? 'نتیجه‌ای یافت نشد'
+              {hasActiveFilters
+                ? 'هیچ ماموریتی با فیلترهای انتخابی یافت نشد'
                 : activeTab === 'inbox'
                 ? 'ماموریت دریافتی وجود ندارد'
                 : activeTab === 'sent'
@@ -599,22 +808,26 @@ const TaskListPage = () => {
                 : 'هیچ ماموریتی در سازمان ثبت نشده است'}
             </h3>
             <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-              {search.trim() ? 'عبارت دیگری را جستجو کنید' : 'لیست مورد نظر در حال حاضر خالی است.'}
+              {hasActiveFilters ? (
+                <button onClick={resetFilters} className="text-blue-500 underline font-bold mt-2">
+                  پاکسازی فیلترها و مشاهده مجدد
+                </button>
+              ) : 'لیست مورد نظر در حال حاضر خالی است.'}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredList.map((task) => (
+            {processedList.map((task) => (
               <div
                 key={task.id}
                 onClick={() => handleTaskClick(task.id)}
-                className={`border rounded-2xl p-5 cursor-pointer transition-all group ${
+                className={`border rounded-2xl p-5 cursor-pointer transition-all group relative ${
                   isDark
                     ? 'bg-gray-800 border-gray-700 hover:border-gray-600 hover:shadow-lg hover:shadow-blue-900/10'
                     : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
                 }`}
               >
-              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1 min-w-0">
                     <h3 className={`font-bold text-base mb-2 transition-colors leading-tight ${isDark ? 'text-gray-100 group-hover:text-blue-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
                       <span className={`text-xs font-normal ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>عنوان:</span>
@@ -639,7 +852,26 @@ const TaskListPage = () => {
                       </span>
                     </div>
                   </div>
-                  <FaChevronLeft className={`transition-colors shrink-0 mt-1 ${isDark ? 'text-gray-600 group-hover:text-blue-500' : 'text-gray-400 group-hover:text-blue-600'}`} />
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* دکمه حذف اختصاصی تب کل سازمان برای ادمین */}
+                    {isAdmin && activeTab === 'all' && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteTask(e, task.id, task.title)}
+                        disabled={deletingId === task.id}
+                        className={`p-2 rounded-xl border transition-colors ${
+                          isDark 
+                            ? 'border-red-900/40 bg-red-900/20 text-red-400 hover:bg-red-800/40 hover:border-red-600' 
+                            : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+                        }`}
+                        title="حذف ماموریت"
+                      >
+                        {deletingId === task.id ? <FaSpinner className="animate-spin" size={13} /> : <FaTrash size={13} />}
+                      </button>
+                    )}
+                    <FaChevronLeft className={`transition-colors shrink-0 mt-1 ${isDark ? 'text-gray-600 group-hover:text-blue-500' : 'text-gray-400 group-hover:text-blue-600'}`} />
+                  </div>
                 </div>
 
                 {task.note && (
@@ -651,32 +883,209 @@ const TaskListPage = () => {
                   </>
                 )}
                 
-                <div className={`flex flex-wrap items-center gap-4 text-xs mt-4 pt-3 border-t ${isDark ? 'border-gray-700/50 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
-                  {task.created_by_name && (
+                <div className={`flex flex-wrap items-center justify-between gap-4 text-xs mt-4 pt-3 border-t ${isDark ? 'border-gray-700/50 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
+                  
+                  {/* اطلاعات تاریخی پرونده */}
+                  <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-1.5">
-                      <FaUser className={isDark ? 'text-gray-500' : 'text-gray-400'} size={12} />
-                      <span>آمر: <span className={isDark ? 'text-gray-200' : 'text-gray-800'}>{task.created_by_name}</span></span>
+                      <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} size={12} />
+                      <span>تاریخ ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
                     </div>
-                  )}
-
-                  <div className="flex items-center gap-1.5">
-                    <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} size={12} />
-                    <span>تاریخ ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
+                    
+                    {task.deadline && (
+                      <div className="flex items-center gap-1.5 text-orange-500 font-medium">
+                        <FaClock size={12} />
+                        <span>مهلت نهایی: <span dir="ltr">{moment(task.deadline).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
+                      </div>
+                    )}
                   </div>
-                  
-                  {task.deadline && (
-                    <div className="flex items-center gap-1.5 text-orange-500 font-medium">
-                      <FaClock size={12} />
-                      <span>مهلت نهایی: <span dir="ltr">{moment(task.deadline).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
-                    </div>
-                  )}
-                  
-                  {task.active_assignees?.length > 0 && (
-                    <div className="flex items-center gap-1.5 mr-auto bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1.5 rounded-md text-yellow-600 dark:text-yellow-500 font-bold">
-                      <span className="text-[10px] animate-pulse">●</span>
-                      <span>{task.active_assignees.length} نفر در انتظار اقدام</span>
-                    </div>
-                  )}
+
+                  {/* 🌟 بخش تفکیک‌شده: آمر، مجریان با دراپ‌دان، تاییدکنندگان با دراپ‌دان 🌟 */}
+                  <div className="flex flex-wrap items-center gap-2.5 mr-auto sm:mr-0">
+                    
+                    {/* ۱. آمر / صادرکننده */}
+                    {task.created_by_name && (
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${
+                        isDark ? 'bg-gray-900/80 border-gray-700' : 'bg-gray-50 border-gray-200'
+                      }`}>
+                        <CircleAvatar 
+                          user={{ id: task.created_by_id, name: task.created_by_name, avatar_url: task.created_by_avatar }} 
+                          isDark={isDark} 
+                          roleLabel="آمر"
+                          size="w-6 h-6 text-[9px]"
+                        />
+                        <div className="flex flex-col text-right">
+                          <span className="text-[9px] text-gray-400">آمر:</span>
+                          <span className={`text-[11px] font-bold truncate max-w-[90px] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                            {task.created_by_name}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ۲. مجریان با کلیک پاپ‌اور مینیمال */}
+                    {task.assignees_list && task.assignees_list.length > 0 && (
+                      <div className="relative">
+                        <div 
+                          onClick={(e) => toggleDropdown(e, task.id, 'assignees')}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border cursor-pointer select-none transition-all ${
+                            openDropdown?.taskId === task.id && openDropdown?.type === 'assignees'
+                              ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/10'
+                              : isDark 
+                              ? 'bg-blue-950/25 border-blue-900/40 hover:bg-blue-900/30' 
+                              : 'bg-blue-50/70 border-blue-200 hover:bg-blue-100/70'
+                          }`}
+                        >
+                          <span className="text-[10px] text-blue-500 font-bold">مجریان:</span>
+                          <div className="flex items-center -space-x-1.5 space-x-reverse overflow-hidden py-0.5">
+                            {task.assignees_list.slice(0, 3).map((user, idx) => (
+                              <CircleAvatar key={`${user.id}-${idx}`} user={user} isDark={isDark} roleLabel="مجری" size="w-5 h-5 text-[8px]" />
+                            ))}
+                            {task.assignees_list.length > 3 && (
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border shadow-sm shrink-0 z-10 ${
+                                isDark ? 'bg-blue-900 text-blue-200 border-gray-800' : 'bg-blue-200 text-blue-800 border-white'
+                              }`}>
+                                +{task.assignees_list.length - 3}
+                              </div>
+                            )}
+                          </div>
+                          <FaChevronDown size={9} className={`text-blue-500 transition-transform ${openDropdown?.taskId === task.id && openDropdown?.type === 'assignees' ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {/* پاپ‌اور مینیمال مجریان */}
+                        {openDropdown?.taskId === task.id && openDropdown?.type === 'assignees' && (
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            className={`absolute left-0 bottom-full mb-2 w-72 rounded-2xl p-3 shadow-2xl border z-50 text-right backdrop-blur-md animate-fadeIn ${
+                              isDark ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-gray-200 text-gray-900'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-700/50">
+                              <span className="font-bold text-xs flex items-center gap-1.5 text-blue-500">
+                                <FaUser size={10} /> مجریان پرونده ({task.assignees_list.length})
+                              </span>
+                              <span className="text-[9px] text-gray-400">مرحله و اقدام</span>
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-blue-500/30">
+                              {task.assignees_list.map((u, i) => {
+                                const stCfg = ASSIGNEE_STATE_CONFIG[u.state] || { label: u.state, color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' };
+                                return (
+                                  <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${
+                                    isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-gray-50 border-gray-200'
+                                  }`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <CircleAvatar user={u} isDark={isDark} size="w-7 h-7 text-[10px]" />
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="font-bold text-xs truncate">{u.name}</span>
+                                        <span className="text-[10px] text-gray-400 truncate">{u.stage_name}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end shrink-0">
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${stCfg.color}`}>
+                                        {stCfg.label}
+                                      </span>
+                                      {u.acted_at && (
+                                        <span className="text-[8px] text-gray-400 mt-0.5">
+                                          {moment(u.acted_at).format('jMM/jDD HH:mm')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ۳. تاییدکنندگان با کلیک پاپ‌اور مینیمال */}
+                    {task.approvers_list && task.approvers_list.length > 0 && (
+                      <div className="relative">
+                        <div 
+                          onClick={(e) => toggleDropdown(e, task.id, 'approvers')}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border cursor-pointer select-none transition-all ${
+                            openDropdown?.taskId === task.id && openDropdown?.type === 'approvers'
+                              ? 'ring-2 ring-purple-500 border-purple-500 bg-purple-500/10'
+                              : isDark 
+                              ? 'bg-purple-950/25 border-purple-900/40 hover:bg-purple-900/30' 
+                              : 'bg-purple-50/70 border-purple-200 hover:bg-purple-100/70'
+                          }`}
+                        >
+                          <span className="text-[10px] text-purple-500 font-bold">تاییدکنندگان:</span>
+                          <div className="flex items-center -space-x-1.5 space-x-reverse overflow-hidden py-0.5">
+                            {task.approvers_list.slice(0, 3).map((user, idx) => (
+                              <CircleAvatar key={`${user.id}-${idx}`} user={user} isDark={isDark} roleLabel="ناظر" size="w-5 h-5 text-[8px]" />
+                            ))}
+                            {task.approvers_list.length > 3 && (
+                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border shadow-sm shrink-0 z-10 ${
+                                isDark ? 'bg-purple-900 text-purple-200 border-gray-800' : 'bg-purple-200 text-purple-800 border-white'
+                              }`}>
+                                +{task.approvers_list.length - 3}
+                              </div>
+                            )}
+                          </div>
+                          <FaChevronDown size={9} className={`text-purple-500 transition-transform ${openDropdown?.taskId === task.id && openDropdown?.type === 'approvers' ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {/* پاپ‌اور مینیمال ناظران و تاییدکنندگان */}
+                        {openDropdown?.taskId === task.id && openDropdown?.type === 'approvers' && (
+                          <div 
+                            onClick={(e) => e.stopPropagation()}
+                            className={`absolute left-0 bottom-full mb-2 w-72 rounded-2xl p-3 shadow-2xl border z-50 text-right backdrop-blur-md animate-fadeIn ${
+                              isDark ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-gray-200 text-gray-900'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-700/50">
+                              <span className="font-bold text-xs flex items-center gap-1.5 text-purple-500">
+                                <FaCheckCircle size={10} /> ناظران و تاییدکنندگان ({task.approvers_list.length})
+                              </span>
+                              <span className="text-[9px] text-gray-400">مرحله و وضعیت</span>
+                            </div>
+
+                            <div className="max-h-48 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-purple-500/30">
+                              {task.approvers_list.map((u, i) => {
+                                const apCfg = APPROVER_STATUS_CONFIG[u.status] || { label: u.status, color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' };
+                                return (
+                                  <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${
+                                    isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-gray-50 border-gray-200'
+                                  }`}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <CircleAvatar user={u} isDark={isDark} size="w-7 h-7 text-[10px]" />
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="font-bold text-xs truncate">{u.name}</span>
+                                        <span className="text-[10px] text-gray-400 truncate">{u.stage_name}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end shrink-0">
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${apCfg.color}`}>
+                                        {apCfg.label}
+                                      </span>
+                                      {u.acted_at && (
+                                        <span className="text-[8px] text-gray-400 mt-0.5">
+                                          {moment(u.acted_at).format('jMM/jDD HH:mm')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* فال‌بک در صورت نبود لیست تفکیکی کامل */}
+                    {(!task.assignees_list || task.assignees_list.length === 0) && task.active_assignees?.length > 0 && (
+                      <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1.5 rounded-md text-yellow-600 dark:text-yellow-500 font-bold">
+                        <span className="text-[10px] animate-pulse">●</span>
+                        <span>{task.active_assignees.length} نفر در انتظار</span>
+                      </div>
+                    )}
+
+                  </div>
                 </div>
               </div>
             ))}

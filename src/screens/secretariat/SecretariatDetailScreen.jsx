@@ -43,7 +43,7 @@ const SharinganIncomingLogo = () => (
     </div>
 );
 
-// المان درگ‌شدنی مهندسی‌شده بدون تغییر اندازه کادر یا پرش
+// المان درگ‌شدنی مهندسی‌شده بدون پرش و با کادر داخلی امن
 const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onStyleChange, children, className, label }) => {
     const [localPos, setLocalPos] = useState(position || { x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
@@ -138,13 +138,17 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
             onContextMenu={handleContextMenu}
             className={`relative group ${
                 isEditMode 
-                    ? 'cursor-move outline outline-1 outline-dashed outline-blue-400 select-none hover:outline-blue-600' 
+                    ? 'cursor-move outline outline-1 outline-dashed outline-blue-500 select-none hover:outline-blue-600' 
                     : ''
             } ${isDragging ? 'outline-2 outline-amber-500 z-50' : ''} ${
                 currentStyle.hidden ? 'opacity-20 grayscale blur-[1px]' : ''
             } ${className || ''}`}
             style={{ 
-                transform: `translate3d(${localPos.x}px, ${localPos.y}px, 0)`
+                transform: `translate3d(${localPos.x}px, ${localPos.y}px, 0)`,
+                width: currentStyle.widthPercent ? `${currentStyle.widthPercent}%` : undefined,
+                margin: currentStyle.widthPercent && currentStyle.widthPercent < 100 ? '0 auto' : undefined,
+                outlineOffset: isDragging ? '-2px' : '-1px',
+                boxSizing: 'border-box'
             }}
         >
             {isEditMode && (
@@ -311,6 +315,7 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
 };
 
 const SecretariatDetailScreen = () => {
+    // 🚀 نمایش بهینه و متراکم شماره نامه بدون فاصله زیاد بین کاراکترها
     const renderFormattedNumber = (numStr) => {
         if (!numStr) return null;
         const str = String(numStr);
@@ -705,6 +710,14 @@ const SecretariatDetailScreen = () => {
         ? `${window.location.origin}/secretariat/${letter.id}` 
         : `http://localhost:5173/secretariat/${letter.id}`;
 
+    // 🚀 پدینگ اختصاصی و داینامیک برگه بر حسب میلی‌متر (قابل ذخیره در حالت‌های مختلف سربرگ)
+    const sheetPadding = {
+        top: layoutStyles['sheet-padding']?.top ?? (printMode === 'LETTERHEAD' ? 25 : 12),
+        bottom: layoutStyles['sheet-padding']?.bottom ?? (printMode === 'LETTERHEAD' ? 20 : 12),
+        right: layoutStyles['sheet-padding']?.right ?? 15,
+        left: layoutStyles['sheet-padding']?.left ?? 15,
+    };
+
     return (
         <div className="max-w-5xl mx-auto p-4 space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
             <style type="text/css">
@@ -712,7 +725,7 @@ const SecretariatDetailScreen = () => {
                     .draggable-content strong, .draggable-content b {
                         font-weight: inherit !important;
                     }
-                    /* 🚀 اجبار عناصر داخلی به تبعیت از سایز جدید با کلیک راست */
+                    /* اجبار عناصر داخلی به تبعیت از سایز جدید با کلیک راست */
                     .draggable-content[style*="font-size"] * {
                         font-size: inherit !important;
                     }
@@ -720,7 +733,7 @@ const SecretariatDetailScreen = () => {
                         @page { 
                             size: A4 portrait; 
                             margin: 0 !important; 
-                        }
+                        } 
                         html, body { 
                             margin: 0 !important; 
                             padding: 0 !important; 
@@ -746,7 +759,10 @@ const SecretariatDetailScreen = () => {
                             height: 297mm !important;
                             max-height: 297mm !important;
                             margin: 0 !important;
-                            padding: 12mm 15mm 12mm 15mm !important;
+                            padding-top: var(--sheet-pad-top, 12mm) !important;
+                            padding-bottom: var(--sheet-pad-bottom, 12mm) !important;
+                            padding-right: var(--sheet-pad-right, 15mm) !important;
+                            padding-left: var(--sheet-pad-left, 15mm) !important;
                             box-sizing: border-box !important;
                             border: none !important;
                             box-shadow: none !important;
@@ -1159,7 +1175,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* 🚀 نوار ابزار پیشرفته تنظیم چیدمان همراه با دو اسلایدر عرض متن و فاصله عمودی */}
+            {/* 🚀 نوار ابزار تنظیم چیدمان همراه با کنترل کامل حاشیه‌ها و عرض کادر متن */}
             {isLayoutEditMode && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-4 rounded-xl mb-4 text-xs font-bold flex flex-col md:flex-row items-center justify-between gap-4 print:hidden shadow-md">
                     <div className="flex flex-wrap items-center gap-3">
@@ -1182,6 +1198,57 @@ const SecretariatDetailScreen = () => {
                             </button>
                         </div>
 
+                        {/* 🚀 کنترلر حاشیه‌های ۴ طرف برگه A4 */}
+                        <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 shadow-sm">
+                            <span className="whitespace-nowrap text-[11px] font-black">حاشیه‌ها (mm):</span>
+                            <div className="flex items-center gap-2">
+                                <label className="flex items-center gap-1" title="حاشیه از بالا">
+                                    <span className="text-[10px] opacity-70">بالا:</span>
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        max="80" 
+                                        value={sheetPadding.top} 
+                                        onChange={(e) => handleUpdateStyle('sheet-padding', { ...sheetPadding, top: Math.max(0, Number(e.target.value)) })}
+                                        className="w-11 p-1 text-center font-mono text-xs border rounded bg-gray-50 font-bold focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                </label>
+                                <label className="flex items-center gap-1" title="حاشیه از پایین">
+                                    <span className="text-[10px] opacity-70">پایین:</span>
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        max="80" 
+                                        value={sheetPadding.bottom} 
+                                        onChange={(e) => handleUpdateStyle('sheet-padding', { ...sheetPadding, bottom: Math.max(0, Number(e.target.value)) })}
+                                        className="w-11 p-1 text-center font-mono text-xs border rounded bg-gray-50 font-bold focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                </label>
+                                <label className="flex items-center gap-1" title="حاشیه از راست">
+                                    <span className="text-[10px] opacity-70">راست:</span>
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        max="60" 
+                                        value={sheetPadding.right} 
+                                        onChange={(e) => handleUpdateStyle('sheet-padding', { ...sheetPadding, right: Math.max(0, Number(e.target.value)) })}
+                                        className="w-11 p-1 text-center font-mono text-xs border rounded bg-gray-50 font-bold focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                </label>
+                                <label className="flex items-center gap-1" title="حاشیه از چپ">
+                                    <span className="text-[10px] opacity-70">چپ:</span>
+                                    <input 
+                                        type="number" 
+                                        min="0" 
+                                        max="60" 
+                                        value={sheetPadding.left} 
+                                        onChange={(e) => handleUpdateStyle('sheet-padding', { ...sheetPadding, left: Math.max(0, Number(e.target.value)) })}
+                                        className="w-11 p-1 text-center font-mono text-xs border rounded bg-gray-50 font-bold focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
                         {/* اسلایدر عرض بدنه متن (شکست خطوط و تعداد سطرها) */}
                         <div className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 shadow-sm">
                             <span className="whitespace-nowrap">عرض کادر متن:</span>
@@ -1200,7 +1267,6 @@ const SecretariatDetailScreen = () => {
                             />
                             <span className="font-mono text-[11px] text-blue-700 w-8">{layoutStyles['body-content']?.widthPercent || 100}%</span>
                         </div>
-
 
                         {printMode === 'LETTERHEAD' && (
                             <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 select-none shadow-sm">
@@ -1235,7 +1301,14 @@ const SecretariatDetailScreen = () => {
                         width: '210mm', 
                         height: '297mm',
                         maxHeight: '297mm',
-                        padding: '12mm 15mm 12mm 15mm',
+                        paddingTop: `${sheetPadding.top}mm`,
+                        paddingBottom: `${sheetPadding.bottom}mm`,
+                        paddingRight: `${sheetPadding.right}mm`,
+                        paddingLeft: `${sheetPadding.left}mm`,
+                        '--sheet-pad-top': `${sheetPadding.top}mm`,
+                        '--sheet-pad-bottom': `${sheetPadding.bottom}mm`,
+                        '--sheet-pad-right': `${sheetPadding.right}mm`,
+                        '--sheet-pad-left': `${sheetPadding.left}mm`,
                         boxSizing: 'border-box',
                         overflow: 'hidden',
                         fontFamily: printFont,
@@ -1249,27 +1322,33 @@ const SecretariatDetailScreen = () => {
                         
                         {/* هدر نامه */}
                         <div className="flex justify-between items-start pb-2 relative mt-1 shrink-0">
-                            <div className={`flex flex-col items-center justify-start pt-1 w-1/3 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
-                                <DraggableElement id="head-logo-img" label="لوگو" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
-                                    {letter.letter_type === 'INCOMING' ? (
-                                        letter.external_sender_detail?.logo ? (
-                                            <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
-                                        ) : (
-                                            <SharinganIncomingLogo />
-                                        )
-                                    ) : (
-                                        <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
-                                    )}
-                                </DraggableElement>
-                                
-                                <DraggableElement id="head-logo-name" label="نام سازمان" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-name']} styleData={layoutStyles['head-logo-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
-                                    <div className="w-full text-center">
-                                        <span>{letter.final_sender_name}</span>
-                                    </div>
-                                </DraggableElement>
+                            {/* ۱. ستون لوگو و نام فرستنده (در حالت سربرگ کلاً حذف می‌شود ولی عرض ۱/۳ حفظ می‌شود تا بالانس وسط به‌هم نخورد) */}
+                            <div className="flex flex-col items-center justify-start pt-1 w-1/3">
+                                {printMode !== 'LETTERHEAD' && (
+                                    <>
+                                        <DraggableElement id="head-logo-img" label="لوگو" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-img']} styleData={layoutStyles['head-logo-img']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="mb-2 flex justify-center">
+                                            {letter.letter_type === 'INCOMING' ? (
+                                                letter.external_sender_detail?.logo ? (
+                                                    <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
+                                                ) : (
+                                                    <SharinganIncomingLogo />
+                                                )
+                                            ) : (
+                                                <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
+                                            )}
+                                        </DraggableElement>
+                                        
+                                        <DraggableElement id="head-logo-name" label="نام سازمان" isEditMode={isLayoutEditMode} position={layoutPositions['head-logo-name']} styleData={layoutStyles['head-logo-name']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight">
+                                            <div className="w-full text-center">
+                                                <span>{letter.final_sender_name}</span>
+                                            </div>
+                                        </DraggableElement>
+                                    </>
+                                )}
                             </div>
                             
-                            <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-1/3 pt-2 md:pt-4 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
+                            {/* ۲. عبارت به نام خدا (کلاس‌های opacity-20 و print:invisible حذف شدند تا کاملاً پررنگ بماند و چاپ شود) */}
+                            <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 pt-2 md:pt-4">
                                 <div className="w-full flex justify-center items-center text-center">
                                     <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black text-center">به نام خدا</span>
                                 </div>
@@ -1304,60 +1383,59 @@ const SecretariatDetailScreen = () => {
                                 </div>
 
                                 <DraggableElement id="head-letter-qr" label="بارکد QR" isEditMode={isLayoutEditMode} position={layoutPositions['head-letter-qr']} styleData={layoutStyles['head-letter-qr']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="shrink-0 relative">
-                                {/* دکمه‌های شناور تنظیم سریع اندازه در حالت ادیت */}
-                                {isLayoutEditMode && (
-                                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-900/90 text-white px-2 py-0.5 rounded-full text-[10px] font-mono shadow-xl z-40 select-none whitespace-nowrap print:hidden">
-                                        <button 
-                                            type="button" 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const curScale = layoutStyles['head-letter-qr']?.scale || 1;
-                                                handleUpdateStyle('head-letter-qr', { 
-                                                    ...layoutStyles['head-letter-qr'], 
-                                                    scale: Math.max(0.5, Math.round((curScale - 0.1) * 10) / 10) 
-                                                });
-                                            }}
-                                            className="p-1 hover:text-amber-400 font-bold"
-                                            title="کوچک‌تر"
-                                        >
-                                            <FaMinus size={8} />
-                                        </button>
-                                        <span className="text-[10px] text-amber-300 px-1 font-bold">
-                                            {Math.round((layoutStyles['head-letter-qr']?.scale || 1) * 100)}%
-                                        </span>
-                                        <button 
-                                            type="button" 
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const curScale = layoutStyles['head-letter-qr']?.scale || 1;
-                                                handleUpdateStyle('head-letter-qr', { 
-                                                    ...layoutStyles['head-letter-qr'], 
-                                                    scale: Math.min(2.2, Math.round((curScale + 0.1) * 10) / 10) 
-                                                });
-                                            }}
-                                            className="p-1 hover:text-amber-400 font-bold"
-                                            title="بزرگ‌تر"
-                                        >
-                                            <FaPlus size={8} />
-                                        </button>
-                                    </div>
-                                )}
+                                    {isLayoutEditMode && (
+                                        <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-gray-900/90 text-white px-2 py-0.5 rounded-full text-[10px] font-mono shadow-xl z-40 select-none whitespace-nowrap print:hidden">
+                                            <button 
+                                                type="button" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const curScale = layoutStyles['head-letter-qr']?.scale || 1;
+                                                    handleUpdateStyle('head-letter-qr', { 
+                                                        ...layoutStyles['head-letter-qr'], 
+                                                        scale: Math.max(0.5, Math.round((curScale - 0.1) * 10) / 10) 
+                                                    });
+                                                }}
+                                                className="p-1 hover:text-amber-400 font-bold"
+                                                title="کوچک‌تر"
+                                            >
+                                                <FaMinus size={8} />
+                                            </button>
+                                            <span className="text-[10px] text-amber-300 px-1 font-bold">
+                                                {Math.round((layoutStyles['head-letter-qr']?.scale || 1) * 100)}%
+                                            </span>
+                                            <button 
+                                                type="button" 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const curScale = layoutStyles['head-letter-qr']?.scale || 1;
+                                                    handleUpdateStyle('head-letter-qr', { 
+                                                        ...layoutStyles['head-letter-qr'], 
+                                                        scale: Math.min(2.2, Math.round((curScale + 0.1) * 10) / 10) 
+                                                    });
+                                                }}
+                                                className="p-1 hover:text-amber-400 font-bold"
+                                                title="بزرگ‌تر"
+                                            >
+                                                <FaPlus size={8} />
+                                            </button>
+                                        </div>
+                                    )}
 
-                                <div className="p-1 bg-white border border-gray-300 print:border-black rounded-md flex flex-col items-center justify-center shadow-sm" title={currentLetterUrl}>
-                                    <QRCode
-                                        value={currentLetterUrl}
-                                        size={Math.round(50 * (layoutStyles['head-letter-qr']?.scale || 1))}
-                                        level="M"
-                                        fgColor="#000000"
-                                        bgColor="#FFFFFF"
-                                    />
-                                </div>
-                            </DraggableElement>
+                                    <div className="p-1 bg-white border border-gray-300 print:border-black rounded-md flex flex-col items-center justify-center shadow-sm" title={currentLetterUrl}>
+                                        <QRCode
+                                            value={currentLetterUrl}
+                                            size={Math.round(50 * (layoutStyles['head-letter-qr']?.scale || 1))}
+                                            level="M"
+                                            fgColor="#000000"
+                                            bgColor="#FFFFFF"
+                                        />
+                                    </div>
+                                </DraggableElement>
                             </div>
                         </div>
 
                         {/* خط جداکننده زیر هدر */}
-                        <DraggableElement id="header-divider" label="خط جداکننده هدر" isEditMode={isLayoutEditMode} position={layoutPositions['header-divider']} styleData={layoutStyles['header-divider']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-full mb-4 shrink-0 ${printMode === 'LETTERHEAD' ? 'opacity-20 print:invisible' : ''}`}>
+                        <DraggableElement id="header-divider" label="خط جداکننده هدر" isEditMode={isLayoutEditMode} position={layoutPositions['header-divider']} styleData={layoutStyles['header-divider']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={"w-full mb-4 shrink-0"}>
                             <div className="border-b-4 border-gray-400 print:border-black w-full"></div>
                         </DraggableElement>
 
@@ -1409,7 +1487,7 @@ const SecretariatDetailScreen = () => {
                             )}
                         </div>
 
-                        {/* متن اصلی نامه با قابلیت تنظیم عرض پاراگراف و کنترل خطوط */}
+                        {/* 🚀 متن اصلی نامه با تطابق دقیق کادر آبی با عرض تنظیم‌شده */}
                         {letter.body && (
                             <DraggableElement 
                                 id="body-content" 
@@ -1419,21 +1497,11 @@ const SecretariatDetailScreen = () => {
                                 styleData={layoutStyles['body-content']} 
                                 onStyleChange={handleUpdateStyle} 
                                 onDragEnd={handleUpdatePosition} 
-                                className="text-justify leading-loose flex-1 text-sm md:text-base print:text-base whitespace-pre-wrap font-medium text-black overflow-hidden"
+                                className="text-justify leading-loose flex-1 text-sm md:text-base print:text-base whitespace-pre-wrap font-medium text-black"
                             >
-                                <div 
-                                    style={{ 
-                                        width: `${layoutStyles['body-content']?.widthPercent || 100}%`,
-                                        margin: '0 auto',
-                                        transition: 'width 0.15s ease-out'
-                                    }}
-                                >
-                                    {letter.body}
-                                </div>
+                                {letter.body}
                             </DraggableElement>
                         )}
-
-                        
 
                         {/* ردیف پایینی شامل رونوشت، مهر مقصد و المان‌های کاملاً تفکیک‌شده امضا */}
                         <div className="flex justify-between items-end pb-2 relative text-black avoid-break mt-auto shrink-0">

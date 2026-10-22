@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-hot-toast';
+import moment from 'moment-jalaali';
 import { 
   fetchWorkerStatus, 
   clockWorkerAction, 
@@ -15,12 +16,70 @@ import {
   FaProjectDiagram, 
   FaCalendarAlt, 
   FaChartBar, 
-  FaCalendarCheck 
+  FaCalendarCheck,
+  FaSun,
+  FaMoon
 } from 'react-icons/fa';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
+
+// 🌟 کامپوننت ساعت آنالوگ دایره‌ای زنده
+const LiveAnalogClock = ({ time, isDark }) => {
+  const seconds = time.seconds();
+  const minutes = time.minutes();
+  const hours = time.hours() % 12;
+
+  const secDeg = seconds * 6;
+  const minDeg = minutes * 6 + seconds * 0.1;
+  const hourDeg = hours * 30 + minutes * 0.5;
+
+  return (
+    <div className={`relative w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 flex items-center justify-center shadow-inner shrink-0 ${
+      isDark ? 'bg-gray-900 border-blue-500/40 shadow-blue-500/10' : 'bg-white border-blue-400 shadow-blue-200'
+    }`}>
+      {/* نشانگرهای ۴ جهت اصلی */}
+      <div className="absolute top-1 w-1 h-2 bg-gray-400 rounded-full" />
+      <div className="absolute bottom-1 w-1 h-2 bg-gray-400 rounded-full" />
+      <div className="absolute left-1 h-1 w-2 bg-gray-400 rounded-full" />
+      <div className="absolute right-1 h-1 w-2 bg-gray-400 rounded-full" />
+
+      {/* عقربه ساعت‌شمار */}
+      <div
+        className="absolute w-1 h-6 bg-blue-500 rounded-full origin-bottom"
+        style={{
+          bottom: '50%',
+          transform: `rotate(${hourDeg}deg)`,
+          transition: 'transform 0.2s cubic-bezier(0.4, 2.08, 0.55, 0.44)'
+        }}
+      />
+
+      {/* عقربه دقیقه‌شمار */}
+      <div
+        className="absolute w-0.5 h-8 bg-purple-500 rounded-full origin-bottom"
+        style={{
+          bottom: '50%',
+          transform: `rotate(${minDeg}deg)`,
+          transition: 'transform 0.2s cubic-bezier(0.4, 2.08, 0.55, 0.44)'
+        }}
+      />
+
+      {/* عقربه ثانیه‌شمار */}
+      <div
+        className="absolute w-0.5 h-9 bg-rose-500 rounded-full origin-bottom z-10"
+        style={{
+          bottom: '50%',
+          transform: `rotate(${secDeg}deg)`,
+          transition: seconds === 0 ? 'none' : 'transform 0.15s ease-out'
+        }}
+      />
+
+      {/* نقطه مرکزی */}
+      <div className="w-2.5 h-2.5 rounded-full bg-rose-500 z-20 border border-white shadow" />
+    </div>
+  );
+};
 
 const WebAttendanceScreen = () => {
   const dispatch = useDispatch();
@@ -31,12 +90,29 @@ const WebAttendanceScreen = () => {
   const actionLoading = useSelector((state) => state.workers.clockActionLoading);
   const { data: monthlyData, loading: monthlyLoading } = useSelector((state) => state.workers.monthlyShifts);
 
+  // استیت زمان زنده برای تیک‌تاک ساعت و ثانیه‌شمار
+  const [currentTime, setCurrentTime] = useState(moment());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(moment());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // محاسبه بازه روز/شب و آیکون
+  const hour = currentTime.hour();
+  const isMorning = hour >= 4 && hour < 12;
+  const timeOfDay = isMorning ? 'صبحگاه' : (hour >= 12 && hour < 18 ? 'عصرگاه' : 'شامگاه');
+  const TimeIcon = isMorning ? FaSun : FaMoon;
+  const iconColor = isMorning ? 'text-amber-500' : 'text-indigo-400';
+
   useEffect(() => {
     dispatch(fetchWorkerStatus());
     dispatch(fetchMonthlyShifts());
   }, [dispatch]);
 
-  // استخراج دقیق شاخص‌های آماری بر مبنای ساختار واقعی بک‌اند
+  // استخراج شاخص‌های آماری بر مبنای ساختار بک‌اند
   const analytics = useMemo(() => {
     if (!monthlyData || !Array.isArray(monthlyData.days)) {
       return {
@@ -102,12 +178,12 @@ const WebAttendanceScreen = () => {
 
       const resultAction = await dispatch(clockWorkerAction(payload)).unwrap();
       toast.dismiss('clock-toast');
-      
+
       const successMsg = 
         resultAction.status === 'WORKING' ? 'ورود با موفقیت ثبت شد' : 
         resultAction.status === 'OVERTIME_STARTED' ? 'اضافه‌کاری شروع شد' : 'خروج با موفقیت ثبت شد';
       toast.success(successMsg);
-      
+
       dispatch(fetchWorkerStatus());
       dispatch(fetchMonthlyShifts());
     } catch (error) {
@@ -154,35 +230,64 @@ const WebAttendanceScreen = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-2 sm:p-4 space-y-6" dir="rtl">
-      
-      {/* 🔹 بخش ۱: وضعیت حاضر و دکمه‌های کنترل تردد */}
+
+      {/* 🔹 بخش ۱: وضعیت حاضر و دکمه‌های کنترل تردد همراه با ساعت زنده مرکزی */}
       <div className={`p-6 rounded-2xl shadow-lg border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+        <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
+          
+          {/* راست: عنوان صفحه و پروژه */}
+          <div className="text-center lg:text-right w-full lg:w-auto">
+            <h1 className="text-2xl font-black flex items-center justify-center lg:justify-start gap-2">
               <FaClock className="text-blue-500" /> میز کار و کنترل تردد
             </h1>
-            <p className={`mt-2 text-sm flex items-center gap-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <p className={`mt-2 text-sm flex items-center justify-center lg:justify-start gap-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               <FaProjectDiagram /> پروژه فعال: <span className="font-bold text-blue-500">{current_project_name || 'مشخص نشده'}</span>
             </p>
           </div>
-          
-          <div className="flex gap-4">
-            <div className={`px-4 py-2 rounded-xl text-center ${isDark ? 'bg-gray-700/60' : 'bg-gray-100'}`}>
+
+          {/* 🌟 مرکز: باکس تاریخ بزرگ با ساعت دایره‌ای زنده */}
+          <div className={`flex items-center gap-4 px-6 py-3.5 rounded-2xl border shadow-lg mx-auto transition-all ${
+            isDark 
+              ? 'bg-gray-900/90 border-blue-500/30 text-white shadow-blue-500/5' 
+              : 'bg-gradient-to-r from-blue-50/80 to-purple-50/80 border-blue-200 text-gray-900 shadow-blue-100'
+          }`}>
+            {/* ساعت آنالوگ دایره‌ای */}
+            <LiveAnalogClock time={currentTime} isDark={isDark} />
+
+            {/* جزئیات متنی تاریخ و ساعت دیجیتال لایو */}
+            <div className="flex flex-col items-start gap-1">
+              <div className="flex items-center gap-2 text-base sm:text-lg font-black leading-tight">
+                <TimeIcon className={`${iconColor} text-lg animate-pulse`} />
+                <span>امروز: {currentTime.format('dddd jD jMMMM')}</span>
+              </div>
+
+              <div className="text-xs sm:text-sm font-mono font-bold opacity-80 flex items-center gap-2" dir="ltr">
+                <span>{currentTime.format('jYYYY/jMM/jDD')}</span>
+                <span>•</span>
+                <span className="text-blue-500 font-black text-sm sm:text-base">{currentTime.format('HH:mm:ss')}</span>
+                <span className="text-xs font-sans">({timeOfDay})</span>
+              </div>
+            </div>
+          </div>
+
+          {/* چپ: درآمد و مانده مرخصی */}
+          <div className="flex gap-3 w-full lg:w-auto justify-center lg:justify-end">
+            <div className={`px-4 py-2.5 rounded-xl text-center border ${isDark ? 'bg-gray-700/40 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
               <p className="text-xs opacity-70 mb-1">درآمد امروز</p>
-              <p className="font-bold text-emerald-500 flex items-center justify-center gap-1">
+              <p className="font-bold text-emerald-500 flex items-center justify-center gap-1 text-sm">
                 {earned_today ? earned_today.toLocaleString() : 0} <FaMoneyBillWave />
               </p>
             </div>
             {leave_balance_annual !== null && (
-              <div className={`px-4 py-2 rounded-xl text-center ${isDark ? 'bg-gray-700/60' : 'bg-gray-100'}`}>
+              <div className={`px-4 py-2.5 rounded-xl text-center border ${isDark ? 'bg-gray-700/40 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                 <p className="text-xs opacity-70 mb-1">مانده مرخصی</p>
-                <p className="font-bold text-sky-500">{leave_balance_annual} روز</p>
+                <p className="font-bold text-sky-500 text-sm">{leave_balance_annual} روز</p>
               </div>
             )}
           </div>
         </div>
 
+        {/* دکمه‌های ثبت تردد */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 border-t pt-6 border-gray-200 dark:border-gray-700">
           <button
             onClick={() => handleClockAction('IN')}
@@ -268,7 +373,7 @@ const WebAttendanceScreen = () => {
 
       {/* 🔹 بخش ۳: نمودار میله‌ای (۷ روز گذشته) و نمودار راداری (توزیع ساعات روی پروژه‌ها) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* نمودار میله‌ای کارکرد ۷ روز گذشته */}
         <div className={`p-6 rounded-2xl shadow-md border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
           <h3 className="text-base font-bold mb-4 flex items-center gap-2">
@@ -338,9 +443,9 @@ const WebAttendanceScreen = () => {
       {/* 🔹 بخش ۴: جدول ترددهای ثبت‌شده امروز */}
       <div className={`p-6 rounded-2xl shadow-lg border ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}>
         <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-          <FaHistory className="text-blue-500" />  ترددهای ثبت‌شده امروز
+          <FaHistory className="text-blue-500" /> ترددهای ثبت‌شده امروز
         </h3>
-        
+
         {today_shifts.length === 0 && today_overtimes.length === 0 ? (
           <p className="text-center py-6 opacity-70 text-sm">امروز هیچ ترددی برای شما ثبت نشده است.</p>
         ) : (
@@ -371,7 +476,7 @@ const WebAttendanceScreen = () => {
                     <td className="px-4 py-3 font-bold">{shift.hours > 0 ? shift.hours : '-'}</td>
                   </tr>
                 ))}
-                
+
                 {today_overtimes.map((ot) => (
                   <tr key={`ot-${ot.id}`} className={`border-b ${isDark ? 'border-gray-700/60' : 'border-gray-100'}`}>
                     <td className="px-4 py-3 font-medium text-purple-500">اضافه‌کاری</td>

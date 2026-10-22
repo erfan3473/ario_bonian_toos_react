@@ -304,6 +304,20 @@ export const fetchAllTasksAdmin = createAsyncThunk(
         }
     }
 );
+
+
+
+export const deleteTask = createAsyncThunk(
+    'task/deleteTask',
+    async (taskId, { rejectWithValue }) => {
+        try {
+            await axiosInstance.delete(`/tasks/${taskId}/delete/`);
+            return taskId;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 // ═══════════════════════════════════════════════════════════
 // Slice
 // ═══════════════════════════════════════════════════════════
@@ -549,7 +563,7 @@ const taskSlice = createSlice({
                 state.error = action.payload;
             })
 
-            //── comment──
+            // ── comment ──
             .addCase(addTaskComment.pending, (state) => {
                 state.addingComment = true;
                 state.error = null;
@@ -557,13 +571,11 @@ const taskSlice = createSlice({
             .addCase(addTaskComment.fulfilled, (state, action) => {
                 state.addingComment = false;
                 if (state.activeTask) {
-                    const newLogWithFiles = {
-                        ...action.payload.log,
-                        files: action.payload.files || []
-                    };
+                    // action.payload مستقیماً خروجی TaskActionLogSerializer است
+                    const newLog = action.payload;
                     state.activeTask.logs = [
-                        ...(state.activeTask.logs || []),
-                        newLogWithFiles,
+                        newLog,
+                        ...(state.activeTask.logs || [])
                     ];
                 }
             })
@@ -628,6 +640,18 @@ const taskSlice = createSlice({
             .addCase(fetchTaskTemplates.rejected, (state, action) => {
                 state.loadingTemplates = false;
                 state.error = action.payload;
+            })
+            .addCase(deleteTask.fulfilled, (state, action) => {
+                const deletedId = action.payload;
+                if (state.allTasks) {
+                    state.allTasks = state.allTasks.filter(t => t.id !== deletedId);
+                }
+                if (state.inbox) {
+                    state.inbox = state.inbox.filter(t => t.id !== deletedId);
+                }
+                if (state.sentTasks) {
+                    state.sentTasks = state.sentTasks.filter(t => t.id !== deletedId);
+                }
             })
             // ── delete template ──
             .addCase(deleteTaskTemplate.fulfilled, (state, action) => {
