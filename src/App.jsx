@@ -47,7 +47,7 @@ import SecretariatListScreen from './screens/secretariat/SecretariatListScreen';
 import SecretariatCreateScreen from './screens/secretariat/SecretariatCreateScreen';
 import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScreen';
 import SecretariatEditScreen from './screens/secretariat/SecretariatEditScreen';
-
+import TaskTemplatesPage from './pages/TaskTemplatesPage';
 // کامپوننت پیشنهاد نصب PWA
 import InstallPwaPrompt from './components/InstallPwaPrompt';
 
@@ -234,6 +234,7 @@ function App() {
             <Route path="/admin/payroll/detail" element={<PayrollDetailView />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskViewPage />} />
+            <Route path="/tasks/templates" element={<ProtectedRoute><TaskTemplatesPage /></ProtectedRoute>} />
             <Route path="/routines" element={<RoutineListPage />} />
             <Route path="/routines/templates" element={<RoutineTemplatesPage />} /> 
             <Route path="/attendance" element={<ProtectedRoute><WebAttendanceScreen /></ProtectedRoute>} />

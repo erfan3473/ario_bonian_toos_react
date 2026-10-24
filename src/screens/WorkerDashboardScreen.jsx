@@ -25,6 +25,7 @@ import {
 
 import WorkerMap from '../components/WorkerMap';
 import WorkerCard from '../components/WorkerCard';
+import WorkerDetailModal from '../components/WorkerDetailModal';
 import Loader from '../components/Loader';
 
 const WS_URL = 'wss://www.ariobonyantoos.com/ws/worker/updates/';
@@ -76,11 +77,11 @@ const WorkerDashboardScreen = () => {
 
   const [showOfflineWorkers, setShowOfflineWorkers] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedWorkerForDetails, setSelectedWorkerForDetails] = useState(null);
   const [connected, setConnected] = useState(false);
   const [paused, setPaused] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('name');
-  const [highlightId] = useState(null);
   const [mapSelectedWorkerId, setMapSelectedWorkerId] = useState(null);
   const [zoomTrigger, setZoomTrigger] = useState(0);
 
@@ -242,7 +243,6 @@ const WorkerDashboardScreen = () => {
     printWindow.document.close();
   };
 
-  // 🚀 این تابع useCallback از رندر مجدد تمام کارت‌ها هنگام کلیک روی یکی جلوگیری میکند
   const handleWorkerCardClick = useCallback((id) => {
     setMapSelectedWorkerId((prevId) => {
       const newId = id === prevId ? null : id;
@@ -256,12 +256,13 @@ const WorkerDashboardScreen = () => {
       isDark ? 'bg-gray-950 text-gray-100' : 'bg-gray-100 text-gray-900'
     }`}>
       {!connected && !paused && (
-        <div className="bg-yellow-600 border-b border-yellow-500 text-white px-4 py-2 flex justify-center items-center gap-3 animate-pulse">
-          <span className="font-bold text-sm">اتصال قطع است. تلاش برای اتصال مجدد...</span>
+        <div className="bg-amber-600 border-b border-amber-500 text-white px-4 py-2 flex justify-center items-center gap-3 animate-pulse text-xs sm:text-sm">
+          <span>⚠️ در حال برقراری ارتباط مجدد با سرور...</span>
         </div>
       )}
 
-      <div className={`w-full h-[55vh] sm:h-[65vh] md:h-[75vh] min-h-[400px] border-b z-10 relative ${
+      {/* نقشه */}
+      <div className={`w-full h-[45vh] sm:h-[55vh] md:h-[65vh] min-h-[300px] border-b z-10 relative ${
         isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-300 bg-white'
       }`}>
         <WorkerMap
@@ -278,13 +279,14 @@ const WorkerDashboardScreen = () => {
       </div>
 
       <div className="flex-1 p-3 sm:p-4 md:p-6 container mx-auto">
-        <div className={`flex flex-col gap-3 mb-5 border rounded-xl p-3 sm:p-4 ${
+        {/* کنترل‌های پروژه */}
+        <div className={`flex flex-col gap-3 mb-4 border rounded-xl p-3 sm:p-4 ${
           isDark ? 'bg-gray-900/70 border-gray-800' : 'bg-white border-gray-200'
         }`}>
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
-            <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <select
-                className={`w-full sm:w-72 py-2.5 px-3 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none font-medium ${
+                className={`flex-1 md:w-72 py-2 px-3 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium ${
                   isDark
                     ? 'bg-gray-800 text-white border-gray-700'
                     : 'bg-gray-50 text-gray-900 border-gray-300'
@@ -310,17 +312,17 @@ const WorkerDashboardScreen = () => {
               {selectedProjectId && selectedProjectId !== 'uncategorized' && (
                 <button
                   onClick={() => setShowQRModal(true)}
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-lg transition-colors font-medium"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors"
                 >
                   QR ورود
                 </button>
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:flex gap-2 w-full xl:w-auto">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <button
                 onClick={() => setPaused(!paused)}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors ${
                   paused
                     ? 'bg-yellow-600 text-white'
                     : isDark
@@ -328,7 +330,7 @@ const WorkerDashboardScreen = () => {
                       : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                 }`}
               >
-                {paused ? '▶ ادامه' : '⏸ توقف'}
+                {paused ? '▶ ادامه استریم' : '⏸ توقف استریم'}
               </button>
 
               <button
@@ -338,7 +340,7 @@ const WorkerDashboardScreen = () => {
                   dispatch(fetchRouteTemplates());
                   dispatch(fetchProjectFeatures());
                 }}
-                className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${
+                className={`flex-1 md:flex-initial px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors ${
                   isDark ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
                 }`}
               >
@@ -348,27 +350,40 @@ const WorkerDashboardScreen = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* لیست کارگران */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-3 space-y-4">
-            <div className={`flex flex-col gap-3 p-3 sm:p-4 rounded-xl border ${
+            <div className={`flex flex-col gap-3 p-3 rounded-xl border ${
               isDark ? 'bg-gray-900/70 border-gray-800' : 'bg-white border-gray-200'
             }`}>
               <div className="flex items-center justify-between">
-                <h2 className={`text-base sm:text-lg font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                <h2 className={`text-sm sm:text-base font-bold flex items-center gap-2 ${
+                  isDark ? 'text-gray-100' : 'text-gray-900'
+                }`}>
                   👷 پرسنل فعال
-                  <span className="mr-2 bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">
+                  <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-mono">
                     {finalWorkers.length}
                   </span>
                 </h2>
+
+                <label className={`inline-flex items-center gap-2 text-xs cursor-pointer select-none px-2.5 py-1.5 rounded-lg border ${
+                  isDark ? 'bg-gray-950 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-700'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={showOfflineWorkers}
+                    onChange={(e) => setShowOfflineWorkers(e.target.checked)}
+                    className="accent-blue-500"
+                  />
+                  آفلاین‌ها
+                </label>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
-                  placeholder="جستجو نام، پروژه، کد..."
-                  className={`sm:col-span-2 border px-3 py-2 text-sm rounded-lg focus:outline-none focus:border-blue-500 ${
-                    isDark
-                      ? 'bg-gray-950 border-gray-700 text-white'
-                      : 'bg-gray-50 border-gray-300 text-gray-900'
+                  placeholder="جستجو نام، پروژه، کد پرسنلی..."
+                  className={`flex-1 border px-3 py-2 text-sm rounded-lg focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-gray-950 border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
                   }`}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -376,38 +391,22 @@ const WorkerDashboardScreen = () => {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className={`border px-3 py-2 text-sm rounded-lg focus:outline-none focus:border-blue-500 ${
-                    isDark
-                      ? 'bg-gray-950 border-gray-700 text-white'
-                      : 'bg-gray-50 border-gray-300 text-gray-900'
+                  className={`sm:w-44 border px-3 py-2 text-xs sm:text-sm rounded-lg focus:outline-none focus:border-blue-500 ${
+                    isDark ? 'bg-gray-950 border-gray-700 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
                   }`}
                 >
                   <option value="name">مرتب‌سازی: الفبا</option>
                   <option value="recent">مرتب‌سازی: زمان آپدیت</option>
                 </select>
               </div>
-
-              <label className={`inline-flex w-fit items-center gap-2 text-sm cursor-pointer select-none px-3 py-2 rounded-lg border ${
-                isDark
-                  ? 'bg-gray-950 border-gray-700 text-gray-300'
-                  : 'bg-gray-50 border-gray-300 text-gray-700'
-              }`}>
-                <input
-                  type="checkbox"
-                  checked={showOfflineWorkers}
-                  onChange={(e) => setShowOfflineWorkers(e.target.checked)}
-                  className="accent-blue-500"
-                />
-                نمایش آفلاین‌ها
-              </label>
             </div>
 
             {workerStatus === 'loading' ? (
               <Loader />
             ) : (
-              <div className="grid grid-cols-1 min-[380px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 min-h-[200px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
                 {finalWorkers.length === 0 ? (
-                  <div className={`col-span-full flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-xl ${
+                  <div className={`col-span-full flex flex-col items-center justify-center py-10 border-2 border-dashed rounded-xl text-sm ${
                     isDark ? 'text-gray-500 border-gray-800' : 'text-gray-500 border-gray-300'
                   }`}>
                     <p>هیچ نیرویی با این مشخصات یافت نشد.</p>
@@ -417,9 +416,9 @@ const WorkerDashboardScreen = () => {
                     <WorkerCard
                       key={w.id}
                       worker={w}
-                      highlight={highlightId === w.id}
                       selected={mapSelectedWorkerId === w.id}
                       onClick={handleWorkerCardClick}
+                      onClickDetails={(worker) => setSelectedWorkerForDetails(worker)}
                       lastSeen={formatTimeAgo(w.lastUpdate)}
                     />
                   ))
@@ -428,30 +427,35 @@ const WorkerDashboardScreen = () => {
             )}
           </div>
 
-          <aside className="space-y-6 h-fit lg:sticky lg:top-6">
-            <div className={`p-4 sm:p-5 rounded-xl border relative overflow-hidden ${
+          {/* سایدبار آمار */}
+          <aside className="space-y-4 lg:sticky lg:top-4 h-fit">
+            <div className={`p-4 rounded-xl border relative overflow-hidden ${
               isDark ? 'bg-gray-900/70 border-gray-800' : 'bg-white border-gray-200'
             }`}>
               <div className="absolute top-0 left-0 w-full h-1 bg-blue-500" />
-              <h3 className={`text-xs mb-4 uppercase tracking-wider font-bold ${
+              <h3 className={`text-xs mb-3 font-bold truncate ${
                 isDark ? 'text-gray-300' : 'text-gray-600'
               }`}>
                 وضعیت: {currentProjectStats.name}
               </h3>
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className={`p-3 rounded-lg border ${
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className={`p-2.5 rounded-lg border ${
                   isDark ? 'bg-gray-950 border-gray-800' : 'bg-gray-50 border-gray-200'
                 }`}>
-                  <div className={`text-2xl sm:text-3xl font-extrabold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
                     {currentProjectStats.totalWorkers}
                   </div>
-                  <div className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>کل پرسنل</div>
+                  <div className={`text-[11px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    کل پرسنل
+                  </div>
                 </div>
-                <div className="bg-green-900/20 p-3 rounded-lg border border-green-500/30">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-green-500">
+                <div className="bg-green-900/20 p-2.5 rounded-lg border border-green-500/30">
+                  <div className="text-2xl font-black text-green-500">
                     {currentProjectStats.activeWorkers}
                   </div>
-                  <div className="text-xs text-green-600 mt-1">حاضر در شیفت</div>
+                  <div className="text-[11px] text-green-600 mt-0.5">
+                    حاضر در شیفت
+                  </div>
                 </div>
               </div>
             </div>
@@ -459,27 +463,35 @@ const WorkerDashboardScreen = () => {
         </div>
       </div>
 
+      {/* مودال اطلاعات پرسنلی */}
+      <WorkerDetailModal
+        worker={selectedWorkerForDetails}
+        isOpen={Boolean(selectedWorkerForDetails)}
+        onClose={() => setSelectedWorkerForDetails(null)}
+      />
+
+      {/* مودال QR ورود */}
       {showQRModal && selectedProjectId && selectedProjectId !== 'uncategorized' && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-3"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
           onClick={() => setShowQRModal(false)}
         >
           <div
-            className={`border rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-sm sm:max-w-md relative ${
+            className={`border rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-sm relative ${
               isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'
             }`}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowQRModal(false)}
-              className={`absolute top-2 left-3 text-2xl leading-none ${
+              className={`absolute top-3 left-3 text-2xl leading-none ${
                 isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               ×
             </button>
 
-            <h2 className={`text-base sm:text-lg font-bold mb-4 text-center pr-5 ${
+            <h2 className={`text-base font-bold mb-4 text-center ${
               isDark ? 'text-gray-100' : 'text-gray-900'
             }`}>
               QR ورود: {currentProjectStats.name}
@@ -496,20 +508,20 @@ const WorkerDashboardScreen = () => {
                   })}
                   fgColor={isDark ? '#F9FAFB' : '#111827'}
                   bgColor={isDark ? '#111827' : '#FFFFFF'}
-                  size={180}
+                  size={160}
                 />
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <span className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                این کد را برای ورود کارگران به پروژه چاپ کنید.
-              </span>
+            <div className="flex flex-col gap-3">
+              <p className={`text-xs text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                برای ثبت ورود، کیو‌آرکد را با اپلیکیشن اسکن کنید.
+              </p>
               <button
                 onClick={handlePrintQR}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg"
+                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors"
               >
-                چاپ
+                چاپ QR کد
               </button>
             </div>
           </div>

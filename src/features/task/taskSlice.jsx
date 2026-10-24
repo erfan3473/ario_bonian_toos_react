@@ -1,4 +1,4 @@
-// src/features/task/taskSlice.js — کامل نهایی (با قابلیت ویرایش)
+// src/features/task/taskSlice.js — کامل و بهینه‌سازی شده برای آپدیت آنی قالب‌ها
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
@@ -36,7 +36,7 @@ export const fetchTaskDetail = createAsyncThunk(
     async (taskId, { rejectWithValue }) => {
         try {
             const { data } = await axiosInstance.get(`/tasks/${taskId}/`);
-            return data; // { task, steps, logs, files }
+            return data; 
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || err.message);
         }
@@ -94,7 +94,6 @@ export const createTask = createAsyncThunk(
     }
 );
 
-// 👈 متد جدید برای ویرایش ماموریت
 export const editTask = createAsyncThunk(
     'task/editTask',
     async ({ taskId, payload }, { rejectWithValue }) => {
@@ -262,7 +261,7 @@ export const freezeTaskTemplate = createAsyncThunk(
                 template_data: templateData,
                 is_global: isGlobal
             });
-            return data;
+            return data; // فرض بر این است که دیتای قالب ایجاد شده (شامل id) را برمی‌گرداند
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || err.message);
         }
@@ -280,18 +279,18 @@ export const fetchTaskTemplates = createAsyncThunk(
         }
     }
 );
+
 export const deleteTaskTemplate = createAsyncThunk(
     'task/deleteTaskTemplate',
     async (templateId, { rejectWithValue }) => {
         try {
             await axiosInstance.delete(`/tasks/freeze-templates/${templateId}/delete/`);
-            return templateId; // آیدی حذف شده را برمی‌گردانیم
+            return templateId; 
         } catch (err) {
             return rejectWithValue(err.response?.data?.detail || err.message);
         }
     }
 );
-
 
 export const fetchAllTasksAdmin = createAsyncThunk(
     'task/fetchAllTasksAdmin',
@@ -305,8 +304,6 @@ export const fetchAllTasksAdmin = createAsyncThunk(
     }
 );
 
-
-
 export const deleteTask = createAsyncThunk(
     'task/deleteTask',
     async (taskId, { rejectWithValue }) => {
@@ -318,6 +315,20 @@ export const deleteTask = createAsyncThunk(
         }
     }
 );
+
+
+export const updateTaskTemplate = createAsyncThunk(
+    'task/updateTaskTemplate',
+    async ({ templateId, payload }, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.put(`/tasks/freeze-templates/${templateId}/edit/`, payload);
+            return data;
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
+
 // ═══════════════════════════════════════════════════════════
 // Slice
 // ═══════════════════════════════════════════════════════════
@@ -327,42 +338,32 @@ const taskSlice = createSlice({
     initialState: {
         inbox:               [],
         loadingInbox:        false,
-
         sentTasks:           [],
         loadingSent:         false,
-
         activeTask:          null,   
         loadingDetail:       false,
-        returning: false,
+        returning:           false,
         subordinates:        [],
         loadingSubordinates: false,
-
         taskTypes:           [],     
         loadingTypes:        false,   
-
         creating:            false,
         createSuccess:       false,
-        
-        editingTask:         false, // 👈 استیت جدید ویرایش
-
+        editingTask:         false, 
         uploadingFile:       false,
-
         error:               null,
         needsInboxRefresh:   false,
-        forwarding: false,
-        refreshingSms: false,
-
-        reminderSettings: [],
+        forwarding:          false,
+        refreshingSms:       false,
+        reminderSettings:    [],
         loadingReminderSettings: false,
         updatingReminderSettings: false,
-        addingComment: false,
-        freezingTemplate: false,
-        templates: [],
-        loadingTemplates: false,
-
+        addingComment:       false,
+        freezingTemplate:    false,
+        templates:           [],
+        loadingTemplates:    false,
         allTasks:            [],
         loadingAllTasks:     false,
-
     },
     reducers: {
         clearActiveTask: (state) => {
@@ -386,7 +387,6 @@ const taskSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-
             .addCase(fetchAllTasksAdmin.pending, (state) => {
                 state.loadingAllTasks = true;
                 state.error = null;
@@ -399,7 +399,6 @@ const taskSlice = createSlice({
                 state.loadingAllTasks = false;
                 state.error = action.payload;
             })
-            // ── inbox ──
             .addCase(fetchMyTaskInbox.pending, (state) => {
                 state.loadingInbox      = true;
                 state.error             = null;
@@ -413,8 +412,6 @@ const taskSlice = createSlice({
                 state.loadingInbox = false;
                 state.error        = action.payload;
             })
-
-            // ── sent ──
             .addCase(fetchSentTasks.pending, (state) => {
                 state.loadingSent = true;
                 state.error       = null;
@@ -427,8 +424,6 @@ const taskSlice = createSlice({
                 state.loadingSent = false;
                 state.error       = action.payload;
             })
-
-            // ── detail ──
             .addCase(fetchTaskDetail.pending, (state) => {
                 state.loadingDetail = true;
                 state.error         = null;
@@ -441,22 +436,17 @@ const taskSlice = createSlice({
                 state.loadingDetail = false;
                 state.error         = action.payload;
             })
-
-            // ── edit task ──
             .addCase(editTask.pending, (state) => {
                 state.editingTask = true;
                 state.error = null;
             })
-            .addCase(editTask.fulfilled, (state, action) => {
+            .addCase(editTask.fulfilled, (state) => {
                 state.editingTask = false;
-                // ما بعد از این در پنل onRefresh صدا می‌زنیم، پس نیازی به جایگذاری دستی اینجا نیست
             })
             .addCase(editTask.rejected, (state, action) => {
                 state.editingTask = false;
                 state.error = action.payload;
             })
-
-            // ── subordinates ──
             .addCase(fetchSubordinates.pending, (state) => {
                 state.loadingSubordinates = true;
             })
@@ -468,8 +458,6 @@ const taskSlice = createSlice({
                 state.loadingSubordinates = false;
                 state.error               = action.payload;
             })
-
-            // ── create ──
             .addCase(createTask.pending, (state) => {
                 state.creating       = true;
                 state.createSuccess  = false;
@@ -483,8 +471,6 @@ const taskSlice = createSlice({
                 state.creating = false;
                 state.error    = action.payload;
             })
-
-            // ── upload ──
             .addCase(uploadTaskFile.pending, (state) => {
                 state.uploadingFile = true;
                 state.error         = null;
@@ -502,8 +488,6 @@ const taskSlice = createSlice({
                 state.uploadingFile = false;
                 state.error         = action.payload;
             })
-            
-            // ── forward ──
             .addCase(forwardStep.pending, (state) => {
                 state.forwarding = true;
                 state.error      = null;
@@ -515,8 +499,6 @@ const taskSlice = createSlice({
                 state.forwarding = false;
                 state.error      = action.payload;
             })
-
-            // ── sms logs ──
             .addCase(refreshSmsStatus.pending, (state) => {
                 state.refreshingSms = true;
             })
@@ -534,11 +516,9 @@ const taskSlice = createSlice({
                     }
                 }
             })
-            .addCase(refreshSmsStatus.rejected, (state, action) => {
+            .addCase(refreshSmsStatus.rejected, (state) => {
                 state.refreshingSms = false;
             })
-
-            // ── Reminder Settings ──
             .addCase(fetchReminderSettings.pending, (state) => {
                 state.loadingReminderSettings = true;
                 state.error = null;
@@ -562,8 +542,6 @@ const taskSlice = createSlice({
                 state.updatingReminderSettings = false;
                 state.error = action.payload;
             })
-
-            // ── comment ──
             .addCase(addTaskComment.pending, (state) => {
                 state.addingComment = true;
                 state.error = null;
@@ -571,7 +549,6 @@ const taskSlice = createSlice({
             .addCase(addTaskComment.fulfilled, (state, action) => {
                 state.addingComment = false;
                 if (state.activeTask) {
-                    // action.payload مستقیماً خروجی TaskActionLogSerializer است
                     const newLog = action.payload;
                     state.activeTask.logs = [
                         newLog,
@@ -583,8 +560,6 @@ const taskSlice = createSlice({
                 state.addingComment = false;
                 state.error = action.payload;
             })
-
-            // ── task types ──
             .addCase(fetchTaskTypes.pending, (state) => {
                 state.loadingTypes = true;
                 state.error = null;
@@ -603,8 +578,6 @@ const taskSlice = createSlice({
             .addCase(deleteTaskType.fulfilled, (state, action) => {
                 state.taskTypes = state.taskTypes.filter(t => t.id !== action.payload);
             })
-
-            // ── return ──
             .addCase(returnTaskStep.pending, (state) => {
                 state.returning = true;
                 state.error     = null;
@@ -616,14 +589,17 @@ const taskSlice = createSlice({
                 state.returning = false;
                 state.error     = action.payload;
             })
-
-            // ── templates ──
+            // ── templates (تیره‌سازی آپدیت آنی) ──
             .addCase(freezeTaskTemplate.pending, (state) => {
                 state.freezingTemplate = true;
                 state.error = null;
             })
-            .addCase(freezeTaskTemplate.fulfilled, (state) => {
+            .addCase(freezeTaskTemplate.fulfilled, (state, action) => {
                 state.freezingTemplate = false;
+                // اضافه کردن قالب جدید بلافاصله به لیست برای نمایش در دراپ‌دان بدون نیاز به رفرش
+                if (action.payload) {
+                    state.templates.unshift(action.payload);
+                }
             })
             .addCase(freezeTaskTemplate.rejected, (state, action) => {
                 state.freezingTemplate = false;
@@ -653,9 +629,14 @@ const taskSlice = createSlice({
                     state.sentTasks = state.sentTasks.filter(t => t.id !== deletedId);
                 }
             })
-            // ── delete template ──
+            .addCase(updateTaskTemplate.fulfilled, (state, action) => {
+                const updated = action.payload;
+                const index = state.templates.findIndex(t => t.id === updated.id);
+                if (index !== -1) {
+                    state.templates[index] = { ...state.templates[index], ...updated };
+                }
+            })
             .addCase(deleteTaskTemplate.fulfilled, (state, action) => {
-                // قالب حذف شده را از لیست فرانت‌اند خارج می‌کنیم
                 state.templates = state.templates.filter(t => t.id !== action.payload);
             });
     },

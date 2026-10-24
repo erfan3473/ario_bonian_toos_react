@@ -34,6 +34,14 @@ const getWorkerGpsStatus = (worker) => {
   };
 };
 
+const timeRangesConfig = [
+  { key: '1h', label: '۱ ساعت' },
+  { key: '24h', label: '۲۴ ساعت' },
+  { key: '7d', label: '۷ روز' },
+  { key: '1m', label: '۱ ماه' },
+  { key: '1y', label: '۱ سال' },
+];
+
 // --- آیکون‌ها ---
 const historyPointIcon = L.divIcon({
   className: '',
@@ -94,6 +102,14 @@ const WorkerMap = ({
   // Constants
   const GAP_THRESHOLD_MS = 10 * 60 * 1000;
   const MAX_SPEED_KMH = 150;
+
+  // کارگر انتخاب‌شده جاری
+  const selectedWorker = useMemo(() => {
+    return (workers || []).find((w) => w.id === selectedWorkerId);
+  }, [workers, selectedWorkerId]);
+
+  // 🔥 حل مشکل: حالت تاریخچه فقط به انتخاب کارگر و نبستن پنل وابسته است
+  const isHistoryMode = Boolean(selectedWorkerId && !isHistoryCleared);
 
   // 1. مقداردهی اولیه نقشه
   useEffect(() => {
@@ -183,7 +199,7 @@ const WorkerMap = ({
   const maxIndex = historyPoints.length > 0 ? historyPoints.length - 1 : 0;
   const clampedIndex = Math.min(historyIndex, maxIndex);
 
-  // 5. پیش‌محاسبه‌ی مسافت‌ها و شکستگی‌های مسیر (جلوگیری از پرش)
+  // 5. پیش‌محاسبه‌ی مسافت‌ها و شکستگی‌های مسیر
   const { cumulativeDistances, allSegments } = useMemo(() => {
     if (historyPoints.length === 0) return { cumulativeDistances: [], allSegments: [] };
     
@@ -219,10 +235,19 @@ const WorkerMap = ({
   const totalDistanceMeters = cumulativeDistances[cumulativeDistances.length - 1] || 0;
   const currentDistanceMeters = cumulativeDistances[clampedIndex] || 0;
 
-  // 6. ترسیم مسیر روی نقشه بدون پرش
+  // 6. ترسیم مسیر روی نقشه (با پاکسازی خودکار در صورت نبود دیتا)
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || historyPoints.length === 0) return;
+    if (!map) return;
+
+    // 🔥 اگر در این بازه نقطه‌ای وجود نداشت، خط قبلی بلافاصله پاک شود
+    if (historyPoints.length === 0) {
+      if (historyLineRef.current) {
+        map.removeLayer(historyLineRef.current);
+        historyLineRef.current = null;
+      }
+      return;
+    }
 
     let pointsCount = 0;
     const visibleSegments = [];
@@ -248,11 +273,19 @@ const WorkerMap = ({
   // 7. آپدیت مارکر و پاپ‌آپ تاریخچه
   const currentPoint = historyPoints[clampedIndex] ? [historyPoints[clampedIndex].latitude, historyPoints[clampedIndex].longitude] : null;
   const currentMeta = historyPoints[clampedIndex] || null;
-  const isHistoryMode = selectedWorkerId && !isHistoryCleared && (currentMeta || loadingHistory);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map || !currentPoint || !currentMeta) return;
+    if (!map) return;
+
+    // 🔥 اگر نقطه‌ای وجود ندارد، نشانگر تاریخچه قبلی حذف شود
+    if (!currentPoint || !currentMeta) {
+      if (historyMarkerRef.current) {
+        map.removeLayer(historyMarkerRef.current);
+        historyMarkerRef.current = null;
+      }
+      return;
+    }
 
     const histSpeed = Math.round((currentMeta.speed || 0) * 3.6);
     const steps = Math.round(currentDistanceMeters / 0.75);
@@ -317,7 +350,7 @@ const WorkerMap = ({
     return () => clearInterval(interval);
   }, [isPlaying, clampedIndex, maxIndex]);
 
-  // 9. نمایش کارگران لایو (با پاپ‌آپ‌های پیشرفته و فیلتر)
+  // 9. نمایش کارگران لایو (وقتی در حالت تاریخچه نیستیم)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -401,7 +434,7 @@ const WorkerMap = ({
     });
   }, [workers, isHistoryMode]);
 
-  // 10. نمایش مسیرها و عارضه‌ها با فیلتر پروژه
+  // 10. لایه مسیرها و فیچرهای پروژه
   useEffect(() => {
     const layerGroup = routesAndFeaturesLayerRef.current;
     if (!layerGroup) return;
@@ -506,42 +539,58 @@ const WorkerMap = ({
 
       <div className="relative w-full h-full z-0 isolate">
         
-        {/* هدر تاریخچه */}
+        {/* هدر تاریخچه: همیشه تا زمان بستن دستی نمایش داده می‌شود */}
         {isHistoryMode && (
-          <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-[400] max-w-[95vw] sm:max-w-[90vw] bg-gray-900/90 backdrop-blur-md border border-gray-700/50 rounded-xl p-1.5 flex items-center gap-1 shadow-2xl">
-            <div className="flex overflow-x-auto scrollbar-hide">
-              {['1h', '24h', '7d', '1m', '1y'].map((range) => {
-                const labels = { '1h': '۱س', '24h': '۱ر', '7d': '۱ه', '1m': '۱م', '1y': '۱س' };
-                return (
-                  <button
-                    key={range}
-                    onClick={() => { setTimeRange(range); setIsHistoryCleared(false); setIsPlaying(false); }}
-                    className={`px-2 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-bold rounded-md sm:rounded-lg whitespace-nowrap transition-colors ${
-                      timeRange === range && !isHistoryCleared ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    {labels[range]}
-                  </button>
-                );
-              })}
+          <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-[400] max-w-[95vw] sm:max-w-[90vw] bg-gray-900/95 backdrop-blur-md border border-gray-700/60 rounded-xl p-1.5 flex items-center gap-1.5 shadow-2xl">
+            {selectedWorker && (
+              <span className="hidden md:inline text-xs font-bold text-gray-200 px-2 truncate max-w-[120px]">
+                {selectedWorker.full_name}
+              </span>
+            )}
+            <div className="flex overflow-x-auto scrollbar-hide gap-1">
+              {timeRangesConfig.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setTimeRange(key);
+                    setIsPlaying(false);
+                  }}
+                  className={`px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-lg whitespace-nowrap transition-all ${
+                    timeRange === key
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-gray-300 hover:bg-gray-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            <button onClick={handleResetFilter} className="px-2 py-1 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-bold rounded-md sm:rounded-lg bg-red-500/90 text-white hover:bg-red-600 shrink-0 backdrop-blur-md">
+            <button
+              onClick={handleResetFilter}
+              className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs font-bold rounded-lg bg-red-500/90 text-white hover:bg-red-600 shrink-0 transition-colors"
+            >
               بستن
             </button>
           </div>
         )}
 
-        {/* استاتوس بار لایو / آفلاین */}
-        <div className={`absolute top-2 sm:top-4 left-2 sm:left-4 z-[390] px-3 py-2 rounded-xl text-xs font-bold border shadow-lg pointer-events-none backdrop-blur-md ${
+        {/* استاتوس بار لایو / تاریخچه */}
+        <div className={`absolute top-2 sm:top-4 left-2 sm:left-4 z-[390] px-3 py-1.5 rounded-xl text-xs font-bold border shadow-lg pointer-events-none backdrop-blur-md ${
             isHistoryMode ? 'bg-blue-900/80 border-blue-500/50 text-blue-100' : connected ? 'bg-gray-900/80 border-gray-700/50 text-gray-200' : 'bg-red-900/80 border-red-500/50 text-red-100'
           }`}>
           {isHistoryMode ? (loadingHistory ? 'در حال دریافت...' : 'حالت تاریخچه') : (connected ? 'LIVE' : 'OFFLINE')}
         </div>
 
+        {/* پیام نبود داده در بازه انتخابی */}
+        {isHistoryMode && !loadingHistory && historyPoints.length === 0 && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[400] max-w-[90vw] bg-gray-900/95 border border-amber-500/50 text-amber-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs sm:text-sm">
+            <span>⚠️ در بازه <b>{timeRangesConfig.find(r => r.key === timeRange)?.label}</b> ترددی ثبت نشده است. بازه دیگری را انتخاب کنید.</span>
+          </div>
+        )}
+
         {/* دکمه‌های کنترل نقشه */}
         <div className={`absolute right-2 sm:right-4 z-[390] flex flex-col gap-2 transition-all duration-300 ${bottomControlsPositionClass}`}>
-          {/* دکمه Follow Mode */}
-          {isHistoryMode && (
+          {isHistoryMode && historyPoints.length > 0 && (
             <button 
               onClick={() => {
                 setIsFollowingMarker(!isFollowingMarker);
@@ -560,7 +609,7 @@ const WorkerMap = ({
           </div>
         </div>
 
-        <button onClick={() => setIsSatelliteEnabled(!isSatelliteEnabled)} className={`absolute left-2 sm:left-4 z-[390] px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold shadow-xl border backdrop-blur-md transition-all duration-300 ${bottomControlsPositionClass} ${
+        <button onClick={() => setIsSatelliteEnabled(!isSatelliteEnabled)} className={`absolute left-2 sm:left-4 z-[390] px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold shadow-xl border backdrop-blur-md transition-all duration-300 ${bottomControlsPositionClass} ${
             isSatelliteEnabled ? 'bg-blue-600 text-white border-blue-500' : 'bg-white/90 text-gray-800 border-gray-300/50'
           }`}>
           {isSatelliteEnabled ? 'بستن ماهواره' : 'نقشه ماهواره'}
@@ -571,17 +620,16 @@ const WorkerMap = ({
 
         {/* لودینگ تاریخچه */}
         {loadingHistory && isHistoryMode && (
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] bg-black/80 text-white py-3 px-5 rounded-2xl text-sm flex items-center gap-3 backdrop-blur-md border border-gray-600 shadow-2xl">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] bg-black/85 text-white py-3 px-5 rounded-2xl text-sm flex items-center gap-3 backdrop-blur-md border border-gray-600 shadow-2xl">
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span className="font-bold">در حال پردازش مسیر...</span>
+            <span className="font-bold">در حال دریافت و پردازش مسیر...</span>
           </div>
         )}
 
-        {/* پنل پخش پایین (فشرده شده) */}
+        {/* پنل پخش پایین (فقط در صورت وجود نقاط تردد) */}
         {isHistoryMode && historyPoints.length > 0 && (
           <div className="absolute bottom-0 left-0 w-full z-[400] bg-gray-900/90 backdrop-blur-lg border-t border-gray-700/50 px-2 pt-1.5 pb-1 sm:px-4 sm:pt-2 sm:pb-1.5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
             <div className="max-w-4xl mx-auto w-full flex flex-col gap-0.5 sm:gap-1">
-              {/* ردیف اول: دکمه پلی و اطلاعات */}
               <div className="flex justify-between items-center text-[11px] sm:text-xs text-gray-300 leading-none">
                 <span className="flex items-center gap-2">
                   <button 
@@ -592,12 +640,11 @@ const WorkerMap = ({
                   </button>
                   <span>مسافت: <b className="text-emerald-400">{Math.round(totalDistanceMeters)} m</b></span>
                 </span>
-                <span>زمان: <b className="text-#059669">{formatHistoryTime(currentMeta.timestamp)}</b></span>
+                <span>زمان: <b className="text-emerald-400">{currentMeta ? formatHistoryTime(currentMeta.timestamp) : '—'}</b></span>
                 <span>قدم‌ها: <b className="text-amber-400">{Math.round(totalDistanceMeters / 0.75)}</b></span>
-
               </div>
 
-              {/* ردیف دوم: اسلایدر */}
+              {/* اسلایدر زمان */}
               <div className="relative flex items-center w-full h-4 group cursor-pointer" dir="ltr">
                 <input
                   type="range"
@@ -624,7 +671,7 @@ const WorkerMap = ({
                 />
               </div>
 
-              {/* ردیف سوم: زمان‌ها */}
+              {/* بازه شروع و پایان */}
               <div className="flex justify-between items-center text-[9px] sm:text-[10px] text-gray-400 font-mono leading-none mt-0.5" dir="ltr">
                 <span>{formatHistoryTime(historyPoints[0]?.timestamp).split(' | ')[1]}</span>
                 <span className="font-bold text-white bg-gray-800/80 px-1.5 py-0.5 rounded-md border border-gray-600">
