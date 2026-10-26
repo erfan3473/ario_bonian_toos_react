@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FaPaperPlane, FaSpinner, FaSearch } from 'react-icons/fa';
+import { FaPaperPlane, FaSpinner, FaSearch, FaCheck } from 'react-icons/fa';
 import { decimalHoursToHHMM } from '../utils/dateUtils';
 import {
   sendAttendanceSms,
@@ -85,6 +85,7 @@ const AttendanceSmsMiniList = ({ logs = [], onRefresh, refreshingId, isLoading }
               <button
                 onClick={() => onRefresh(log.id)}
                 disabled={refreshingId === log.id}
+                title="استعلام وضعیت از مخابرات"
                 className={`flex items-center justify-center p-0.5 rounded disabled:opacity-50 transition-colors ${
                   isDark ? 'bg-gray-700 hover:bg-gray-600' : 'bg-white hover:bg-gray-100'
                 }`}
@@ -138,12 +139,12 @@ const ApprovalStepsMiniTable = ({ steps }) => {
 };
 
 /* ==========================================
-   کامپوننت اصلی
+   کامپوننت اصلی جدول روزانه
    ========================================== */
 const TimesheetByDay = ({ meta, byDay }) => {
   const dispatch = useDispatch();
   const isDark = useSelector((s) => s.theme?.mode === 'dark');
-  
+
   const smsSendingKey = useSelector((s) => s.attendance.smsSendingKey);
   const smsRefreshingId = useSelector((s) => s.attendance.smsRefreshingId);
   const smsLogsByKey = useSelector((s) => s.attendance.smsLogsByKey || {});
@@ -169,6 +170,7 @@ const TimesheetByDay = ({ meta, byDay }) => {
     const key = `${workerId}-${dateStr}`;
     const isOpen = !!openedSmsKey[key];
     setOpenedSmsKey((prev) => ({ ...prev, [key]: !isOpen }));
+    // اگر لاگی در استیت نبود یا خالی بود درخواست لاگ می‌دهد
     if (!isOpen && !smsLogsByKey[key]) {
       dispatch(fetchAttendanceSmsLogs({ worker_id: workerId, date: dateStr }));
     }
@@ -189,7 +191,6 @@ const TimesheetByDay = ({ meta, byDay }) => {
     if (workers.length === 0) {
       rows.push({ type: 'empty', day, dayIndex });
     } else {
-      // اضافه کردن ایندکس (شماره ردیف) برای هر کارگر در آن روز
       workers.forEach((worker, wIndex) => {
         rows.push({ type: 'worker', day, dayIndex, worker, workerIndex: wIndex + 1 });
       });
@@ -215,7 +216,7 @@ const TimesheetByDay = ({ meta, byDay }) => {
               const { day, totalWorkers } = row;
               const isHoliday = day.is_official_holiday;
               const isFriday = day.is_friday;
-              
+
               const badgeClass = isHoliday
                 ? 'bg-red-500 text-white border-red-600 shadow-sm'
                 : isFriday
@@ -224,11 +225,9 @@ const TimesheetByDay = ({ meta, byDay }) => {
 
               return (
                 <tr key={`header-${day.gregorian_date}`} className={`border-t-[4px] ${isDark ? 'border-gray-400' : 'border-slate-500'}`}>
-                  {/* پس‌زمینه معکوس */}
                   <td colSpan={6} className={`px-3 py-2 ${isDark ? 'bg-slate-100' : 'bg-slate-800'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {/* متن معکوس */}
                         <span className={`font-extrabold text-sm drop-shadow-sm ${isDark ? 'text-slate-900' : 'text-white'}`}>
                           {day.weekday_name} {day.day} {day.month} {day.year}
                         </span>
@@ -269,14 +268,28 @@ const TimesheetByDay = ({ meta, byDay }) => {
             const isIncomplete = firstAtt?.time_in && !firstAtt?.time_out;
 
             const smsKey = `${worker.worker_id}-${day.gregorian_date}`;
-            const smsLogs = smsLogsByKey[smsKey] || [];
+            
+            // اولویت با لاگ‌های ریداکس است و در صورت نبود با دیتای اولیه بک‌اند
+            const currentLogs = smsLogsByKey[smsKey] !== undefined ? smsLogsByKey[smsKey] : (worker.sms_logs || []);
+
+            // 🎯 شرط کلیدی: اگر لاگی با وضعیت SENT یا DELIVERED باشد، ارسال شده محسوب می‌شود
+            const hasSuccessfulOrPendingSms = currentLogs.some((l) =>
+              ['SENT', 'DELIVERED'].includes(l.delivery_status)
+            );
+
+            // اگر لاگ‌ها بررسی شده باشند، دقیقاً بر اساس موفق بودن لاگ‌ها تصمیم می‌گیریم.
+            // اگر هنوز لاگی در استیت نبود، به مقدار اولیه بک‌اند (sms_sent) تکیه می‌کنیم.
+            const isSmsAlreadySent = currentLogs.length > 0 
+              ? hasSuccessfulOrPendingSms 
+              : Boolean(worker.sms_sent);
+
             const isSmsOpen = !!openedSmsKey[smsKey];
             const isSmsLogsLoading = smsLogsLoadingKey === smsKey;
+            const isSending = smsSendingKey === smsKey;
 
             return (
               <tr key={`${day.gregorian_date}-${worker.worker_id}`} className={`border-b transition-colors duration-150 ${isDark ? 'border-gray-700' : 'border-gray-200'} ${rowBgClass}`}>
                 <td className={`px-2 py-1.5 text-right font-bold border-l align-middle ${isDark ? 'text-gray-200 border-gray-700' : 'text-slate-800 border-gray-200/70'}`}>
-                  {/* نمایش شماره ردیف و نام کارگر */}
                   <div className="flex items-center gap-1.5">
                     <span className={`flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-mono shadow-sm ${
                       isDark ? 'bg-gray-700 text-gray-400' : 'bg-gray-200 text-gray-500'
@@ -295,14 +308,28 @@ const TimesheetByDay = ({ meta, byDay }) => {
                       <>
                         <button
                           onClick={() => handleSendAttendanceSms(worker.worker_id, day.gregorian_date)}
-                          disabled={smsSendingKey === smsKey}
-                          className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border disabled:opacity-50 transition-colors ${
-                            isDark ? 'border-red-800 bg-red-900/30 text-red-400 hover:bg-red-800/50' : 'border-red-300 bg-red-50 text-red-600 hover:bg-red-100'
+                          disabled={isSending || isSmsAlreadySent}
+                          title={isSmsAlreadySent ? 'پیامک قبلاً ارسال شده است' : 'ارسال پیامک یادآوری'}
+                          className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
+                            isSmsAlreadySent
+                              ? isDark
+                                ? 'border-emerald-800/80 bg-emerald-950/40 text-emerald-400 opacity-90 cursor-not-allowed'
+                                : 'border-emerald-300 bg-emerald-50 text-emerald-700 opacity-90 cursor-not-allowed'
+                              : isDark
+                              ? 'border-red-800 bg-red-900/30 text-red-400 hover:bg-red-800/50 disabled:opacity-50'
+                              : 'border-red-300 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50'
                           }`}
                         >
-                          {smsSendingKey === smsKey ? <FaSpinner className="animate-spin" size={8} /> : <FaPaperPlane size={8} />}
-                          ارسال پیامک
+                          {isSending ? (
+                            <FaSpinner className="animate-spin" size={8} />
+                          ) : isSmsAlreadySent ? (
+                            <FaCheck size={8} />
+                          ) : (
+                            <FaPaperPlane size={8} />
+                          )}
+                          {isSmsAlreadySent ? 'ارسال شده' : 'ارسال پیامک'}
                         </button>
+
                         <button
                           onClick={() => handleToggleSmsLogs(worker.worker_id, day.gregorian_date)}
                           className={`flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
@@ -315,8 +342,14 @@ const TimesheetByDay = ({ meta, byDay }) => {
                       </>
                     )}
                   </div>
+
                   {worker.status === 'ABSENT' && isSmsOpen && (
-                    <AttendanceSmsMiniList logs={smsLogs} isLoading={isSmsLogsLoading} refreshingId={smsRefreshingId} onRefresh={(logId) => handleRefreshAttendanceSms(logId, worker.worker_id, day.gregorian_date)} />
+                    <AttendanceSmsMiniList
+                      logs={currentLogs}
+                      isLoading={isSmsLogsLoading}
+                      refreshingId={smsRefreshingId}
+                      onRefresh={(logId) => handleRefreshAttendanceSms(logId, worker.worker_id, day.gregorian_date)}
+                    />
                   )}
                 </td>
 

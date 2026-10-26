@@ -11,7 +11,7 @@ import ProjectListScreen from './screens/ProjectListScreen';
 import ProjectCreateScreen from './screens/ProjectCreateScreen';
 import ProjectEditScreen from './screens/ProjectEditScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
-import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
+// import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
 import ProtectedRoute from './components/ProtectedRoute';
 import PhonebookScreen from './screens/admin/PhonebookScreen';
@@ -224,7 +224,7 @@ function App() {
             <Route path="/admin/users/new" element={<Navigate to="/admin/users" />} />
             <Route path="/admin/settings" element={<SettingsScreen />} />
             <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
-            <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} />
+            {/* <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} /> */}
             <Route path="/admin/scheme-contracts" element={<SchemeContractScreen />} />
             <Route path="/admin/scheme-contracts/:id" element={<SchemeContractScreen />} />
             <Route path="/admin/scheme-managements" element={<SchemeManagementScreen />} />

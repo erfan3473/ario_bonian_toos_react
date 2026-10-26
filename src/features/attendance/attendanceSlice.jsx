@@ -232,6 +232,20 @@ const attendanceSlice = createSlice({
         state.workers = action.payload.workers;
         state.byWorker = action.payload.by_worker;
         state.byDay = action.payload.by_day;
+
+        // 👈 بارگذاری اولیه لاگ‌های پیامک درون کش ریداکس
+        const newSmsLogsByKey = { ...state.smsLogsByKey };
+        if (action.payload.by_day) {
+          Object.entries(action.payload.by_day).forEach(([dateStr, dayData]) => {
+            (dayData.workers || []).forEach((w) => {
+              const key = `${w.worker_id}-${dateStr}`;
+              if (w.sms_logs && w.sms_logs.length > 0) {
+                newSmsLogsByKey[key] = w.sms_logs;
+              }
+            });
+          });
+        }
+        state.smsLogsByKey = newSmsLogsByKey;
       })
       .addCase(fetchTimesheetByRange.rejected, (state, action) => {
         state.loading = false;
