@@ -23,7 +23,7 @@ jobs:
         run: npm ci
 
       - name: Build Project
-        run: npm run build
+        run: yarn build
 
       - name: Deploy to Server via SSH
         uses: easingthemes/ssh-deploy@v5.0.3

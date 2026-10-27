@@ -1,15 +1,21 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
-import { fetchSubordinates, createTask, clearCreateSuccess, clearTaskError, fetchTaskTypes, createTaskType } from '../../features/task/taskSlice';
+import { 
+  fetchSubordinates, createTask, clearCreateSuccess, 
+  clearTaskError, fetchTaskTypes, createTaskType 
+} from '../../features/task/taskSlice';
 import AssigneePickerPanel, { AssigneeChip } from './AssigneePickerPanel';
 import JalaliDatePicker from '../common/JalaliDatePicker';
 import VoiceInputButton from '../common/VoiceInputButton';
+import { toast } from 'react-hot-toast';
 import { 
   FaTimes, FaSpinner, FaArrowLeft, FaPlus, FaCheckCircle, 
-  FaTrash, FaSitemap, FaPaperclip, FaClock, FaAlignRight, 
+  FaTrash, FaTrashAlt, FaSitemap, FaPaperclip, FaClock, FaAlignRight, 
   FaInfoCircle, FaCheck, FaCog, FaUserPlus, FaChevronLeft 
 } from 'react-icons/fa';
+
+const TASK_DRAFT_KEY = 'task_workflow_create_draft';
 
 const URGENCY_OPTIONS = [
   { value: 'LOW', label: 'کم' },
@@ -39,8 +45,8 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   const isDark = mode === 'dark';
 
   // --- استیت کنترل مراحل (تب‌بندی 3 مرحله‌ای) ---
-  const [currentStep, setCurrentStep] = useState(1); // 1: اطلاعات پایه، 2: گردش کار و مراحل، 3: تنظیمات و پیوست
-  const [pickerOpenMobile, setPickerOpenMobile] = useState(false); // کنترل نمایش پنل پرسنل در موبایل
+  const [currentStep, setCurrentStep] = useState(1);
+  const [pickerOpenMobile, setPickerOpenMobile] = useState(false);
 
   const [title, setTitle] = useState('');
   const [taskType, setTaskType] = useState('');
@@ -71,6 +77,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
   
   const [activeElement, setActiveElement] = useState({ id: stages[0].id, type: 'STAGE' }); 
 
+  // ۱. واکشی اطلاعات اولیه
   useEffect(() => {
     dispatch(fetchSubordinates());
     dispatch(fetchTaskTypes());
@@ -80,9 +87,109 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
     };
   }, [dispatch]);
 
+  // ۲. بازیابی خودکار پیش‌نویس ناتمام از localStorage در بدو ورود
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(TASK_DRAFT_KEY);
+    if (savedDraft) {
+      try {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed.title !== undefined) setTitle(parsed.title);
+        if (parsed.taskType !== undefined) setTaskType(parsed.taskType);
+        if (parsed.note !== undefined) setNote(parsed.note);
+        if (parsed.sendSms !== undefined) setSendSms(parsed.sendSms);
+        if (parsed.urgency !== undefined) setUrgency(parsed.urgency);
+        if (parsed.saveAsTemplate !== undefined) setSaveAsTemplate(parsed.saveAsTemplate);
+        if (parsed.templateTitle !== undefined) setTemplateTitle(parsed.templateTitle);
+        if (parsed.currentStep !== undefined) setCurrentStep(parsed.currentStep);
+        if (parsed.stages && Array.isArray(parsed.stages) && parsed.stages.length > 0) {
+          setStages(parsed.stages);
+          setActiveElement({ id: parsed.stages[0].id, type: 'STAGE' });
+        }
+
+        const hasRestoredData = parsed.title || parsed.note || (parsed.stages && parsed.stages.some(s => s.assignees?.length > 0));
+        if (hasRestoredData) {
+          toast('پیش‌نویس ناتمام ماموریت بازیابی شد', { icon: '♻', duration: 2500 });
+        }
+      } catch (err) {
+        console.warn('Task draft restore error:', err);
+      }
+    }
+  }, []);
+
+  // ۳. ذخیره‌سازی مداوم تغییرات در localStorage
+  useEffect(() => {
+    if (createSuccess) return;
+
+    const hasData = title.trim() || note.trim() || taskType || stages.length > 1 || stages[0]?.description || stages[0]?.assignees?.length > 0;
+    
+    if (hasData) {
+      const draftData = {
+        title,
+        taskType,
+        note,
+        sendSms,
+        urgency,
+        saveAsTemplate,
+        templateTitle,
+        currentStep,
+        stages: stages.map(s => ({
+          id: s.id,
+          stageName: s.stageName,
+          description: s.description,
+          deadlineDate: s.deadlineDate,
+          deadlineTime: s.deadlineTime,
+          requireFile: s.requireFile,
+          assignees: s.assignees,
+          approvalRule: s.approvalRule,
+          nextStageApprovers: s.nextStageApprovers,
+          approverRule: s.approverRule
+        }))
+      };
+      localStorage.setItem(TASK_DRAFT_KEY, JSON.stringify(draftData));
+    }
+  }, [title, taskType, note, sendSms, urgency, saveAsTemplate, templateTitle, currentStep, stages, createSuccess]);
+
+  // ۴. پاکسازی حافظه پس از ثبت موفق نهایی
   useEffect(() => { 
-    if (createSuccess) setTimeout(() => onSuccess(), 800);
+    if (createSuccess) {
+      localStorage.removeItem(TASK_DRAFT_KEY);
+      setTimeout(() => onSuccess(), 800);
+    }
   }, [createSuccess, onSuccess]);
+
+  // پاک کردن دستی پیش‌نویس توسط کاربر
+  const handleClearDraft = () => {
+    if (window.confirm('آیا از پاک کردن کامل پیش‌نویس ماموریت مطمئن هستید؟ تمام اطلاعات وارد شده حذف خواهند شد.')) {
+      localStorage.removeItem(TASK_DRAFT_KEY);
+      setTitle('');
+      setTaskType('');
+      setNote('');
+      setSendSms(false);
+      setFiles([]);
+      setUrgency('MEDIUM');
+      setSaveAsTemplate(false);
+      setTemplateTitle('');
+      const newInitialId = Date.now();
+      setStages([
+        { 
+          id: newInitialId, 
+          stageName: 'مرحله ۱', 
+          description: '', 
+          deadlineDate: '', 
+          deadlineTime: '23:59', 
+          requireFile: false,
+          assignees: [], 
+          approvalRule: 'ANY_ASSIGNEE', 
+          nextStageApprovers: [], 
+          approverRule: 'ALL_APPROVERS'
+        }
+      ]);
+      setActiveElement({ id: newInitialId, type: 'STAGE' });
+      setCurrentStep(1);
+      setValidationErrors({});
+      toast.success('پیش‌نویس با موفقیت پاک شد');
+    }
+  };
 
   // --- اعتبارسنجی گام‌به‌گام ---
   const validateStep = (step) => {
@@ -247,6 +354,8 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
     };
     dispatch(createTask(payload));
   }, [dispatch, title, taskType, stages, note, sendSms, files, urgency, saveAsTemplate, templateTitle]);
+
+  const hasDraftData = Boolean(title || note || taskType || stages.some(s => s.assignees?.length > 0));
  
   return (
     <div className="fixed inset-0 flex items-center justify-center p-2 md:p-4 z-[9999]" dir="rtl">
@@ -254,7 +363,7 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
       
       <div className={`relative flex flex-col md:flex-row w-full max-w-[98vw] lg:max-w-[1200px] h-[96dvh] md:h-[92dvh] rounded-2xl overflow-hidden shadow-2xl border-[2px] ${isDark ? 'bg-slate-950 border-slate-700' : 'bg-gray-50 border-blue-500'}`}>
           
-          {/* بخش فرم اصلی (اگر در موبایل پنل پرسنل باز باشد، مخفی می‌شود تا شلوغ نشود) */}
+          {/* بخش فرم اصلی */}
           <div className={`flex flex-col flex-1 overflow-hidden ${pickerOpenMobile ? 'hidden md:flex' : 'flex'}`}>
              
              {/* هدر و خط زمانی (Stepper Header) */}
@@ -264,7 +373,29 @@ const TaskWorkflowCreateModal = ({ onClose, onSuccess }) => {
                     <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500"><FaSitemap size={12} /></div>
                     ایجاد گردش کار شناور
                   </h2>
-                  <button onClick={onClose} disabled={creating} className={`p-1.5 md:p-2 rounded-full transition border ${isDark ? 'text-gray-400 hover:text-white border-slate-700 hover:bg-slate-800' : 'text-gray-500 hover:bg-gray-100 border-gray-200'}`}><FaTimes size={13} /></button>
+
+                  {/* دکمه‌های کنترلی هدر: پاک کردن پیش‌نویس و بستن */}
+                  <div className="flex items-center gap-2">
+                    {hasDraftData && (
+                      <button
+                        type="button"
+                        onClick={handleClearDraft}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-500 hover:text-red-600 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-all shadow-sm"
+                        title="پاک کردن فرم و پیش‌نویس ذخیره‌شده"
+                      >
+                        <FaTrashAlt size={11} />
+                        <span className="hidden sm:inline">پاک کردن پیش‌نویس</span>
+                      </button>
+                    )}
+                    <button 
+                      onClick={onClose} 
+                      disabled={creating} 
+                      className={`p-1.5 md:p-2 rounded-full transition border ${isDark ? 'text-gray-400 hover:text-white border-slate-700 hover:bg-slate-800' : 'text-gray-500 hover:bg-gray-100 border-gray-200'}`}
+                      title="بستن"
+                    >
+                      <FaTimes size={13} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* گوی‌های خط زمانی (Stepper Navigation) */}

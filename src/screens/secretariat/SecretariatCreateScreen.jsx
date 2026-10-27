@@ -10,6 +10,7 @@ import {
     FaArrowRight
 } from 'react-icons/fa';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
+import VoiceInputButton from '../../components/common/VoiceInputButton';
 import logo from '../../assets/ario.png';
 import QRCode from 'react-qr-code';
 
@@ -599,7 +600,7 @@ const SecretariatCreateScreen = () => {
                     {/* نوار بالایی فشرده: عنوان فرم با دراپ‌داون ویرایش آنی ماهیت + دراپ‌داون‌های هم‌اندازه فوریت و محرمانگی */}
                     <div className={`p-2.5 sm:p-3 rounded-xl border flex flex-col md:flex-row flex-wrap items-center justify-between gap-3 shadow-sm ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                         
-                        {/* عنوان با امکان تغییر دراپ‌داون ماهیت نامه (بدون ۴ دکمه اضافه) */}
+                        {/* عنوان با امکان تغییر دراپ‌داون ماهیت نامه */}
                         <div className="flex items-center gap-2.5 w-full md:w-auto justify-center md:justify-start">
                             <DirectionalLogo type={formData.letter_type} colorName={currentTypeConfig.color} />
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -629,7 +630,7 @@ const SecretariatCreateScreen = () => {
                             </div>
                         </div>
 
-                        {/* دراپ‌داون‌های فوریت و محرمانگی (هم‌اندازه، بدون بیرون‌زدگی و وسط‌چین در گوشی) */}
+                        {/* دراپ‌داون‌های فوریت و محرمانگی */}
                         <div className="flex items-center justify-center md:justify-end gap-2 w-full md:w-auto border-t md:border-t-0 pt-2 md:pt-0 border-gray-100 dark:border-gray-700">
                             
                             <div className="flex-1 sm:flex-initial sm:w-36 min-w-0 flex items-center justify-between gap-1 bg-gray-50 dark:bg-gray-800/80 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -708,7 +709,7 @@ const SecretariatCreateScreen = () => {
                                         <span className="font-bold text-sm sm:text-lg md:text-xl tracking-widest text-black">به نام خدا</span>
                                     </div>
 
-                                    {/* شماره، تاریخ، پیوست و بارکد QR در سمت چپ (صرفاً برای مسئول بایگانی / دبیرخانه) */}
+                                    {/* شماره، تاریخ، پیوست و بارکد QR در سمت چپ */}
                                     <div className="flex items-start justify-end gap-1.5 sm:gap-2.5 w-1/3 text-black">
                                         {isArchiveOfficer && (
                                             <div className="flex flex-col text-[10px] sm:text-xs md:text-sm font-bold items-end space-y-1 sm:space-y-1.5">
@@ -838,16 +839,21 @@ const SecretariatCreateScreen = () => {
                                         ></textarea>
                                     </div>
 
-                                    {/* موضوع اصلی نامه / سند */}
-                                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 mt-1.5 w-full border-b border-dashed border-gray-300 focus-within:border-blue-500 focus-within:bg-blue-50/20 rounded px-1 transition">
+                                    {/* موضوع اصلی نامه / سند با دکمه ویس‌اینپوت */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mt-1.5 w-full border-b border-dashed border-gray-300 focus-within:border-blue-500 focus-within:bg-blue-50/20 rounded px-1 transition">
                                         <span className="text-xs sm:text-sm font-bold opacity-80 shrink-0">موضوع: <span className="text-red-500">*</span></span>
                                         <input 
                                             type="text" 
                                             required 
                                             placeholder="موضوع اصلی نامه را بنویسید..." 
-                                            className="flex-1 bg-transparent font-bold text-sm sm:text-base md:text-lg text-gray-900 outline-none py-1" 
+                                            className="flex-1 bg-transparent font-bold text-sm sm:text-base md:text-lg text-gray-900 outline-none py-1 min-w-0" 
                                             value={formData.subject} 
                                             onChange={(e) => setFormData({ ...formData, subject: e.target.value })} 
+                                        />
+                                        <VoiceInputButton 
+                                            value={formData.subject} 
+                                            onChange={(val) => setFormData(prev => ({ ...prev, subject: val }))} 
+                                            size="sm"
                                         />
                                     </div>
 
@@ -888,14 +894,22 @@ const SecretariatCreateScreen = () => {
                                     </div>
                                 </div>
 
-                                {/* ۳. متن یا چکیده نامه / سند */}
-                                <div className="flex-1 my-2 flex flex-col min-h-[220px] sm:min-h-[260px]">
+                                {/* ۳. متن یا چکیده نامه / سند با هدر مستقل و دکمه ویس‌اینپوت */}
+                                <div className="flex-1 my-2 flex flex-col min-h-[220px] sm:min-h-[260px] relative">
+                                    <div className="flex items-center justify-between mb-1.5 px-1">
+                                        <span className="text-[11px] sm:text-xs font-bold text-gray-600">متن نامه:</span>
+                                        <VoiceInputButton 
+                                            value={formData.body} 
+                                            onChange={(val) => setFormData(prev => ({ ...prev, body: val }))} 
+                                            size="sm"
+                                        />
+                                    </div>
                                     <textarea 
                                         rows="9" 
                                         placeholder="با سلام و احترام،&#10;&#10;متن یا چکیده نامه / سند را در این کادر بنویسید..." 
                                         className="text-justify leading-relaxed sm:leading-loose flex-1 text-xs sm:text-sm md:text-base whitespace-pre-wrap font-medium text-black bg-transparent border border-dashed border-gray-300 hover:border-blue-400 focus:border-blue-500 focus:bg-blue-50/10 rounded-xl p-2.5 sm:p-3 outline-none transition resize-none placeholder:text-gray-400" 
                                         value={formData.body} 
-                                        onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                                        onChange={(e) => setFormData({ ...formData, body: e.target.value })} 
                                     ></textarea>
                                 </div>
 
@@ -927,7 +941,7 @@ const SecretariatCreateScreen = () => {
                                         </div>
                                     </div>
 
-                                    {/* ستون امضا (سمت چپ پایین) بدون باکس اضافی و با تمرکز بر نام امضاکننده */}
+                                    {/* ستون امضا (سمت چپ پایین) */}
                                     <div className="w-full sm:w-1/3 flex flex-col items-center text-center relative p-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50/40">
                                         <span className="mb-2 text-xs sm:text-sm font-bold w-full text-center text-gray-800">
                                             مهر و امضا

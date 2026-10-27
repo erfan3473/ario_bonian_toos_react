@@ -17,7 +17,7 @@ const VoiceInputButton = ({
   className = '' 
 }) => {
   const buttonId = useId();
-  const [status, setStatus] = useState('idle'); // 'idle' | 'connecting' | 'listening'
+  const [status, setStatus] = useState('idle'); // 'idle' | 'connecting' | 'listening' | 'error'
 
   const isActiveRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -28,10 +28,11 @@ const VoiceInputButton = ({
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
 
-  // قطع فوری سخت‌افزاری میکروفون (حذف آنی آیکون میکروفون بالای صفحه در موبایل)
+  // قطع فوری، پاکسازی کامل رم و بستن تِرَک‌های سخت‌افزاری میکروفون
   const forceStopAll = () => {
     isActiveRef.current = false;
 
+    // ۱. قطع گره پردازش صوت Web Audio
     if (processorRef.current) {
       try {
         processorRef.current.onaudioprocess = null;
@@ -40,6 +41,7 @@ const VoiceInputButton = ({
       processorRef.current = null;
     }
 
+    // ۲. بستن کانتکست صوتی
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       try {
         audioContextRef.current.close();
@@ -47,11 +49,18 @@ const VoiceInputButton = ({
       audioContextRef.current = null;
     }
 
+    // ۳. آزادسازی سخت‌افزار میکروفون (برداشتن آیکون بالای گوشی)
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      } catch (_) {}
       mediaStreamRef.current = null;
     }
 
+    // ۴. بستن کانکشن وب‌سوکت
     if (wsRef.current) {
       try {
         if (wsRef.current.readyState === WebSocket.OPEN) {
@@ -67,6 +76,7 @@ const VoiceInputButton = ({
     }
   };
 
+  // مدیریت خروج ناگهانی، بسته شدن مودال یا قفل شدن صفحه گوشی
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -87,6 +97,7 @@ const VoiceInputButton = ({
     window.addEventListener('pagehide', forceStopAll);
 
     return () => {
+      // اجرای حتمی Dispose هنگام بسته شدن مودال
       isMountedRef.current = false;
       window.removeEventListener('custom-voice-mic-start', handleOtherMic);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -96,6 +107,11 @@ const VoiceInputButton = ({
   }, [buttonId]);
 
   const showPermissionGuide = () => {
+    setStatus('error');
+    setTimeout(() => {
+      if (isMountedRef.current && status === 'error') setStatus('idle');
+    }, 3000);
+
     toast(
       () => (
         <div className="text-right text-xs leading-relaxed" dir="rtl">
@@ -104,8 +120,7 @@ const VoiceInputButton = ({
             دسترسی میکروفون مسدود است
           </div>
           <p className="text-gray-700 dark:text-gray-200">
-            روی آیکون <b>قفل (🔒) یا تنظیمات</b> کنار آدرس سایت در مرورگر بزنید و گزینه{' '}
-            <b>Microphone</b> را روی <b>Allow (مجاز)</b> قرار دهید.
+            روی آیکون <b>قفل (🔒) یا تنظیمات</b> کنار آدرس سایت بزنید و گزینه <b>Microphone</b> را روی <b>Allow</b> قرار دهید.
           </p>
         </div>
       ),
@@ -113,7 +128,6 @@ const VoiceInputButton = ({
     );
   };
 
-  // تبدیل داده‌های Float صوتی به فرمت استاندارد 16-bit PCM برای پردازش توسط موتور Kaldi
   const floatTo16BitPCM = (input) => {
     const output = new Int16Array(input.length);
     for (let i = 0; i < input.length; i++) {
@@ -127,13 +141,13 @@ const VoiceInputButton = ({
     e.preventDefault();
     e.stopPropagation();
 
-    if (status !== 'idle' || isActiveRef.current) {
+    if (status === 'listening' || status === 'connecting') {
       forceStopAll();
       return;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast.error('مرورگر شما از دسترسی به میکروفون پشتیبانی نمی‌کند.');
+      toast.error('مرورگر شما از دسترسی میکروفون پشتیبانی نمی‌کند.');
       return;
     }
 
@@ -154,6 +168,7 @@ const VoiceInputButton = ({
         },
       });
 
+      // محافظ در صورتی که وسط درخواست مجوز، کاربر مودال را بسته باشد
       if (!isActiveRef.current || !isMountedRef.current) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -177,13 +192,12 @@ const VoiceInputButton = ({
           return;
         }
 
-        // ارسال نرخ نمونه‌برداری دقیق میکروفون به سرور Vosk
         ws.send(JSON.stringify({ config: { sample_rate: audioContext.sampleRate } }));
 
         const source = audioContext.createMediaStreamSource(stream);
         const gainNode = audioContext.createGain();
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        gainNode.gain.value = isMobile ? 1.5 : 3.5; // تقویت ۳.۵ برابری برای جلوگیری از داد زدن در لپ‌تاپ
+        gainNode.gain.value = isMobile ? 1.5 : 3.5;
 
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
@@ -206,8 +220,6 @@ const VoiceInputButton = ({
         if (!isActiveRef.current) return;
         try {
           const data = JSON.parse(event.data);
-          
-          // زمانی که کاربر مکث می‌کند، جمله نهایی در data.text قرار می‌گیرد
           if (data.text) {
             const finalPart = data.text.trim();
             if (finalPart) {
@@ -216,9 +228,7 @@ const VoiceInputButton = ({
                 .join(' ');
               onChange?.(committedTextRef.current);
             }
-          } 
-          // در حین صحبت مداوم، پیش‌نمایش کلمات در data.partial قرار دارد
-          else if (data.partial) {
+          } else if (data.partial) {
             const partialPart = data.partial.trim();
             if (partialPart) {
               const base = committedTextRef.current;
@@ -232,7 +242,7 @@ const VoiceInputButton = ({
 
       ws.onerror = (err) => {
         console.error('STT WebSocket error:', err);
-        toast.error('خطا در برقراری ارتباط با سرور پردازش گفتار.');
+        toast.error('خطا در اتصال به موتور تبدیل صوت.');
         forceStopAll();
       };
 
@@ -242,48 +252,69 @@ const VoiceInputButton = ({
         }
       };
     } catch (err) {
-      console.error('Microphone error:', err);
+      console.error('Microphone access error:', err);
       forceStopAll();
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         showPermissionGuide();
       } else {
-        toast.error('خطا در دسترسی به میکروفون.');
+        toast.error('امکان دسترسی به میکروفون وجود ندارد.');
       }
     }
   };
 
-  const szClasses = size === 'sm' ? 'w-7 h-7 text-[11px]' : 'w-8 h-8 text-xs';
+  const szClasses = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-9 h-9 text-sm';
 
   return (
-    <button
-      type="button"
-      onClick={toggleListening}
-      className={`relative shrink-0 rounded-lg flex items-center justify-center transition-all select-none ${szClasses} ${
-        status === 'listening'
-          ? 'bg-red-500 text-white shadow-lg shadow-red-500/40 ring-4 ring-red-500/20 animate-pulse'
-          : status === 'connecting'
-          ? 'bg-amber-500 text-white'
-          : 'text-gray-400 hover:text-purple-400 hover:bg-purple-500/10'
-      } ${className}`}
-      title={
-        status === 'listening'
-          ? 'در حال نوشتن... برای توقف کلیک کنید'
-          : status === 'connecting'
-          ? 'در حال اتصال به سرور صوتی...'
-          : 'تبدیل صدا به متن'
-      }
-    >
-      {status === 'listening' ? (
-        <span className="flex items-center justify-center">
-          <FaStop size={size === 'sm' ? 10 : 12} />
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-400 animate-ping" />
-        </span>
-      ) : status === 'connecting' ? (
-        <FaSpinner className="animate-spin" size={size === 'sm' ? 11 : 13} />
-      ) : (
-        <FaMicrophone size={size === 'sm' ? 12 : 14} />
+    <div className={`relative inline-flex items-center justify-center shrink-0 ${szClasses}`}>
+      {/* امواج نوری فعال در زمان ضبط صدا */}
+      {status === 'listening' && (
+        <>
+          <span className="absolute inset-0 rounded-xl bg-rose-500/30 animate-ping pointer-events-none" />
+          <span className="absolute -inset-1 rounded-2xl border-2 border-rose-500/50 animate-pulse pointer-events-none" />
+        </>
       )}
-    </button>
+
+      {/* دکمه با کادر و حاشیه مشخص برای جلب توجه و ارتقای دیداری */}
+      <button
+        type="button"
+        onClick={toggleListening}
+        className={`relative z-10 w-full h-full rounded-xl flex items-center justify-center transition-all duration-200 select-none shadow-sm ${
+          status === 'listening'
+            ? 'bg-rose-600 hover:bg-rose-700 text-white border-2 border-rose-400 shadow-lg shadow-rose-600/40 scale-105'
+            : status === 'connecting'
+            ? 'bg-amber-500/15 text-amber-500 border-2 border-amber-500/40 animate-pulse'
+            : status === 'error'
+            ? 'bg-rose-500/10 text-rose-500 border-2 border-rose-500/50 animate-bounce'
+            : 'bg-white/80 dark:bg-slate-800/80 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-gray-500 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 border border-gray-300 dark:border-slate-600 hover:border-purple-400 dark:hover:border-purple-500 active:scale-95'
+        } ${className}`}
+        title={
+          status === 'listening'
+            ? 'در حال ضبط صدا... برای توقف کلیک کنید'
+            : status === 'connecting'
+            ? 'در حال برقراری ارتباط...'
+            : status === 'error'
+            ? 'دسترسی مسدود است'
+            : 'تبدیل صدا به متن'
+        }
+      >
+        {status === 'listening' ? (
+          <div className="flex items-center justify-center gap-1">
+            <FaStop size={size === 'sm' ? 9 : 11} />
+            <div className="flex items-end gap-0.5 h-3">
+              <span className="w-0.5 bg-white rounded-full animate-[bounce_0.8s_ease-in-out_infinite] h-2" />
+              <span className="w-0.5 bg-white rounded-full animate-[bounce_0.8s_ease-in-out_0.2s_infinite] h-3" />
+              <span className="w-0.5 bg-white rounded-full animate-[bounce_0.8s_ease-in-out_0.4s_infinite] h-1.5" />
+            </div>
+          </div>
+        ) : status === 'connecting' ? (
+          <FaSpinner className="animate-spin" size={size === 'sm' ? 12 : 14} />
+        ) : status === 'error' ? (
+          <FaExclamationCircle size={size === 'sm' ? 13 : 15} />
+        ) : (
+          <FaMicrophone size={size === 'sm' ? 13 : 15} />
+        )}
+      </button>
+    </div>
   );
 };
 
