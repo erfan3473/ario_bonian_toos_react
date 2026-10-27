@@ -205,6 +205,18 @@ const DirectionalLogo = ({ type, status }) => {
     );
 };
 
+// 🚀 تابع استخراج تاریخ مبنای مرتب‌سازی جهت نمایش تفکیک‌کننده‌های ماه
+const getEffectiveLetterDate = (letter) => {
+    if (!letter) return null;
+    if (letter.status !== 'PENDING' && letter.original_date) {
+        return letter.original_date;
+    }
+    if (letter.original_number && letter.original_date) {
+        return letter.original_date;
+    }
+    return letter.created_at;
+};
+
 const SecretariatListScreen = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -526,7 +538,7 @@ const SecretariatListScreen = () => {
                                                     onClick={() => {
                                                         setIsSearchOpen(false);
                                                         navigate(`/secretariat/${letter.id}`);
-                                                    }}
+                                                    }} 
                                                     className="relative bg-white text-gray-900 p-3.5 mb-3 rounded-lg shadow-md cursor-pointer transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-lg border border-gray-200"
                                                     style={{ minHeight: '160px', backgroundImage: 'linear-gradient(to bottom, #ffffff 0%, #fcfcfc 100%)' }}
                                                 >
@@ -662,8 +674,8 @@ const SecretariatListScreen = () => {
                     {/* نمایش کارتی ریسپانسیو اختصاصی برای موبایل و تبلت‌های کوچک */}
                     <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
                         {lettersList.map((letter, index) => {
-                            const currentMonth = getMonthName(letter.created_at);
-                            const previousMonth = index > 0 ? getMonthName(lettersList[index - 1]?.created_at) : null;
+                            const currentMonth = getMonthName(getEffectiveLetterDate(letter));
+                            const previousMonth = index > 0 ? getMonthName(getEffectiveLetterDate(lettersList[index - 1])) : null;
                             const showDivider = currentMonth !== previousMonth;
                             const isDeletedLetter = letter.status === 'DELETED';
 
@@ -783,8 +795,8 @@ const SecretariatListScreen = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {lettersList.map((letter, index) => {
-                                    const currentMonth = getMonthName(letter.created_at);
-                                    const previousMonth = index > 0 ? getMonthName(lettersList[index - 1]?.created_at) : null;
+                                    const currentMonth = getMonthName(getEffectiveLetterDate(letter));
+                                    const previousMonth = index > 0 ? getMonthName(getEffectiveLetterDate(lettersList[index - 1])) : null;
                                     const showDivider = currentMonth !== previousMonth;
                                     const isDeletedLetter = letter.status === 'DELETED';
 
@@ -1062,15 +1074,15 @@ const SecretariatListScreen = () => {
                         <div className="flex justify-end gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                             <button 
                                 type="button" 
-                                onClick={() => setIsSmsModalOpen(false)}
+                                onClick={() => setIsSmsModalOpen(false)} 
                                 className="px-4 py-2 rounded-lg bg-gray-500 text-white hover:bg-gray-600 text-xs font-bold"
                             >
                                 انصراف
                             </button>
                             <button 
                                 type="button" 
-                                disabled={savingSettings}
-                                onClick={handleSaveSmsSettings}
+                                disabled={savingSettings} 
+                                onClick={handleSaveSmsSettings} 
                                 className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold shadow-md disabled:opacity-50"
                             >
                                 {savingSettings ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}

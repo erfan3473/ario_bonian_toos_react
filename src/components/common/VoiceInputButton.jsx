@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
-import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
-import { FaMicrophone, FaStop, FaExclamationCircle } from 'react-icons/fa';
+import { FaMicrophone, FaStop, FaSpinner, FaExclamationCircle } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
+
+const getSttWebSocketUrl = () => {
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'wss://www.ariobonyantoos.com/ws/stt/';
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws/stt/`;
+};
 
 const VoiceInputButton = ({ 
   value = '', 
@@ -10,153 +17,83 @@ const VoiceInputButton = ({
   className = '' 
 }) => {
   const buttonId = useId();
-  const [isActive, setIsActive] = useState(false);
+  const [status, setStatus] = useState('idle'); // 'idle' | 'connecting' | 'listening'
 
-  // استفاده از Ref برای جلوگیری از اجرای تایمرها پس از بسته شدن مدال
   const isActiveRef = useRef(false);
   const isMountedRef = useRef(true);
   const committedTextRef = useRef('');
-  const lastTranscriptRef = useRef('');
-  const desktopStreamRef = useRef(null);
-  const restartTimerRef = useRef(null);
+  
+  const wsRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const processorRef = useRef(null);
 
-  const {
-    transcript,
-    listening,
-    resetTranscript,
-    browserSupportsSpeechRecognition,
-    isMicrophoneAvailable,
-  } = useSpeechRecognition();
-
-  // قطع فوری و سخت‌افزاری میکروفون (حذف آنی نوتیفیکیشن بالای گوشی)
-  const forceKillMicrophone = () => {
+  // قطع فوری سخت‌افزاری میکروفون (حذف آنی آیکون میکروفون بالای صفحه در موبایل)
+  const forceStopAll = () => {
     isActiveRef.current = false;
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = null;
+
+    if (processorRef.current) {
+      try {
+        processorRef.current.onaudioprocess = null;
+        processorRef.current.disconnect();
+      } catch (_) {}
+      processorRef.current = null;
     }
-    try {
-      SpeechRecognition.abortListening();
-    } catch (_) {}
-    stopDesktopBoost();
-    resetTranscript();
-    lastTranscriptRef.current = '';
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      try {
+        audioContextRef.current.close();
+      } catch (_) {}
+      audioContextRef.current = null;
+    }
+
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+
+    if (wsRef.current) {
+      try {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ eof: 1 }));
+        }
+        wsRef.current.close();
+      } catch (_) {}
+      wsRef.current = null;
+    }
+
     if (isMountedRef.current) {
-      setIsActive(false);
+      setStatus('idle');
     }
   };
 
-  // ۱. پاکسازی قطعی هنگام بسته شدن مدال، خروج از صفحه یا خاموش شدن صفحه گوشی
   useEffect(() => {
     isMountedRef.current = true;
 
-    const handleVisibilityOrHide = () => {
-      if (document.hidden && isActiveRef.current) {
-        forceKillMicrophone();
-      }
-    };
-
-    const handleOtherMicStart = (e) => {
+    const handleOtherMic = (e) => {
       if (e.detail !== buttonId && isActiveRef.current) {
-        isActiveRef.current = false;
-        if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
-        setIsActive(false);
+        forceStopAll();
       }
     };
 
-    window.addEventListener('active-voice-input-changed', handleOtherMicStart);
-    document.addEventListener('visibilitychange', handleVisibilityOrHide);
-    window.addEventListener('pagehide', forceKillMicrophone);
+    const handleVisibilityChange = () => {
+      if (document.hidden && isActiveRef.current) {
+        forceStopAll();
+      }
+    };
+
+    window.addEventListener('custom-voice-mic-start', handleOtherMic);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', forceStopAll);
 
     return () => {
       isMountedRef.current = false;
-      window.removeEventListener('active-voice-input-changed', handleOtherMicStart);
-      document.removeEventListener('visibilitychange', handleVisibilityOrHide);
-      window.removeEventListener('pagehide', forceKillMicrophone);
-
-      // اگر این دکمه در زمان بسته شدن مدال روشن بوده، میکروفون گوشی را فوراً آزاد کن
-      if (isActiveRef.current) {
-        forceKillMicrophone();
-      }
+      window.removeEventListener('custom-voice-mic-start', handleOtherMic);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', forceStopAll);
+      forceStopAll();
     };
   }, [buttonId]);
-
-  // ۲. نوشتن متن در فیلد مربوطه بدون پاک شدن جملات قبلی
-  useEffect(() => {
-    if (!isActive || !isActiveRef.current) return;
-
-    const cleanTranscript = transcript.trim();
-    if (cleanTranscript) {
-      lastTranscriptRef.current = cleanTranscript;
-      const base = committedTextRef.current;
-      const separator = base ? ' ' : '';
-      onChange?.(`${base}${separator}${cleanTranscript}`);
-    }
-  }, [transcript, isActive]);
-
-  // ۳. مدیریت مکث کردن کاربر و حفظ متن قبلی
-  useEffect(() => {
-    if (isActive && isActiveRef.current && !listening) {
-      if (lastTranscriptRef.current) {
-        committedTextRef.current = [committedTextRef.current, lastTranscriptRef.current]
-          .filter(Boolean)
-          .join(' ');
-        lastTranscriptRef.current = '';
-        resetTranscript();
-      }
-
-      restartTimerRef.current = setTimeout(() => {
-        if (isActiveRef.current && isMountedRef.current) {
-          try {
-            SpeechRecognition.startListening({
-              continuous: true,
-              interimResults: true,
-              language: 'fa-IR',
-            });
-          } catch (_) {
-            forceKillMicrophone();
-          }
-        }
-      }, 200);
-
-      return () => {
-        if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
-      };
-    }
-  }, [listening, isActive, resetTranscript]);
-
-  // ۴. تقویت صدا فقط در دسکتاپ/لپ‌تاپ
-  const startDesktopBoost = () => {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile || !navigator.mediaDevices?.getUserMedia) return;
-
-    navigator.mediaDevices
-      .getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          googAutoGainControl: true,
-          googAutoGainControl2: true,
-          googHighpassFilter: true,
-        },
-      })
-      .then((stream) => {
-        if (isActiveRef.current && isMountedRef.current) {
-          desktopStreamRef.current = stream;
-        } else {
-          stream.getTracks().forEach((t) => t.stop());
-        }
-      })
-      .catch(() => {});
-  };
-
-  const stopDesktopBoost = () => {
-    if (desktopStreamRef.current) {
-      desktopStreamRef.current.getTracks().forEach((track) => track.stop());
-      desktopStreamRef.current = null;
-    }
-  };
 
   const showPermissionGuide = () => {
     toast(
@@ -167,7 +104,7 @@ const VoiceInputButton = ({
             دسترسی میکروفون مسدود است
           </div>
           <p className="text-gray-700 dark:text-gray-200">
-            روی آیکون <b>قفل (🔒) یا تنظیمات</b> کنار آدرس سایت در بالای مرورگر بزنید و گزینه{' '}
+            روی آیکون <b>قفل (🔒) یا تنظیمات</b> کنار آدرس سایت در مرورگر بزنید و گزینه{' '}
             <b>Microphone</b> را روی <b>Allow (مجاز)</b> قرار دهید.
           </p>
         </div>
@@ -176,87 +113,142 @@ const VoiceInputButton = ({
     );
   };
 
+  // تبدیل داده‌های Float صوتی به فرمت استاندارد 16-bit PCM برای پردازش توسط موتور Kaldi
+  const floatTo16BitPCM = (input) => {
+    const output = new Int16Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const s = Math.max(-1, Math.min(1, input[i]));
+      output[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    return output.buffer;
+  };
+
   const toggleListening = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (isActive || isActiveRef.current) {
-      forceKillMicrophone();
+    if (status !== 'idle' || isActiveRef.current) {
+      forceStopAll();
       return;
     }
 
-    const ua = navigator.userAgent || '';
-    const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    const isHuawei = /Huawei|HarmonyOS|HMSCore|HONOR/i.test(ua);
-
-    // بررسی محدودیت ذاتی iOS در عدم پشتیبانی از زبان فارسی در مرورگر
-    if (isIOS) {
-      toast(
-        () => (
-          <div className="text-right text-xs leading-relaxed" dir="rtl">
-            <div className="font-bold text-blue-500 mb-1">راهنمای تایپ صوتی در آیفون (iOS)</div>
-            <p className="text-gray-700 dark:text-gray-200">
-              سیستم‌عامل آیفون از تایپ صوتی فارسی در مرورگر پشتیبانی نمی‌کند. لطفاً روی کادر متن بزنید و از <b>دکمه میکروفون روی کیبورد گوشی (Gboard)</b> استفاده کنید.
-            </p>
-          </div>
-        ),
-        { duration: 6000 }
-      );
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error('مرورگر شما از دسترسی به میکروفون پشتیبانی نمی‌کند.');
       return;
     }
 
-    if (!browserSupportsSpeechRecognition) {
-      toast.error('مرورگر شما از تبدیل صدا به متن پشتیبانی نمی‌کند. لطفاً از مرورگر Chrome استفاده کنید.');
-      return;
-    }
-
-    if (isMicrophoneAvailable === false) {
-      showPermissionGuide();
-      return;
-    }
-
-    if (navigator.permissions?.query) {
-      try {
-        const status = await navigator.permissions.query({ name: 'microphone' });
-        if (status.state === 'denied') {
-          showPermissionGuide();
-          return;
-        }
-      } catch (_) {}
-    }
-
-    // خاموش کردن سایر میکروفون‌های باز در فرم
-    window.dispatchEvent(new CustomEvent('active-voice-input-changed', { detail: buttonId }));
-
-    committedTextRef.current = value ? value.trim() : '';
-    lastTranscriptRef.current = '';
-    resetTranscript();
-
-    isActiveRef.current = true;
-    setIsActive(true);
-    startDesktopBoost();
+    window.dispatchEvent(new CustomEvent('custom-voice-mic-start', { detail: buttonId }));
 
     try {
-      await SpeechRecognition.startListening({
-        continuous: true,
-        interimResults: true,
-        language: 'fa-IR',
+      setStatus('connecting');
+      isActiveRef.current = true;
+      committedTextRef.current = value ? value.trim() : '';
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
       });
 
-      // در گوشی‌های هوآوی اگر سرویس صوتی گوگل نصب/فعال نباشد، به کاربر اطلاع بده
-      if (isHuawei) {
-        setTimeout(() => {
-          if (isActiveRef.current && !listening) {
-            forceKillMicrophone();
-            toast.error(
-              'در گوشی هوآوی سرویس صوتی گوگل غیرفعال است. از میکروفون روی کیبورد گوشی استفاده کنید یا برنامه Google را فعال نمایید.',
-              { duration: 6000 }
-            );
-          }
-        }, 2500);
+      if (!isActiveRef.current || !isMountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
       }
+
+      mediaStreamRef.current = stream;
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioCtx();
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      audioContextRef.current = audioContext;
+
+      const ws = new WebSocket(getSttWebSocketUrl());
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        if (!isActiveRef.current || !isMountedRef.current) {
+          forceStopAll();
+          return;
+        }
+
+        // ارسال نرخ نمونه‌برداری دقیق میکروفون به سرور Vosk
+        ws.send(JSON.stringify({ config: { sample_rate: audioContext.sampleRate } }));
+
+        const source = audioContext.createMediaStreamSource(stream);
+        const gainNode = audioContext.createGain();
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        gainNode.gain.value = isMobile ? 1.5 : 3.5; // تقویت ۳.۵ برابری برای جلوگیری از داد زدن در لپ‌تاپ
+
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processorRef.current = processor;
+
+        processor.onaudioprocess = (event) => {
+          if (!isActiveRef.current || ws.readyState !== WebSocket.OPEN) return;
+          const inputData = event.inputBuffer.getChannelData(0);
+          const pcmBuffer = floatTo16BitPCM(inputData);
+          ws.send(pcmBuffer);
+        };
+
+        source.connect(gainNode);
+        gainNode.connect(processor);
+        processor.connect(audioContext.destination);
+
+        setStatus('listening');
+      };
+
+      ws.onmessage = (event) => {
+        if (!isActiveRef.current) return;
+        try {
+          const data = JSON.parse(event.data);
+          
+          // زمانی که کاربر مکث می‌کند، جمله نهایی در data.text قرار می‌گیرد
+          if (data.text) {
+            const finalPart = data.text.trim();
+            if (finalPart) {
+              committedTextRef.current = [committedTextRef.current, finalPart]
+                .filter(Boolean)
+                .join(' ');
+              onChange?.(committedTextRef.current);
+            }
+          } 
+          // در حین صحبت مداوم، پیش‌نمایش کلمات در data.partial قرار دارد
+          else if (data.partial) {
+            const partialPart = data.partial.trim();
+            if (partialPart) {
+              const base = committedTextRef.current;
+              onChange?.(base ? `${base} ${partialPart}` : partialPart);
+            }
+          }
+        } catch (err) {
+          console.error('STT parse error:', err);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error('STT WebSocket error:', err);
+        toast.error('خطا در برقراری ارتباط با سرور پردازش گفتار.');
+        forceStopAll();
+      };
+
+      ws.onclose = () => {
+        if (isActiveRef.current) {
+          forceStopAll();
+        }
+      };
     } catch (err) {
-      forceKillMicrophone();
+      console.error('Microphone error:', err);
+      forceStopAll();
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        showPermissionGuide();
+      } else {
+        toast.error('خطا در دسترسی به میکروفون.');
+      }
     }
   };
 
@@ -267,17 +259,27 @@ const VoiceInputButton = ({
       type="button"
       onClick={toggleListening}
       className={`relative shrink-0 rounded-lg flex items-center justify-center transition-all select-none ${szClasses} ${
-        isActive
+        status === 'listening'
           ? 'bg-red-500 text-white shadow-lg shadow-red-500/40 ring-4 ring-red-500/20 animate-pulse'
+          : status === 'connecting'
+          ? 'bg-amber-500 text-white'
           : 'text-gray-400 hover:text-purple-400 hover:bg-purple-500/10'
       } ${className}`}
-      title={isActive ? 'در حال نوشتن... برای توقف کلیک کنید' : 'تبدیل صدا به متن'}
+      title={
+        status === 'listening'
+          ? 'در حال نوشتن... برای توقف کلیک کنید'
+          : status === 'connecting'
+          ? 'در حال اتصال به سرور صوتی...'
+          : 'تبدیل صدا به متن'
+      }
     >
-      {isActive ? (
+      {status === 'listening' ? (
         <span className="flex items-center justify-center">
           <FaStop size={size === 'sm' ? 10 : 12} />
           <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-400 animate-ping" />
         </span>
+      ) : status === 'connecting' ? (
+        <FaSpinner className="animate-spin" size={size === 'sm' ? 11 : 13} />
       ) : (
         <FaMicrophone size={size === 'sm' ? 12 : 14} />
       )}
