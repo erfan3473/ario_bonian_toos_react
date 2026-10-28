@@ -906,86 +906,88 @@ const SecretariatDetailScreen = () => {
     return (
         <div className="max-w-5xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 md:space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
             <style type="text/css">
-                {`
-                    .draggable-content strong, .draggable-content b {
-                        font-weight: inherit !important;
+            {`
+                .draggable-content strong, .draggable-content b {
+                    font-weight: inherit !important;
+                }
+                .draggable-content[style*="font-size"] * {
+                    font-size: inherit !important;
+                }
+
+                @media print { 
+                    @page { 
+                        size: A4 portrait; 
+                        margin: 0 !important; 
+                    } 
+                    
+                    *, *:before, *:after {
+                        box-sizing: border-box !important;
                     }
-                    .draggable-content[style*="font-size"] * {
-                        font-size: inherit !important;
+
+                    /* ۱. پنهان‌سازی سراسری بدون display:none کردن لایه‌های والد */
+                    body { 
+                        visibility: hidden !important;
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        background: #fff !important; 
+                        color: #000 !important; 
+                        -webkit-print-color-adjust: exact !important; 
+                        print-color-adjust: exact !important; 
+                    } 
+
+                    /* مخفی کردن المان‌های غیرضروری */
+                    .print\\:hidden {
+                        display: none !important;
                     }
-                    @media print { 
-                        @page { 
-                            size: A4 portrait; 
-                            margin: 0 !important; 
-                        } 
-                        html, body { 
-                            margin: 0 !important; 
-                            padding: 0 !important; 
-                            width: 210mm !important; 
-                            height: max-content !important; 
-                            background: white !important; 
-                            color: black !important; 
-                            -webkit-print-color-adjust: exact !important; 
-                            print-color-adjust: exact !important; 
-                            /* اضافه شدن برای جلوگیری از اسکرول مخفی که صفحه سفید می‌سازد */
-                            overflow-x: hidden !important;
-                            overflow-y: hidden !important;
-                        } 
-                        /* مخفی کردن سایر بخش‌ها از جریان صفحه */
-                        body * { 
-                            visibility: hidden !important; 
-                        } 
-                        #letter-print-root, #letter-print-root * { 
-                            visibility: visible !important; 
-                        } 
-                        #letter-print-root { 
-                            position: absolute !important; 
-                            top: 0 !important; 
-                            left: 0 !important; 
-                            width: 210mm !important; 
-                            margin: 0 !important; 
-                            padding: 0 !important; 
-                            background: transparent !important;
-                        } 
-                        .letter-a4-page { 
-                            position: relative !important; 
-                            width: 210mm !important; 
-                            /* استفاده از 296.5 میلی‌متر بجای 296 برای دقت بیشتر در مقیاس‌های مختلف */
-                            height: 296.5mm !important; 
-                            max-height: 296.5mm !important; 
-                            min-height: 296.5mm !important;
-                            margin: 0 auto !important; 
-                            padding-top: var(--sheet-pad-top, 12mm) !important; 
-                            padding-bottom: var(--sheet-pad-bottom, 12mm) !important; 
-                            padding-right: var(--sheet-pad-right, 15mm) !important; 
-                            padding-left: var(--sheet-pad-left, 15mm) !important; 
-                            box-sizing: border-box !important; 
-                            border: none !important; 
-                            box-shadow: none !important; 
-                            overflow: hidden !important; 
-                            background-image: none !important; 
-                            background-color: transparent !important; 
-                            
-                            /* ترفند اصلی برای جلوگیری از شکست ناخواسته صفحه */
-                            page-break-after: auto !important; 
-                            break-after: auto !important; 
-                            page-break-inside: avoid !important;
-                            break-inside: avoid !important;
-                        } 
-                        /* شکست صفحه فقط برای اِلمان‌هایی که آخرین فرزند نیستند */
-                        .letter-a4-page:not(:last-child) {
-                            page-break-after: always !important; 
-                            break-after: page !important; 
-                        }
-                        .letter-a4-page:last-child {
-                            page-break-after: avoid !important; 
-                            break-after: avoid !important; 
-                            /* جلوگیری از پرتاب شدن یک پیکسل به صفحه بعد */
-                            margin-bottom: 0 !important; 
-                        }
+
+                    /* ۲. آشکارسازی دقیق ریشه سند چاپ و فرزندان آن */
+                    #letter-print-root, #letter-print-root * { 
+                        visibility: visible !important;
+                    } 
+
+                    #letter-print-root { 
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 210mm !important; 
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        background: transparent !important;
+                    } 
+
+                    .letter-a4-page { 
+                        position: relative !important; 
+                        width: 210mm !important; 
+                        height: 292mm !important; 
+                        max-height: 292mm !important; 
+                        min-height: 292mm !important; 
+                        margin: 0 auto !important; 
+                        box-sizing: border-box !important; 
+                        border: none !important; 
+                        box-shadow: none !important; 
+                        overflow: hidden !important; 
+                        background-color: transparent !important; 
+                        
+                        /* حذف کامل سربرگ از چاپ فیزیکی/PDF */
+                        background-image: none !important; 
+
+                        /* تفکیک صفحات بدون ایجاد برگه سفید اضافی */
+                        page-break-after: always !important;
+                        break-after: page !important;
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                    } 
+
+                    /* برگه آخر نباید دستور شکست به برگه بعد داشته باشد */
+                    .letter-a4-page:last-child,
+                    .letter-a4-page:last-of-type {
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
                     }
-                `}
+                }
+            `}
             </style>
+
             {/* مودال پیگیری تحویل و پیک */}
             {showIssueModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 print:hidden">
@@ -1173,7 +1175,6 @@ const SecretariatDetailScreen = () => {
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
                             {atomicUnits.map((unit, uIdx) => {
-                                // تشخیص اینکه این سطر در کدام برگه قرار گرفته
                                 let pageOfUnit = 1;
                                 for (let s = 0; s < currentSplitIndices.length; s++) {
                                     if (uIdx >= currentSplitIndices[s]) pageOfUnit = s + 2;
@@ -1214,7 +1215,6 @@ const SecretariatDetailScreen = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => {
-                                                            // تنظیم نزدیک‌ترین مرز روی این سطر
                                                             const boundaryToMove = Math.min(pageOfUnit - 1, totalPages - 2);
                                                             const newSplits = [...currentSplitIndices];
                                                             newSplits[boundaryToMove] = uIdx;
@@ -1754,7 +1754,7 @@ const SecretariatDetailScreen = () => {
                         </div>
 
                         <div className="p-3 sm:p-4 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/30 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                            سطر یا پاراگرافی که می‌خواهید آغازگر برگه بعدی باشد را مشخص کنید. با کلیک بر روی دکمه برش در هر سطر، نقطه شکست فوراً تغییر می‌کند.
+                            سطر یا پاراگرافی که می‌خواهید آغازگر برگه بعدی باشد را انتخاب کنید. با کلیک بر روی دکمه برش در هر سطر، نقطه شکست فوراً تغییر می‌کند.
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -1926,9 +1926,8 @@ const SecretariatDetailScreen = () => {
                                         ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                                         style={{ 
                                             width: '210mm', 
-                                            /* تغییر از 296mm به 296.5mm */
-                                            height: '296.5mm',        
-                                            maxHeight: '296.5mm',
+                                            height: '292mm',
+                                            maxHeight: '292mm',
                                             paddingTop: `${sheetPadding.top}mm`,
                                             paddingBottom: `${sheetPadding.bottom}mm`,
                                             paddingRight: `${sheetPadding.right}mm`,
@@ -1941,7 +1940,7 @@ const SecretariatDetailScreen = () => {
                                             overflow: 'hidden',
                                             fontFamily: printFont,
                                             backgroundImage: (printMode === 'LETTERHEAD' && showLetterheadBg) ? `url(${sarbargImg})` : 'none',
-                                            backgroundSize: '210mm 297mm',
+                                            backgroundSize: '100% 100%', /* 👈 اصلاح کامل نمایش تصویر سربرگ در پیش‌نمایش بدون بریدگی */
                                             backgroundRepeat: 'no-repeat',
                                             backgroundPosition: 'top center'
                                         }}
@@ -2157,8 +2156,6 @@ const SecretariatDetailScreen = () => {
                                                 {pageBodyText}
                                             </DraggableElement>
 
-                                        
-
                                             {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضای تفکیک شده */}
                                             <div className="flex justify-between items-end pb-2 relative text-black avoid-break mt-auto shrink-0 pt-3">
                                                 {/* رونوشت (فقط در برگه آخر چاپ شود) */}
@@ -2244,7 +2241,7 @@ const SecretariatDetailScreen = () => {
                                                                     width: 'auto',
                                                                     maxWidth: '100%',
                                                                     objectFit: 'contain'
-                                                                }}
+                                                                }} 
                                                                 className="mix-blend-multiply select-none pointer-events-none drop-shadow-sm" 
                                                             />
                                                         ) : (
