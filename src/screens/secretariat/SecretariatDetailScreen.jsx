@@ -927,6 +927,9 @@ const SecretariatDetailScreen = () => {
                             color: black !important; 
                             -webkit-print-color-adjust: exact !important; 
                             print-color-adjust: exact !important; 
+                            /* اضافه شدن برای جلوگیری از اسکرول مخفی که صفحه سفید می‌سازد */
+                            overflow-x: hidden !important;
+                            overflow-y: hidden !important;
                         } 
                         /* مخفی کردن سایر بخش‌ها از جریان صفحه */
                         body * { 
@@ -947,9 +950,10 @@ const SecretariatDetailScreen = () => {
                         .letter-a4-page { 
                             position: relative !important; 
                             width: 210mm !important; 
-                            height: 296mm !important; /* حاشیه امن طلایی برای مانیتورهای مختلف */
-                            max-height: 296mm !important; 
-                            min-height: 296mm !important;
+                            /* استفاده از 296.5 میلی‌متر بجای 296 برای دقت بیشتر در مقیاس‌های مختلف */
+                            height: 296.5mm !important; 
+                            max-height: 296.5mm !important; 
+                            min-height: 296.5mm !important;
                             margin: 0 auto !important; 
                             padding-top: var(--sheet-pad-top, 12mm) !important; 
                             padding-bottom: var(--sheet-pad-bottom, 12mm) !important; 
@@ -961,19 +965,27 @@ const SecretariatDetailScreen = () => {
                             overflow: hidden !important; 
                             background-image: none !important; 
                             background-color: transparent !important; 
-                            page-break-after: always !important; 
-                            break-after: page !important; 
+                            
+                            /* ترفند اصلی برای جلوگیری از شکست ناخواسته صفحه */
+                            page-break-after: auto !important; 
+                            break-after: auto !important; 
                             page-break-inside: avoid !important;
                             break-inside: avoid !important;
                         } 
-                        .letter-a4-page:last-of-type {
+                        /* شکست صفحه فقط برای اِلمان‌هایی که آخرین فرزند نیستند */
+                        .letter-a4-page:not(:last-child) {
+                            page-break-after: always !important; 
+                            break-after: page !important; 
+                        }
+                        .letter-a4-page:last-child {
                             page-break-after: avoid !important; 
                             break-after: avoid !important; 
+                            /* جلوگیری از پرتاب شدن یک پیکسل به صفحه بعد */
+                            margin-bottom: 0 !important; 
                         }
                     }
                 `}
             </style>
-
             {/* مودال پیگیری تحویل و پیک */}
             {showIssueModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 print:hidden">
@@ -1914,8 +1926,9 @@ const SecretariatDetailScreen = () => {
                                         ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                                         style={{ 
                                             width: '210mm', 
-                                            height: '296mm',       /* تنظیم ارتفاع روی 296 میلی‌متر */
-                                            maxHeight: '296mm',
+                                            /* تغییر از 296mm به 296.5mm */
+                                            height: '296.5mm',        
+                                            maxHeight: '296.5mm',
                                             paddingTop: `${sheetPadding.top}mm`,
                                             paddingBottom: `${sheetPadding.bottom}mm`,
                                             paddingRight: `${sheetPadding.right}mm`,
