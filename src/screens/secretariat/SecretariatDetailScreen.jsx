@@ -922,14 +922,13 @@ const SecretariatDetailScreen = () => {
                             margin: 0 !important; 
                             padding: 0 !important; 
                             width: 210mm !important; 
-                            min-height: 297mm !important;
-                            height: auto !important; 
+                            height: max-content !important; 
                             background: white !important; 
                             color: black !important; 
                             -webkit-print-color-adjust: exact !important; 
                             print-color-adjust: exact !important; 
-                            overflow: visible !important; 
                         } 
+                        /* مخفی کردن سایر بخش‌ها از جریان صفحه */
                         body * { 
                             visibility: hidden !important; 
                         } 
@@ -948,10 +947,10 @@ const SecretariatDetailScreen = () => {
                         .letter-a4-page { 
                             position: relative !important; 
                             width: 210mm !important; 
-                            height: 296.5mm !important; 
-                            max-height: 296.5mm !important; 
-                            min-height: 296.5mm !important;
-                            margin: 0 !important; 
+                            height: 296mm !important; /* حاشیه امن طلایی برای مانیتورهای مختلف */
+                            max-height: 296mm !important; 
+                            min-height: 296mm !important;
+                            margin: 0 auto !important; 
                             padding-top: var(--sheet-pad-top, 12mm) !important; 
                             padding-bottom: var(--sheet-pad-bottom, 12mm) !important; 
                             padding-right: var(--sheet-pad-right, 15mm) !important; 
@@ -964,10 +963,12 @@ const SecretariatDetailScreen = () => {
                             background-color: transparent !important; 
                             page-break-after: always !important; 
                             break-after: page !important; 
+                            page-break-inside: avoid !important;
+                            break-inside: avoid !important;
                         } 
-                        .letter-a4-page:last-child {
-                            page-break-after: auto !important; 
-                            break-after: auto !important; 
+                        .letter-a4-page:last-of-type {
+                            page-break-after: avoid !important; 
+                            break-after: avoid !important; 
                         }
                     }
                 `}
@@ -1913,8 +1914,8 @@ const SecretariatDetailScreen = () => {
                                         ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                                         style={{ 
                                             width: '210mm', 
-                                            height: '296.5mm',
-                                            maxHeight: '296.5mm',
+                                            height: '296mm',       /* تنظیم ارتفاع روی 296 میلی‌متر */
+                                            maxHeight: '296mm',
                                             paddingTop: `${sheetPadding.top}mm`,
                                             paddingBottom: `${sheetPadding.bottom}mm`,
                                             paddingRight: `${sheetPadding.right}mm`,
@@ -2145,15 +2146,15 @@ const SecretariatDetailScreen = () => {
 
                                         
 
-                                            {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضا */}
+                                            {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضای تفکیک شده */}
                                             <div className="flex justify-between items-end pb-2 relative text-black avoid-break mt-auto shrink-0 pt-3">
                                                 {/* رونوشت (فقط در برگه آخر چاپ شود) */}
                                                 <DraggableElement 
-                                                    id={isFirstPage ? "footer-cc" : `footer-cc-p${pageNum}`} 
+                                                    id={`footer-cc-p${pageNum}`} 
                                                     label={`رونوشت (برگه ${pageNum})`} 
                                                     isEditMode={isLayoutEditMode} 
-                                                    position={layoutPositions[isFirstPage ? "footer-cc" : `footer-cc-p${pageNum}`] || layoutPositions['footer-cc']} 
-                                                    styleData={layoutStyles[isFirstPage ? "footer-cc" : `footer-cc-p${pageNum}`] || layoutStyles['footer-cc']} 
+                                                    position={layoutPositions[`footer-cc-p${pageNum}`] || layoutPositions['footer-cc-p1']} 
+                                                    styleData={layoutStyles[`footer-cc-p${pageNum}`] || layoutStyles['footer-cc-p1']} 
                                                     onStyleChange={handleUpdateStyle} 
                                                     onDragEnd={handleUpdatePosition} 
                                                     className="w-1/3 text-xs print:text-sm opacity-90"
@@ -2169,11 +2170,11 @@ const SecretariatDetailScreen = () => {
                                                 
                                                 {/* مهر ثبت مقصد (فقط در برگه آخر) */}
                                                 <DraggableElement 
-                                                    id={isFirstPage ? "footer-dest" : `footer-dest-p${pageNum}`} 
+                                                    id={`footer-dest-p${pageNum}`} 
                                                     label={`مهر ثبت مقصد (برگه ${pageNum})`} 
                                                     isEditMode={isLayoutEditMode} 
-                                                    position={layoutPositions[isFirstPage ? "footer-dest" : `footer-dest-p${pageNum}`] || layoutPositions['footer-dest']} 
-                                                    styleData={layoutStyles[isFirstPage ? "footer-dest" : `footer-dest-p${pageNum}`] || layoutStyles['footer-dest']} 
+                                                    position={layoutPositions[`footer-dest-p${pageNum}`] || layoutPositions['footer-dest-p1']} 
+                                                    styleData={layoutStyles[`footer-dest-p${pageNum}`] || layoutStyles['footer-dest-p1']} 
                                                     onStyleChange={handleUpdateStyle} 
                                                     onDragEnd={handleUpdatePosition} 
                                                     className="w-1/3 flex justify-center items-center relative h-28"
@@ -2192,28 +2193,40 @@ const SecretariatDetailScreen = () => {
                                                     )}
                                                 </DraggableElement>
 
-                                                {/* ستون مهر و امضا (در تمام برگه‌ها چاپ شود) */}
-                                                <DraggableElement 
-                                                    id={isFirstPage ? "footer-sign-p1" : `footer-sign-p${pageNum}`} 
-                                                    label={`مهر و امضا (برگه ${pageNum})`} 
-                                                    isEditMode={isLayoutEditMode} 
-                                                    position={layoutPositions[isFirstPage ? "footer-sign-p1" : `footer-sign-p${pageNum}`] || layoutPositions['footer-sign-p1']} 
-                                                    styleData={layoutStyles[isFirstPage ? "footer-sign-p1" : `footer-sign-p${pageNum}`] || layoutStyles['footer-sign-p1']} 
-                                                    onStyleChange={handleUpdateStyle} 
-                                                    onDragEnd={handleUpdatePosition} 
-                                                    className="w-1/3 flex flex-col items-center text-center relative"
-                                                >
-                                                    <span className="mb-1 text-sm font-bold w-full text-center">
+                                                {/* ستون مهر و امضا (تقسیم شده به ۳ المان مستقل در تمام برگه‌ها) */}
+                                                <div className="w-1/3 flex flex-col items-center text-center relative">
+                                                    
+                                                    {/* ۱. المان عنوان (مهر و امضا) */}
+                                                    <DraggableElement 
+                                                        id={`footer-sign-title-p${pageNum}`} 
+                                                        label={`عنوان امضا (برگه ${pageNum})`} 
+                                                        isEditMode={isLayoutEditMode} 
+                                                        position={layoutPositions[`footer-sign-title-p${pageNum}`] || layoutPositions['footer-sign-title-p1']} 
+                                                        styleData={layoutStyles[`footer-sign-title-p${pageNum}`] || layoutStyles['footer-sign-title-p1']} 
+                                                        onStyleChange={handleUpdateStyle} 
+                                                        onDragEnd={handleUpdatePosition} 
+                                                        className="mb-1 text-sm font-bold w-full text-center"
+                                                    >
                                                         مهر و امضا
-                                                    </span>
+                                                    </DraggableElement>
 
-                                                    <div className="flex flex-col justify-center items-center w-full min-h-[85px] my-1 relative">
+                                                    {/* ۲. المان تصویر امضا (کادر امضا) */}
+                                                    <DraggableElement 
+                                                        id={`footer-sign-img-p${pageNum}`} 
+                                                        label={`کادر امضا (برگه ${pageNum})`} 
+                                                        isEditMode={isLayoutEditMode} 
+                                                        position={layoutPositions[`footer-sign-img-p${pageNum}`] || layoutPositions['footer-sign-img-p1']} 
+                                                        styleData={layoutStyles[`footer-sign-img-p${pageNum}`] || layoutStyles['footer-sign-img-p1']} 
+                                                        onStyleChange={handleUpdateStyle} 
+                                                        onDragEnd={handleUpdatePosition} 
+                                                        className="flex flex-col justify-center items-center w-full min-h-[85px] my-1 relative"
+                                                    >
                                                         {(letter.drawn_signature || letter.signature || letter.signature_image || letter.signature_url) ? (
                                                             <img 
                                                                 src={letter.drawn_signature || letter.signature || letter.signature_image || letter.signature_url} 
                                                                 alt="امضا" 
                                                                 style={{ 
-                                                                    height: `${Math.round(90 * (layoutStyles['footer-sign-img']?.scale || 1))}px`,
+                                                                    height: `${Math.round(90 * (layoutStyles[`footer-sign-img-p${pageNum}`]?.scale || layoutStyles['footer-sign-img-p1']?.scale || 1))}px`,
                                                                     maxHeight: '150px',
                                                                     width: 'auto',
                                                                     maxWidth: '100%',
@@ -2226,12 +2239,22 @@ const SecretariatDetailScreen = () => {
                                                                 محل امضا
                                                             </div>
                                                         )}
-                                                    </div>
+                                                    </DraggableElement>
 
-                                                    <div className="mt-1 text-center w-full font-bold text-sm whitespace-pre-wrap leading-relaxed">
+                                                    {/* ۳. المان نام امضاکننده */}
+                                                    <DraggableElement 
+                                                        id={`footer-sign-name-p${pageNum}`} 
+                                                        label={`نام امضاکننده (برگه ${pageNum})`} 
+                                                        isEditMode={isLayoutEditMode} 
+                                                        position={layoutPositions[`footer-sign-name-p${pageNum}`] || layoutPositions['footer-sign-name-p1']} 
+                                                        styleData={layoutStyles[`footer-sign-name-p${pageNum}`] || layoutStyles['footer-sign-name-p1']} 
+                                                        onStyleChange={handleUpdateStyle} 
+                                                        onDragEnd={handleUpdatePosition} 
+                                                        className="mt-1 text-center w-full font-bold text-sm whitespace-pre-wrap leading-relaxed"
+                                                    >
                                                         {letter.manual_sender_name || letter.final_sender_name || 'مدیرعامل'}
-                                                    </div>
-                                                </DraggableElement>
+                                                    </DraggableElement>
+                                                </div>
                                             </div>
 
                                             {/* شماره صفحه درگ‌شدنی در پایین هر برگه بدون متن اضافه */}
