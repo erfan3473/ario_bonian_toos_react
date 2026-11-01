@@ -321,7 +321,7 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
-// 🚀 تجزیه‌کننده متن به واحدهای سطری/جمله‌ای مستقل جهت کنترل دقیق شکست صفحات
+// تجزیه‌کننده متن به واحدهای سطری/جمله‌ای مستقل جهت کنترل دقیق شکست صفحات
 const parseTextToAtomicUnits = (text) => {
     if (!text) return [];
     const paragraphs = text.split('\n');
@@ -336,7 +336,6 @@ const parseTextToAtomicUnits = (text) => {
             return;
         }
         
-        // تقسیم پاراگراف‌های طولانی به جملات کامل با حفظ نقطه‌گذاری
         const sentenceRegex = /[^.!?؟؛\n]+[.!?؟؛]+|\S[^.!?؟؛\n]+$/g;
         const sentences = para.match(sentenceRegex) || [para];
         
@@ -352,15 +351,15 @@ const parseTextToAtomicUnits = (text) => {
     return units;
 };
 
-// محاسبه خودکار نقاط شکست بر اساس ظرفیت هر صفحه
+// محاسبه خودکار نقاط شکست هنگام افزایش صفحات توسط کاربر
 const computeAutoSplitIndices = (units, numPages) => {
     if (!units || units.length <= 1 || numPages <= 1) return [];
 
     const weights = [];
     for (let i = 0; i < numPages; i++) {
-        if (i === 0) weights.push(0.85); // صفحه اول به دلیل مشخصات نامه ظرفیت کمتری دارد
-        else if (i === numPages - 1) weights.push(0.95); // صفحه آخر با امضا
-        else weights.push(1.3); // صفحات میانی تماماً متن هستند
+        if (i === 0) weights.push(0.85);
+        else if (i === numPages - 1) weights.push(0.95);
+        else weights.push(1.3);
     }
     const totalWeight = weights.reduce((a, b) => a + b, 0);
 
@@ -457,8 +456,12 @@ const SecretariatDetailScreen = () => {
     const [printFont, setPrintFont] = useState('Vazirmatn'); 
     const printMenuRef = useRef(null);
 
-    // 🚀 سیستم پویا و نامحدود برای تعداد صفحات و تنظیم دقیق نقاط شکست
-    const [pageSplitMode, setPageSplitMode] = useState('AUTO');
+    // شروع همیشگی از ۱ برگه؛ کاربر برحسب نیاز برگه اضافه/کم کرده و سطرها را جابجا می‌کند
+    const [pageCount, setPageCount] = useState(() => {
+        const saved = localStorage.getItem(`letterPageCount_${id}`);
+        return saved ? Math.max(1, parseInt(saved, 10) || 1) : 1;
+    });
+
     const [customSplitIndices, setCustomSplitIndices] = useState(null);
     const [showSplitModal, setShowSplitModal] = useState(false);
 
@@ -466,26 +469,10 @@ const SecretariatDetailScreen = () => {
     const [editRefText, setEditRefText] = useState("");
     const [selectedScannedId, setSelectedScannedId] = useState(null);
 
+    const totalPages = pageCount;
+
     // واحدهای تجزیه‌شده متن بدنه نامه
     const atomicUnits = useMemo(() => parseTextToAtomicUnits(letter?.body), [letter?.body]);
-
-    // تخمین خودکار تعداد صفحات
-    const estimatePageCount = (text) => {
-        if (!text) return 1;
-        if (text.includes('[صفحه بعد]') || text.includes('[PAGE_BREAK]')) {
-            return Math.max(1, text.split(/\[صفحه بعد\]|\[PAGE_BREAK\]/).length);
-        }
-        const len = text.length;
-        const lines = text.split('\n').reduce((acc, line) => acc + Math.max(1, Math.ceil(line.length / 75)), 0);
-        if (len > 3600 || lines > 50) return 4;
-        if (len > 2400 || lines > 34) return 3;
-        if (len > 850 || lines > 13) return 2;
-        return 1;
-    };
-
-    const totalPages = pageSplitMode === 'AUTO' 
-        ? estimatePageCount(letter?.body) 
-        : Math.max(1, Number(pageSplitMode) || 1);
 
     // محاسبه یا بازیابی نقاط شکست صفحات
     const currentSplitIndices = useMemo(() => {
@@ -547,8 +534,9 @@ const SecretariatDetailScreen = () => {
 
     const handleAddPage = () => {
         const next = totalPages + 1;
-        setPageSplitMode(next);
+        setPageCount(next);
         setCustomSplitIndices(null);
+        localStorage.setItem(`letterPageCount_${id}`, next);
         localStorage.removeItem(`letterSplits_${id}_${next}`);
         toast.success(`یک برگه اضافه شد (مجموع: ${toPersianDigits(next)} برگه)`);
     };
@@ -556,8 +544,9 @@ const SecretariatDetailScreen = () => {
     const handleRemovePage = () => {
         if (totalPages <= 1) return toast.error('حداقل ۱ برگه مورد نیاز است');
         const prev = totalPages - 1;
-        setPageSplitMode(prev);
+        setPageCount(prev);
         setCustomSplitIndices(null);
+        localStorage.setItem(`letterPageCount_${id}`, prev);
         localStorage.removeItem(`letterSplits_${id}_${prev}`);
         toast.success(`یک برگه کسر شد (مجموع: ${toPersianDigits(prev)} برگه)`);
     };
@@ -565,7 +554,7 @@ const SecretariatDetailScreen = () => {
     const handleResetSplitsToAuto = () => {
         setCustomSplitIndices(null);
         localStorage.removeItem(`letterSplits_${id}_${totalPages}`);
-        toast.success('تقسیم متن به حالت متوازن خودکار برگشت');
+        toast.success('تقسیم متن به حالت متوازن بازنشانی شد');
     };
 
     // تفکیک پیوست‌های تصویری و PDF برای نمایش در نامه وارده
@@ -858,7 +847,7 @@ const SecretariatDetailScreen = () => {
         setShowPrintMenu(false);
         setTimeout(() => {
             window.print();
-        }, 300);
+        }, 350);
     };
 
     if (loadingDetail || !letter) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
@@ -917,72 +906,78 @@ const SecretariatDetailScreen = () => {
                 @media print { 
                     @page { 
                         size: A4 portrait; 
-                        margin: 0 !important; 
+                        margin: 0mm !important; 
                     } 
                     
                     *, *:before, *:after {
                         box-sizing: border-box !important;
-                    }
-
-                    /* ۱. پنهان‌سازی سراسری بدون display:none کردن لایه‌های والد */
-                    body { 
-                        visibility: hidden !important;
-                        margin: 0 !important; 
-                        padding: 0 !important; 
-                        background: #fff !important; 
-                        color: #000 !important; 
                         -webkit-print-color-adjust: exact !important; 
                         print-color-adjust: exact !important; 
+                    }
+
+                    /* ریست استاندارد DOM برای جلوگیری از باگ پرینت سفید در ویندوزهای قدیمی */
+                    html, body, #root, #root > div, main { 
+                        width: 100% !important;
+                        margin: 0 !important; 
+                        padding: 0 !important; 
+                        background: #ffffff !important; 
+                        color: #000000 !important; 
+                        overflow: visible !important;
+                        height: auto !important;
+                        min-height: auto !important;
                     } 
 
-                    /* مخفی کردن المان‌های غیرضروری */
-                    .print\\:hidden {
+                    body {
+                        visibility: visible !important;
+                    }
+
+                    /* مخفی‌سازی تمیز اجزای کاربری بدون visibility:hidden سرتاسری */
+                    .print\\:hidden,
+                    nav,
+                    header,
+                    aside,
+                    button,
+                    .toast,
+                    #sidebar,
+                    #navbar {
                         display: none !important;
                     }
 
-                    /* ۲. آشکارسازی دقیق ریشه سند چاپ و فرزندان آن */
-                    #letter-print-root, #letter-print-root * { 
-                        visibility: visible !important;
-                    } 
-
+                    /* قرارگیری مستقیم در جریان چاپ */
                     #letter-print-root { 
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
+                        display: block !important;
+                        position: static !important;
                         width: 210mm !important; 
-                        margin: 0 !important; 
+                        margin: 0 auto !important; 
                         padding: 0 !important; 
                         background: transparent !important;
+                        float: none !important;
                     } 
 
                     .letter-a4-page { 
                         position: relative !important; 
                         width: 210mm !important; 
-                        height: 292mm !important; 
-                        max-height: 292mm !important; 
-                        min-height: 292mm !important; 
+                        height: 295mm !important; 
+                        max-height: 295mm !important; 
+                        min-height: 295mm !important; 
                         margin: 0 auto !important; 
                         box-sizing: border-box !important; 
                         border: none !important; 
                         box-shadow: none !important; 
                         overflow: hidden !important; 
-                        background-color: transparent !important; 
-                        
-                        /* حذف کامل سربرگ از چاپ فیزیکی/PDF */
+                        background-color: #ffffff !important; 
                         background-image: none !important; 
 
-                        /* تفکیک صفحات بدون ایجاد برگه سفید اضافی */
                         page-break-after: always !important;
                         break-after: page !important;
                         page-break-inside: avoid !important;
                         break-inside: avoid !important;
                     } 
 
-                    /* برگه آخر نباید دستور شکست به برگه بعد داشته باشد */
                     .letter-a4-page:last-child,
                     .letter-a4-page:last-of-type {
-                        page-break-after: avoid !important;
-                        break-after: avoid !important;
+                        page-break-after: auto !important;
+                        break-after: auto !important;
                     }
                 }
             `}
@@ -1158,7 +1153,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* ✂️ پنجره هوشمند و دقیق مدیریت نقطه شکست خطوط بین صفحات ✂️ */}
+            {/* پنجره مدیریت نقطه شکست خطوط بین صفحات */}
             {showSplitModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 print:hidden animate-fadeIn">
                     <div className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-gray-800 border-gray-200'}`}>
@@ -1184,7 +1179,6 @@ const SecretariatDetailScreen = () => {
 
                                 return (
                                     <React.Fragment key={unit.id}>
-                                        {/* نشانگر خط برش صفحه */}
                                         {isSplitBoundary && (
                                             <div className="flex items-center gap-2 my-2 py-1.5 px-3 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-400 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-sm">
                                                 <FaCut className="rotate-180" />
@@ -1373,7 +1367,7 @@ const SecretariatDetailScreen = () => {
                                             </button>
                                         </div>
 
-                                        {/* کنترلر پویا و نامحدود تعداد برگه‌ها */}
+                                        {/* کنترلر دستی تعداد برگه‌ها (شروع همیشگی از ۱) */}
                                         <div className={`p-2.5 border-b ${isDark ? 'border-slate-700 bg-slate-900/60' : 'border-gray-100 bg-blue-50/40'}`}>
                                             <div className="flex justify-between items-center mb-2 text-xs font-bold">
                                                 <span className="opacity-75">تعداد برگه‌ها:</span>
@@ -1381,36 +1375,26 @@ const SecretariatDetailScreen = () => {
                                                     <span className="text-blue-600 dark:text-blue-400 font-mono font-black">
                                                         {toPersianDigits(totalPages)} برگه
                                                     </span>
-                                                    {pageSplitMode === 'AUTO' && (
-                                                        <span className="text-[10px] text-gray-400">(خودکار)</span>
-                                                    )}
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center gap-1.5">
                                                 <button
                                                     type="button"
-                                                    onClick={() => { setPageSplitMode('AUTO'); setCustomSplitIndices(null); toast('حالت خودکار فعال شد'); }}
-                                                    className={`flex-1 py-1 text-xs font-bold rounded transition ${pageSplitMode === 'AUTO' ? 'bg-blue-600 text-white shadow' : 'bg-white dark:bg-slate-800 border text-gray-700 dark:text-gray-200'}`}
-                                                >
-                                                    خودکار
-                                                </button>
-                                                <button
-                                                    type="button"
                                                     onClick={handleRemovePage}
                                                     disabled={totalPages <= 1}
-                                                    className="px-2.5 py-1 text-xs font-bold rounded border bg-white dark:bg-slate-800 disabled:opacity-40 hover:bg-gray-100 transition"
+                                                    className="flex-1 py-1 text-xs font-bold rounded border bg-white dark:bg-slate-800 disabled:opacity-40 hover:bg-gray-100 transition flex items-center justify-center gap-1"
                                                     title="کاهش یک برگه"
                                                 >
-                                                    <FaMinus size={9} />
+                                                    <FaMinus size={8} /> <span>کاهش برگه</span>
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={handleAddPage}
-                                                    className="px-2.5 py-1 text-xs font-bold rounded border bg-white dark:bg-slate-800 hover:bg-gray-100 transition flex items-center gap-1"
+                                                    className="flex-1 py-1 text-xs font-bold rounded border bg-white dark:bg-slate-800 hover:bg-gray-100 transition flex items-center justify-center gap-1 text-blue-600"
                                                     title="افزودن برگه جدید"
                                                 >
-                                                    <FaPlus size={9} /> <span>افزودن برگه</span>
+                                                    <FaPlus size={8} /> <span>افزودن برگه</span>
                                                 </button>
                                             </div>
                                         </div>
@@ -1526,7 +1510,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* 🚀 نوار ابزار تنظیم چیدمان همراه با کنترل کامل حاشیه‌ها و افزودن برگه */}
+            {/* نوار ابزار تنظیم چیدمان همراه با کنترل کامل حاشیه‌ها و افزودن برگه */}
             {isLayoutEditMode && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-3 sm:p-4 rounded-xl mb-4 text-xs font-bold flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-4 print:hidden shadow-md">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -1742,105 +1726,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* ✂️ پنجره هوشمند و دقیق مدیریت نقطه شکست خطوط بین صفحات ✂️ */}
-            {showSplitModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 print:hidden animate-fadeIn">
-                    <div className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-gray-800 border-gray-200'}`}>
-                        <div className="flex items-center justify-between border-b px-4 sm:px-6 py-3.5 border-gray-200 dark:border-slate-700">
-                            <h3 className="font-black text-sm sm:text-base flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                                <FaCut /> تنظیم نقطه شکست خطوط بین صفحات ({toPersianDigits(totalPages)} برگه)
-                            </h3>
-                            <button onClick={() => setShowSplitModal(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
-                        </div>
-
-                        <div className="p-3 sm:p-4 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/30 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                            سطر یا پاراگرافی که می‌خواهید آغازگر برگه بعدی باشد را انتخاب کنید. با کلیک بر روی دکمه برش در هر سطر، نقطه شکست فوراً تغییر می‌کند.
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {atomicUnits.map((unit, uIdx) => {
-                                let pageOfUnit = 1;
-                                for (let s = 0; s < currentSplitIndices.length; s++) {
-                                    if (uIdx >= currentSplitIndices[s]) pageOfUnit = s + 2;
-                                }
-
-                                const isSplitBoundary = currentSplitIndices.includes(uIdx);
-
-                                return (
-                                    <React.Fragment key={unit.id}>
-                                        {/* نشانگر خط برش صفحه */}
-                                        {isSplitBoundary && (
-                                            <div className="flex items-center gap-2 my-2 py-1.5 px-3 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-400 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-sm">
-                                                <FaCut className="rotate-180" />
-                                                <span>✂️ شروع برگه {toPersianDigits(pageOfUnit)} از این خط</span>
-                                            </div>
-                                        )}
-
-                                        <div className={`p-2.5 rounded-xl border flex items-start justify-between gap-3 transition text-xs ${
-                                            isSplitBoundary 
-                                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800' 
-                                                : isDark ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500' : 'bg-gray-50 border-gray-200 hover:border-blue-400'
-                                        }`}>
-                                            <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                                                <span className="font-mono font-bold text-[10px] text-gray-400 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded shrink-0">
-                                                    #{toPersianDigits(uIdx + 1)}
-                                                </span>
-                                                <span className="leading-relaxed whitespace-pre-wrap font-medium">
-                                                    {unit.text}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                                    برگه {toPersianDigits(pageOfUnit)}
-                                                </span>
-
-                                                {uIdx > 0 && totalPages > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const boundaryToMove = Math.min(pageOfUnit - 1, totalPages - 2);
-                                                            const newSplits = [...currentSplitIndices];
-                                                            newSplits[boundaryToMove] = uIdx;
-                                                            newSplits.sort((a, b) => a - b);
-                                                            setCustomSplitIndices(newSplits);
-                                                            localStorage.setItem(`letterSplits_${id}_${totalPages}`, JSON.stringify(newSplits));
-                                                            toast.success(`شروع برگه از سطر #${toPersianDigits(uIdx + 1)} تنظیم شد`);
-                                                        }}
-                                                        className="px-2 py-1 rounded bg-white dark:bg-slate-700 border hover:bg-gray-100 text-[10px] font-bold text-gray-700 dark:text-gray-200 transition"
-                                                        title="برش صفحه از ابتدای این سطر"
-                                                    >
-                                                        ✂️ برش از اینجا
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </React.Fragment>
-                                );
-                            })}
-                        </div>
-
-                        <div className="flex items-center justify-between border-t px-4 sm:px-6 py-3 bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-slate-700">
-                            <button
-                                type="button"
-                                onClick={handleResetSplitsToAuto}
-                                className="px-3 py-1.5 rounded-lg border text-xs font-bold bg-white dark:bg-slate-800 hover:bg-gray-100 text-gray-700 dark:text-gray-300 transition"
-                            >
-                                🔄 بازنشانی به تقسیم خودکار
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowSplitModal(false)}
-                                className="px-5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-md"
-                            >
-                                ✅ تایید و بستن
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* 🌟 بخش اصلی پرینت و نمایش رسمی A4 (پشتیبانی خودکار از ۱ تا N صفحه) 🌟 */}
+            {/* بخش اصلی پرینت و نمایش رسمی A4 */}
             <div className="w-full print:p-0 print:m-0">
                 <div className="md:hidden flex items-center justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400 px-3 py-1.5 mb-2 bg-gray-100 dark:bg-slate-800/80 rounded-lg border border-gray-200 dark:border-slate-700 print:hidden">
                     <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
@@ -1861,13 +1747,11 @@ const SecretariatDetailScreen = () => {
 
                             return (
                                 <React.Fragment key={pageNum}>
-                                    {/* خط تفکیک‌کننده برگه‌ها به همراه دکمه‌های تنظیم سطر بین دو برگه (در پرینت فیزیکی مخفی است) */}
                                     {pIndex > 0 && (
                                         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 my-5 print:hidden select-none">
                                             <div className="h-px bg-gray-300 dark:bg-slate-700 flex-1 min-w-[20px]"></div>
                                             
                                             <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-800 p-1.5 px-3 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">
-                                                {/* برچسب مرز دو برگه */}
                                                 <span className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5">
                                                     <FaCopy size={11} />
                                                     <span>پایان برگه {toPersianDigits(pIndex)} — شروع برگه {toPersianDigits(pageNum)}</span>
@@ -1875,7 +1759,6 @@ const SecretariatDetailScreen = () => {
 
                                                 <div className="h-4 w-px bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
 
-                                                {/* دکمه انتقال سطر به برگه بعد */}
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
@@ -1888,7 +1771,6 @@ const SecretariatDetailScreen = () => {
                                                     <FaMinus size={8} /> سطر به برگه {toPersianDigits(pageNum)}
                                                 </button>
 
-                                                {/* دکمه جذب سطر از برگه بعد */}
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
@@ -1901,7 +1783,6 @@ const SecretariatDetailScreen = () => {
                                                     <FaPlus size={8} /> سطر به برگه {toPersianDigits(pIndex)}
                                                 </button>
 
-                                                {/* دکمه باز کردن پنجره انتخاب دقیق سطر */}
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
@@ -1926,28 +1807,25 @@ const SecretariatDetailScreen = () => {
                                         ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                                         style={{ 
                                             width: '210mm', 
-                                            height: '292mm',
-                                            maxHeight: '292mm',
+                                            height: '295mm',
+                                            maxHeight: '295mm',
+                                            minHeight: '295mm',
                                             paddingTop: `${sheetPadding.top}mm`,
                                             paddingBottom: `${sheetPadding.bottom}mm`,
                                             paddingRight: `${sheetPadding.right}mm`,
                                             paddingLeft: `${sheetPadding.left}mm`,
-                                            '--sheet-pad-top': `${sheetPadding.top}mm`,
-                                            '--sheet-pad-bottom': `${sheetPadding.bottom}mm`,
-                                            '--sheet-pad-right': `${sheetPadding.right}mm`,
-                                            '--sheet-pad-left': `${sheetPadding.left}mm`,
                                             boxSizing: 'border-box',
                                             overflow: 'hidden',
                                             fontFamily: printFont,
                                             backgroundImage: (printMode === 'LETTERHEAD' && showLetterheadBg) ? `url(${sarbargImg})` : 'none',
-                                            backgroundSize: '100% 100%', /* 👈 اصلاح کامل نمایش تصویر سربرگ در پیش‌نمایش بدون بریدگی */
+                                            backgroundSize: '100% 100%',
                                             backgroundRepeat: 'no-repeat',
                                             backgroundPosition: 'top center'
                                         }}
                                     >
                                         <div className="flex-1 flex flex-col overflow-hidden">
                                             
-                                            {/* هدر نامه در صفحه ۱ و تکرار ساختار در صفحات بعدی */}
+                                            {/* هدر نامه */}
                                             <div className="flex justify-between items-start pb-2 relative mt-1 shrink-0">
                                                 
                                                 {/* ۱. ستون لوگو و نام فرستنده */}
@@ -1993,7 +1871,7 @@ const SecretariatDetailScreen = () => {
                                                     )}
                                                 </div>
                                                 
-                                                {/* ۲. عبارت «به نام خدا» (تنها در برگه اول تکرار می‌شود و در صفحات بعدی خالی است) */}
+                                                {/* ۲. عبارت به نام خدا */}
                                                 {isFirstPage ? (
                                                     <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 pt-2 md:pt-4">
                                                         <div className="w-full flex justify-center items-center text-center">
@@ -2099,18 +1977,60 @@ const SecretariatDetailScreen = () => {
                                             {/* مشخصات گیرنده، القاب، موضوع، عطف و قرارداد (صرفاً در صفحه ۱) */}
                                             {isFirstPage && (
                                                 <div className="space-y-2 mb-3 text-sm md:text-base print:text-base leading-relaxed text-black shrink-0">
-                                                    {letter.final_receiver_name && letter.final_receiver_name !== "-" && (
-                                                        <DraggableElement id="body-receiver" label="مخاطب/گیرنده" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver']} styleData={layoutStyles['body-receiver']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                                                            <strong className="text-lg">{letter.final_receiver_name}</strong>
+                                                    
+                                                    {/* ۱. سازمان مقصد / گیرنده خارجی */}
+                                                    {letter.external_receiver_detail?.name && (
+                                                        <DraggableElement 
+                                                            id="body-receiver-org" 
+                                                            label="سازمان مقصد" 
+                                                            isEditMode={isLayoutEditMode} 
+                                                            position={layoutPositions['body-receiver-org']} 
+                                                            styleData={layoutStyles['body-receiver-org']} 
+                                                            onStyleChange={handleUpdateStyle} 
+                                                            onDragEnd={handleUpdatePosition} 
+                                                            className="flex items-baseline w-full"
+                                                        >
+                                                            <strong className="text-lg text-black">{letter.external_receiver_detail.name}</strong>
                                                         </DraggableElement>
                                                     )}
 
+                                                    {/* ۲. نام / شخص گیرنده */}
+                                                    {(letter.manual_receiver_name || (!letter.external_receiver_detail?.name && letter.final_receiver_name && letter.final_receiver_name !== "-")) && (
+                                                        <DraggableElement 
+                                                            id="body-receiver" 
+                                                            label="نام گیرنده / شخص مخاطب" 
+                                                            isEditMode={isLayoutEditMode} 
+                                                            position={layoutPositions['body-receiver']} 
+                                                            styleData={layoutStyles['body-receiver']} 
+                                                            onStyleChange={handleUpdateStyle} 
+                                                            onDragEnd={handleUpdatePosition} 
+                                                            className="flex items-baseline w-full"
+                                                        >
+                                                            <strong className="text-base text-black">
+                                                                {letter.manual_receiver_name || letter.final_receiver_name}
+                                                            </strong>
+                                                        </DraggableElement>
+                                                    )}
+
+                                                    {/* ۳. عناوین و سمت‌های گیرنده */}
                                                     {letter.receiver_persons && (
-                                                        <DraggableElement id="body-receiver-titles" label="عناوین گیرنده" isEditMode={isLayoutEditMode} position={layoutPositions['body-receiver-titles']} styleData={layoutStyles['body-receiver-titles']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-start mt-1 text-sm w-full">
-                                                            <p className="whitespace-pre-wrap font-bold leading-relaxed">{letter.receiver_persons}</p>
+                                                        <DraggableElement 
+                                                            id="body-receiver-titles" 
+                                                            label="عناوین گیرنده" 
+                                                            isEditMode={isLayoutEditMode} 
+                                                            position={layoutPositions['body-receiver-titles']} 
+                                                            styleData={layoutStyles['body-receiver-titles']} 
+                                                            onStyleChange={handleUpdateStyle} 
+                                                            onDragEnd={handleUpdatePosition} 
+                                                            className="flex items-start mt-0.5 text-sm w-full"
+                                                        >
+                                                            <p className="whitespace-pre-wrap font-bold leading-relaxed text-black">
+                                                                {letter.receiver_persons}
+                                                            </p>
                                                         </DraggableElement>
                                                     )}
                                                     
+                                                    {/* موضوع نامه */}
                                                     <DraggableElement id="body-subject" label="موضوع نامه" isEditMode={isLayoutEditMode} position={layoutPositions['body-subject']} styleData={layoutStyles['body-subject']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-2 w-full">
                                                         <span className="w-24 opacity-80 font-normal shrink-0">موضوع: </span> 
                                                         <strong className="text-lg flex-1">{letter.subject}</strong>
@@ -2156,9 +2076,9 @@ const SecretariatDetailScreen = () => {
                                                 {pageBodyText}
                                             </DraggableElement>
 
-                                            {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضای تفکیک شده */}
+                                            {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضا */}
                                             <div className="flex justify-between items-end pb-2 relative text-black avoid-break mt-auto shrink-0 pt-3">
-                                                {/* رونوشت (فقط در برگه آخر چاپ شود) */}
+                                                {/* رونوشت (فقط در برگه آخر) */}
                                                 <DraggableElement 
                                                     id={`footer-cc-p${pageNum}`} 
                                                     label={`رونوشت (برگه ${pageNum})`} 
@@ -2203,10 +2123,8 @@ const SecretariatDetailScreen = () => {
                                                     )}
                                                 </DraggableElement>
 
-                                                {/* ستون مهر و امضا (تقسیم شده به ۳ المان مستقل در تمام برگه‌ها) */}
+                                                {/* ستون مهر و امضا */}
                                                 <div className="w-1/3 flex flex-col items-center text-center relative">
-                                                    
-                                                    {/* ۱. المان عنوان (مهر و امضا) */}
                                                     <DraggableElement 
                                                         id={`footer-sign-title-p${pageNum}`} 
                                                         label={`عنوان امضا (برگه ${pageNum})`} 
@@ -2220,7 +2138,6 @@ const SecretariatDetailScreen = () => {
                                                         مهر و امضا
                                                     </DraggableElement>
 
-                                                    {/* ۲. المان تصویر امضا (کادر امضا) */}
                                                     <DraggableElement 
                                                         id={`footer-sign-img-p${pageNum}`} 
                                                         label={`کادر امضا (برگه ${pageNum})`} 
@@ -2251,7 +2168,6 @@ const SecretariatDetailScreen = () => {
                                                         )}
                                                     </DraggableElement>
 
-                                                    {/* ۳. المان نام امضاکننده */}
                                                     <DraggableElement 
                                                         id={`footer-sign-name-p${pageNum}`} 
                                                         label={`نام امضاکننده (برگه ${pageNum})`} 
@@ -2267,7 +2183,7 @@ const SecretariatDetailScreen = () => {
                                                 </div>
                                             </div>
 
-                                            {/* شماره صفحه درگ‌شدنی در پایین هر برگه بدون متن اضافه */}
+                                            {/* شماره صفحه */}
                                             <DraggableElement 
                                                 id={`page-number-p${pageNum}`} 
                                                 label={`شماره صفحه ${pageNum}`} 
