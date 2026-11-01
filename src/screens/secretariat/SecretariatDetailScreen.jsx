@@ -456,7 +456,7 @@ const SecretariatDetailScreen = () => {
     const [printFont, setPrintFont] = useState('Vazirmatn'); 
     const printMenuRef = useRef(null);
 
-    // شروع همیشگی از ۱ برگه؛ کاربر برحسب نیاز برگه اضافه/کم کرده و سطرها را جابجا می‌کند
+    // شروع همیشگی از ۱ برگه
     const [pageCount, setPageCount] = useState(() => {
         const saved = localStorage.getItem(`letterPageCount_${id}`);
         return saved ? Math.max(1, parseInt(saved, 10) || 1) : 1;
@@ -841,13 +841,129 @@ const SecretariatDetailScreen = () => {
             .finally(() => setRegisteringDest(false));
     };
 
+    // موتور اختصاصی و ایزوله چاپ نامه‌ها (خارج از صفحه با ابعاد پایدار بدون visibility:hidden)
+    const executeIsolatedPrint = (mode) => {
+        const printRoot = document.getElementById('letter-print-root');
+        if (!printRoot) {
+            toast.error('محتوای نامه جهت چاپ یافت نشد.');
+            return;
+        }
+
+        const oldIframe = document.getElementById('letter-print-frame');
+        if (oldIframe) oldIframe.remove();
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'letter-print-frame';
+        iframe.style.position = 'fixed';
+        iframe.style.top = '-10000px';
+        iframe.style.left = '-10000px';
+        iframe.style.width = '1000px';
+        iframe.style.height = '1000px';
+        iframe.style.border = '0';
+        iframe.style.opacity = '0';
+        iframe.style.pointerEvents = 'none';
+        iframe.style.zIndex = '-9999';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        const clonedContent = printRoot.cloneNode(true);
+
+        // تبدیل translate3d به translate ساده جهت جلوگیری از باگ پرینترهای ویندوز
+        clonedContent.querySelectorAll('[style*="translate3d"]').forEach((el) => {
+            const style = el.getAttribute('style') || '';
+            const match = style.match(/translate3d\(([^,]+),\s*([^,]+),\s*[^)]+\)/);
+            if (match) {
+                const newStyle = style.replace(/translate3d\([^)]+\)/, `translate(${match[1].trim()}, ${match[2].trim()})`);
+                el.setAttribute('style', newStyle);
+            }
+        });
+
+        doc.open();
+        doc.write(`
+            <!DOCTYPE html>
+            <html dir="rtl" lang="fa">
+            <head>
+                <meta charset="utf-8">
+                <title>چاپ نامه ${letter?.indicator_number || ''}</title>
+                <style>
+                    @page {
+                        size: A4 portrait;
+                        margin: 0 !important;
+                    }
+                    *, *:before, *:after {
+                        box-sizing: border-box !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    html, body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #ffffff !important;
+                        color: #000000 !important;
+                        width: 210mm !important;
+                        font-family: ${printFont}, Tahoma, sans-serif !important;
+                    }
+                    .print\\:hidden, button, .no-print {
+                        display: none !important;
+                    }
+                    .letter-a4-page {
+                        position: relative !important;
+                        width: 210mm !important;
+                        height: 285mm !important;
+                        max-height: 285mm !important;
+                        margin: 0 auto !important;
+                        overflow: hidden !important;
+                        background: #ffffff !important;
+                        box-sizing: border-box !important;
+                    }
+                    .letter-a4-page:not(:last-child) {
+                        page-break-after: always !important;
+                        break-after: page !important;
+                    }
+                    .letter-a4-page:last-child {
+                        page-break-after: avoid !important;
+                        break-after: avoid !important;
+                        page-break-inside: avoid !important;
+                        break-inside: avoid !important;
+                    }
+                    .draggable-content {
+                        color: #000000 !important;
+                    }
+                    ${mode === 'LETTERHEAD' ? `
+                        #head-logo-img, [id^="head-logo-img"],
+                        #head-logo-name, [id^="head-logo-name"],
+                        #company-footer {
+                            display: none !important;
+                            visibility: hidden !important;
+                        }
+                    ` : ''}
+                </style>
+                ${Array.from(document.querySelectorAll('link[rel="stylesheet"], style')).map(s => s.outerHTML).join('\n')}
+            </head>
+            <body>
+                ${clonedContent.innerHTML}
+            </body>
+            </html>
+        `);
+        doc.close();
+
+        setTimeout(() => {
+            try {
+                iframe.contentWindow.focus();
+                iframe.contentWindow.print();
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setTimeout(() => iframe.remove(), 2500);
+            }
+        }, 400);
+    };
+
     const handlePrintAction = (mode) => {
         setIsLayoutEditMode(false); 
         setPrintMode(mode);
         setShowPrintMenu(false);
-        setTimeout(() => {
-            window.print();
-        }, 350);
+        executeIsolatedPrint(mode);
     };
 
     if (loadingDetail || !letter) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
@@ -901,84 +1017,6 @@ const SecretariatDetailScreen = () => {
                 }
                 .draggable-content[style*="font-size"] * {
                     font-size: inherit !important;
-                }
-
-                @media print { 
-                    @page { 
-                        size: A4 portrait; 
-                        margin: 0mm !important; 
-                    } 
-                    
-                    *, *:before, *:after {
-                        box-sizing: border-box !important;
-                        -webkit-print-color-adjust: exact !important; 
-                        print-color-adjust: exact !important; 
-                    }
-
-                    /* ریست استاندارد DOM برای جلوگیری از باگ پرینت سفید در ویندوزهای قدیمی */
-                    html, body, #root, #root > div, main { 
-                        width: 100% !important;
-                        margin: 0 !important; 
-                        padding: 0 !important; 
-                        background: #ffffff !important; 
-                        color: #000000 !important; 
-                        overflow: visible !important;
-                        height: auto !important;
-                        min-height: auto !important;
-                    } 
-
-                    body {
-                        visibility: visible !important;
-                    }
-
-                    /* مخفی‌سازی تمیز اجزای کاربری بدون visibility:hidden سرتاسری */
-                    .print\\:hidden,
-                    nav,
-                    header,
-                    aside,
-                    button,
-                    .toast,
-                    #sidebar,
-                    #navbar {
-                        display: none !important;
-                    }
-
-                    /* قرارگیری مستقیم در جریان چاپ */
-                    #letter-print-root { 
-                        display: block !important;
-                        position: static !important;
-                        width: 210mm !important; 
-                        margin: 0 auto !important; 
-                        padding: 0 !important; 
-                        background: transparent !important;
-                        float: none !important;
-                    } 
-
-                    .letter-a4-page { 
-                        position: relative !important; 
-                        width: 210mm !important; 
-                        height: 295mm !important; 
-                        max-height: 295mm !important; 
-                        min-height: 295mm !important; 
-                        margin: 0 auto !important; 
-                        box-sizing: border-box !important; 
-                        border: none !important; 
-                        box-shadow: none !important; 
-                        overflow: hidden !important; 
-                        background-color: #ffffff !important; 
-                        background-image: none !important; 
-
-                        page-break-after: always !important;
-                        break-after: page !important;
-                        page-break-inside: avoid !important;
-                        break-inside: avoid !important;
-                    } 
-
-                    .letter-a4-page:last-child,
-                    .letter-a4-page:last-of-type {
-                        page-break-after: auto !important;
-                        break-after: auto !important;
-                    }
                 }
             `}
             </style>
@@ -1153,7 +1191,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* پنجره مدیریت نقطه شکست خطوط بین صفحات */}
+            {/* پنجره تنظیم نقطه شکست خطوط بین صفحات */}
             {showSplitModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 print:hidden animate-fadeIn">
                     <div className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-gray-800 border-gray-200'}`}>
@@ -1807,9 +1845,9 @@ const SecretariatDetailScreen = () => {
                                         ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                                         style={{ 
                                             width: '210mm', 
-                                            height: '295mm',
-                                            maxHeight: '295mm',
-                                            minHeight: '295mm',
+                                            height: '285mm',
+                                            maxHeight: '285mm',
+                                            minHeight: '285mm',
                                             paddingTop: `${sheetPadding.top}mm`,
                                             paddingBottom: `${sheetPadding.bottom}mm`,
                                             paddingRight: `${sheetPadding.right}mm`,
