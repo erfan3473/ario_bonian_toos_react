@@ -56,7 +56,7 @@ const HomeScreen = () => {
               <div className="space-y-1.5 sm:space-y-2">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                   <span className="text-lg sm:text-xl md:text-2xl font-black tracking-tight">
-                    سامانه هوشمند مدیریت پسماند <span className="text-emerald-500">اکو</span>
+                    سامانه هوشمند مدیریت پسماند <span className="text-emerald-500">آریو پاک</span>
                   </span>
                   {/* نشان رسمی مجوز شهرداری */}
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border ${
