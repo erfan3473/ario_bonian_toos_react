@@ -85,7 +85,7 @@ const HomeScreen = () => {
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-emerald-700/30 transform hover:scale-105 active:scale-95 transition-all duration-300 text-xs sm:text-sm md:text-base"
               >
-                <span>ورود به سامانه پسماند اکو</span>
+                <span>ورود به سامانه پسماند آریو پاک</span>
                 <FaArrowLeft className="text-xs sm:text-sm" />
               </a>
             </div>
