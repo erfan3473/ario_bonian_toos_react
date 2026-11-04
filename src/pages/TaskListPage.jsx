@@ -20,12 +20,25 @@ import {
   FaInbox, FaPaperPlane, FaPlus, FaSpinner, FaClock, FaUser, FaChevronLeft,
   FaSearch, FaTimes, FaLayerGroup, FaBolt, FaLock, FaSitemap, FaTrash, 
   FaArrowLeft, FaListUl, FaFilter, FaSortAmountDown, FaUndo, FaChevronDown,
-  FaCheckCircle, FaCheck, FaCog, FaUserPlus, FaFileAlt
+  FaCheckCircle, FaCheck, FaCog, FaUserPlus, FaFileAlt, FaExclamationTriangle,
+  FaBan
 } from 'react-icons/fa';
 
 const TASK_TYPE_LABELS = { PAYROLL_FORM: 'تکمیل فرم حقوق', PURCHASE: 'خرید/تدارکات', REPORT: 'گزارش‌دهی' };
-const STATUS_COLORS = { PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30', IN_PROGRESS: 'bg-blue-500/10 text-blue-500 border-blue-500/30', DONE: 'bg-green-500/10 text-green-500 border-green-500/30', REJECTED: 'bg-red-500/10 text-red-500 border-red-500/30', CANCELLED: 'bg-gray-500/10 text-gray-500 border-gray-500/30' };
-const STATUS_LABELS = { PENDING: 'در انتظار', IN_PROGRESS: 'در جریان', DONE: 'انجام شده', REJECTED: 'رد شده', CANCELLED: 'لغو شده' };
+const STATUS_COLORS = { 
+  PENDING: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30', 
+  IN_PROGRESS: 'bg-blue-500/10 text-blue-500 border-blue-500/30', 
+  DONE: 'bg-green-500/10 text-green-500 border-green-500/30', 
+  REJECTED: 'bg-red-500/10 text-red-500 border-red-500/30', 
+  CANCELLED: 'bg-gray-500/10 text-gray-500 border-gray-500/30' 
+};
+const STATUS_LABELS = { 
+  PENDING: 'در انتظار', 
+  IN_PROGRESS: 'در جریان', 
+  DONE: 'انجام شده', 
+  REJECTED: 'رد شده', 
+  CANCELLED: 'لغو شده' 
+};
 
 const ASSIGNEE_STATE_CONFIG = {
   PENDING: { label: 'در انتظار اقدام', color: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
@@ -47,9 +60,22 @@ const APPROVER_STATUS_CONFIG = {
 };
 
 const URGENCY_LABELS = { LOW: 'کم', MEDIUM: 'متوسط', HIGH: 'زیاد', CRITICAL: 'بحرانی' };
-const URGENCY_COLORS = { LOW: 'bg-gray-500/10 text-gray-400 border-gray-500/30', MEDIUM: 'bg-blue-500/10 text-blue-400 border-blue-500/30', HIGH: 'bg-orange-500/10 text-orange-400 border-orange-500/30', CRITICAL: 'bg-red-500/10 text-red-400 border-red-500/30' };
-const URGENCY_OPTIONS = [ { value: 'LOW', label: 'کم' }, { value: 'MEDIUM', label: 'متوسط' }, { value: 'HIGH', label: 'زیاد' }, { value: 'CRITICAL', label: 'بحرانی' } ];
-const APPROVER_RULES = [ { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } ];
+const URGENCY_COLORS = { 
+  LOW: 'bg-gray-500/10 text-gray-400 border-gray-500/30', 
+  MEDIUM: 'bg-blue-500/10 text-blue-400 border-blue-500/30', 
+  HIGH: 'bg-orange-500/10 text-orange-400 border-orange-500/30', 
+  CRITICAL: 'bg-red-500/10 text-red-400 border-red-500/30' 
+};
+const URGENCY_OPTIONS = [ 
+  { value: 'LOW', label: 'کم' }, 
+  { value: 'MEDIUM', label: 'متوسط' }, 
+  { value: 'HIGH', label: 'زیاد' }, 
+  { value: 'CRITICAL', label: 'بحرانی' } 
+];
+const APPROVER_RULES = [ 
+  { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, 
+  { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } 
+];
 
 const URGENCY_WEIGHT = {
   CRITICAL: 4,
@@ -62,6 +88,13 @@ const AVATAR_BG_COLORS = [
   'bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-amber-600', 
   'bg-rose-600', 'bg-cyan-600', 'bg-indigo-600'
 ];
+
+// تشخیص دقیق منقضی بودن ماموریت (فقط موارد انجام نشده و لغو نشده با ددلاین منقضی)
+const isTaskExpired = (task) => {
+  if (!task?.deadline) return false;
+  if (task.status === 'DONE' || task.status === 'CANCELLED') return false;
+  return new Date(task.deadline) < new Date();
+};
 
 const CircleAvatar = ({ user, isDark, roleLabel = '', size = 'w-6 h-6 text-[9px]' }) => {
   const initial = user?.name ? user.name.trim()[0] : '?';
@@ -147,9 +180,17 @@ const TaskListPage = () => {
         dispatch(fetchMyTaskInbox());
       } else if (activeTab === 'sent') {
         dispatch(fetchSentTasks());
-      } else if (activeTab === 'completed') {
+      } else if (activeTab === 'completed' || activeTab === 'cancelled') {
         dispatch(fetchMyTaskInbox());
         dispatch(fetchSentTasks());
+        if (isAdmin) dispatch(fetchAllTasksAdmin());
+      } else if (activeTab === 'expired') {
+        if (isAdmin) {
+          dispatch(fetchAllTasksAdmin());
+        } else {
+          dispatch(fetchMyTaskInbox());
+          dispatch(fetchSentTasks());
+        }
       } else if (activeTab === 'all' && isAdmin) {
         dispatch(fetchAllTasksAdmin());
       }
@@ -164,36 +205,63 @@ const TaskListPage = () => {
     }
   }, [showTemplatePanel, dispatch, templates?.length, taskTypes?.length, subordinates?.length]);
 
+  // تسک‌های دریافتی جاری (بدون تسک‌های خاتمه‌یافته یا کنسل شده)
   const activeInboxTasks = useMemo(() => {
-    return (inbox || []).filter(t => t.status !== 'DONE');
+    return (inbox || []).filter(t => t.status !== 'DONE' && t.status !== 'CANCELLED');
   }, [inbox]);
 
+  // تسک‌های ارسالی جاری (بدون تسک‌های خاتمه‌یافته یا کنسل شده)
   const activeSentTasks = useMemo(() => {
-    return (sentTasks || []).filter(t => t.status !== 'DONE');
+    return (sentTasks || []).filter(t => t.status !== 'DONE' && t.status !== 'CANCELLED');
   }, [sentTasks]);
 
+  // تسک‌های خاتمه‌یافته
   const completedTasks = useMemo(() => {
     const map = new Map();
-    (inbox || []).forEach(t => {
-      if (t.status === 'DONE') map.set(t.id, t);
-    });
-    (sentTasks || []).forEach(t => {
+    const sourcePool = isAdmin && allTasks?.length > 0 ? allTasks : [...(inbox || []), ...(sentTasks || [])];
+    sourcePool.forEach(t => {
       if (t.status === 'DONE') map.set(t.id, t);
     });
     return Array.from(map.values());
-  }, [inbox, sentTasks]);
+  }, [inbox, sentTasks, allTasks, isAdmin]);
+
+  // تسک‌های لغو شده
+  const cancelledTasks = useMemo(() => {
+    const map = new Map();
+    const sourcePool = isAdmin && allTasks?.length > 0 ? allTasks : [...(inbox || []), ...(sentTasks || [])];
+    sourcePool.forEach(t => {
+      if (t.status === 'CANCELLED') map.set(t.id, t);
+    });
+    return Array.from(map.values());
+  }, [inbox, sentTasks, allTasks, isAdmin]);
+
+  // تسک‌های منقضی شده (برای ادمین کل سازمان و برای کاربر عادی تسک‌های دریافتی و ارسالی خودش)
+  const expiredTasks = useMemo(() => {
+    const map = new Map();
+    const sourcePool = isAdmin && allTasks?.length > 0 ? allTasks : [...(inbox || []), ...(sentTasks || [])];
+    sourcePool.forEach(t => {
+      if (isTaskExpired(t)) {
+        map.set(t.id, t);
+      }
+    });
+    return Array.from(map.values());
+  }, [inbox, sentTasks, allTasks, isAdmin]);
 
   const currentList = useMemo(() => {
     if (activeTab === 'inbox') return activeInboxTasks;
     if (activeTab === 'sent') return activeSentTasks;
     if (activeTab === 'completed') return completedTasks;
+    if (activeTab === 'expired') return expiredTasks;
+    if (activeTab === 'cancelled') return cancelledTasks;
     return allTasks || [];
-  }, [activeTab, activeInboxTasks, activeSentTasks, completedTasks, allTasks]);
+  }, [activeTab, activeInboxTasks, activeSentTasks, completedTasks, expiredTasks, cancelledTasks, allTasks]);
 
   const isListLoading = 
     activeTab === 'inbox' ? loadingInbox : 
     activeTab === 'sent' ? loadingSent : 
-    activeTab === 'completed' ? (loadingInbox || loadingSent) : 
+    activeTab === 'completed' ? (loadingInbox || loadingSent || (isAdmin && loadingAllTasks)) : 
+    activeTab === 'cancelled' ? (loadingInbox || loadingSent || (isAdmin && loadingAllTasks)) : 
+    activeTab === 'expired' ? (isAdmin ? loadingAllTasks : (loadingInbox || loadingSent)) :
     loadingAllTasks;
 
   const processedList = useMemo(() => {
@@ -209,7 +277,7 @@ const TaskListPage = () => {
       );
     }
 
-    if (activeTab !== 'completed' && statusFilter !== 'ALL') {
+    if (!['completed', 'cancelled', 'expired'].includes(activeTab) && statusFilter !== 'ALL') {
       result = result.filter((t) => t.status === statusFilter);
     }
 
@@ -445,7 +513,7 @@ const TaskListPage = () => {
     setSortBy('created_desc');
   };
 
-  const hasActiveFilters = search !== '' || (activeTab !== 'completed' && statusFilter !== 'ALL') || sortBy !== 'created_desc';
+  const hasActiveFilters = search !== '' || (!['completed', 'cancelled', 'expired'].includes(activeTab) && statusFilter !== 'ALL') || sortBy !== 'created_desc';
 
   const toggleDropdown = (e, taskId, type) => {
     e.stopPropagation();
@@ -458,23 +526,20 @@ const TaskListPage = () => {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`} dir="rtl">
-      <div className="container mx-auto px-3 sm:px-4 py-6 max-w-6xl">
-        {/* هدر صفحه: اصلاح سایز عنوان و نمایش متن دکمه‌ها در گوشی */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-          
-          {/* عنوان ماموریت‌های من (جمع‌وجور در موبایل) */}
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-6xl">
+        
+        {/* هدر صفحه: بهینه‌سازی شده برای موبایل و دسکتاپ */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-5">
           <h1 className="text-base sm:text-2xl font-bold flex items-center gap-2">
-            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-900/30 shrink-0">
-              <FaInbox className="text-xs sm:text-lg" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-900/30 shrink-0">
+              <FaInbox className="text-sm sm:text-lg" />
             </div>
             <span>ماموریت‌های من</span>
           </h1>
 
-          {/* دکمه‌های عملیاتی (نمایش هم‌زمان آیکون و متن با چیدمان واکنش‌گرا در گوشی) */}
           <div className="flex items-center gap-1.5 w-full sm:w-auto">
             {isAdmin && (
               <>
-                {/* دکمه تنظیمات قالب */}
                 <button 
                   onClick={() => navigate('/tasks/templates')} 
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl transition-all font-bold text-[10px] sm:text-xs border shrink-0 ${
@@ -486,7 +551,6 @@ const TaskListPage = () => {
                   <span className="whitespace-nowrap">تنظیمات قالب</span>
                 </button>
 
-                {/* دکمه اجرای قالب */}
                 <button 
                   onClick={() => { setShowTemplatePanel(!showTemplatePanel); setShowCreateModal(false); }} 
                   className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl transition-all font-bold text-[10px] sm:text-xs border shrink-0 ${
@@ -496,29 +560,22 @@ const TaskListPage = () => {
                   }`}
                 >
                   <FaBolt size={11} className="shrink-0" />
-                  <span className="whitespace-nowrap">
-                    اجرای قالب<span className="hidden md:inline"> فریز شده</span>
-                  </span>
+                  <span className="whitespace-nowrap">اجرای قالب</span>
                 </button>
               </>
             )}
 
-            {/* دکمه ماموریت جدید */}
             <button 
               onClick={() => { setShowCreateModal(true); setShowTemplatePanel(false); }} 
               className="flex-1 sm:flex-initial flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-[10px] sm:text-xs shadow-md shadow-blue-900/30 shrink-0 transition-all"
             >
               <FaPlus size={11} className="shrink-0" />
-              <span className="whitespace-nowrap">
-                ماموریت جدید<span className="hidden md:inline"> (کامل)</span>
-              </span>
+              <span className="whitespace-nowrap">ماموریت جدید</span>
             </button>
           </div>
-
         </div>
 
-        {/* پنل اجرای قالب‌های فریز‌شده */}
-        {/* مودال اجرای قالب‌های فریز‌شده با پس‌زمینه مات و حالت باتم‌شیت در موبایل */}
+        {/* مودال اجرای قالب فریز‌شده */}
         {showTemplatePanel && isAdmin && (
           <div 
             onClick={() => setShowTemplatePanel(false)}
@@ -530,11 +587,8 @@ const TaskListPage = () => {
                 isDark ? 'bg-slate-900 border-purple-500/40 text-white' : 'bg-white border-purple-200 text-gray-900'
               }`}
             >
-              {/* هدر مودال همراه با دستگیره کشویی موبایل و ضربدر دایره‌ای */}
               <div className="flex flex-col border-b border-gray-200 dark:border-slate-800 shrink-0">
-                {/* خط نشانگر کشویی برای موبایل */}
                 <div className="sm:hidden w-10 h-1 bg-gray-400/40 rounded-full mx-auto mt-2" />
-                
                 <div className="flex items-center justify-between p-3.5 sm:p-4">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 border border-purple-500/30">
@@ -544,8 +598,6 @@ const TaskListPage = () => {
                       انتخاب و اجرای سریع قالب فریز‌شده
                     </h2>
                   </div>
-
-                  {/* 🌟 دایره شیک دور دکمه ضربدر */}
                   <button 
                     onClick={() => setShowTemplatePanel(false)} 
                     className={`w-8 h-8 rounded-full flex items-center justify-center transition-all border shadow-sm ${
@@ -553,16 +605,13 @@ const TaskListPage = () => {
                         ? 'bg-slate-800 hover:bg-red-500/20 border-slate-700 hover:border-red-500/40 text-gray-300 hover:text-red-400' 
                         : 'bg-gray-100 hover:bg-red-50 border-gray-300 hover:border-red-300 text-gray-500 hover:text-red-500'
                     }`}
-                    title="بستن"
                   >
                     <FaTimes size={13} />
                   </button>
                 </div>
               </div>
 
-              {/* بدنه اسکرول‌پذیر مودال */}
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-purple-500/30">
-                {/* Stepper */}
                 <div className="flex items-center justify-between relative max-w-sm mx-auto px-2 mb-6">
                   <div className={`absolute top-1/2 left-4 right-4 h-0.5 -translate-y-1/2 z-0 ${isDark ? 'bg-slate-700' : 'bg-gray-200'}`} />
                   
@@ -615,7 +664,6 @@ const TaskListPage = () => {
                               className={`shrink-0 p-3.5 rounded-xl border flex items-center justify-center transition-colors ${
                                 isDark ? 'border-red-900/50 bg-red-900/20 text-red-500 hover:bg-red-900/40' : 'border-red-200 bg-red-50 text-red-500 hover:bg-red-100'
                               }`}
-                              title="حذف این قالب"
                             >
                               <FaTrash size={14} />
                             </button>
@@ -703,7 +751,7 @@ const TaskListPage = () => {
                             <FaSitemap /> تخصیص پرسنل و مهلت مراحل {isStagesFrozen && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-lg ml-2">ساختار فریز شده</span>}
                           </h4>
                           <span className="text-[11px] text-gray-400">
-                            مرحله جاری: <strong className="text-purple-400 font-bold">{getActiveStageNameForPicker()} (مرحله انتخاب شده)</strong>
+                            مرحله جاری: <strong className="text-purple-400 font-bold">{getActiveStageNameForPicker()}</strong>
                           </span>
                         </div>
                         <button
@@ -743,11 +791,6 @@ const TaskListPage = () => {
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-sm font-bold text-gray-400">مرحله {index + 1}:</span>
                                     <span className="text-sm font-bold text-purple-400">{stage.stageName}</span>
-                                    {activeElement.id === stage.id && activeElement.type === 'STAGE' && (
-                                      <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-bold border border-purple-500/30">
-                                        مرحله انتخاب شده
-                                      </span>
-                                    )}
                                   </div>
                                   {!isStagesFrozen && stages.length > 1 && (
                                     <button onClick={(e) => { e.stopPropagation(); handleRemoveStage(stage.id); }} className="text-red-400 hover:text-red-500 p-1"><FaTrash size={14} /></button>
@@ -761,7 +804,7 @@ const TaskListPage = () => {
                                         <FaFileAlt size={10} className="text-purple-400" />
                                         توضیحات و شرح مرحله:
                                       </span>
-                                      {isStagesFrozen && <FaLock className="text-purple-400 text-[9px]" title="شرح مرحله فریز شده است" />}
+                                      {isStagesFrozen && <FaLock className="text-purple-400 text-[9px]" />}
                                     </div>
                                     {isStagesFrozen ? (
                                       <p className={`text-xs leading-relaxed max-h-24 overflow-y-auto ${stage.description ? (isDark ? 'text-gray-200 font-medium' : 'text-gray-800 font-medium') : 'text-gray-500 italic'}`}>
@@ -904,7 +947,6 @@ const TaskListPage = () => {
                 </div>
               </div>
 
-              {/* ناوبری استپر (فوتر چسبان مودال) */}
               <div className={`px-4 py-3 border-t flex items-center justify-between gap-3 shrink-0 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
                 {templateStep > 1 ? (
                   <button type="button" onClick={handleTemplatePrev} className={`w-28 rounded-xl py-2.5 text-xs font-bold border transition-colors ${isDark ? 'bg-slate-800 text-gray-300 border-slate-700 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>
@@ -931,80 +973,125 @@ const TaskListPage = () => {
           </div>
         )} 
 
-        {/* سربرگ‌ها / Tabs */}
-        <div className={`flex overflow-x-auto no-scrollbar gap-1.5 sm:gap-2 mb-6 p-1.5 rounded-xl border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+        {/* سربرگ‌ها / Tabs (واکنش‌گرا، اسکرول مخفی شکیل و تب‌های منقضی و لغو شده) */}
+        <div className={`flex overflow-x-auto no-scrollbar gap-1.5 sm:gap-2 mb-4 sm:mb-6 p-1.5 rounded-2xl border ${isDark ? 'bg-gray-800/90 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+          
+          {/* تب دریافتی */}
           <button
             onClick={() => handleTabChange('inbox')}
-            className={`flex-1 min-w-[105px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:py-3 rounded-lg transition-all font-medium text-xs sm:text-sm whitespace-nowrap ${
+            className={`flex-1 min-w-[90px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-2 sm:py-2.5 rounded-xl transition-all font-bold text-xs sm:text-sm whitespace-nowrap ${
               activeTab === 'inbox'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
                 : isDark
-                ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                ? 'text-gray-300 hover:text-white hover:bg-gray-700/60'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
           >
-            <FaInbox size={15} />
+            <FaInbox size={13} />
             <span>دریافتی</span>
             {activeInboxTasks.length > 0 && (
-              <span className="bg-blue-500 text-white text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-bold">
+              <span className="bg-blue-500/80 text-white text-[10px] px-1.5 py-0.2 rounded-full">
                 {activeInboxTasks.length}
               </span>
             )}
           </button>
 
+          {/* تب ارسالی */}
           <button
             onClick={() => handleTabChange('sent')}
-            className={`flex-1 min-w-[105px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:py-3 rounded-lg transition-all font-medium text-xs sm:text-sm whitespace-nowrap ${
+            className={`flex-1 min-w-[85px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-2 sm:py-2.5 rounded-xl transition-all font-bold text-xs sm:text-sm whitespace-nowrap ${
               activeTab === 'sent'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-900/30'
                 : isDark
-                ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                ? 'text-gray-300 hover:text-white hover:bg-gray-700/60'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
           >
-            <FaPaperPlane size={14} />
+            <FaPaperPlane size={12} />
             <span>ارسالی</span>
             {activeSentTasks.length > 0 && (
-              <span className={`${isDark ? 'bg-gray-600' : 'bg-gray-300 text-gray-800'} text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-bold`}>
+              <span className={`${isDark ? 'bg-gray-700 text-gray-200' : 'bg-gray-200 text-gray-800'} text-[10px] px-1.5 py-0.2 rounded-full`}>
                 {activeSentTasks.length}
               </span>
             )}
           </button>
 
+          {/* تب منقضی شده (جدید) */}
+          <button
+            onClick={() => handleTabChange('expired')}
+            className={`flex-1 min-w-[100px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-2 sm:py-2.5 rounded-xl transition-all font-bold text-xs sm:text-sm whitespace-nowrap ${
+              activeTab === 'expired'
+                ? 'bg-rose-600 text-white shadow-md shadow-rose-900/30'
+                : isDark
+                ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-950/30'
+                : 'text-rose-600 hover:text-rose-800 hover:bg-rose-50'
+            }`}
+          >
+            <FaExclamationTriangle size={12} />
+            <span>منقضی شده</span>
+            {expiredTasks.length > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+                {expiredTasks.length}
+              </span>
+            )}
+          </button>
+
+          {/* تب اتمام یافته */}
           <button
             onClick={() => handleTabChange('completed')}
-            className={`flex-1 min-w-[105px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:py-3 rounded-lg transition-all font-medium text-xs sm:text-sm whitespace-nowrap ${
+            className={`flex-1 min-w-[95px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-2 sm:py-2.5 rounded-xl transition-all font-bold text-xs sm:text-sm whitespace-nowrap ${
               activeTab === 'completed'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30'
                 : isDark
-                ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                ? 'text-gray-300 hover:text-white hover:bg-gray-700/60'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
             }`}
           >
-            <FaCheckCircle size={14} />
+            <FaCheckCircle size={13} />
             <span>اتمام یافته</span>
             {completedTasks.length > 0 && (
-              <span className="bg-emerald-500 text-white text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-bold">
+              <span className="bg-emerald-500/80 text-white text-[10px] px-1.5 py-0.2 rounded-full">
                 {completedTasks.length}
               </span>
             )}
           </button>
 
+          {/* تب لغو شده (کنسلی‌ها) */}
+          <button
+            onClick={() => handleTabChange('cancelled')}
+            className={`flex-1 min-w-[90px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-2 sm:py-2.5 rounded-xl transition-all font-bold text-xs sm:text-sm whitespace-nowrap ${
+              activeTab === 'cancelled'
+                ? 'bg-gray-600 text-white shadow-md shadow-gray-900/30'
+                : isDark
+                ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/60'
+                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+          >
+            <FaBan size={12} />
+            <span>لغو شده</span>
+            {cancelledTasks.length > 0 && (
+              <span className={`${isDark ? 'bg-gray-700' : 'bg-gray-200 text-gray-800'} text-[10px] px-1.5 py-0.2 rounded-full`}>
+                {cancelledTasks.length}
+              </span>
+            )}
+          </button>
+
+          {/* تب کل سازمان (مخصوص ادمین) */}
           {isAdmin && (
             <button
               onClick={() => handleTabChange('all')}
-              className={`flex-1 min-w-[115px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2.5 sm:py-3 rounded-lg transition-all font-medium text-xs sm:text-sm whitespace-nowrap ${
+              className={`flex-1 min-w-[95px] sm:min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-2 sm:py-2.5 rounded-xl transition-all font-bold text-xs sm:text-sm whitespace-nowrap ${
                 activeTab === 'all'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-900/30'
                   : isDark
-                  ? 'text-gray-300 hover:text-white hover:bg-gray-700'
+                  ? 'text-gray-300 hover:text-white hover:bg-gray-700/60'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
-              <FaListUl size={14} />
+              <FaListUl size={13} />
               <span>کل سازمان</span>
               {allTasks?.length > 0 && (
-                <span className={`${isDark ? 'bg-gray-600' : 'bg-gray-300 text-gray-800'} text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-bold`}>
+                <span className={`${isDark ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-800'} text-[10px] px-1.5 py-0.2 rounded-full`}>
                   {allTasks.length}
                 </span>
               )}
@@ -1013,10 +1100,10 @@ const TaskListPage = () => {
         </div>
 
         {/* فیلترها و جستجو */}
-        <div className={`p-3.5 sm:p-4 rounded-2xl border mb-6 space-y-3 ${isDark ? 'bg-gray-800/80 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+        <div className={`p-3 sm:p-4 rounded-2xl border mb-5 space-y-3 ${isDark ? 'bg-gray-800/80 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
           <div className="flex flex-col md:flex-row gap-2.5 sm:gap-3 items-stretch md:items-center">
             
-            <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3.5 py-2.5 transition-colors ${
+            <div className={`flex-1 flex items-center gap-2 border rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 transition-colors ${
               isDark ? 'bg-gray-900 border-gray-700 focus-within:border-blue-500' : 'bg-gray-50 border-gray-300 focus-within:border-blue-500'
             }`}>
               <FaSearch className={`${isDark ? 'text-gray-500' : 'text-gray-400'} shrink-0`} size={13} />
@@ -1037,9 +1124,9 @@ const TaskListPage = () => {
             </div>
 
             <div className="flex items-center gap-2 w-full md:w-auto">
-              <div className={`grid ${activeTab === 'completed' ? 'grid-cols-1' : 'grid-cols-2'} gap-2 flex-1 md:flex md:items-center`}>
+              <div className={`grid ${['completed', 'cancelled', 'expired'].includes(activeTab) ? 'grid-cols-1' : 'grid-cols-2'} gap-2 flex-1 md:flex md:items-center`}>
                 
-                {activeTab !== 'completed' && (
+                {!['completed', 'cancelled', 'expired'].includes(activeTab) && (
                   <div className={`flex items-center gap-1.5 px-2.5 py-2 sm:px-3 sm:py-2.5 rounded-xl border text-xs font-semibold min-w-0 ${
                     isDark ? 'bg-gray-900 border-gray-700 text-gray-300' : 'bg-gray-50 border-gray-300 text-gray-700'
                   }`}>
@@ -1057,7 +1144,6 @@ const TaskListPage = () => {
                         <option value="DONE" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>انجام شده</option>
                       )}
                       <option value="REJECTED" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>رد شده</option>
-                      <option value="CANCELLED" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>لغو شده</option>
                     </select>
                   </div>
                 )}
@@ -1076,13 +1162,13 @@ const TaskListPage = () => {
                       <option value="created_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>جدیدترین ایجاد</option>
                       <option value="created_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>قدیمی‌ترین ایجاد</option>
                     </optgroup>
-                    <optgroup label="فوریت" className={isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700'}>
-                      <option value="urgency_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>بیشترین فوریت</option>
-                      <option value="urgency_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>کمترین فوریت</option>
-                    </optgroup>
                     <optgroup label="مهلت اقدام (ددلاین)" className={isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700'}>
                       <option value="deadline_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>نزدیک‌ترین مهلت</option>
                       <option value="deadline_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>دورترین مهلت</option>
+                    </optgroup>
+                    <optgroup label="فوریت" className={isDark ? 'bg-gray-800 text-gray-300' : 'bg-white text-gray-700'}>
+                      <option value="urgency_desc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>بیشترین فوریت</option>
+                      <option value="urgency_asc" className={isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}>کمترین فوریت</option>
                     </optgroup>
                   </select>
                 </div>
@@ -1106,11 +1192,16 @@ const TaskListPage = () => {
 
           <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1 border-t border-gray-200/50 dark:border-gray-700/50">
             <span>نمایش <strong>{processedList.length}</strong> از مجموع <strong>{currentList.length}</strong> ماموریت</span>
-            {activeTab !== 'completed' && statusFilter !== 'ALL' && (
-              <span className="text-blue-500 font-bold">فیلتر وضعیت: {STATUS_LABELS[statusFilter]}</span>
+            {activeTab === 'expired' && (
+              <span className="text-rose-500 font-bold flex items-center gap-1">
+                <FaExclamationTriangle size={10} /> ماموریت‌های گذشته از موعد قانونی
+              </span>
             )}
             {activeTab === 'completed' && (
-              <span className="text-emerald-500 font-bold">تمام ماموریت‌های خاتمه‌یافته</span>
+              <span className="text-emerald-500 font-bold">ماموریت‌های تکمیل‌شده</span>
+            )}
+            {activeTab === 'cancelled' && (
+              <span className="text-gray-400 font-bold">ماموریت‌های لغو شده</span>
             )}
           </div>
         </div>
@@ -1121,15 +1212,19 @@ const TaskListPage = () => {
             <FaSpinner className="animate-spin text-blue-500 text-4xl" />
           </div>
         ) : processedList.length === 0 ? (
-          <div className="text-center py-20">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
+          <div className="text-center py-16 sm:py-20">
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${isDark ? 'bg-gray-800' : 'bg-gray-200'}`}>
               {activeTab === 'completed' ? (
-                <FaCheckCircle size={32} className={isDark ? 'text-gray-600' : 'text-gray-400'} />
+                <FaCheckCircle size={28} className={isDark ? 'text-gray-600' : 'text-gray-400'} />
+              ) : activeTab === 'expired' ? (
+                <FaExclamationTriangle size={28} className="text-rose-500/60" />
+              ) : activeTab === 'cancelled' ? (
+                <FaBan size={28} className={isDark ? 'text-gray-600' : 'text-gray-400'} />
               ) : (
-                <FaInbox size={32} className={isDark ? 'text-gray-600' : 'text-gray-400'} />
+                <FaInbox size={28} className={isDark ? 'text-gray-600' : 'text-gray-400'} />
               )}
             </div>
-            <h3 className={`text-lg font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <h3 className={`text-base sm:text-lg font-medium mb-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               {hasActiveFilters
                 ? 'هیچ ماموریتی با فیلترهای انتخابی یافت نشد'
                 : activeTab === 'inbox'
@@ -1138,11 +1233,15 @@ const TaskListPage = () => {
                 ? 'ماموریت ارسالی در جریانی وجود ندارد'
                 : activeTab === 'completed'
                 ? 'هیچ ماموریت تکمیل‌شده‌ای ثبت نشده است'
+                : activeTab === 'expired'
+                ? 'خوشبختانه هیچ ماموریت منقضی شده‌ای وجود ندارد'
+                : activeTab === 'cancelled'
+                ? 'هیچ ماموریت لغوشده‌ای وجود ندارد'
                 : 'هیچ ماموریتی در سازمان ثبت نشده است'}
             </h3>
-            <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+            <p className={`text-xs sm:text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
               {hasActiveFilters ? (
-                <button onClick={resetFilters} className="text-blue-500 underline font-bold mt-2">
+                <button onClick={resetFilters} className="text-blue-500 underline font-bold mt-1">
                   پاکسازی فیلترها و مشاهده مجدد
                 </button>
               ) : 'لیست مورد نظر در حال حاضر خالی است.'}
@@ -1150,271 +1249,294 @@ const TaskListPage = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {processedList.map((task) => (
-              <div
-                key={task.id}
-                onClick={() => handleTaskClick(task.id)}
-                className={`border rounded-2xl p-4 sm:p-5 cursor-pointer transition-all group relative ${
-                  isDark
-                    ? 'bg-gray-800 border-gray-700 hover:border-gray-600 hover:shadow-lg hover:shadow-blue-900/10'
-                    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4 mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className={`font-bold text-sm sm:text-base mb-2 transition-colors leading-tight ${isDark ? 'text-gray-100 group-hover:text-blue-400' : 'text-gray-900 group-hover:text-blue-600'}`}>
-                      <span className={`text-xs font-normal ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>عنوان:</span>
-                      {task.title}
-                    </h3>
-                     
-                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3">
-                      <span className={`flex items-center gap-1 text-[11px] sm:text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border ${STATUS_COLORS[task.status] || ''}`}>
-                        <span className="font-normal opacity-75">وضعیت:</span>
-                        {STATUS_LABELS[task.status] || task.status}
-                      </span>
-                       
-                      <span className={`flex items-center gap-1 text-[11px] sm:text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border ${
-                        isDark ? 'text-gray-300 bg-gray-900 border-gray-700' : 'text-gray-700 bg-gray-100 border-gray-300'
-                      }`}>
-                        <span className="font-normal opacity-75">نوع:</span>
-                        {task.task_type_label || TASK_TYPE_LABELS[task.task_type] || task.task_type || 'بدون دسته‌بندی'}
-                      </span>
-                       
-                      <span className={`text-[11px] sm:text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border ${URGENCY_COLORS[task.urgency] || ''}`}>
-                        فوریت: {URGENCY_LABELS[task.urgency] || task.urgency || 'متوسط'}
-                      </span>
-                    </div>
-                  </div>
+            {processedList.map((task) => {
+              const expired = isTaskExpired(task);
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {isAdmin && activeTab === 'all' && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteTask(e, task.id, task.title)}
-                        disabled={deletingId === task.id}
-                        className={`p-2 rounded-xl border transition-colors ${
-                          isDark 
-                            ? 'border-red-900/40 bg-red-900/20 text-red-400 hover:bg-red-800/40 hover:border-red-600' 
-                            : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
-                        }`}
-                        title="حذف ماموریت"
-                      >
-                        {deletingId === task.id ? <FaSpinner className="animate-spin" size={13} /> : <FaTrash size={13} />}
-                      </button>
-                    )}
-                    <FaChevronLeft className={`transition-colors shrink-0 mt-1 ${isDark ? 'text-gray-600 group-hover:text-blue-500' : 'text-gray-400 group-hover:text-blue-600'}`} />
-                  </div>
-                </div>
+              return (
+                <div
+                  key={task.id}
+                  onClick={() => handleTaskClick(task.id)}
+                  className={`border rounded-2xl p-4 sm:p-5 cursor-pointer transition-all group relative ${
+                    expired
+                      ? isDark
+                        ? 'bg-gradient-to-r from-rose-950/20 via-gray-800 to-gray-800 border-rose-500/50 hover:border-rose-400 shadow-md shadow-rose-950/20'
+                        : 'bg-gradient-to-r from-rose-50/70 via-white to-white border-rose-300 hover:border-rose-400 shadow-sm'
+                      : isDark
+                      ? 'bg-gray-800 border-gray-700 hover:border-gray-600 hover:shadow-lg hover:shadow-blue-900/10'
+                      : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2.5">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <h3 className={`font-bold text-sm sm:text-base transition-colors leading-tight ${
+                          isDark ? 'text-gray-100 group-hover:text-blue-400' : 'text-gray-900 group-hover:text-blue-600'
+                        }`}>
+                          <span className={`text-xs font-normal ml-1.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>عنوان:</span>
+                          {task.title}
+                        </h3>
 
-                {task.note && (
-                  <>
-                    <div className={`w-1/2 my-3 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}></div>
-                    <p className={`text-xs sm:text-sm mb-3 line-clamp-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                      {task.note}
-                    </p>
-                  </>
-                )}
-                 
-                <div className={`flex flex-wrap items-center justify-between gap-4 text-xs mt-4 pt-3 border-t ${isDark ? 'border-gray-700/50 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                    <div className="flex items-center gap-1.5">
-                      <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} size={12} />
-                      <span>تاریخ ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
-                    </div>
-                     
-                    {task.deadline && (
-                      <div className="flex items-center gap-1.5 text-orange-500 font-medium">
-                        <FaClock size={12} />
-                        <span>مهلت نهایی: <span dir="ltr">{moment(task.deadline).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 mr-auto sm:mr-0">
-                    {task.created_by_name && (
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${
-                        isDark ? 'bg-gray-900/80 border-gray-700' : 'bg-gray-50 border-gray-200'
-                      }`}>
-                        <CircleAvatar 
-                          user={{ id: task.created_by_id, name: task.created_by_name, avatar_url: task.created_by_avatar }} 
-                          isDark={isDark} 
-                          roleLabel="آمر"
-                          size="w-6 h-6 text-[9px]"
-                        />
-                        <div className="flex flex-col text-right">
-                          <span className="text-[9px] text-gray-400">آمر:</span>
-                          <span className={`text-[11px] font-bold truncate max-w-[90px] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                            {task.created_by_name}
+                        {/* بج منقضی شده با طراحی اختصاصی */}
+                        {expired && (
+                          <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-500 border border-rose-500/30 animate-pulse">
+                            <FaExclamationTriangle size={10} />
+                            منقضی شده
                           </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {task.assignees_list && task.assignees_list.length > 0 && (
-                      <div className="relative">
-                        <div 
-                          onClick={(e) => toggleDropdown(e, task.id, 'assignees')}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border cursor-pointer select-none transition-all ${
-                            openDropdown?.taskId === task.id && openDropdown?.type === 'assignees'
-                              ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/10'
-                              : isDark 
-                              ? 'bg-blue-950/25 border-blue-900/40 hover:bg-blue-900/30' 
-                              : 'bg-blue-50/70 border-blue-200 hover:bg-blue-100/70'
-                          }`}
-                        >
-                          <span className="text-[10px] text-blue-500 font-bold">مجریان:</span>
-                          <div className="flex items-center -space-x-1.5 space-x-reverse overflow-hidden py-0.5">
-                            {task.assignees_list.slice(0, 3).map((user, idx) => (
-                              <CircleAvatar key={`${user.id}-${idx}`} user={user} isDark={isDark} roleLabel="مجری" size="w-5 h-5 text-[8px]" />
-                            ))}
-                            {task.assignees_list.length > 3 && (
-                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border shadow-sm shrink-0 z-10 ${
-                                isDark ? 'bg-blue-900 text-blue-200 border-gray-800' : 'bg-blue-200 text-blue-800 border-white'
-                              }`}>
-                                +{task.assignees_list.length - 3}
-                              </div>
-                            )}
-                          </div>
-                          <FaChevronDown size={9} className={`text-blue-500 transition-transform ${openDropdown?.taskId === task.id && openDropdown?.type === 'assignees' ? 'rotate-180' : ''}`} />
-                        </div>
-
-                        {openDropdown?.taskId === task.id && openDropdown?.type === 'assignees' && (
-                          <div 
-                            onClick={(e) => e.stopPropagation()}
-                            className={`absolute left-0 bottom-full mb-2 w-72 rounded-2xl p-3 shadow-2xl border z-50 text-right backdrop-blur-md ${
-                              isDark ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-gray-200 text-gray-900'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-700/50">
-                              <span className="font-bold text-xs flex items-center gap-1.5 text-blue-500">
-                                <FaUser size={10} /> مجریان پرونده ({task.assignees_list.length})
-                              </span>
-                              <span className="text-[9px] text-gray-400">مرحله و اقدام</span>
-                            </div>
-
-                            <div className="max-h-48 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-blue-500/30">
-                              {task.assignees_list.map((u, i) => {
-                                const stCfg = ASSIGNEE_STATE_CONFIG[u.state] || { label: u.state, color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' };
-                                return (
-                                  <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${
-                                    isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-gray-50 border-gray-200'
-                                  }`}>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <CircleAvatar user={u} isDark={isDark} size="w-7 h-7 text-[10px]" />
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="font-bold text-xs truncate">{u.name}</span>
-                                        <span className="text-[10px] text-gray-400 truncate">{u.stage_name}</span>
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-col items-end shrink-0">
-                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${stCfg.color}`}>
-                                        {stCfg.label}
-                                      </span>
-                                      {u.acted_at && (
-                                        <span className="text-[8px] text-gray-400 mt-0.5">
-                                          {moment(u.acted_at).format('jMM/jDD HH:mm')}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
                         )}
                       </div>
-                    )}
+                       
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2">
+                        <span className={`flex items-center gap-1 text-[10px] sm:text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border ${STATUS_COLORS[task.status] || ''}`}>
+                          <span className="font-normal opacity-75">وضعیت:</span>
+                          {STATUS_LABELS[task.status] || task.status}
+                        </span>
+                         
+                        <span className={`flex items-center gap-1 text-[10px] sm:text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border ${
+                          isDark ? 'text-gray-300 bg-gray-900 border-gray-700' : 'text-gray-700 bg-gray-100 border-gray-300'
+                        }`}>
+                          <span className="font-normal opacity-75">نوع:</span>
+                          {task.task_type_label || TASK_TYPE_LABELS[task.task_type] || task.task_type || 'بدون دسته‌بندی'}
+                        </span>
+                         
+                        <span className={`text-[10px] sm:text-xs font-medium px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md border ${URGENCY_COLORS[task.urgency] || ''}`}>
+                          فوریت: {URGENCY_LABELS[task.urgency] || task.urgency || 'متوسط'}
+                        </span>
+                      </div>
+                    </div>
 
-                    {task.approvers_list && task.approvers_list.length > 0 && (
-                      <div className="relative">
-                        <div 
-                          onClick={(e) => toggleDropdown(e, task.id, 'approvers')}
-                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border cursor-pointer select-none transition-all ${
-                            openDropdown?.taskId === task.id && openDropdown?.type === 'approvers'
-                              ? 'ring-2 ring-purple-500 border-purple-500 bg-purple-500/10'
-                              : isDark 
-                              ? 'bg-purple-950/25 border-purple-900/40 hover:bg-purple-900/30' 
-                              : 'bg-purple-50/70 border-purple-200 hover:bg-purple-100/70'
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isAdmin && activeTab === 'all' && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteTask(e, task.id, task.title)}
+                          disabled={deletingId === task.id}
+                          className={`p-2 rounded-xl border transition-colors ${
+                            isDark 
+                              ? 'border-red-900/40 bg-red-900/20 text-red-400 hover:bg-red-800/40 hover:border-red-600' 
+                              : 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
                           }`}
+                          title="حذف ماموریت"
                         >
-                          <span className="text-[10px] text-purple-500 font-bold">تاییدکنندگان:</span>
-                          <div className="flex items-center -space-x-1.5 space-x-reverse overflow-hidden py-0.5">
-                            {task.approvers_list.slice(0, 3).map((user, idx) => (
-                              <CircleAvatar key={`${user.id}-${idx}`} user={user} isDark={isDark} roleLabel="ناظر" size="w-5 h-5 text-[8px]" />
-                            ))}
-                            {task.approvers_list.length > 3 && (
-                              <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border shadow-sm shrink-0 z-10 ${
-                                isDark ? 'bg-purple-900 text-purple-200 border-gray-800' : 'bg-purple-200 text-purple-800 border-white'
-                              }`}>
-                                +{task.approvers_list.length - 3}
-                              </div>
-                            )}
-                          </div>
-                          <FaChevronDown size={9} className={`text-purple-500 transition-transform ${openDropdown?.taskId === task.id && openDropdown?.type === 'approvers' ? 'rotate-180' : ''}`} />
-                        </div>
+                          {deletingId === task.id ? <FaSpinner className="animate-spin" size={13} /> : <FaTrash size={13} />}
+                        </button>
+                      )}
+                      <FaChevronLeft className={`transition-colors shrink-0 mt-1 ${isDark ? 'text-gray-600 group-hover:text-blue-500' : 'text-gray-400 group-hover:text-blue-600'}`} />
+                    </div>
+                  </div>
 
-                        {openDropdown?.taskId === task.id && openDropdown?.type === 'approvers' && (
+                  {task.note && (
+                    <>
+                      <div className={`w-1/2 my-2.5 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}></div>
+                      <p className={`text-xs sm:text-sm mb-2.5 line-clamp-2 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {task.note}
+                      </p>
+                    </>
+                  )}
+                   
+                  <div className={`flex flex-wrap items-center justify-between gap-3 text-xs mt-3 pt-2.5 border-t ${isDark ? 'border-gray-700/50 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                      <div className="flex items-center gap-1 text-[11px] sm:text-xs">
+                        <FaClock className={isDark ? 'text-gray-500' : 'text-gray-400'} size={11} />
+                        <span>ایجاد: <span dir="ltr" className={isDark ? 'text-gray-200' : 'text-gray-800'}>{moment(task.created_at).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
+                      </div>
+                       
+                      {task.deadline && (
+                        <div className={`flex items-center gap-1 font-bold text-[11px] sm:text-xs ${
+                          expired ? 'text-rose-500 font-extrabold' : 'text-orange-500'
+                        }`}>
+                          <FaClock size={11} />
+                          <span>مهلت نهایی: <span dir="ltr">{moment(task.deadline).format('jYYYY/jMM/jDD - HH:mm')}</span></span>
+                          {expired && <span className="text-[10px] bg-rose-500/10 px-1 rounded mr-1">گذشته</span>}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mr-auto sm:mr-0">
+                      {task.created_by_name && (
+                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border ${
+                          isDark ? 'bg-gray-900/80 border-gray-700' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <CircleAvatar 
+                            user={{ id: task.created_by_id, name: task.created_by_name, avatar_url: task.created_by_avatar }} 
+                            isDark={isDark} 
+                            roleLabel="آمر"
+                            size="w-5 h-5 text-[8px]"
+                          />
+                          <div className="flex flex-col text-right">
+                            <span className="text-[8px] text-gray-400">آمر:</span>
+                            <span className={`text-[10px] sm:text-[11px] font-bold truncate max-w-[80px] sm:max-w-[90px] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+                              {task.created_by_name}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {task.assignees_list && task.assignees_list.length > 0 && (
+                        <div className="relative">
                           <div 
-                            onClick={(e) => e.stopPropagation()}
-                            className={`absolute left-0 bottom-full mb-2 w-72 rounded-2xl p-3 shadow-2xl border z-50 text-right backdrop-blur-md ${
-                              isDark ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-gray-200 text-gray-900'
+                            onClick={(e) => toggleDropdown(e, task.id, 'assignees')}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border cursor-pointer select-none transition-all ${
+                              openDropdown?.taskId === task.id && openDropdown?.type === 'assignees'
+                                ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/10'
+                                : isDark 
+                                ? 'bg-blue-950/25 border-blue-900/40 hover:bg-blue-900/30' 
+                                : 'bg-blue-50/70 border-blue-200 hover:bg-blue-100/70'
                             }`}
                           >
-                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-700/50">
-                              <span className="font-bold text-xs flex items-center gap-1.5 text-purple-500">
-                                <FaCheckCircle size={10} /> ناظران و تاییدکنندگان ({task.approvers_list.length})
-                              </span>
-                              <span className="text-[9px] text-gray-400">مرحله و وضعیت</span>
+                            <span className="text-[10px] text-blue-500 font-bold">مجریان:</span>
+                            <div className="flex items-center -space-x-1.5 space-x-reverse overflow-hidden py-0.5">
+                              {task.assignees_list.slice(0, 3).map((user, idx) => (
+                                <CircleAvatar key={`${user.id}-${idx}`} user={user} isDark={isDark} roleLabel="مجری" size="w-5 h-5 text-[8px]" />
+                              ))}
+                              {task.assignees_list.length > 3 && (
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border shadow-sm shrink-0 z-10 ${
+                                  isDark ? 'bg-blue-900 text-blue-200 border-gray-800' : 'bg-blue-200 text-blue-800 border-white'
+                                }`}>
+                                  +{task.assignees_list.length - 3}
+                                </div>
+                              )}
                             </div>
+                            <FaChevronDown size={8} className={`text-blue-500 transition-transform ${openDropdown?.taskId === task.id && openDropdown?.type === 'assignees' ? 'rotate-180' : ''}`} />
+                          </div>
 
-                            <div className="max-h-48 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-purple-500/30">
-                              {task.approvers_list.map((u, i) => {
-                                const apCfg = APPROVER_STATUS_CONFIG[u.status] || { label: u.status, color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' };
-                                return (
-                                  <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${
-                                    isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-gray-50 border-gray-200'
-                                  }`}>
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <CircleAvatar user={u} isDark={isDark} size="w-7 h-7 text-[10px]" />
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="font-bold text-xs truncate">{u.name}</span>
-                                        <span className="text-[10px] text-gray-400 truncate">{u.stage_name}</span>
+                          {openDropdown?.taskId === task.id && openDropdown?.type === 'assignees' && (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              className={`absolute left-0 bottom-full mb-2 w-72 rounded-2xl p-3 shadow-2xl border z-50 text-right backdrop-blur-md ${
+                                isDark ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-gray-200 text-gray-900'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-700/50">
+                                <span className="font-bold text-xs flex items-center gap-1.5 text-blue-500">
+                                  <FaUser size={10} /> مجریان پرونده ({task.assignees_list.length})
+                                </span>
+                                <span className="text-[9px] text-gray-400">مرحله و اقدام</span>
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-blue-500/30">
+                                {task.assignees_list.map((u, i) => {
+                                  const stCfg = ASSIGNEE_STATE_CONFIG[u.state] || { label: u.state, color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' };
+                                  return (
+                                    <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${
+                                      isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-gray-50 border-gray-200'
+                                    }`}>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <CircleAvatar user={u} isDark={isDark} size="w-7 h-7 text-[10px]" />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="font-bold text-xs truncate">{u.name}</span>
+                                          <span className="text-[10px] text-gray-400 truncate">{u.stage_name}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col items-end shrink-0">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${stCfg.color}`}>
+                                          {stCfg.label}
+                                        </span>
+                                        {u.acted_at && (
+                                          <span className="text-[8px] text-gray-400 mt-0.5">
+                                            {moment(u.acted_at).format('jMM/jDD HH:mm')}
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
-                                    <div className="flex flex-col items-end shrink-0">
-                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${apCfg.color}`}>
-                                        {apCfg.label}
-                                      </span>
-                                      {u.acted_at && (
-                                        <span className="text-[8px] text-gray-400 mt-0.5">
-                                          {moment(u.acted_at).format('jMM/jDD HH:mm')}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      )}
 
-                    {(!task.assignees_list || task.assignees_list.length === 0) && task.active_assignees?.length > 0 && (
-                      <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 px-2.5 py-1.5 rounded-md text-yellow-600 dark:text-yellow-500 font-bold">
-                        <span className="text-[10px] animate-pulse">●</span>
-                        <span>{task.active_assignees.length} نفر در انتظار</span>
-                      </div>
-                    )}
+                      {task.approvers_list && task.approvers_list.length > 0 && (
+                        <div className="relative">
+                          <div 
+                            onClick={(e) => toggleDropdown(e, task.id, 'approvers')}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-xl border cursor-pointer select-none transition-all ${
+                              openDropdown?.taskId === task.id && openDropdown?.type === 'approvers'
+                                ? 'ring-2 ring-purple-500 border-purple-500 bg-purple-500/10'
+                                : isDark 
+                                ? 'bg-purple-950/25 border-purple-900/40 hover:bg-purple-900/30' 
+                                : 'bg-purple-50/70 border-purple-200 hover:bg-purple-100/70'
+                            }`}
+                          >
+                            <span className="text-[10px] text-purple-500 font-bold">تاییدکنندگان:</span>
+                            <div className="flex items-center -space-x-1.5 space-x-reverse overflow-hidden py-0.5">
+                              {task.approvers_list.slice(0, 3).map((user, idx) => (
+                                <CircleAvatar key={`${user.id}-${idx}`} user={user} isDark={isDark} roleLabel="ناظر" size="w-5 h-5 text-[8px]" />
+                              ))}
+                              {task.approvers_list.length > 3 && (
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border shadow-sm shrink-0 z-10 ${
+                                  isDark ? 'bg-purple-900 text-purple-200 border-gray-800' : 'bg-purple-200 text-purple-800 border-white'
+                                }`}>
+                                  +{task.approvers_list.length - 3}
+                                </div>
+                              )}
+                            </div>
+                            <FaChevronDown size={8} className={`text-purple-500 transition-transform ${openDropdown?.taskId === task.id && openDropdown?.type === 'approvers' ? 'rotate-180' : ''}`} />
+                          </div>
+
+                          {openDropdown?.taskId === task.id && openDropdown?.type === 'approvers' && (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              className={`absolute left-0 bottom-full mb-2 w-72 rounded-2xl p-3 shadow-2xl border z-50 text-right backdrop-blur-md ${
+                                isDark ? 'bg-slate-900/95 border-slate-700 text-white' : 'bg-white/95 border-gray-200 text-gray-900'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-700/50">
+                                <span className="font-bold text-xs flex items-center gap-1.5 text-purple-500">
+                                  <FaCheckCircle size={10} /> ناظران و تاییدکنندگان ({task.approvers_list.length})
+                                </span>
+                                <span className="text-[9px] text-gray-400">مرحله و وضعیت</span>
+                              </div>
+
+                              <div className="max-h-48 overflow-y-auto space-y-2 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-purple-500/30">
+                                {task.approvers_list.map((u, i) => {
+                                  const apCfg = APPROVER_STATUS_CONFIG[u.status] || { label: u.status, color: 'text-gray-400 bg-gray-500/10 border-gray-500/20' };
+                                  return (
+                                    <div key={i} className={`flex items-center justify-between p-2 rounded-xl border text-xs gap-2 ${
+                                      isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-gray-50 border-gray-200'
+                                    }`}>
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <CircleAvatar user={u} isDark={isDark} size="w-7 h-7 text-[10px]" />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="font-bold text-xs truncate">{u.name}</span>
+                                          <span className="text-[10px] text-gray-400 truncate">{u.stage_name}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col items-end shrink-0">
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${apCfg.color}`}>
+                                          {apCfg.label}
+                                        </span>
+                                        {u.acted_at && (
+                                          <span className="text-[8px] text-gray-400 mt-0.5">
+                                            {moment(u.acted_at).format('jMM/jDD HH:mm')}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {(!task.assignees_list || task.assignees_list.length === 0) && task.active_assignees?.length > 0 && (
+                        <div className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 rounded-md text-yellow-600 dark:text-yellow-500 font-bold">
+                          <span className="text-[9px] animate-pulse">●</span>
+                          <span className="text-[10px]">{task.active_assignees.length} نفر در انتظار</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* 🌟 پنل مودال تمام‌صفحه اختصاصی موبایل برای انتخاب پرسنل بدون فشرده‌شدن در کارت */}
+      {/* مودال انتخاب پرسنل در موبایل */}
       {pickerOpenMobile && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col justify-end md:hidden">
           <div 
