@@ -22,9 +22,15 @@ jobs:
       - name: Install Dependencies
         run: yarn install --frozen-lockfile
 
+      # مرحله CI: بررسی سلامت کد
+      - name: Code Quality & Lint Check
+        run: yarn lint
+
+      # ساخت خروجی نهایی پروژه
       - name: Build Project
         run: yarn build
 
+      # مرحله CD: انتقال فایل‌های بیلد شده به سرور
       - name: Deploy to Server via SSH
         uses: easingthemes/ssh-deploy@v5.0.3
         with:
