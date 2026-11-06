@@ -1,3 +1,5 @@
+// src/components/WorkerMap.jsx
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import L from '@neshan-maps-platform/leaflet';
@@ -42,7 +44,6 @@ const timeRangesConfig = [
   { key: '1y', label: '۱ سال' },
 ];
 
-// --- آیکون‌ها ---
 const historyPointIcon = L.divIcon({
   className: '',
   html: `<div style="background-color:#EF4444;width:16px;height:16px;border:2px solid white;box-shadow:0 0 8px rgba(239,68,68,0.6);border-radius:50%; transition: all 0.2s;"></div>`,
@@ -65,7 +66,6 @@ const createFeatureIcon = (svgString) => L.divIcon({
   popupAnchor: [0, -28]
 });
 
-// --- کامپوننت اصلی ---
 const WorkerMap = ({
   workers,
   selectedWorkerId,
@@ -80,17 +80,16 @@ const WorkerMap = ({
   const dispatch = useDispatch();
   const { routeTemplates, projectFeatures } = useSelector((state) => state.mapRoutes);
 
-  // Refs
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const workerMarkersRef = useRef({});
+  const markerStateCacheRef = useRef({}); // کش وضعیت بصری مارکرها جهت جلوگیری از بازسازی بیهوده DOM
   const geofenceLayerRef = useRef(null);
   const historyLineRef = useRef(null);
   const historyMarkerRef = useRef(null);
   const satelliteLayerRef = useRef(null);
   const routesAndFeaturesLayerRef = useRef(null);
 
-  // States
   const [timeRange, setTimeRange] = useState('24h');
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isHistoryCleared, setIsHistoryCleared] = useState(false);
@@ -99,19 +98,16 @@ const WorkerMap = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFollowingMarker, setIsFollowingMarker] = useState(true);
 
-  // Constants
   const GAP_THRESHOLD_MS = 10 * 60 * 1000;
   const MAX_SPEED_KMH = 150;
 
-  // کارگر انتخاب‌شده جاری
   const selectedWorker = useMemo(() => {
     return (workers || []).find((w) => w.id === selectedWorkerId);
   }, [workers, selectedWorkerId]);
 
-  // 🔥 حل مشکل: حالت تاریخچه فقط به انتخاب کارگر و نبستن پنل وابسته است
   const isHistoryMode = Boolean(selectedWorkerId && !isHistoryCleared);
 
-  // 1. مقداردهی اولیه نقشه
+  // ۱. مقداردهی نقشه نشان
   useEffect(() => {
     if (mapContainerRef.current && !mapInstanceRef.current) {
       const map = new L.Map(mapContainerRef.current, {
@@ -125,8 +121,9 @@ const WorkerMap = ({
       });
 
       const googleOfflineLayer = L.tileLayer(`/media/tiles/{z}/{x}/{y}.png`, {
-        minZoom: 10, maxZoom: 19,
-        attribution: "نقشه ماهواره‌ای گوگل",
+        minZoom: 10,
+        maxZoom: 19,
+        attribution: "نقشه ماهواره‌ای",
         errorTileUrl: 'data:application/octet-stream;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
       });
       satelliteLayerRef.current = googleOfflineLayer;
@@ -139,35 +136,43 @@ const WorkerMap = ({
     }
 
     return () => {
-      if (mapInstanceRef.current && mapContainerRef.current === null) {
+      if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
   }, []);
 
-  // 2. مدیریت لایه‌ها (ماهواره و جئوفنس)
+  // ۲. مدیریت لایه‌ها (ماهواره و محدوده پروژه)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || !satelliteLayerRef.current) return;
-    if (isSatelliteEnabled) map.addLayer(satelliteLayerRef.current);
-    else map.removeLayer(satelliteLayerRef.current);
+    if (isSatelliteEnabled) {
+      map.addLayer(satelliteLayerRef.current);
+    } else {
+      map.removeLayer(satelliteLayerRef.current);
+    }
   }, [isSatelliteEnabled]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    if (geofenceLayerRef.current) map.removeLayer(geofenceLayerRef.current);
+    if (geofenceLayerRef.current) {
+      map.removeLayer(geofenceLayerRef.current);
+    }
 
     if (projectGeofence && projectGeofence.length > 2) {
       geofenceLayerRef.current = L.polygon(projectGeofence, {
-        color: '#3b82f6', weight: 2, dashArray: '10, 10', fillOpacity: 0.1
+        color: '#3b82f6',
+        weight: 2,
+        dashArray: '10, 10',
+        fillOpacity: 0.1
       }).bindPopup('محدوده پروژه').addTo(map);
       map.fitBounds(geofenceLayerRef.current.getBounds(), { padding: [40, 40] });
     }
   }, [projectGeofence]);
 
-  // 3. درخواست دیتای تاریخچه
+  // ۳. درخواست تاریخچه
   useEffect(() => {
     if (selectedWorkerId && !isHistoryCleared) {
       dispatch(fetchWorkerHistory({ workerId: selectedWorkerId, timeRange }));
@@ -186,11 +191,11 @@ const WorkerMap = ({
     setIsPlaying(false);
   }, [workerHistory]);
 
-  // 4. فیلتر کردن نقاط معتبر تاریخچه
+  // ۴. نقاط معتبر تاریخچه
   const historyPoints = useMemo(() => {
     if (!selectedWorkerId || isHistoryCleared || loadingHistory) return [];
     return (workerHistory || []).filter((loc) => (
-      loc.latitude && loc.longitude && 
+      loc.latitude && loc.longitude &&
       loc.latitude !== 0 && loc.longitude !== 0 &&
       Math.abs(loc.latitude) > 1 && Math.abs(loc.longitude) > 1
     ));
@@ -199,10 +204,10 @@ const WorkerMap = ({
   const maxIndex = historyPoints.length > 0 ? historyPoints.length - 1 : 0;
   const clampedIndex = Math.min(historyIndex, maxIndex);
 
-  // 5. پیش‌محاسبه‌ی مسافت‌ها و شکستگی‌های مسیر
+  // ۵. پیش‌محاسبه مسافت‌ها و قطعات مسیر
   const { cumulativeDistances, allSegments } = useMemo(() => {
     if (historyPoints.length === 0) return { cumulativeDistances: [], allSegments: [] };
-    
+
     const dists = [0];
     const segments = [];
     let currentSegment = [[historyPoints[0].latitude, historyPoints[0].longitude]];
@@ -223,24 +228,23 @@ const WorkerMap = ({
         currentSegment = [[p2.latitude, p2.longitude]];
       }
       dists.push(total);
-      
+
       if (i === historyPoints.length - 1) segments.push(currentSegment);
     }
-    
+
     if (historyPoints.length === 1) segments.push(currentSegment);
-    
+
     return { cumulativeDistances: dists, allSegments: segments };
   }, [historyPoints]);
 
   const totalDistanceMeters = cumulativeDistances[cumulativeDistances.length - 1] || 0;
   const currentDistanceMeters = cumulativeDistances[clampedIndex] || 0;
 
-  // 6. ترسیم مسیر روی نقشه (با پاکسازی خودکار در صورت نبود دیتا)
+  // ۶. ترسیم مسیر روی نقشه
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // 🔥 اگر در این بازه نقطه‌ای وجود نداشت، خط قبلی بلافاصله پاک شود
     if (historyPoints.length === 0) {
       if (historyLineRef.current) {
         map.removeLayer(historyLineRef.current);
@@ -251,7 +255,7 @@ const WorkerMap = ({
 
     let pointsCount = 0;
     const visibleSegments = [];
-    
+
     for (const seg of allSegments) {
       if (pointsCount + seg.length <= clampedIndex + 1) {
         visibleSegments.push(seg);
@@ -270,7 +274,7 @@ const WorkerMap = ({
     }
   }, [allSegments, clampedIndex, historyPoints.length]);
 
-  // 7. آپدیت مارکر و پاپ‌آپ تاریخچه
+  // ۷. آپدیت نشانگر تاریخچه
   const currentPoint = historyPoints[clampedIndex] ? [historyPoints[clampedIndex].latitude, historyPoints[clampedIndex].longitude] : null;
   const currentMeta = historyPoints[clampedIndex] || null;
 
@@ -278,7 +282,6 @@ const WorkerMap = ({
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // 🔥 اگر نقطه‌ای وجود ندارد، نشانگر تاریخچه قبلی حذف شود
     if (!currentPoint || !currentMeta) {
       if (historyMarkerRef.current) {
         map.removeLayer(historyMarkerRef.current);
@@ -289,7 +292,7 @@ const WorkerMap = ({
 
     const histSpeed = Math.round((currentMeta.speed || 0) * 3.6);
     const steps = Math.round(currentDistanceMeters / 0.75);
-    
+
     let gapWarning = '';
     const nextMeta = historyPoints[clampedIndex + 1];
     if (nextMeta) {
@@ -324,7 +327,7 @@ const WorkerMap = ({
     if (isFollowingMarker) {
       const currentMapZoom = map.getZoom();
       const mapBounds = map.getBounds();
-      
+
       if (!mapBounds.contains(currentPoint)) {
         map.setView(currentPoint, currentMapZoom >= 14 ? currentMapZoom : 15, { animate: false });
       } else if (isPlaying) {
@@ -333,7 +336,7 @@ const WorkerMap = ({
     }
   }, [currentPoint, currentMeta, currentDistanceMeters, isFollowingMarker, isPlaying]);
 
-  // 8. سیستم Play/Pause
+  // ۸. کنترل پخش زنده تاریخچه
   useEffect(() => {
     let interval;
     if (isPlaying && clampedIndex < maxIndex) {
@@ -350,30 +353,32 @@ const WorkerMap = ({
     return () => clearInterval(interval);
   }, [isPlaying, clampedIndex, maxIndex]);
 
-  // 9. نمایش کارگران لایو (وقتی در حالت تاریخچه نیستیم)
+  // ۹. نمایش لایو کارگران روی نقشه (با سیستم کش برای جلوگیری از تخریب DOM)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     if (isHistoryMode) {
-      Object.values(workerMarkersRef.current).forEach(marker => map.removeLayer(marker));
+      Object.values(workerMarkersRef.current).forEach((marker) => map.removeLayer(marker));
       workerMarkersRef.current = {};
+      markerStateCacheRef.current = {};
       return;
     }
 
-    const currentWorkerIds = new Set((workers || []).map(w => w.id));
+    const currentWorkerIds = new Set((workers || []).map((w) => w.id));
 
-    Object.keys(workerMarkersRef.current).forEach(id => {
+    // حذف نشانگر کارگرانی که در لیست نیستند
+    Object.keys(workerMarkersRef.current).forEach((id) => {
       if (!currentWorkerIds.has(Number(id))) {
         map.removeLayer(workerMarkersRef.current[id]);
         delete workerMarkersRef.current[id];
+        delete markerStateCacheRef.current[id];
       }
     });
 
     (workers || []).forEach((worker) => {
       if (!worker.latitude || !worker.longitude) return;
 
-      const displayName = worker.full_name || 'کارگر ناشناس';
       const isOffline = worker.stale;
       const gpsStatus = getWorkerGpsStatus(worker);
       const positionColor = isOffline ? '#6B7280' : (worker.position_color_hex || '#3B82F6');
@@ -381,60 +386,141 @@ const WorkerMap = ({
       const opacity = isOffline ? 0.6 : 1;
       const speedKmh = Math.round((worker.speed || 0) * 3.6);
 
-      const badge = gpsStatus.hasIssue
-        ? `<span style="position:absolute;top:-14px;right:-6px;font-size:13px;" title="${gpsStatus.label}">⚠️</span>`
-        : isOffline ? `<span style="position:absolute;top:-12px;right:-5px;font-size:11px;">💤</span>` : '';
-
-      const icon = L.divIcon({
-        className: '',
-        html: `
-          <div style="
-            background:${markerColor};width:${isOffline ? '18px' : '22px'};height:${isOffline ? '18px' : '22px'};
-            border:2px solid white;border-radius:50%;opacity:${opacity};
-            box-shadow:0 4px 6px rgba(0,0,0,0.3);position:relative;
-            animation:${isOffline || gpsStatus.hasIssue ? 'none' : 'pulse 2s infinite'};
-            display:flex;justify-content:center;align-items:center;
-          ">${badge}</div>
-        `,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      });
-
-      const speedHtml = (!isOffline && speedKmh > 0)
-        ? `<div style="margin-top:6px;font-size:12px;color:#2563EB;font-family:monospace;font-weight:bold;">💨 سرعت: ${speedKmh} km/h</div>`
-        : '';
-
-      const gpsStatusHtml = gpsStatus.hasIssue
-        ? `<div style="margin-top:6px;padding:4px 8px;background:#FEF3C7;font-size:11px;color:#92400E;font-weight:bold;border-radius:4px;">⚠️ ${gpsStatus.label}</div>`
-        : '';
-
-      const popupContent = `
-        <div style="text-align:center; min-width:140px; font-family:Tahoma,sans-serif;">
-          ${worker.profile_image
-            ? `<img src="${worker.profile_image}" style="width:56px;height:56px;border-radius:4px;margin:0 auto 8px auto;object-fit:cover;border:3px solid ${markerColor};" />`
-            : ''}
-          <b style="font-size:14px;display:block;color:#1f2937;">${displayName}</b>
-          <span style="font-size:12px;font-weight:bold;color:${markerColor};display:block;margin-top:4px;">${worker.position || 'نیروی ساده'}</span>
-          ${worker.current_project_name ? `<div style="margin-top:8px;font-size:11px;color:#4b5563;">📍 ${worker.current_project_name}</div>` : ''}
-          ${speedHtml}
-          ${gpsStatusHtml}
-        </div>
-      `;
+      // بررسی وضعیت قبلی مارکر برای پرهیز از رندر مجدد DOM
+      const prevVisualState = markerStateCacheRef.current[worker.id];
+      const hasVisualChanged =
+        !prevVisualState ||
+        prevVisualState.isOffline !== isOffline ||
+        prevVisualState.hasIssue !== gpsStatus.hasIssue ||
+        prevVisualState.markerColor !== markerColor ||
+        prevVisualState.speedKmh !== speedKmh;
 
       if (!workerMarkersRef.current[worker.id]) {
+        const badge = gpsStatus.hasIssue
+          ? `<span style="position:absolute;top:-14px;right:-6px;font-size:13px;" title="${gpsStatus.label}">⚠️</span>`
+          : isOffline ? `<span style="position:absolute;top:-12px;right:-5px;font-size:11px;">💤</span>` : '';
+
+        const icon = L.divIcon({
+          className: '',
+          html: `
+            <div style="
+              background:${markerColor};width:${isOffline ? '18px' : '22px'};height:${isOffline ? '18px' : '22px'};
+              border:2px solid white;border-radius:50%;opacity:${opacity};
+              box-shadow:0 4px 6px rgba(0,0,0,0.3);position:relative;
+              animation:${isOffline || gpsStatus.hasIssue ? 'none' : 'pulse 2s infinite'};
+              display:flex;justify-content:center;align-items:center;
+            ">${badge}</div>
+          `,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+
+        const speedHtml = (!isOffline && speedKmh > 0)
+          ? `<div style="margin-top:6px;font-size:12px;color:#2563EB;font-family:monospace;font-weight:bold;">💨 سرعت: ${speedKmh} km/h</div>`
+          : '';
+
+        const gpsStatusHtml = gpsStatus.hasIssue
+          ? `<div style="margin-top:6px;padding:4px 8px;background:#FEF3C7;font-size:11px;color:#92400E;font-weight:bold;border-radius:4px;">⚠️ ${gpsStatus.label}</div>`
+          : '';
+
+        const popupContent = `
+          <div style="text-align:center; min-width:140px; font-family:Tahoma,sans-serif;">
+            ${worker.profile_image
+              ? `<img src="${worker.profile_image}" style="width:56px;height:56px;border-radius:4px;margin:0 auto 8px auto;object-fit:cover;border:3px solid ${markerColor};" />`
+              : ''}
+            <b style="font-size:14px;display:block;color:#1f2937;">${worker.full_name || 'کارگر ناشناس'}</b>
+            <span style="font-size:12px;font-weight:bold;color:${markerColor};display:block;margin-top:4px;">${worker.position || 'نیروی ساده'}</span>
+            ${worker.current_project_name ? `<div style="margin-top:8px;font-size:11px;color:#4b5563;">📍 ${worker.current_project_name}</div>` : ''}
+            ${speedHtml}
+            ${gpsStatusHtml}
+          </div>
+        `;
+
         workerMarkersRef.current[worker.id] = L.marker([worker.latitude, worker.longitude], { icon, zIndexOffset: 1000 })
           .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
           .addTo(map);
+
+        markerStateCacheRef.current[worker.id] = {
+          isOffline,
+          hasIssue: gpsStatus.hasIssue,
+          markerColor,
+          speedKmh,
+          lat: worker.latitude,
+          lng: worker.longitude,
+        };
       } else {
-        workerMarkersRef.current[worker.id].setLatLng([worker.latitude, worker.longitude]);
-        workerMarkersRef.current[worker.id].setIcon(icon);
-        const popup = workerMarkersRef.current[worker.id].getPopup();
-        if (popup && popup.isOpen()) popup.setContent(popupContent);
+        const marker = workerMarkersRef.current[worker.id];
+
+        // فقط در صورت تغییر مختصات، متد setLatLng فراخوانی می‌شود
+        if (prevVisualState.lat !== worker.latitude || prevVisualState.lng !== worker.longitude) {
+          marker.setLatLng([worker.latitude, worker.longitude]);
+          prevVisualState.lat = worker.latitude;
+          prevVisualState.lng = worker.longitude;
+        }
+
+        // فقط در صورت تغییر بصری (آفلاین شدن، تغییر سرعت یا رنگ)، آیکون مجدداً تولید می‌شود
+        if (hasVisualChanged) {
+          const badge = gpsStatus.hasIssue
+            ? `<span style="position:absolute;top:-14px;right:-6px;font-size:13px;" title="${gpsStatus.label}">⚠️</span>`
+            : isOffline ? `<span style="position:absolute;top:-12px;right:-5px;font-size:11px;">💤</span>` : '';
+
+          const icon = L.divIcon({
+            className: '',
+            html: `
+              <div style="
+                background:${markerColor};width:${isOffline ? '18px' : '22px'};height:${isOffline ? '18px' : '22px'};
+                border:2px solid white;border-radius:50%;opacity:${opacity};
+                box-shadow:0 4px 6px rgba(0,0,0,0.3);position:relative;
+                animation:${isOffline || gpsStatus.hasIssue ? 'none' : 'pulse 2s infinite'};
+                display:flex;justify-content:center;align-items:center;
+              ">${badge}</div>
+            `,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          });
+
+          marker.setIcon(icon);
+
+          const speedHtml = (!isOffline && speedKmh > 0)
+            ? `<div style="margin-top:6px;font-size:12px;color:#2563EB;font-family:monospace;font-weight:bold;">💨 سرعت: ${speedKmh} km/h</div>`
+            : '';
+
+          const gpsStatusHtml = gpsStatus.hasIssue
+            ? `<div style="margin-top:6px;padding:4px 8px;background:#FEF3C7;font-size:11px;color:#92400E;font-weight:bold;border-radius:4px;">⚠️ ${gpsStatus.label}</div>`
+            : '';
+
+          const popupContent = `
+            <div style="text-align:center; min-width:140px; font-family:Tahoma,sans-serif;">
+              ${worker.profile_image
+                ? `<img src="${worker.profile_image}" style="width:56px;height:56px;border-radius:4px;margin:0 auto 8px auto;object-fit:cover;border:3px solid ${markerColor};" />`
+                : ''}
+              <b style="font-size:14px;display:block;color:#1f2937;">${worker.full_name || 'کارگر ناشناس'}</b>
+              <span style="font-size:12px;font-weight:bold;color:${markerColor};display:block;margin-top:4px;">${worker.position || 'نیروی ساده'}</span>
+              ${worker.current_project_name ? `<div style="margin-top:8px;font-size:11px;color:#4b5563;">📍 ${worker.current_project_name}</div>` : ''}
+              ${speedHtml}
+              ${gpsStatusHtml}
+            </div>
+          `;
+
+          const popup = marker.getPopup();
+          if (popup && popup.isOpen()) {
+            popup.setContent(popupContent);
+          }
+
+          markerStateCacheRef.current[worker.id] = {
+            isOffline,
+            hasIssue: gpsStatus.hasIssue,
+            markerColor,
+            speedKmh,
+            lat: worker.latitude,
+            lng: worker.longitude,
+          };
+        }
       }
     });
   }, [workers, isHistoryMode]);
 
-  // 10. لایه مسیرها و فیچرهای پروژه
+  // ۱۰. لایه مسیرها و ویژگی‌های پروژه
   useEffect(() => {
     const layerGroup = routesAndFeaturesLayerRef.current;
     if (!layerGroup) return;
@@ -449,16 +535,16 @@ const WorkerMap = ({
       filteredTemplates = routeTemplates;
       filteredFeatures = projectFeatures;
     } else if (selectedProjectId === 'uncategorized') {
-      filteredTemplates = routeTemplates.filter(rt => !rt.project);
-      filteredFeatures = projectFeatures.filter(pf => !pf.project);
+      filteredTemplates = routeTemplates.filter((rt) => !rt.project);
+      filteredFeatures = projectFeatures.filter((pf) => !pf.project);
     } else {
       const targetId = String(selectedProjectId);
-      filteredTemplates = routeTemplates.filter(rt => {
-        const pId = (rt.project && typeof rt.project === 'object') ? rt.project.id : rt.project;
+      filteredTemplates = routeTemplates.filter((rt) => {
+        const pId = rt.project && typeof rt.project === 'object' ? rt.project.id : rt.project;
         return String(pId) === targetId;
       });
-      filteredFeatures = projectFeatures.filter(pf => {
-        const pId = (pf.project && typeof pf.project === 'object') ? pf.project.id : pf.project;
+      filteredFeatures = projectFeatures.filter((pf) => {
+        const pId = pf.project && typeof pf.project === 'object' ? pf.project.id : pf.project;
         return String(pId) === targetId;
       });
     }
@@ -472,17 +558,17 @@ const WorkerMap = ({
       `;
 
       if (template.polygon_coordinates?.length > 0) {
-        const correctedPolygon = template.polygon_coordinates.map(pt => [pt[1], pt[0]]);
+        const correctedPolygon = template.polygon_coordinates.map((pt) => [pt[1], pt[0]]);
         L.polygon(correctedPolygon, { color: '#8B5CF6', weight: 2, fillOpacity: 0.2 })
           .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
           .addTo(layerGroup);
       } else if (template.line_coordinates?.length > 0) {
-        const correctedLine = template.line_coordinates.map(pt => [pt[1], pt[0]]);
+        const correctedLine = template.line_coordinates.map((pt) => [pt[1], pt[0]]);
         L.polyline(correctedLine, { color: '#10B981', weight: 3 })
           .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
           .addTo(layerGroup);
       } else if (template.multi_line_coordinates?.length > 0) {
-        const correctedMultiLine = template.multi_line_coordinates.map(line => line.map(pt => [pt[1], pt[0]]));
+        const correctedMultiLine = template.multi_line_coordinates.map((line) => line.map((pt) => [pt[1], pt[0]]));
         L.polyline(correctedMultiLine, { color: '#F59E0B', weight: 3 })
           .bindPopup(L.popup({ className: 'sharp-popup' }).setContent(popupContent))
           .addTo(layerGroup);
@@ -522,8 +608,8 @@ const WorkerMap = ({
     if (onCloseHistory) onCloseHistory();
   }, [onCloseHistory]);
 
-  const bottomControlsPositionClass = isHistoryMode && historyPoints.length > 0 
-    ? "bottom-[70px] sm:bottom-[75px]" 
+  const bottomControlsPositionClass = isHistoryMode && historyPoints.length > 0
+    ? "bottom-[70px] sm:bottom-[75px]"
     : "bottom-6 sm:bottom-8";
 
   return (
@@ -538,8 +624,6 @@ const WorkerMap = ({
       `}</style>
 
       <div className="relative w-full h-full z-0 isolate">
-        
-        {/* هدر تاریخچه: همیشه تا زمان بستن دستی نمایش داده می‌شود */}
         {isHistoryMode && (
           <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-[400] max-w-[95vw] sm:max-w-[90vw] bg-gray-900/95 backdrop-blur-md border border-gray-700/60 rounded-xl p-1.5 flex items-center gap-1.5 shadow-2xl">
             {selectedWorker && (
@@ -574,35 +658,32 @@ const WorkerMap = ({
           </div>
         )}
 
-        {/* استاتوس بار لایو / تاریخچه */}
         <div className={`absolute top-2 sm:top-4 left-2 sm:left-4 z-[390] px-3 py-1.5 rounded-xl text-xs font-bold border shadow-lg pointer-events-none backdrop-blur-md ${
             isHistoryMode ? 'bg-blue-900/80 border-blue-500/50 text-blue-100' : connected ? 'bg-gray-900/80 border-gray-700/50 text-gray-200' : 'bg-red-900/80 border-red-500/50 text-red-100'
           }`}>
           {isHistoryMode ? (loadingHistory ? 'در حال دریافت...' : 'حالت تاریخچه') : (connected ? 'LIVE' : 'OFFLINE')}
         </div>
 
-        {/* پیام نبود داده در بازه انتخابی */}
         {isHistoryMode && !loadingHistory && historyPoints.length === 0 && (
           <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[400] max-w-[90vw] bg-gray-900/95 border border-amber-500/50 text-amber-300 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs sm:text-sm">
             <span>⚠️ در بازه <b>{timeRangesConfig.find(r => r.key === timeRange)?.label}</b> ترددی ثبت نشده است. بازه دیگری را انتخاب کنید.</span>
           </div>
         )}
 
-        {/* دکمه‌های کنترل نقشه */}
         <div className={`absolute right-2 sm:right-4 z-[390] flex flex-col gap-2 transition-all duration-300 ${bottomControlsPositionClass}`}>
           {isHistoryMode && historyPoints.length > 0 && (
-            <button 
+            <button
               onClick={() => {
                 setIsFollowingMarker(!isFollowingMarker);
                 if (!isFollowingMarker && currentPoint) mapInstanceRef.current?.panTo(currentPoint);
-              }} 
+              }}
               className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl shadow-xl border flex items-center justify-center text-base sm:text-lg backdrop-blur-md transition-all ${isFollowingMarker ? 'bg-blue-600 border-blue-500 text-white' : 'bg-white/90 border-gray-300 text-gray-600'}`}
               title="قفل روی نشانگر"
             >
               🎯
             </button>
           )}
-          
+
           <div className="flex flex-col shadow-xl rounded-lg sm:rounded-xl overflow-hidden border border-gray-300/50 backdrop-blur-md">
             <button onClick={() => mapInstanceRef.current?.zoomIn()} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/90 text-gray-800 border-b border-gray-200 font-bold text-lg sm:text-xl hover:bg-gray-100">+</button>
             <button onClick={() => mapInstanceRef.current?.zoomOut()} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/90 text-gray-800 font-bold text-lg sm:text-xl hover:bg-gray-100">−</button>
@@ -615,10 +696,8 @@ const WorkerMap = ({
           {isSatelliteEnabled ? 'بستن ماهواره' : 'نقشه ماهواره'}
         </button>
 
-        {/* کانتینر نقشه */}
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%', zIndex: 0, backgroundColor: '#e5e7eb' }} />
 
-        {/* لودینگ تاریخچه */}
         {loadingHistory && isHistoryMode && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[400] bg-black/85 text-white py-3 px-5 rounded-2xl text-sm flex items-center gap-3 backdrop-blur-md border border-gray-600 shadow-2xl">
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -626,13 +705,12 @@ const WorkerMap = ({
           </div>
         )}
 
-        {/* پنل پخش پایین (فقط در صورت وجود نقاط تردد) */}
         {isHistoryMode && historyPoints.length > 0 && (
           <div className="absolute bottom-0 left-0 w-full z-[400] bg-gray-900/90 backdrop-blur-lg border-t border-gray-700/50 px-2 pt-1.5 pb-1 sm:px-4 sm:pt-2 sm:pb-1.5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
             <div className="max-w-4xl mx-auto w-full flex flex-col gap-0.5 sm:gap-1">
               <div className="flex justify-between items-center text-[11px] sm:text-xs text-gray-300 leading-none">
                 <span className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setIsPlaying(!isPlaying)}
                     className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-white transition-colors ${isPlaying ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'}`}
                   >
@@ -644,7 +722,6 @@ const WorkerMap = ({
                 <span>قدم‌ها: <b className="text-amber-400">{Math.round(totalDistanceMeters / 0.75)}</b></span>
               </div>
 
-              {/* اسلایدر زمان */}
               <div className="relative flex items-center w-full h-4 group cursor-pointer" dir="ltr">
                 <input
                   type="range"
@@ -657,21 +734,20 @@ const WorkerMap = ({
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 m-0"
                 />
-                
+
                 <div className="absolute w-full h-1 bg-gray-700 rounded-full overflow-hidden pointer-events-none z-0">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-blue-500 to-red-500 transition-all duration-75"
                     style={{ width: `${maxIndex > 0 ? (clampedIndex / maxIndex) * 100 : 0}%` }}
                   />
                 </div>
-                
-                <div 
+
+                <div
                   className="absolute w-3 h-3 sm:w-3.5 sm:h-3.5 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.6)] pointer-events-none transform -translate-x-1/2 transition-all duration-75 z-10"
                   style={{ left: `${maxIndex > 0 ? (clampedIndex / maxIndex) * 100 : 0}%` }}
                 />
               </div>
 
-              {/* بازه شروع و پایان */}
               <div className="flex justify-between items-center text-[9px] sm:text-[10px] text-gray-400 font-mono leading-none mt-0.5" dir="ltr">
                 <span>{formatHistoryTime(historyPoints[0]?.timestamp).split(' | ')[1]}</span>
                 <span className="font-bold text-white bg-gray-800/80 px-1.5 py-0.5 rounded-md border border-gray-600">

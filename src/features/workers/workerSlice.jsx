@@ -3,8 +3,8 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
-const MAX_IDLE_MS = 5 * 60 * 1000; // ۵ دقیقه (تایمر آفلاین شدن سوکت)
-const GRACE_PERIOD_MS = 60 * 60 * 1000; // ۱ ساعت (فرصت اولیه هنگام لود صفحه)
+const MAX_IDLE_MS = 5 * 60 * 1000; // ۵ دقیقه (تایمر آفلاین شدن)
+const GRACE_PERIOD_MS = 60 * 60 * 1000; // ۱ ساعت (مهلت اولیه لود)
 
 // ۱. دریافت تمام کارگران (ادمین)
 export const fetchWorkers = createAsyncThunk(
@@ -144,6 +144,7 @@ export const fetchManagerLiveCartable = createAsyncThunk(
   }
 );
 
+// پردازشگر بهینه‌سازی‌شده پیام‌های وب‌سوکت
 const processWorkerUpdate = (state, u) => {
   const workerId = u.id || u.worker_id;
   if (!workerId) return;
@@ -156,17 +157,20 @@ const processWorkerUpdate = (state, u) => {
 
   const worker = state.allWorkers[workerId];
 
+  // هندلینگ پالس حیات
   if (u.type === 'heartbeat_update') {
     worker.lastUpdate = lastUpdate;
     worker.stale = false;
     return;
   }
 
+  // هندلینگ پیام آفلاین شدن صریح
   if (u.status === 'offline' || u.type === 'offline_update') {
     worker.stale = true;
     return;
   }
 
+  // مختصات و متغیرهای سخت‌افزاری
   if (u.latitude !== undefined) worker.latitude = u.latitude;
   if (u.longitude !== undefined) worker.longitude = u.longitude;
   if (u.accuracy !== undefined) worker.accuracy = u.accuracy;
@@ -175,18 +179,23 @@ const processWorkerUpdate = (state, u) => {
   if (u.permission_granted !== undefined) worker.permission_granted = u.permission_granted;
   if (u.gps_enabled !== undefined) worker.gps_enabled = u.gps_enabled;
 
+  // اطلاعات هویتی و پروژه‌ای
+  if (u.user_id !== undefined) worker.user_id = u.user_id;
   if (u.full_name !== undefined) worker.full_name = u.full_name;
+  if (u.profile_image !== undefined) worker.profile_image = u.profile_image;
+  if (u.position !== undefined) worker.position = u.position;
+  if (u.position_color_hex !== undefined) worker.position_color_hex = u.position_color_hex;
   if (u.current_project_id !== undefined) worker.current_project_id = u.current_project_id;
   if (u.current_project_name !== undefined) worker.current_project_name = u.current_project_name;
-  if (u.position_color_hex !== undefined) worker.position_color_hex = u.position_color_hex;
 
+  // وضعیت و ساعات شیفت
   if (u.today_attendance_status !== undefined) worker.today_attendance_status = u.today_attendance_status;
   if (u.shift_start !== undefined) worker.shift_start = u.shift_start;
   if (u.shift_end !== undefined) worker.shift_end = u.shift_end;
   if (u.is_shift_open !== undefined) worker.is_shift_open = u.is_shift_open;
 
   worker.lastUpdate = lastUpdate;
-  worker.stale = false;
+  worker.stale = false; // پیام فعال یعنی کارگر آنلاین است
 };
 
 const workersSlice = createSlice({
@@ -210,7 +219,7 @@ const workersSlice = createSlice({
     updateWorkersBatch: (state, action) => {
       const updates = action.payload;
       if (Array.isArray(updates)) {
-        updates.forEach(u => processWorkerUpdate(state, u));
+        updates.forEach((u) => processWorkerUpdate(state, u));
       }
     },
     cleanupOldWorkers: (state) => {
@@ -226,46 +235,59 @@ const workersSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // fetchWorkers
+      .addCase(fetchWorkers.pending, (state) => {
+        state.status = 'loading';
+        state.error = null;
+      })
       .addCase(fetchWorkers.fulfilled, (state, action) => {
         state.status = 'succeeded';
         const NOW = Date.now();
         const fetchedWorkers = action.payload || [];
 
         fetchedWorkers.forEach((w) => {
-          const realLastUpdate = w.last_location
+          const realLastUpdate = w.last_location?.timestamp
             ? new Date(w.last_location.timestamp).getTime()
             : null;
-          const isRecentEnough = realLastUpdate && (NOW - realLastUpdate < GRACE_PERIOD_MS);
-          const effectiveLastUpdate = isRecentEnough ? NOW : realLastUpdate;
+
+          const isRecentEnough = realLastUpdate ? (NOW - realLastUpdate < GRACE_PERIOD_MS) : false;
           const existingWorker = state.allWorkers[w.id] || {};
-          const keepSocketData = existingWorker.lastUpdate && effectiveLastUpdate && (existingWorker.lastUpdate > effectiveLastUpdate);
+
+          // فقط در صورتی دیتای سوکت حفظ می‌شود که زمان آن از زمان واقعی رکورد دیتابیس تازه‌تر باشد
+          const keepSocketData = Boolean(
+            existingWorker.lastUpdate && 
+            realLastUpdate && 
+            existingWorker.lastUpdate >= realLastUpdate
+          );
 
           state.allWorkers[w.id] = {
             ...existingWorker,
             id: w.id,
-            full_name: w.full_name || 'اسم ثبت نشده',
-            user_id: w.user_id || null,
-            position: w.position || null,
-            profile_image: w.profile_image || null,
-            current_project_id: w.current_project_id || null,
-            current_project_name: w.current_project_name || null,
-            position_color_hex: w.position_color_hex || null,
-            today_attendance_status: w.today_attendance_status || 'NOT_STARTED',
-            shift_start: w.shift_start || null,
-            shift_end: w.shift_end || null,
-            latest_attendance_date_jalali: w.latest_attendance_date_jalali || null,
-            latest_shift_in: w.latest_shift_in || null,
-            latest_shift_out: w.latest_shift_out || null,
-            is_shift_open: w.is_shift_open || false,
-            latitude: keepSocketData ? existingWorker.latitude : (w.last_location?.latitude ?? null),
-            longitude: keepSocketData ? existingWorker.longitude : (w.last_location?.longitude ?? null),
-            speed: keepSocketData ? existingWorker.speed : (w.last_location?.speed || 0),
-            gps_enabled: keepSocketData ? existingWorker.gps_enabled : (w.last_location?.gps_enabled ?? true),
-            location_enabled: keepSocketData ? existingWorker.location_enabled : (w.last_location?.location_enabled ?? true),
-            permission_granted: keepSocketData ? existingWorker.permission_granted : (w.last_location?.permission_granted ?? true),
-            lastUpdate: keepSocketData ? existingWorker.lastUpdate : effectiveLastUpdate,
+            full_name: w.full_name || existingWorker.full_name || 'اسم ثبت نشده',
+            user_id: w.user_id ?? existingWorker.user_id ?? null,
+            position: w.position || existingWorker.position || null,
+            profile_image: w.profile_image || existingWorker.profile_image || null,
+            current_project_id: w.current_project_id ?? existingWorker.current_project_id ?? null,
+            current_project_name: w.current_project_name || existingWorker.current_project_name || null,
+            position_color_hex: w.position_color_hex || existingWorker.position_color_hex || null,
+            today_attendance_status: w.today_attendance_status || existingWorker.today_attendance_status || 'NOT_STARTED',
+            shift_start: w.shift_start || existingWorker.shift_start || null,
+            shift_end: w.shift_end || existingWorker.shift_end || null,
+            latest_attendance_date_jalali: w.latest_attendance_date_jalali || existingWorker.latest_attendance_date_jalali || null,
+            latest_shift_in: w.latest_shift_in || existingWorker.latest_shift_in || null,
+            latest_shift_out: w.latest_shift_out || existingWorker.latest_shift_out || null,
+            is_shift_open: w.is_shift_open ?? existingWorker.is_shift_open ?? false,
+            
+            // مختصات مکانی: اولویت با دیتای تازه‌تر سوکت است
+            latitude: keepSocketData ? existingWorker.latitude : (w.last_location?.latitude ?? existingWorker.latitude ?? null),
+            longitude: keepSocketData ? existingWorker.longitude : (w.last_location?.longitude ?? existingWorker.longitude ?? null),
+            speed: keepSocketData ? existingWorker.speed : (w.last_location?.speed ?? existingWorker.speed ?? 0),
+            gps_enabled: keepSocketData ? existingWorker.gps_enabled : (w.last_location?.gps_enabled ?? existingWorker.gps_enabled ?? true),
+            location_enabled: keepSocketData ? existingWorker.location_enabled : (w.last_location?.location_enabled ?? existingWorker.location_enabled ?? true),
+            permission_granted: keepSocketData ? existingWorker.permission_granted : (w.last_location?.permission_granted ?? existingWorker.permission_granted ?? true),
+            
+            lastUpdate: keepSocketData ? existingWorker.lastUpdate : realLastUpdate,
             stale: keepSocketData ? existingWorker.stale : !isRecentEnough,
-            source: 'API_MERGED'
+            source: 'API_MERGED',
           };
         });
       })
@@ -407,6 +429,7 @@ export const selectProjectDashboardStats = createSelector(
   }
 );
 
+// سلکتور بهینه‌سازی‌شده و ایمن در برابر عدم تطابق تایپ عددی و رشته‌ای
 export const selectVisibleWorkers = createSelector(
   [selectAllWorkersObj, selectSelectedProjectId],
   (workersObj, selectedPid) => {
@@ -415,7 +438,7 @@ export const selectVisibleWorkers = createSelector(
     if (selectedPid === 'uncategorized') {
       return workers.filter((w) => !w.current_project_id);
     }
-    return workers.filter((w) => w.current_project_id === selectedPid);
+    return workers.filter((w) => String(w.current_project_id) === String(selectedPid));
   }
 );
 

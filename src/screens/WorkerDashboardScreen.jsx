@@ -1,3 +1,5 @@
+// src/screens/WorkerDashboardScreen.jsx
+
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import QRCode from 'react-qr-code';
@@ -28,8 +30,6 @@ import WorkerCard from '../components/WorkerCard';
 import WorkerDetailModal from '../components/WorkerDetailModal';
 import Loader from '../components/Loader';
 
-const WS_URL = 'wss://www.ariobonyantoos.com/ws/worker/updates/';
-
 const formatTimeAgo = (ts) => {
   if (!ts) return '—';
   const diff = Math.floor((Date.now() - ts) / 1000);
@@ -45,6 +45,9 @@ const WorkerDashboardScreen = () => {
 
   const mode = useSelector((state) => state.theme?.mode || 'dark');
   const isDark = mode === 'dark';
+
+  const { userInfo } = useSelector((state) => state.userLogin);
+  const token = userInfo?.access || userInfo?.token;
 
   const { status: workerStatus } = useSelector((state) => state.workers);
   const {
@@ -94,14 +97,17 @@ const WorkerDashboardScreen = () => {
     if (projectsList.length === 0 && !projectsLoading) dispatch(fetchProjects());
   }, [dispatch, workerStatus, projectsList.length, projectsLoading]);
 
+  // تمیزکاری وضعیت آفلاین بودن پرسنل در بازه ۱ دقیقه‌ای
   useEffect(() => {
     const interval = setInterval(() => dispatch(cleanupOldWorkers()), 60000);
     return () => clearInterval(interval);
   }, [dispatch]);
 
+  // مدیریت بهینه‌سازی‌شده وب‌سوکت داشبورد مانیتورینگ
   useEffect(() => {
     let alive = true;
     let flushInterval = null;
+    let pingInterval = null;
 
     const flushBuffer = () => {
       if (updatesBufferRef.current.length > 0) {
@@ -113,22 +119,39 @@ const WorkerDashboardScreen = () => {
 
     const connect = () => {
       if (!alive || paused) return;
-      if (socketRef.current) socketRef.current.close();
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
 
-      const socket = new WebSocket(WS_URL);
+      const wsUrl = token
+        ? `wss://www.ariobonyantoos.com/ws/worker/updates/?token=${token}`
+        : 'wss://www.ariobonyantoos.com/ws/worker/updates/';
+
+      const socket = new WebSocket(wsUrl);
       socketRef.current = socket;
 
       socket.onopen = () => {
         setConnected(true);
         reconnectRef.current.attempts = 0;
         flushInterval = setInterval(flushBuffer, 500);
+
+        // فعال‌سازی پالس حیات ۲۵ ثانیه‌ای برای Nginx و ابر آروان
+        clearInterval(pingInterval);
+        pingInterval = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 25000);
       };
 
       socket.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
 
-          if (data.type === 'initial_snapshot' && data.workers) {
+          // نادیده گرفتن پاسخ pong
+          if (data.type === 'pong') return;
+
+          if (data.type === 'initial_snapshot' && Array.isArray(data.workers)) {
             dispatch(updateWorkersBatch(data.workers));
             return;
           }
@@ -136,6 +159,7 @@ const WorkerDashboardScreen = () => {
           if (
             data.type === 'heartbeat_update' ||
             data.type === 'worker_location_update' ||
+            data.type === 'location_update' ||
             data.id ||
             data.worker_id
           ) {
@@ -148,25 +172,33 @@ const WorkerDashboardScreen = () => {
         if (alive) {
           setConnected(false);
           clearInterval(flushInterval);
+          clearInterval(pingInterval);
+
           if (!paused) {
-            const timeout = Math.min(30000, 1000 * 2 ** reconnectRef.current.attempts++);
-            reconnectRef.current.timeoutId = setTimeout(connect, timeout);
+            // تاخیر تصادفی (Jitter) بین ۲ تا ۶ ثانیه برای پیشگیری از هجوم به سرور
+            const delay = Math.min(30000, 2000 * (1.5 ** reconnectRef.current.attempts++)) + Math.random() * 1000;
+            reconnectRef.current.timeoutId = setTimeout(connect, delay);
           }
         }
       };
 
-      socket.onerror = () => socket.close();
+      socket.onerror = () => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.close();
+        }
+      };
     };
 
     connect();
 
     return () => {
       alive = false;
-      if (socketRef.current) socketRef.current.close();
       clearInterval(flushInterval);
+      clearInterval(pingInterval);
       clearTimeout(reconnectRef.current.timeoutId);
+      if (socketRef.current) socketRef.current.close();
     };
-  }, [paused, dispatch]);
+  }, [paused, dispatch, token]);
 
   const finalWorkers = useMemo(() => {
     if (!visibleWorkers || visibleWorkers.length === 0) return [];
@@ -182,7 +214,9 @@ const WorkerDashboardScreen = () => {
       );
     }
 
-    if (!showOfflineWorkers) list = list.filter((w) => !w.stale);
+    if (!showOfflineWorkers) {
+      list = list.filter((w) => !w.stale);
+    }
 
     return [...list].sort((a, b) => {
       if (a.stale !== b.stale) return a.stale ? 1 : -1;
@@ -243,12 +277,18 @@ const WorkerDashboardScreen = () => {
     printWindow.document.close();
   };
 
+  // هندلر کلیک کارت به صورت ثابت و با کش رفرنس
   const handleWorkerCardClick = useCallback((id) => {
     setMapSelectedWorkerId((prevId) => {
       const newId = id === prevId ? null : id;
       if (newId) setZoomTrigger((prev) => prev + 1);
       return newId;
     });
+  }, []);
+
+  // هندلر کلیک اطلاعات جزئیات با ارجاع پایدار
+  const handleWorkerDetailsClick = useCallback((worker) => {
+    setSelectedWorkerForDetails(worker);
   }, []);
 
   return (
@@ -261,7 +301,7 @@ const WorkerDashboardScreen = () => {
         </div>
       )}
 
-      {/* نقشه */}
+      {/* نقشه پرسنل */}
       <div className={`w-full h-[45vh] sm:h-[55vh] md:h-[65vh] min-h-[300px] border-b z-10 relative ${
         isDark ? 'border-gray-800 bg-gray-900' : 'border-gray-300 bg-white'
       }`}>
@@ -279,7 +319,7 @@ const WorkerDashboardScreen = () => {
       </div>
 
       <div className="flex-1 p-3 sm:p-4 md:p-6 container mx-auto">
-        {/* کنترل‌های پروژه */}
+        {/* فیلترها و دکمه‌های کنترل */}
         <div className={`flex flex-col gap-3 mb-4 border rounded-xl p-3 sm:p-4 ${
           isDark ? 'bg-gray-900/70 border-gray-800' : 'bg-white border-gray-200'
         }`}>
@@ -350,7 +390,7 @@ const WorkerDashboardScreen = () => {
           </div>
         </div>
 
-        {/* لیست کارگران */}
+        {/* لیست کارگران سازمان */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-3 space-y-4">
             <div className={`flex flex-col gap-3 p-3 rounded-xl border ${
@@ -401,7 +441,7 @@ const WorkerDashboardScreen = () => {
               </div>
             </div>
 
-            {workerStatus === 'loading' ? (
+            {workerStatus === 'loading' && finalWorkers.length === 0 ? (
               <Loader />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
@@ -416,9 +456,10 @@ const WorkerDashboardScreen = () => {
                     <WorkerCard
                       key={w.id}
                       worker={w}
+                      isDark={isDark}
                       selected={mapSelectedWorkerId === w.id}
                       onClick={handleWorkerCardClick}
-                      onClickDetails={(worker) => setSelectedWorkerForDetails(worker)}
+                      onClickDetails={handleWorkerDetailsClick}
                       lastSeen={formatTimeAgo(w.lastUpdate)}
                     />
                   ))
@@ -463,14 +504,14 @@ const WorkerDashboardScreen = () => {
         </div>
       </div>
 
-      {/* مودال اطلاعات پرسنلی */}
+      {/* مودال جزئیات پرسنل */}
       <WorkerDetailModal
         worker={selectedWorkerForDetails}
         isOpen={Boolean(selectedWorkerForDetails)}
         onClose={() => setSelectedWorkerForDetails(null)}
       />
 
-      {/* مودال QR ورود */}
+      {/* مودال چاپ QR ورود */}
       {showQRModal && selectedProjectId && selectedProjectId !== 'uncategorized' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"

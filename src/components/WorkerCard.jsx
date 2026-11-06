@@ -1,5 +1,6 @@
+// src/components/WorkerCard.jsx
+
 import React, { memo } from 'react';
-import { useSelector } from 'react-redux';
 
 const statusMap = {
   NOT_STARTED: {
@@ -29,10 +30,15 @@ const getGpsIssue = (worker) => {
   return null;
 };
 
-const WorkerCard = ({ worker, highlight, selected, onClick, onClickDetails, lastSeen }) => {
-  const mode = useSelector((state) => state.theme?.mode || 'dark');
-  const isDark = mode === 'dark';
-
+const WorkerCard = ({
+  worker,
+  highlight,
+  selected,
+  onClick,
+  onClickDetails,
+  lastSeen,
+  isDark = true,
+}) => {
   const handleClick = () => {
     if (onClick) onClick(worker.id);
   };
@@ -150,7 +156,7 @@ const WorkerCard = ({ worker, highlight, selected, onClick, onClickDetails, last
         </div>
       )}
 
-      {/* وضعیت شیفت */}
+      {/* وضعیت شیفت کاری */}
       <div
         className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs transition-colors ${
           isDark ? statusConf.classNameDark : statusConf.classNameLight
@@ -190,7 +196,7 @@ const WorkerCard = ({ worker, highlight, selected, onClick, onClickDetails, last
           ) : (
             latestDate && (
               <div
-                title={`${latestDate} ${latestShiftIn ? `- ساعت: ${latestShiftIn}` : ''}`}
+                title={`${latestDate}${latestShiftIn ? ` - ساعت: ${latestShiftIn}` : ''}`}
                 className="flex flex-col items-end leading-tight opacity-80 truncate"
               >
                 <span className="font-semibold text-[10px] tracking-tight">
@@ -207,7 +213,7 @@ const WorkerCard = ({ worker, highlight, selected, onClick, onClickDetails, last
         </div>
       </div>
 
-      {/* فوتر: شناسه کاربری، دکمه اطلاعات و زمان آخرین به‌روزرسانی */}
+      {/* فوتر: شناسه، دکمه اطلاعات و زمان آخرین به‌روزرسانی */}
       <div className={`flex items-center justify-between text-[10px] px-1 font-mono pt-1 border-t ${
         isDark ? 'border-gray-800 text-gray-500' : 'border-gray-100 text-gray-400'
       }`}>
