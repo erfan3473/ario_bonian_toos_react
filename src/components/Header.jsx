@@ -33,6 +33,10 @@ const Header = () => {
   const currentUser =
     userProfile && Object.keys(userProfile).length > 0 ? userProfile : userInfo;
 
+  const hasSecretariatAccess = Boolean(
+    isAdmin || currentUser?.employee?.position
+  );
+
   const userRole =
     currentUser?.employee?.position?.report_type ||
     currentUser?.employee?.position?.reporttype ||
@@ -224,14 +228,15 @@ const Header = () => {
           <span>خانه</span>
         </Link>
 
-        {/* 🚀 لینک دبیرخانه به بیرون منتقل شد تا همه بتوانند ببینند */}
-        <Link
-          to="/secretariat"
-          className={mobile ? mobileItemClass(startsWith("/secretariat"), "bg-amber-600", "hover:bg-amber-700/50") : navLinkClass(startsWith("/secretariat"))}
-        >
-          <FaEnvelope className="text-amber-300" />
-          <span>دبیرخانه</span>
-        </Link>
+        {hasSecretariatAccess && (
+          <Link
+            to="/secretariat"
+            className={mobile ? mobileItemClass(startsWith("/secretariat"), "bg-amber-600", "hover:bg-amber-700/50") : navLinkClass(startsWith("/secretariat"))}
+          >
+            <FaEnvelope className="text-amber-300" />
+            <span>دبیرخانه</span>
+          </Link>
+        )}
 
         <Link
           to="/tasks"

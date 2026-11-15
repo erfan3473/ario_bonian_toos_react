@@ -51,6 +51,8 @@ import TaskTemplatesPage from './pages/TaskTemplatesPage';
 // کامپوننت پیشنهاد نصب PWA
 import InstallPwaPrompt from './components/InstallPwaPrompt';
 
+// جایگزین بخش مدیریت وب‌سوکت در App.jsx
+
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -58,128 +60,182 @@ function App() {
   const isDark = mode === "dark";
   const { userInfo } = useSelector((state) => state.userLogin);
 
+  // استخراج مقدار رشته‌ای توکن جهت جلوگیری از اجرای اثر با رندرهای شیء userInfo
+  const token = userInfo?.access || userInfo?.token;
+
   const isDarkRef = useRef(isDark);
   useEffect(() => {
     isDarkRef.current = isDark;
   }, [isDark]);
 
   useEffect(() => {
-    if (!userInfo?.token && !userInfo?.access) return; 
+    if (!token) return;
 
-    const token = userInfo.access || userInfo.token;
-    
     dispatch(fetchNotifications());
 
-    const wsUrl = `wss://www.ariobonyantoos.com/ws/inbox/?token=${token}`;
-    const ws = new WebSocket(wsUrl);
+    let ws = null;
+    let pingInterval = null;
+    let reconnectTimeout = null;
+    let isComponentMounted = true;
+    let reconnectAttempts = 0;
 
-    ws.onopen = () => console.log('🟢 WebSocket Inbox Connected!');
-    ws.onerror = (e) => console.error('🔴 WebSocket Inbox Error: ', e);
-    ws.onclose = (e) => console.warn(`🟠 WebSocket Inbox Closed (Code: ${e.code})`);
+    const connectWebSocket = () => {
+      if (!isComponentMounted) return;
 
-    ws.onmessage = (event) => {
-      console.log('🔔 Raw Socket Message:', event.data);
-      const data = JSON.parse(event.data);
-      
-      const notifData = data.payload || data;
+      const wsUrl = `wss://www.ariobonyantoos.com/ws/inbox/?token=${token}`;
+      ws = new WebSocket(wsUrl);
 
-      if (notifData.type === 'notification') {
-          dispatch(addNotificationFromWS(notifData)); 
-      }
+      ws.onopen = () => {
+        console.log('🟢 WebSocket Inbox Connected!');
+        reconnectAttempts = 0;
 
-      if (notifData.type === 'notification') {
-        const isChat = notifData.notif_type === 'CHAT_MESSAGE';
-        const isTask = notifData.notif_type && notifData.notif_type.startsWith('TASK_');
-        const isRoutine = notifData.notif_type === 'SYSTEM_MESSAGE' && 
-                          notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER';
+        // ✅ فعال‌سازی پالس حیات (Ping) هر ۲۵ ثانیه برای پیشگیری از تایم‌اوت Nginx/Cloudflare
+        clearInterval(pingInterval);
+        pingInterval = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 25000);
+      };
 
-        const icon = isChat ? '💬' : (isTask ? '📋' : (isRoutine ? '⏰' : '🔔'));
-        const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : (isRoutine ? 'یادآوری روتین' : 'اعلان جدید'));
-        const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : (isRoutine ? 'انجام روتین' : 'مشاهده'));
+      ws.onerror = (e) => {
+        console.error('🔴 WebSocket Inbox Error: ', e);
+      };
 
-        const currentIsDark = isDarkRef.current;
+      ws.onclose = (e) => {
+        clearInterval(pingInterval);
+        console.warn(`🟠 WebSocket Inbox Closed (Code: ${e.code})`);
 
-        toast.custom((t) => (
-          <div
-            dir="rtl"
-            className={`${
-              t.visible ? 'animate-enter' : 'animate-leave'
-            } max-w-sm w-full shadow-2xl rounded-2xl pointer-events-auto flex flex-col border ${
-              isChat ? 'border-green-500' : (isTask ? 'border-blue-500' : (isRoutine ? 'border-orange-500' : 'border-gray-500'))
-            } overflow-hidden ${
-              currentIsDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-            }`}
-          >
-            <div className={`p-4 flex items-start gap-4 ${currentIsDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
-              <div className="flex-1">
-                <h3 className="font-bold text-base flex items-center gap-2 mb-2">
-                  <span className="text-xl">{icon}</span>
-                  <span className={isChat ? 'text-green-500' : (isTask ? 'text-blue-500' : (isRoutine ? 'text-orange-500' : ''))}>
-                    {notifData.title || defaultTitle}
-                  </span>
-                </h3>
-                <p className="text-sm opacity-90 leading-relaxed font-medium">
-                  {notifData.body || 'شما یک اعلان جدید دارید.'}
-                </p>
+        // تلاش برای برقراری مجدد اتصال فقط در صورتی که کامپوننت باز باشد
+        if (isComponentMounted) {
+          clearTimeout(reconnectTimeout);
+          // تاخیر تصادفی بین ۳ تا ۵ ثانیه جهت جلوگیری از فشار همزمان کلاینت‌ها
+          const delay = Math.min(30000, 3000 + (reconnectAttempts * 2000)) + (Math.random() * 1000);
+          reconnectAttempts++;
+          reconnectTimeout = setTimeout(() => {
+            console.log(`🔄 Reconnecting WebSocket Inbox (Attempt ${reconnectAttempts})...`);
+            connectWebSocket();
+          }, delay);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch (err) {
+          return;
+        }
+
+        // ✅ نادیده گرفتن پاسخ‌های pong برای پیشگیری از ایجاد خطا در بخش اعلانات
+        if (data.type === 'pong') return;
+
+        const notifData = data.payload || data;
+
+        if (notifData.type === 'notification') {
+          dispatch(addNotificationFromWS(notifData));
+
+          const isChat = notifData.notif_type === 'CHAT_MESSAGE';
+          const isTask = notifData.notif_type && notifData.notif_type.startsWith('TASK_');
+          const isRoutine = notifData.notif_type === 'SYSTEM_MESSAGE' && 
+                            notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER';
+
+          const icon = isChat ? '💬' : (isTask ? '📋' : (isRoutine ? '⏰' : '🔔'));
+          const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : (isRoutine ? 'یادآوری روتین' : 'اعلان جدید'));
+          const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : (isRoutine ? 'انجام روتین' : 'مشاهده'));
+
+          const currentIsDark = isDarkRef.current;
+
+          toast.custom((t) => (
+            <div
+              dir="rtl"
+              className={`${
+                t.visible ? 'animate-enter' : 'animate-leave'
+              } max-w-sm w-full shadow-2xl rounded-2xl pointer-events-auto flex flex-col border ${
+                isChat ? 'border-green-500' : (isTask ? 'border-blue-500' : (isRoutine ? 'border-orange-500' : 'border-gray-500'))
+              } overflow-hidden ${
+                currentIsDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+              }`}
+            >
+              <div className={`p-4 flex items-start gap-4 ${currentIsDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                <div className="flex-1">
+                  <h3 className="font-bold text-base flex items-center gap-2 mb-2">
+                    <span className="text-xl">{icon}</span>
+                    <span className={isChat ? 'text-green-500' : (isTask ? 'text-blue-500' : (isRoutine ? 'text-orange-500' : ''))}>
+                      {notifData.title || defaultTitle}
+                    </span>
+                  </h3>
+                  <p className="text-sm opacity-90 leading-relaxed font-medium">
+                    {notifData.body || 'شما یک اعلان جدید دارید.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className={`flex border-t ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    
+                    if (notifData.id) {
+                      dispatch(markNotificationsRead([notifData.id]));
+                    }
+                    
+                    if (isChat) {
+                      const targetChatId = notifData.object_id || notifData.extra_data?.chat_id;
+                      if (targetChatId) {
+                        navigate(`/chat?active=${targetChatId}`);
+                      } else {
+                        navigate('/chat');
+                      }
+                    } else if (isTask) {
+                      const targetTaskId = notifData.object_id;
+                      if (targetTaskId) {
+                        navigate(`/tasks/${targetTaskId}`);
+                      } else {
+                        navigate('/tasks'); 
+                      }
+                    } else if (isRoutine) {
+                      navigate('/routines');
+                    }
+                  }}
+                  className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors ${
+                    currentIsDark 
+                      ? (isChat ? 'text-green-400 hover:bg-gray-700' : isRoutine ? 'text-orange-400 hover:bg-gray-700' : 'text-blue-400 hover:bg-gray-700') 
+                      : (isChat ? 'text-green-600 hover:bg-gray-100' : isRoutine ? 'text-orange-600 hover:bg-gray-100' : 'text-blue-600 hover:bg-gray-100')
+                  } border-l ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}
+                >
+                  {buttonLabel}
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors opacity-80 ${
+                    currentIsDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  }`}
+                >
+                  بستن
+                </button>
               </div>
             </div>
-
-            <div className={`flex border-t ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <button
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  
-                  if (notifData.id) {
-                    dispatch(markNotificationsRead([notifData.id]));
-                  }
-                  
-                  if (isChat) {
-                    const targetChatId = notifData.object_id || notifData.extra_data?.chat_id;
-                    if (targetChatId) {
-                      navigate(`/chat?active=${targetChatId}`);
-                    } else {
-                      navigate('/chat');
-                    }
-                  } else if (isTask) {
-                    const targetTaskId = notifData.object_id;
-                    if (targetTaskId) {
-                      navigate(`/tasks/${targetTaskId}`);
-                    } else {
-                      navigate('/tasks'); 
-                    }
-                  } else if (isRoutine) {
-                    navigate('/routines');
-                  }
-                }}
-                className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors ${
-                  currentIsDark 
-                    ? (isChat ? 'text-green-400 hover:bg-gray-700' : isRoutine ? 'text-orange-400 hover:bg-gray-700' : 'text-blue-400 hover:bg-gray-700') 
-                    : (isChat ? 'text-green-600 hover:bg-gray-100' : isRoutine ? 'text-orange-600 hover:bg-gray-100' : 'text-blue-600 hover:bg-gray-100')
-                } border-l ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}
-              >
-                {buttonLabel}
-              </button>
-              <button
-                onClick={() => toast.dismiss(t.id)}
-                className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors opacity-80 ${
-                  currentIsDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                }`}
-              >
-                بستن
-              </button>
-            </div>
-          </div>
-        ), { 
-          duration: 10000, 
-          position: 'top-center', 
-        });
-      }
+          ), { 
+            duration: 10000, 
+            position: 'top-center', 
+          });
+        }
+      };
     };
+
+    connectWebSocket();
 
     return () => {
-      if (ws.readyState === 1) ws.close();
+      isComponentMounted = false;
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimeout);
+      if (ws) {
+        // بستن تمیز با کد استاندارد ۱۰۰۰ جهت جلوگیری از پرتاب لاگ ۱۰۰۵ در کنسول
+        ws.close(1000, "Component unmounted");
+      }
     };
-  }, [dispatch, userInfo, navigate]); 
+  }, [dispatch, token, navigate]); // وابستگی فقط به مقدار اولیه token محدود شد
 
   return (
     <div

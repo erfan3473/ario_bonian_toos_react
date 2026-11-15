@@ -143,7 +143,21 @@ export const updateLetterTypeSmsSettings = createAsyncThunk('secretariat/updateL
         return data;
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
+export const deleteAttachment = createAsyncThunk('secretariat/deleteAttachment', async ({ letterId, attachmentId }, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.delete(`/secretariat/${letterId}/attachments/${attachmentId}/delete/`);
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
 
+export const replaceAttachment = createAsyncThunk('secretariat/replaceAttachment', async ({ letterId, attachmentId, file }, { rejectWithValue }) => {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await axiosInstance.post(`/secretariat/${letterId}/attachments/${attachmentId}/replace/`, formData);
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
@@ -182,6 +196,8 @@ const secretariatSlice = createSlice({
             .addCase(fetchOrganizations.rejected, (state, action) => { state.loadingOrganizations = false; })
             
             .addCase(uploadAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
+            .addCase(deleteAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
+            .addCase(replaceAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(signLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(approveLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
 

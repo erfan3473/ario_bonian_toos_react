@@ -5,7 +5,7 @@ import {
     fetchLetterDetail, forwardLetter, fetchAllPersonnel, 
     uploadAttachment, signLetter, deleteLetter, 
     fetchLetterSmsLogs, refreshLetterSmsStatus, updateLetter, 
-    registerDestination, issueLetter 
+    registerDestination, issueLetter, deleteAttachment, replaceAttachment
 } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
 import { 
@@ -15,7 +15,7 @@ import {
     FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, 
     FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, 
     FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope, FaExternalLinkAlt,
-    FaFilePdf, FaFileImage, FaUndo, FaCopy, FaCut, FaCheck
+    FaFilePdf, FaFileImage, FaUndo, FaCopy, FaCut, FaCheck, FaExclamationTriangle
 } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
@@ -33,8 +33,8 @@ const toPersianDigits = (str) => {
 };
 
 // نشان مهر سازمان بیرونی برای نامه‌های وارده فاقد لوگو
-const SharinganIncomingLogo = () => (
-    <div className="h-14 w-14 md:h-16 md:w-16 print:h-16 print:w-16 flex items-center justify-center rounded-full p-0.5">
+const SharinganIncomingLogo = ({ isA5 = false }) => (
+    <div className={`${isA5 ? 'h-10 w-10 print:h-10 print:w-10' : 'h-14 w-14 md:h-16 md:w-16 print:h-16 print:w-16'} flex items-center justify-center rounded-full p-0.5`}>
         <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm">
             <circle cx="50" cy="50" r="46" fill="#dc2626" stroke="#111827" strokeWidth="4" />
             <circle cx="50" cy="50" r="28" fill="none" stroke="#111827" strokeWidth="1.8" strokeDasharray="4 2" opacity="0.7" />
@@ -417,7 +417,7 @@ const SecretariatDetailScreen = () => {
     
     const isDark = useSelector((state) => state.theme?.mode === 'dark');
     const { userInfo } = useSelector((state) => state.userLogin);
-    const { activeLetter: letter, loadingDetail, forwarding, allPersonnel, smsLogs, refreshingSms } = useSelector((state) => state.secretariat);
+    const { activeLetter: letter, loadingDetail, error, forwarding, allPersonnel, smsLogs, refreshingSms } = useSelector((state) => state.secretariat);
 
     const isLevelZeroOrAdmin = userInfo?.is_admin || (userInfo?.employee?.position?.hierarchy_level === 0) || letter?.can_approve;
     const isBoardMember = Boolean(
@@ -446,6 +446,7 @@ const SecretariatDetailScreen = () => {
     const [destData, setDestData] = useState({ indicator: '', date: '' });
     const [registeringDest, setRegisteringDest] = useState(false);
 
+    // حالت‌های چاپ: 'BLANK' (برگه معمولی A4) | 'LETTERHEAD' (سربرگ آرم‌دار A4) | 'A5' (برگه A5)
     const [printMode, setPrintMode] = useState('BLANK');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
     const [isLayoutEditMode, setIsLayoutEditMode] = useState(false);
@@ -455,6 +456,10 @@ const SecretariatDetailScreen = () => {
     const [history, setHistory] = useState([]);
     const [printFont, setPrintFont] = useState('Vazirmatn'); 
     const printMenuRef = useRef(null);
+
+    // رفرنس‌های اندازه‌گیری ارتفاع متن بدنه جهت تشخیص سرریز به صفحه بعد
+    const bodyTextRefs = useRef([]);
+    const [overflowInfo, setOverflowInfo] = useState({ hasOverflow: false, recommendedPages: 1 });
 
     // شروع همیشگی از ۱ برگه
     const [pageCount, setPageCount] = useState(() => {
@@ -470,6 +475,13 @@ const SecretariatDetailScreen = () => {
     const [selectedScannedId, setSelectedScannedId] = useState(null);
 
     const totalPages = pageCount;
+    const isA5 = printMode === 'A5';
+
+    const getPrintModeLabel = (mode) => {
+        if (mode === 'LETTERHEAD') return 'سربرگ A4';
+        if (mode === 'A5') return 'برگه A5';
+        return 'معمولی A4';
+    };
 
     // واحدهای تجزیه‌شده متن بدنه نامه
     const atomicUnits = useMemo(() => parseTextToAtomicUnits(letter?.body), [letter?.body]);
@@ -514,6 +526,45 @@ const SecretariatDetailScreen = () => {
         return chunks;
     }, [totalPages, atomicUnits, currentSplitIndices, letter?.body]);
 
+    // تشخیص خودکار سرریز متن به صفحه بعدی (بیرون از برگه نمایش داده می‌شود)
+    useEffect(() => {
+        if (!letter) return;
+        const timer = setTimeout(() => {
+            const refs = bodyTextRefs.current.slice(0, totalPages).filter(Boolean);
+            if (refs.length === 0) return;
+
+            let anyOverflow = false;
+            let totalScrollHeight = 0;
+            let totalClientHeight = 0;
+
+            refs.forEach((el) => {
+                totalScrollHeight += el.scrollHeight;
+                totalClientHeight += el.clientHeight;
+                if (el.scrollHeight > el.clientHeight + 3) {
+                    anyOverflow = true;
+                }
+            });
+
+            if (anyOverflow && totalClientHeight > 0) {
+                const firstPageHeight = refs[0]?.clientHeight || totalClientHeight;
+                const nextPageHeight = refs[1]?.clientHeight || Math.round(firstPageHeight * 1.25);
+                const extraHeight = Math.max(1, totalScrollHeight - totalClientHeight);
+                const extraPagesNeeded = Math.max(1, Math.ceil(extraHeight / Math.max(120, nextPageHeight)));
+                setOverflowInfo({
+                    hasOverflow: true,
+                    recommendedPages: totalPages + extraPagesNeeded
+                });
+            } else {
+                setOverflowInfo({
+                    hasOverflow: false,
+                    recommendedPages: totalPages
+                });
+            }
+        }, 120);
+
+        return () => clearTimeout(timer);
+    }, [letter, pagesText, totalPages, printMode, printFont, layoutStyles, layoutPositions]);
+
     // انتقال سریع سطر/جمله بین برگه‌ها
     const handleShiftLine = (boundaryIndex, direction) => {
         if (totalPages <= 1 || currentSplitIndices.length === 0) return;
@@ -530,6 +581,15 @@ const SecretariatDetailScreen = () => {
         } else {
             toast('امکان جابجایی بیشتر برای این مرز وجود ندارد', { duration: 1100 });
         }
+    };
+
+    const handleSetPageCount = (targetCount) => {
+        const validCount = Math.max(1, targetCount);
+        setPageCount(validCount);
+        setCustomSplitIndices(null);
+        localStorage.setItem(`letterPageCount_${id}`, validCount);
+        localStorage.removeItem(`letterSplits_${id}_${validCount}`);
+        toast.success(`تعداد برگه‌ها روی ${toPersianDigits(validCount)} برگه تنظیم شد`);
     };
 
     const handleAddPage = () => {
@@ -653,7 +713,7 @@ const SecretariatDetailScreen = () => {
             localStorage.removeItem('printLayoutOffsets');
             localStorage.removeItem('printLayoutStyles');
         }
-        toast.success(`چیدمان حالت «${printMode === 'BLANK' ? 'برگه معمولی' : 'سربرگ آرم‌دار'}» به حالت اولیه برگشت.`);
+        toast.success(`چیدمان حالت «${getPrintModeLabel(printMode)}» به حالت اولیه برگشت.`);
     };
 
     const handleFontChange = (fontName) => {
@@ -698,17 +758,6 @@ const SecretariatDetailScreen = () => {
             .catch((err) => toast.error(err || 'خطا در ارجاع'));
     };
 
-    const handleEditReferralSubmit = async (refId) => {
-        try {
-            await axiosInstance.put(`/secretariat/referrals/${refId}/update/`, { instruction: editRefText });
-            toast.success('متن ارجاع با موفقیت ویرایش شد.');
-            setEditingRefId(null);
-            dispatch(fetchLetterDetail(id));
-        } catch (err) {
-            toast.error(err.response?.data?.detail || 'خطا در ویرایش ارجاع');
-        }
-    };
-
     const handleScanUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -716,6 +765,28 @@ const SecretariatDetailScreen = () => {
         dispatch(uploadAttachment({ letterId: id, file })).unwrap()
             .then(() => toast.success('سند با موفقیت اسکن و ضمیمه شد', { id: uploadToast }))
             .catch(() => toast.error('خطا در آپلود سند', { id: uploadToast }));
+    };
+
+    // هندلرهای مدیریت پیوست‌ها (حذف و جایگزینی)
+    const handleDeleteAttachment = (attachmentId, fileName) => {
+        if (!window.confirm(`آیا از حذف فایل «${fileName}» اطمینان دارید؟`)) return;
+        const loadingToast = toast.loading('در حال حذف فایل...');
+        dispatch(deleteAttachment({ letterId: id, attachmentId })).unwrap()
+            .then(() => {
+                if (String(selectedScannedId) === String(attachmentId)) setSelectedScannedId(null);
+                toast.success('فایل پیوست با موفقیت حذف شد', { id: loadingToast });
+            })
+            .catch((err) => toast.error(err || 'خطا در حذف فایل', { id: loadingToast }));
+    };
+
+    const handleReplaceAttachment = (attachmentId, e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        const loadingToast = toast.loading('در حال جایگزینی فایل...');
+        dispatch(replaceAttachment({ letterId: id, attachmentId, file })).unwrap()
+            .then(() => toast.success('فایل پیوست با موفقیت جایگزین شد', { id: loadingToast }))
+            .catch((err) => toast.error(err || 'خطا در جایگزینی فایل', { id: loadingToast }));
     };
 
     const handleSignDefault = async () => {
@@ -841,13 +912,18 @@ const SecretariatDetailScreen = () => {
             .finally(() => setRegisteringDest(false));
     };
 
-    // موتور اختصاصی و ایزوله چاپ نامه‌ها (خارج از صفحه با ابعاد پایدار بدون visibility:hidden)
+    // موتور اختصاصی و ایزوله چاپ نامه‌ها (پشتیبانی از A4 معمولی، سربرگ A4 و برگه A5)
     const executeIsolatedPrint = (mode) => {
         const printRoot = document.getElementById('letter-print-root');
         if (!printRoot) {
             toast.error('محتوای نامه جهت چاپ یافت نشد.');
             return;
         }
+
+        const isA5Print = mode === 'A5';
+        const pageSizeCss = isA5Print ? 'A5 portrait' : 'A4 portrait';
+        const sheetW = isA5Print ? '148mm' : '210mm';
+        const sheetH = isA5Print ? '200mm' : '285mm';
 
         const oldIframe = document.getElementById('letter-print-frame');
         if (oldIframe) oldIframe.remove();
@@ -887,7 +963,7 @@ const SecretariatDetailScreen = () => {
                 <title>چاپ نامه ${letter?.indicator_number || ''}</title>
                 <style>
                     @page {
-                        size: A4 portrait;
+                        size: ${pageSizeCss};
                         margin: 0 !important;
                     }
                     *, *:before, *:after {
@@ -900,7 +976,7 @@ const SecretariatDetailScreen = () => {
                         padding: 0 !important;
                         background: #ffffff !important;
                         color: #000000 !important;
-                        width: 210mm !important;
+                        width: ${sheetW} !important;
                         font-family: ${printFont}, Tahoma, sans-serif !important;
                     }
                     .print\\:hidden, button, .no-print {
@@ -908,9 +984,10 @@ const SecretariatDetailScreen = () => {
                     }
                     .letter-a4-page {
                         position: relative !important;
-                        width: 210mm !important;
-                        height: 285mm !important;
-                        max-height: 285mm !important;
+                        width: ${sheetW} !important;
+                        height: ${sheetH} !important;
+                        max-height: ${sheetH} !important;
+                        min-height: ${sheetH} !important;
                         margin: 0 auto !important;
                         overflow: hidden !important;
                         background: #ffffff !important;
@@ -961,12 +1038,25 @@ const SecretariatDetailScreen = () => {
 
     const handlePrintAction = (mode) => {
         setIsLayoutEditMode(false); 
-        setPrintMode(mode);
         setShowPrintMenu(false);
-        executeIsolatedPrint(mode);
+        if (mode !== printMode) {
+            setPrintMode(mode);
+            setTimeout(() => executeIsolatedPrint(mode), 100);
+        } else {
+            executeIsolatedPrint(mode);
+        }
     };
 
-    if (loadingDetail || !letter) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
+    if (loadingDetail) return <div className="text-center py-20 font-bold opacity-70">در حال دریافت پرونده...</div>;
+    if (error) return (
+        <div className="max-w-xl mx-auto mt-16 p-6 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-center space-y-4">
+            <p className="font-bold text-sm">{error}</p>
+            <button onClick={() => navigate('/secretariat')} className="px-5 py-2 rounded-lg bg-gray-600 text-white text-xs font-bold">
+                بازگشت
+            </button>
+        </div>
+    );
+    if (!letter) return null;
 
     const translateEnum = (val) => ({
         'INCOMING': 'وارده', 'OUTGOING': 'صادره', 'INTERNAL': 'داخلی', 'DOCUMENT': 'اسناد',
@@ -1002,11 +1092,19 @@ const SecretariatDetailScreen = () => {
         : `http://localhost:5173/secretariat/${letter.id}`;
 
     const sheetPadding = {
-        top: layoutStyles['sheet-padding']?.top ?? (printMode === 'LETTERHEAD' ? 25 : 12),
-        bottom: layoutStyles['sheet-padding']?.bottom ?? (printMode === 'LETTERHEAD' ? 20 : 12),
-        right: layoutStyles['sheet-padding']?.right ?? 15,
-        left: layoutStyles['sheet-padding']?.left ?? 15,
+        top: layoutStyles['sheet-padding']?.top ?? (printMode === 'LETTERHEAD' ? 25 : isA5 ? 8 : 12),
+        bottom: layoutStyles['sheet-padding']?.bottom ?? (printMode === 'LETTERHEAD' ? 20 : isA5 ? 8 : 12),
+        right: layoutStyles['sheet-padding']?.right ?? (isA5 ? 10 : 15),
+        left: layoutStyles['sheet-padding']?.left ?? (isA5 ? 10 : 15),
     };
+
+    const bodyPadding = {
+        right: layoutStyles['body-content']?.paddingRight ?? 0,
+        left: layoutStyles['body-content']?.paddingLeft ?? 0,
+    };
+
+    const sheetWidthCss = isA5 ? '148mm' : '210mm';
+    const sheetHeightCss = isA5 ? '200mm' : '285mm';
 
     return (
         <div className="max-w-5xl mx-auto p-2 sm:p-4 md:p-6 space-y-4 md:space-y-6 print:p-0 print:m-0 print:w-full print:max-w-none relative">
@@ -1380,32 +1478,42 @@ const SecretariatDetailScreen = () => {
                     {letter.status !== 'DELETED' && (
                         <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
                             <div className="relative" ref={printMenuRef}>
-                                <button onClick={() => setShowPrintMenu(!showPrintMenu)} className="flex items-center gap-1.5 bg-gray-800 text-white hover:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white px-3 sm:px-4 py-2 rounded-lg font-bold transition text-xs sm:text-sm shadow-md">
-                                    <FaPrint /> چاپ ({printMode === 'BLANK' ? 'معمولی' : 'سربرگ'}) <FaChevronDown className="text-[10px] ml-1 opacity-70" />
+                                <button onClick={() => setShowPrintMenu(!showPrintMenu)} className="relative flex items-center gap-1.5 bg-gray-800 text-white hover:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white px-3 sm:px-4 py-2 rounded-lg font-bold transition text-xs sm:text-sm shadow-md">
+                                    <FaPrint /> چاپ ({getPrintModeLabel(printMode)}) <FaChevronDown className="text-[10px] ml-1 opacity-70" />
+                                    {overflowInfo.hasOverflow && (
+                                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" title="تعداد برگه‌ها نیاز به افزایش دارد" />
+                                    )}
                                 </button>
                                 {showPrintMenu && (
-                                    <div className={`absolute top-full mt-2 right-0 w-80 max-w-[calc(100vw-32px)] rounded-xl shadow-2xl overflow-hidden z-50 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
+                                    <div className={`absolute top-full mt-2 right-0 w-80 sm:w-88 max-w-[calc(100vw-32px)] rounded-xl shadow-2xl overflow-hidden z-50 border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                                         <div className={`p-2 border-b text-[11px] font-bold ${isDark ? 'bg-slate-900 border-slate-700 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
                                             انتخاب قالب و تعداد برگه‌ها:
                                         </div>
-                                        <div className="grid grid-cols-2 gap-1 p-2 border-b dark:border-slate-700">
+                                        <div className="grid grid-cols-3 gap-1 p-2 border-b dark:border-slate-700">
                                             <button 
                                                 type="button" 
                                                 onClick={() => setPrintMode('BLANK')} 
-                                                className={`py-2 px-2 rounded-lg text-xs font-bold transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+                                                className={`py-2 px-1.5 rounded-lg text-[11px] font-bold transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
                                             >
-                                                📄 برگه معمولی
+                                                📄 معمولی A4
                                             </button>
                                             <button 
                                                 type="button" 
                                                 onClick={() => setPrintMode('LETTERHEAD')} 
-                                                className={`py-2 px-2 rounded-lg text-xs font-bold transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+                                                className={`py-2 px-1.5 rounded-lg text-[11px] font-bold transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
                                             >
-                                                🖨️ سربرگ آرم‌دار
+                                                🖨️ سربرگ A4
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setPrintMode('A5')} 
+                                                className={`py-2 px-1.5 rounded-lg text-[11px] font-bold transition ${printMode === 'A5' ? 'bg-blue-600 text-white shadow' : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300'}`}
+                                            >
+                                                📑 برگه A5
                                             </button>
                                         </div>
 
-                                        {/* کنترلر دستی تعداد برگه‌ها (شروع همیشگی از ۱) */}
+                                        {/* کنترلر دستی تعداد برگه‌ها */}
                                         <div className={`p-2.5 border-b ${isDark ? 'border-slate-700 bg-slate-900/60' : 'border-gray-100 bg-blue-50/40'}`}>
                                             <div className="flex justify-between items-center mb-2 text-xs font-bold">
                                                 <span className="opacity-75">تعداد برگه‌ها:</span>
@@ -1422,7 +1530,6 @@ const SecretariatDetailScreen = () => {
                                                     onClick={handleRemovePage}
                                                     disabled={totalPages <= 1}
                                                     className="flex-1 py-1 text-xs font-bold rounded border bg-white dark:bg-slate-800 disabled:opacity-40 hover:bg-gray-100 transition flex items-center justify-center gap-1"
-                                                    title="کاهش یک برگه"
                                                 >
                                                     <FaMinus size={8} /> <span>کاهش برگه</span>
                                                 </button>
@@ -1430,18 +1537,20 @@ const SecretariatDetailScreen = () => {
                                                     type="button"
                                                     onClick={handleAddPage}
                                                     className="flex-1 py-1 text-xs font-bold rounded border bg-white dark:bg-slate-800 hover:bg-gray-100 transition flex items-center justify-center gap-1 text-blue-600"
-                                                    title="افزودن برگه جدید"
                                                 >
                                                     <FaPlus size={8} /> <span>افزودن برگه</span>
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <button onClick={() => handlePrintAction('BLANK')} className={`w-full text-right px-4 py-2.5 text-xs sm:text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-gray-200' : 'border-gray-100 text-gray-800'}`}>
-                                            🚀 چاپ برگه معمولی ({toPersianDigits(totalPages)} برگه)
+                                        <button onClick={() => handlePrintAction('BLANK')} className={`w-full text-right px-4 py-2 text-xs sm:text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-gray-200' : 'border-gray-100 text-gray-800'}`}>
+                                            🚀 چاپ برگه معمولی A4 ({toPersianDigits(totalPages)} برگه)
                                         </button>
-                                        <button onClick={() => handlePrintAction('LETTERHEAD')} className={`w-full text-right px-4 py-2.5 text-xs sm:text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-blue-400' : 'border-gray-100 text-blue-600'}`}>
+                                        <button onClick={() => handlePrintAction('LETTERHEAD')} className={`w-full text-right px-4 py-2 text-xs sm:text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-blue-400' : 'border-gray-100 text-blue-600'}`}>
                                             🚀 چاپ روی سربرگ آرم‌دار ({toPersianDigits(totalPages)} برگه)
+                                        </button>
+                                        <button onClick={() => handlePrintAction('A5')} className={`w-full text-right px-4 py-2 text-xs sm:text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-emerald-400' : 'border-gray-100 text-emerald-600'}`}>
+                                            🚀 چاپ برگه A5 ({toPersianDigits(totalPages)} برگه)
                                         </button>
                                         
                                         <div className={`p-3 border-b ${isDark ? 'border-slate-700 bg-gray-900' : 'border-gray-100 bg-gray-50'}`}>
@@ -1466,7 +1575,7 @@ const SecretariatDetailScreen = () => {
                                                 onClick={() => { setIsLayoutEditMode(!isLayoutEditMode); setShowPrintMenu(false); }} 
                                                 className={`w-full flex items-center justify-center gap-2 text-center px-4 py-2 rounded-lg text-xs font-bold transition ${isLayoutEditMode ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-md' : 'bg-white border dark:bg-gray-800 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
                                             >
-                                                {isLayoutEditMode ? '✅ پایان چیدمان' : `🛠️ تنظیم چیدمان (${printMode === 'BLANK' ? 'برگه معمولی' : 'سربرگ'})`}
+                                                {isLayoutEditMode ? '✅ پایان چیدمان' : `🛠️ تنظیم چیدمان (${getPrintModeLabel(printMode)})`}
                                             </button>
                                         </div>
                                     </div>
@@ -1548,7 +1657,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* نوار ابزار تنظیم چیدمان همراه با کنترل کامل حاشیه‌ها و افزودن برگه */}
+            {/* نوار ابزار تنظیم چیدمان همراه با کنترل کامل حاشیه برگه، حاشیه چپ/راست متن بدنه و انتخاب قالب */}
             {isLayoutEditMode && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-3 sm:p-4 rounded-xl mb-4 text-xs font-bold flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-4 print:hidden shadow-md">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -1558,16 +1667,23 @@ const SecretariatDetailScreen = () => {
                             <button
                                 type="button"
                                 onClick={() => setPrintMode('BLANK')}
-                                className={`px-2.5 py-1 rounded text-xs font-black transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                                className={`px-2 py-1 rounded text-xs font-black transition ${printMode === 'BLANK' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
                             >
-                                📄 برگه معمولی
+                                📄 معمولی A4
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setPrintMode('LETTERHEAD')}
-                                className={`px-2.5 py-1 rounded text-xs font-black transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                                className={`px-2 py-1 rounded text-xs font-black transition ${printMode === 'LETTERHEAD' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
                             >
-                                🖨️ سربرگ آرم‌دار
+                                🖨️ سربرگ A4
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPrintMode('A5')}
+                                className={`px-2 py-1 rounded text-xs font-black transition ${printMode === 'A5' ? 'bg-blue-600 text-white shadow' : 'text-gray-600 hover:bg-gray-100'}`}
+                            >
+                                📑 برگه A5
                             </button>
                         </div>
 
@@ -1579,9 +1695,9 @@ const SecretariatDetailScreen = () => {
                             <button type="button" onClick={handleAddPage} className="p-1 hover:text-emerald-600" title="افزودن برگه"><FaPlus size={8} /></button>
                         </div>
 
-                        {/* کنترلر حاشیه‌ها */}
+                        {/* کنترلر حاشیه‌های کل برگه */}
                         <div className="flex flex-wrap items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 shadow-sm">
-                            <span className="whitespace-nowrap text-[11px] font-black">حاشیه‌ها:</span>
+                            <span className="whitespace-nowrap text-[11px] font-black">حاشیه برگه:</span>
                             <div className="flex items-center gap-1.5 sm:gap-2">
                                 <label className="flex items-center gap-1" title="حاشیه بالا">
                                     <span className="text-[10px] opacity-70">بالا:</span>
@@ -1622,6 +1738,31 @@ const SecretariatDetailScreen = () => {
                             </div>
                         </div>
 
+                        {/* کنترلر فاصله چپ و راست متن بدنه */}
+                        <div className="flex flex-wrap items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 shadow-sm">
+                            <span className="whitespace-nowrap text-[11px] font-black text-blue-800">فاصله متن بدنه:</span>
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <label className="flex items-center gap-1" title="فاصله متن بدنه از راست (میلی‌متر)">
+                                    <span className="text-[10px] opacity-70">راست:</span>
+                                    <input 
+                                        type="number" min="0" max="60" 
+                                        value={bodyPadding.right} 
+                                        onChange={(e) => handleUpdateStyle('body-content', { ...layoutStyles['body-content'], paddingRight: Math.max(0, Number(e.target.value)) })}
+                                        className="w-9 p-0.5 text-center font-mono text-xs border rounded bg-blue-50/60 font-bold outline-none"
+                                    />
+                                </label>
+                                <label className="flex items-center gap-1" title="فاصله متن بدنه از چپ (میلی‌متر)">
+                                    <span className="text-[10px] opacity-70">چپ:</span>
+                                    <input 
+                                        type="number" min="0" max="60" 
+                                        value={bodyPadding.left} 
+                                        onChange={(e) => handleUpdateStyle('body-content', { ...layoutStyles['body-content'], paddingLeft: Math.max(0, Number(e.target.value)) })}
+                                        className="w-9 p-0.5 text-center font-mono text-xs border rounded bg-blue-50/60 font-bold outline-none"
+                                    />
+                                </label>
+                            </div>
+                        </div>
+
                         {printMode === 'LETTERHEAD' && (
                             <label className="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-amber-300 select-none shadow-sm">
                                 <input 
@@ -1641,6 +1782,32 @@ const SecretariatDetailScreen = () => {
                         className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-5 py-2 rounded-lg text-xs font-black shadow transition shrink-0 self-end md:self-auto"
                     >
                         ✅ پایان چیدمان
+                    </button>
+                </div>
+            )}
+
+            {/* هشدار هوشمند سرریز متن به صفحه بعد */}
+            {overflowInfo.hasOverflow && (
+                <div className={`p-3.5 sm:p-4 rounded-xl border-2 border-amber-500 shadow-md print:hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+                    isDark ? 'bg-amber-950/40 text-amber-200' : 'bg-amber-50 text-amber-900'
+                }`}>
+                    <div className="flex items-start gap-2.5">
+                        <FaExclamationTriangle className="text-amber-500 text-lg shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                            <p className="text-xs sm:text-sm font-black">
+                                ادامه متن نامه در صفحه بعد قرار گرفته و در نمای فعلی دیده نمی‌شود!
+                            </p>
+                            <p className="text-[11px] sm:text-xs font-bold opacity-85">
+                                برای نمایش و چاپ کامل متن، از بخش <b>تنظیمات چاپ</b> تعداد برگه‌ها را به <b>{toPersianDigits(overflowInfo.recommendedPages)} برگه</b> افزایش دهید.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => handleSetPageCount(overflowInfo.recommendedPages)}
+                        className="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow transition shrink-0 self-end sm:self-center active:scale-95"
+                    >
+                        تنظیم روی {toPersianDigits(overflowInfo.recommendedPages)} برگه
                     </button>
                 </div>
             )}
@@ -1717,6 +1884,30 @@ const SecretariatDetailScreen = () => {
                                 </>
                             )}
 
+                            {activeScannedDoc && hasSecretariatPerm && (
+                                <>
+                                    <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-white cursor-pointer transition shadow-sm" title="جایگزینی این سند">
+                                        <FaEdit size={11} />
+                                        <span>جایگزینی</span>
+                                        <input
+                                            type="file"
+                                            accept="image/*,application/pdf"
+                                            className="hidden"
+                                            onChange={(e) => handleReplaceAttachment(activeScannedDoc.id, e)}
+                                        />
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteAttachment(activeScannedDoc.id, activeScannedDoc.name)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white transition shadow-sm"
+                                        title="حذف این سند"
+                                    >
+                                        <FaTrash size={11} />
+                                        <span>حذف سند</span>
+                                    </button>
+                                </>
+                            )}
+
                             <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition shadow-sm">
                                 <FaCamera size={11} />
                                 <span>اسکن جدید</span>
@@ -1764,11 +1955,11 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* بخش اصلی پرینت و نمایش رسمی A4 */}
+            {/* بخش اصلی پرینت و نمایش رسمی (A4 / A5) */}
             <div className="w-full print:p-0 print:m-0">
                 <div className="md:hidden flex items-center justify-between text-[11px] font-bold text-gray-500 dark:text-gray-400 px-3 py-1.5 mb-2 bg-gray-100 dark:bg-slate-800/80 rounded-lg border border-gray-200 dark:border-slate-700 print:hidden">
                     <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                        <FaEye size={12} /> پیش‌نمایش فرمت رسمی A4 ({toPersianDigits(totalPages)} برگه)
+                        <FaEye size={12} /> پیش‌نمایش فرمت رسمی {isA5 ? 'A5' : 'A4'} ({toPersianDigits(totalPages)} برگه)
                     </span>
                     <span className="text-[10px] opacity-75">
                         (برای مشاهده بخش‌های پنهان، افقی بکشید ↔)
@@ -1776,7 +1967,7 @@ const SecretariatDetailScreen = () => {
                 </div>
 
                 <div className="w-full overflow-x-auto pb-4 pt-1 print:p-0 print:m-0 print:overflow-visible">
-                    <div id="letter-print-root" className="w-full print:w-[210mm] print:m-0 print:p-0">
+                    <div id="letter-print-root" className={`w-full ${isA5 ? 'print:w-[148mm]' : 'print:w-[210mm]'} print:m-0 print:p-0`}>
                         
                         {pagesText.map((pageBodyText, pIndex) => {
                             const pageNum = pIndex + 1;
@@ -1838,16 +2029,16 @@ const SecretariatDetailScreen = () => {
                                         </div>
                                     )}
 
-                                    {/* کالبد دقیق برگه A4 */}
+                                    {/* کالبد دقیق برگه A4 / A5 */}
                                     <div 
                                         id={isFirstPage ? "letter-a4-sheet" : `letter-a4-sheet-p${pageNum}`}
                                         className={`letter-a4-page mx-auto shrink-0 relative bg-white text-gray-900 flex flex-col justify-between shadow-2xl border print:shadow-none print:border-none
                                         ${['REJECTED', 'PENDING', 'DELETED'].includes(letter.status) ? 'opacity-50 grayscale print:hidden' : ''}`}
                                         style={{ 
-                                            width: '210mm', 
-                                            height: '285mm',
-                                            maxHeight: '285mm',
-                                            minHeight: '285mm',
+                                            width: sheetWidthCss, 
+                                            height: sheetHeightCss,
+                                            maxHeight: sheetHeightCss,
+                                            minHeight: sheetHeightCss,
                                             paddingTop: `${sheetPadding.top}mm`,
                                             paddingBottom: `${sheetPadding.bottom}mm`,
                                             paddingRight: `${sheetPadding.right}mm`,
@@ -1864,7 +2055,7 @@ const SecretariatDetailScreen = () => {
                                         <div className="flex-1 flex flex-col overflow-hidden">
                                             
                                             {/* هدر نامه */}
-                                            <div className="flex justify-between items-start pb-2 relative mt-1 shrink-0">
+                                            <div className={`flex justify-between items-start ${isA5 ? 'pb-1.5 mt-0.5' : 'pb-2 mt-1'} relative shrink-0`}>
                                                 
                                                 {/* ۱. ستون لوگو و نام فرستنده */}
                                                 <div className="flex flex-col items-center justify-start pt-1 w-1/3">
@@ -1878,16 +2069,16 @@ const SecretariatDetailScreen = () => {
                                                                 styleData={layoutStyles[isFirstPage ? "head-logo-img" : `head-logo-img-p${pageNum}`] || layoutStyles['head-logo-img']} 
                                                                 onStyleChange={handleUpdateStyle} 
                                                                 onDragEnd={handleUpdatePosition} 
-                                                                className="mb-2 flex justify-center"
+                                                                className={`${isA5 ? 'mb-1' : 'mb-2'} flex justify-center`}
                                                             >
                                                                 {letter.letter_type === 'INCOMING' ? (
                                                                     letter.external_sender_detail?.logo ? (
-                                                                        <img src={letter.external_sender_detail.logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16" />
+                                                                        <img src={letter.external_sender_detail.logo} alt="لوگو" className={`${isA5 ? 'h-10 print:h-10' : 'h-14 md:h-16 print:h-16'} object-contain`} />
                                                                     ) : (
-                                                                        <SharinganIncomingLogo />
+                                                                        <SharinganIncomingLogo isA5={isA5} />
                                                                     )
                                                                 ) : (
-                                                                    <img src={logo} alt="لوگو" className="h-14 md:h-16 object-contain print:h-16 print:grayscale-0" />
+                                                                    <img src={logo} alt="لوگو" className={`${isA5 ? 'h-10 print:h-10' : 'h-14 md:h-16 print:h-16'} object-contain print:grayscale-0`} />
                                                                 )}
                                                             </DraggableElement>
                                                             
@@ -1899,7 +2090,7 @@ const SecretariatDetailScreen = () => {
                                                                 styleData={layoutStyles[isFirstPage ? "head-logo-name" : `head-logo-name-p${pageNum}`] || layoutStyles['head-logo-name']} 
                                                                 onStyleChange={handleUpdateStyle} 
                                                                 onDragEnd={handleUpdatePosition} 
-                                                                className="font-bold text-[11px] md:text-sm print:text-sm text-center leading-tight"
+                                                                className={`font-bold ${isA5 ? 'text-[10px]' : 'text-[11px] md:text-sm print:text-sm'} text-center leading-tight`}
                                                             >
                                                                 <div className="w-full text-center">
                                                                     <span>{letter.final_sender_name}</span>
@@ -1911,9 +2102,9 @@ const SecretariatDetailScreen = () => {
                                                 
                                                 {/* ۲. عبارت به نام خدا */}
                                                 {isFirstPage ? (
-                                                    <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-1/3 pt-2 md:pt-4">
+                                                    <DraggableElement id="head-besmella" label="به نام خدا" isEditMode={isLayoutEditMode} position={layoutPositions['head-besmella']} styleData={layoutStyles['head-besmella']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`w-1/3 ${isA5 ? 'pt-1' : 'pt-2 md:pt-4'}`}>
                                                         <div className="w-full flex justify-center items-center text-center">
-                                                            <span className="font-bold text-lg md:text-xl print:text-2xl tracking-widest text-black text-center">به نام خدا</span>
+                                                            <span className={`font-bold ${isA5 ? 'text-sm print:text-base' : 'text-lg md:text-xl print:text-2xl'} tracking-widest text-black text-center`}>به نام خدا</span>
                                                         </div>
                                                     </DraggableElement>
                                                 ) : (
@@ -1921,8 +2112,8 @@ const SecretariatDetailScreen = () => {
                                                 )}
 
                                                 {/* ۳. شماره، تاریخ، پیوست و بارکد QR */}
-                                                <div className="flex items-start justify-end gap-3 w-1/3 pt-1 text-black">
-                                                    <div className="flex flex-col text-[11px] md:text-sm print:text-sm font-bold items-end space-y-1.5">
+                                                <div className={`flex items-start justify-end ${isA5 ? 'gap-1.5' : 'gap-3'} w-1/3 pt-1 text-black`}>
+                                                    <div className={`flex flex-col ${isA5 ? 'text-[9px] space-y-1' : 'text-[11px] md:text-sm print:text-sm space-y-1.5'} font-bold items-end`}>
                                                         {letter.original_number ? (
                                                             <DraggableElement 
                                                                 id={isFirstPage ? "head-number" : `head-number-p${pageNum}`} 
@@ -1932,13 +2123,13 @@ const SecretariatDetailScreen = () => {
                                                                 styleData={layoutStyles[isFirstPage ? "head-number" : `head-number-p${pageNum}`] || layoutStyles['head-number']} 
                                                                 onStyleChange={handleUpdateStyle} 
                                                                 onDragEnd={handleUpdatePosition} 
-                                                                className="flex items-center gap-2"
+                                                                className="flex items-center gap-1.5"
                                                             >
                                                                 {printMode !== 'LETTERHEAD' && <span className="opacity-80 font-normal">شماره : </span>}
                                                                 {renderFormattedNumber(letter.original_number)}
                                                             </DraggableElement>
                                                         ) : (
-                                                            <div className="flex items-center gap-2 text-gray-400 print:hidden">
+                                                            <div className="flex items-center gap-1.5 text-gray-400 print:hidden">
                                                                 {printMode !== 'LETTERHEAD' && <span className="font-normal">شماره : </span>}
                                                                 <span>پس از تایید</span>
                                                             </div>
@@ -1953,10 +2144,10 @@ const SecretariatDetailScreen = () => {
                                                                 styleData={layoutStyles[isFirstPage ? "head-date" : `head-date-p${pageNum}`] || layoutStyles['head-date']} 
                                                                 onStyleChange={handleUpdateStyle} 
                                                                 onDragEnd={handleUpdatePosition} 
-                                                                className="flex items-center gap-2"
+                                                                className="flex items-center gap-1.5"
                                                             >
                                                                 {printMode !== 'LETTERHEAD' && <span className="opacity-80 font-normal">تاریخ : </span>}
-                                                                <span className="print:text-sm">{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span>
+                                                                <span className={isA5 ? 'text-[9px]' : 'print:text-sm'}>{new Date(letter.original_date).toLocaleDateString('fa-IR')}</span>
                                                             </DraggableElement>
                                                         )}
                                                         
@@ -1968,10 +2159,10 @@ const SecretariatDetailScreen = () => {
                                                             styleData={layoutStyles[isFirstPage ? "head-attachment" : `head-attachment-p${pageNum}`] || layoutStyles['head-attachment']} 
                                                             onStyleChange={handleUpdateStyle} 
                                                             onDragEnd={handleUpdatePosition} 
-                                                            className="flex items-center gap-2"
+                                                            className="flex items-center gap-1.5"
                                                         >
                                                             {printMode !== 'LETTERHEAD' && <span className="opacity-80 font-normal">پیوست: </span>}
-                                                            <span className="print:text-sm">{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span>
+                                                            <span className={isA5 ? 'text-[9px]' : 'print:text-sm'}>{letter.attachment_note || (letter.attachments?.length > 0 ? 'دارد' : 'ندارد')}</span>
                                                         </DraggableElement>
                                                     </div>
 
@@ -1988,7 +2179,7 @@ const SecretariatDetailScreen = () => {
                                                         <div className="p-1 bg-white border border-gray-300 print:border-black rounded-md flex flex-col items-center justify-center shadow-sm" title={currentLetterUrl}>
                                                             <QRCode
                                                                 value={currentLetterUrl}
-                                                                size={Math.round(48 * (layoutStyles['head-letter-qr']?.scale || 1))}
+                                                                size={Math.round((isA5 ? 36 : 48) * (layoutStyles['head-letter-qr']?.scale || 1))}
                                                                 level="M"
                                                                 fgColor="#000000"
                                                                 bgColor="#FFFFFF"
@@ -2007,14 +2198,14 @@ const SecretariatDetailScreen = () => {
                                                 styleData={layoutStyles[isFirstPage ? "header-divider" : `header-divider-p${pageNum}`] || layoutStyles['header-divider']} 
                                                 onStyleChange={handleUpdateStyle} 
                                                 onDragEnd={handleUpdatePosition} 
-                                                className="w-full mb-3 shrink-0"
+                                                className={`w-full ${isA5 ? 'mb-2' : 'mb-3'} shrink-0`}
                                             >
-                                                <div className="border-b-4 border-gray-400 print:border-black w-full"></div>
+                                                <div className={`${isA5 ? 'border-b-2' : 'border-b-4'} border-gray-400 print:border-black w-full`}></div>
                                             </DraggableElement>
 
                                             {/* مشخصات گیرنده، القاب، موضوع، عطف و قرارداد (صرفاً در صفحه ۱) */}
                                             {isFirstPage && (
-                                                <div className="space-y-2 mb-3 text-sm md:text-base print:text-base leading-relaxed text-black shrink-0">
+                                                <div className={`${isA5 ? 'space-y-1 mb-2 text-xs leading-snug' : 'space-y-2 mb-3 text-sm md:text-base print:text-base leading-relaxed'} text-black shrink-0`}>
                                                     
                                                     {/* ۱. سازمان مقصد / گیرنده خارجی */}
                                                     {letter.external_receiver_detail?.name && (
@@ -2028,7 +2219,7 @@ const SecretariatDetailScreen = () => {
                                                             onDragEnd={handleUpdatePosition} 
                                                             className="flex items-baseline w-full"
                                                         >
-                                                            <strong className="text-lg text-black">{letter.external_receiver_detail.name}</strong>
+                                                            <strong className={`${isA5 ? 'text-sm' : 'text-lg'} text-black`}>{letter.external_receiver_detail.name}</strong>
                                                         </DraggableElement>
                                                     )}
 
@@ -2044,7 +2235,7 @@ const SecretariatDetailScreen = () => {
                                                             onDragEnd={handleUpdatePosition} 
                                                             className="flex items-baseline w-full"
                                                         >
-                                                            <strong className="text-base text-black">
+                                                            <strong className={`${isA5 ? 'text-xs' : 'text-base'} text-black`}>
                                                                 {letter.manual_receiver_name || letter.final_receiver_name}
                                                             </strong>
                                                         </DraggableElement>
@@ -2060,7 +2251,7 @@ const SecretariatDetailScreen = () => {
                                                             styleData={layoutStyles['body-receiver-titles']} 
                                                             onStyleChange={handleUpdateStyle} 
                                                             onDragEnd={handleUpdatePosition} 
-                                                            className="flex items-start mt-0.5 text-sm w-full"
+                                                            className={`flex items-start mt-0.5 ${isA5 ? 'text-[11px]' : 'text-sm'} w-full`}
                                                         >
                                                             <p className="whitespace-pre-wrap font-bold leading-relaxed text-black">
                                                                 {letter.receiver_persons}
@@ -2069,14 +2260,14 @@ const SecretariatDetailScreen = () => {
                                                     )}
                                                     
                                                     {/* موضوع نامه */}
-                                                    <DraggableElement id="body-subject" label="موضوع نامه" isEditMode={isLayoutEditMode} position={layoutPositions['body-subject']} styleData={layoutStyles['body-subject']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-2 w-full">
-                                                        <span className="w-24 opacity-80 font-normal shrink-0">موضوع: </span> 
-                                                        <strong className="text-lg flex-1">{letter.subject}</strong>
+                                                    <DraggableElement id="body-subject" label="موضوع نامه" isEditMode={isLayoutEditMode} position={layoutPositions['body-subject']} styleData={layoutStyles['body-subject']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`flex items-baseline ${isA5 ? 'mt-1' : 'mt-2'} w-full`}>
+                                                        <span className={`${isA5 ? 'w-16' : 'w-24'} opacity-80 font-normal shrink-0`}>موضوع: </span> 
+                                                        <strong className={`${isA5 ? 'text-sm' : 'text-lg'} flex-1`}>{letter.subject}</strong>
                                                     </DraggableElement>
 
                                                     {(letter.reference_letter_detail || letter.reference_number) && (
-                                                        <DraggableElement id="body-ref" label="عطف به" isEditMode={isLayoutEditMode} position={layoutPositions['body-ref']} styleData={layoutStyles['body-ref']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline mt-2 w-full">
-                                                            <span className="w-24 opacity-80 shrink-0">عطف به:</span> 
+                                                        <DraggableElement id="body-ref" label="عطف به" isEditMode={isLayoutEditMode} position={layoutPositions['body-ref']} styleData={layoutStyles['body-ref']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className={`flex items-baseline ${isA5 ? 'mt-1' : 'mt-2'} w-full`}>
+                                                            <span className={`${isA5 ? 'w-16' : 'w-24'} opacity-80 shrink-0`}>عطف به:</span> 
                                                             <div className="flex flex-wrap items-center gap-2 flex-1">
                                                                 {letter.reference_letter_detail && (
                                                                     <span className="font-bold text-blue-700 print:text-black">
@@ -2085,7 +2276,7 @@ const SecretariatDetailScreen = () => {
                                                                 )}
                                                                 {letter.reference_letter_detail && letter.reference_number && <span className="opacity-50">|</span>}
                                                                 {letter.reference_number && (
-                                                                    <strong className="text-base font-mono" dir="ltr">{letter.reference_number}</strong>
+                                                                    <strong className={`${isA5 ? 'text-xs' : 'text-base'} font-mono`} dir="ltr">{letter.reference_number}</strong>
                                                                 )}
                                                             </div>
                                                         </DraggableElement>
@@ -2093,14 +2284,14 @@ const SecretariatDetailScreen = () => {
 
                                                     {letter.contract_number && (
                                                         <DraggableElement id="body-contract" label="شماره قرارداد" isEditMode={isLayoutEditMode} position={layoutPositions['body-contract']} styleData={layoutStyles['body-contract']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="flex items-baseline w-full">
-                                                            <span className="w-24 opacity-80 shrink-0">شماره قرارداد:</span> 
-                                                            <strong className="text-base font-mono" dir="ltr">{letter.contract_number}</strong>
+                                                            <span className={`${isA5 ? 'w-16' : 'w-24'} opacity-80 shrink-0`}>شماره قرارداد:</span> 
+                                                            <strong className={`${isA5 ? 'text-xs' : 'text-base'} font-mono`} dir="ltr">{letter.contract_number}</strong>
                                                         </DraggableElement>
                                                     )}
                                                 </div>
                                             )}
 
-                                            {/* متن نامه در برگه جاری */}
+                                            {/* متن نامه در برگه جاری با قابلیت تنظیم فاصله چپ و راست */}
                                             <DraggableElement 
                                                 id={isFirstPage ? "body-content" : `body-content-p${pageNum}`} 
                                                 label={`متن برگه ${pageNum}`} 
@@ -2109,13 +2300,22 @@ const SecretariatDetailScreen = () => {
                                                 styleData={layoutStyles[isFirstPage ? "body-content" : `body-content-p${pageNum}`] || layoutStyles['body-content']} 
                                                 onStyleChange={handleUpdateStyle} 
                                                 onDragEnd={handleUpdatePosition} 
-                                                className={`text-justify leading-loose flex-1 text-sm md:text-base print:text-base whitespace-pre-wrap font-medium text-black ${!isFirstPage ? 'pt-1' : ''}`}
+                                                className={`text-justify flex-1 min-h-0 overflow-hidden whitespace-pre-wrap font-medium text-black ${isA5 ? 'text-xs leading-relaxed' : 'text-sm md:text-base print:text-base leading-loose'} ${!isFirstPage ? 'pt-1' : ''}`}
                                             >
-                                                {pageBodyText}
+                                                <div
+                                                    ref={(el) => { bodyTextRefs.current[pIndex] = el; }}
+                                                    className="w-full h-full overflow-hidden"
+                                                    style={{
+                                                        paddingRight: `${bodyPadding.right}mm`,
+                                                        paddingLeft: `${bodyPadding.left}mm`,
+                                                    }}
+                                                >
+                                                    {pageBodyText}
+                                                </div>
                                             </DraggableElement>
 
-                                            {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضا */}
-                                            <div className="flex justify-between items-end pb-2 relative text-black avoid-break mt-auto shrink-0 pt-3">
+                                            {/* بلوک پایانی شامل رونوشت، مهر مقصد و امضا با فاصله خودکار مناسب از پایین‌ترین خط متن */}
+                                            <div className={`flex justify-between items-end relative text-black avoid-break mt-auto shrink-0 ${isA5 ? 'pt-7 pb-1' : 'pt-12 pb-2'}`}>
                                                 {/* رونوشت (فقط در برگه آخر) */}
                                                 <DraggableElement 
                                                     id={`footer-cc-p${pageNum}`} 
@@ -2125,11 +2325,11 @@ const SecretariatDetailScreen = () => {
                                                     styleData={layoutStyles[`footer-cc-p${pageNum}`] || layoutStyles['footer-cc-p1']} 
                                                     onStyleChange={handleUpdateStyle} 
                                                     onDragEnd={handleUpdatePosition} 
-                                                    className="w-1/3 text-xs print:text-sm opacity-90"
+                                                    className={`w-1/3 ${isA5 ? 'text-[10px]' : 'text-xs print:text-sm'} opacity-90`}
                                                 >
                                                     {isLastPage && (letter.cc_text || letter.internal_cc_names?.length > 0) && (
-                                                        <div className="border-t border-gray-400 print:border-black pt-2 pr-2 inline-block min-w-[180px]">
-                                                            <strong className="block mb-1 text-sm">رونوشت:</strong>
+                                                        <div className={`border-t border-gray-400 print:border-black pt-1.5 pr-1.5 inline-block ${isA5 ? 'min-w-[120px]' : 'min-w-[180px]'}`}>
+                                                            <strong className={`block mb-1 ${isA5 ? 'text-xs' : 'text-sm'}`}>رونوشت:</strong>
                                                             {letter.cc_text && <p className="whitespace-pre-wrap mb-1">{letter.cc_text}</p>}
                                                             {letter.internal_cc_names?.map((name, i) => <div key={i}>- {name}</div>)}
                                                         </div>
@@ -2145,18 +2345,18 @@ const SecretariatDetailScreen = () => {
                                                     styleData={layoutStyles[`footer-dest-p${pageNum}`] || layoutStyles['footer-dest-p1']} 
                                                     onStyleChange={handleUpdateStyle} 
                                                     onDragEnd={handleUpdatePosition} 
-                                                    className="w-1/3 flex justify-center items-center relative h-28"
+                                                    className={`w-1/3 flex justify-center items-center relative ${isA5 ? 'h-20' : 'h-28'}`}
                                                 >
                                                     {isLastPage && ((letter.letter_type === 'OUTGOING' || letter.letter_type === 'INCOMING') && letter.destination_indicator) && (
-                                                        <div className="absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 px-4 py-2 rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply" style={{ minWidth: '150px' }}>
-                                                            <span className="text-xs font-black tracking-widest text-center mb-1">
+                                                        <div className={`absolute transform -rotate-12 border-4 border-double border-red-600 text-red-600 ${isA5 ? 'px-2.5 py-1' : 'px-4 py-2'} rounded-lg flex flex-col items-center justify-center opacity-80 print:opacity-100 mix-blend-multiply`} style={{ minWidth: isA5 ? '115px' : '150px' }}>
+                                                            <span className={`${isA5 ? 'text-[10px]' : 'text-xs'} font-black tracking-widest text-center mb-0.5`}>
                                                                 {letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه' : 'ثبت در مقصد'}
                                                             </span>
-                                                            <div className="w-full border-b-[2px] border-dashed border-red-600 my-1 opacity-70"></div>
-                                                            <span className="font-mono text-lg font-bold mt-0.5" dir="ltr">
+                                                            <div className="w-full border-b-[2px] border-dashed border-red-600 my-0.5 opacity-70"></div>
+                                                            <span className={`font-mono ${isA5 ? 'text-sm' : 'text-lg'} font-bold mt-0.5`} dir="ltr">
                                                                 {renderFormattedNumber(letter.destination_indicator)}
                                                             </span>
-                                                            {letter.destination_date && <span className="text-[10px] font-bold mt-0.5">{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
+                                                            {letter.destination_date && <span className={`${isA5 ? 'text-[8px]' : 'text-[10px]'} font-bold mt-0.5`}>{new Date(letter.destination_date).toLocaleDateString('fa-IR')}</span>}
                                                         </div>
                                                     )}
                                                 </DraggableElement>
@@ -2171,7 +2371,7 @@ const SecretariatDetailScreen = () => {
                                                         styleData={layoutStyles[`footer-sign-title-p${pageNum}`] || layoutStyles['footer-sign-title-p1']} 
                                                         onStyleChange={handleUpdateStyle} 
                                                         onDragEnd={handleUpdatePosition} 
-                                                        className="mb-1 text-sm font-bold w-full text-center"
+                                                        className={`mb-1 ${isA5 ? 'text-xs' : 'text-sm'} font-bold w-full text-center`}
                                                     >
                                                         مهر و امضا
                                                     </DraggableElement>
@@ -2184,15 +2384,15 @@ const SecretariatDetailScreen = () => {
                                                         styleData={layoutStyles[`footer-sign-img-p${pageNum}`] || layoutStyles['footer-sign-img-p1']} 
                                                         onStyleChange={handleUpdateStyle} 
                                                         onDragEnd={handleUpdatePosition} 
-                                                        className="flex flex-col justify-center items-center w-full min-h-[85px] my-1 relative"
+                                                        className={`flex flex-col justify-center items-center w-full ${isA5 ? 'min-h-[60px]' : 'min-h-[85px]'} my-1 relative`}
                                                     >
                                                         {(letter.drawn_signature || letter.signature || letter.signature_image || letter.signature_url) ? (
                                                             <img 
                                                                 src={letter.drawn_signature || letter.signature || letter.signature_image || letter.signature_url} 
                                                                 alt="امضا" 
                                                                 style={{ 
-                                                                    height: `${Math.round(90 * (layoutStyles[`footer-sign-img-p${pageNum}`]?.scale || layoutStyles['footer-sign-img-p1']?.scale || 1))}px`,
-                                                                    maxHeight: '150px',
+                                                                    height: `${Math.round((isA5 ? 62 : 90) * (layoutStyles[`footer-sign-img-p${pageNum}`]?.scale || layoutStyles['footer-sign-img-p1']?.scale || 1))}px`,
+                                                                    maxHeight: isA5 ? '100px' : '150px',
                                                                     width: 'auto',
                                                                     maxWidth: '100%',
                                                                     objectFit: 'contain'
@@ -2200,7 +2400,7 @@ const SecretariatDetailScreen = () => {
                                                                 className="mix-blend-multiply select-none pointer-events-none drop-shadow-sm" 
                                                             />
                                                         ) : (
-                                                            <div className="h-16 w-full flex items-center justify-center border border-dashed border-gray-200 rounded text-gray-300 text-xs print:border-none">
+                                                            <div className={`${isA5 ? 'h-12' : 'h-16'} w-full flex items-center justify-center border border-dashed border-gray-200 rounded text-gray-300 text-xs print:border-none`}>
                                                                 محل امضا
                                                             </div>
                                                         )}
@@ -2214,7 +2414,7 @@ const SecretariatDetailScreen = () => {
                                                         styleData={layoutStyles[`footer-sign-name-p${pageNum}`] || layoutStyles['footer-sign-name-p1']} 
                                                         onStyleChange={handleUpdateStyle} 
                                                         onDragEnd={handleUpdatePosition} 
-                                                        className="mt-1 text-center w-full font-bold text-sm whitespace-pre-wrap leading-relaxed"
+                                                        className={`mt-1 text-center w-full font-bold ${isA5 ? 'text-xs' : 'text-sm'} whitespace-pre-wrap leading-relaxed`}
                                                     >
                                                         {letter.manual_sender_name || letter.final_sender_name || 'مدیرعامل'}
                                                     </DraggableElement>
@@ -2230,35 +2430,35 @@ const SecretariatDetailScreen = () => {
                                                 styleData={layoutStyles[`page-number-p${pageNum}`]} 
                                                 onStyleChange={handleUpdateStyle} 
                                                 onDragEnd={handleUpdatePosition} 
-                                                className="w-full text-center py-1 mt-auto avoid-break shrink-0"
+                                                className="w-full text-center py-0.5 mt-auto avoid-break shrink-0"
                                             >
-                                                <div className="inline-block px-3 py-0.5 rounded text-xs print:text-[11px] font-mono font-bold opacity-80 text-gray-700 print:text-black">
+                                                <div className={`inline-block px-3 py-0.5 rounded ${isA5 ? 'text-[10px]' : 'text-xs print:text-[11px]'} font-mono font-bold opacity-80 text-gray-700 print:text-black`}>
                                                     صفحه {toPersianDigits(pageNum)} از {toPersianDigits(totalPages)}
                                                 </div>
                                             </DraggableElement>
 
                                         </div>
 
-                                        {/* پاورقی شرکت (صرفاً در انتهای آخرین برگه و در حالت برگه معمولی) */}
-                                        {isLastPage && printMode === 'BLANK' && letter.letter_type !== 'INCOMING' && (
+                                        {/* پاورقی شرکت (صرفاً در انتهای آخرین برگه و در حالت برگه معمولی یا A5) */}
+                                        {isLastPage && printMode !== 'LETTERHEAD' && letter.letter_type !== 'INCOMING' && (
                                             <DraggableElement id="company-footer" label="پاورقی شرکت" isEditMode={isLayoutEditMode} position={layoutPositions['company-footer']} styleData={layoutStyles['company-footer']} onStyleChange={handleUpdateStyle} onDragEnd={handleUpdatePosition} className="w-full pt-1 avoid-break mt-auto shrink-0">
-                                                <div className="border-t-[3px] border-gray-400 print:border-black pt-2 flex justify-between items-end gap-4 text-gray-800 print:text-black">
+                                                <div className={`${isA5 ? 'border-t-2 pt-1.5 gap-2' : 'border-t-[3px] pt-2 gap-4'} border-gray-400 print:border-black flex justify-between items-end text-gray-800 print:text-black`}>
                                                     <div className="relative flex items-center justify-center p-1 bg-white border-2 border-gray-300 print:border-black rounded-lg">
                                                         <QRCode
                                                             value="https://www.ariobonyantoos.com/"
-                                                            size={64}
+                                                            size={isA5 ? 44 : 64}
                                                             level="H"
                                                             fgColor="#000000"
                                                             bgColor="#FFFFFF"
                                                         />
                                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                            <div className="w-5 h-5 bg-white rounded border border-gray-200 print:border-black flex items-center justify-center p-0.5">
+                                                            <div className={`${isA5 ? 'w-3.5 h-3.5' : 'w-5 h-5'} bg-white rounded border border-gray-200 print:border-black flex items-center justify-center p-0.5`}>
                                                                 <img src={logo} alt="لوگو" className="w-full h-full object-contain" />
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex flex-col text-right text-[10px] print:text-[11px] font-bold space-y-0.5">
+                                                    <div className={`flex flex-col text-right ${isA5 ? 'text-[8px] space-y-0' : 'text-[10px] print:text-[11px] space-y-0.5'} font-bold`}>
                                                         <div className="flex items-center justify-end gap-1.5">
                                                             <span>مشهد، هاشمیه ۵۱، پلاک ۱۳۶</span>
                                                             <div className="w-3.5 h-3.5 flex items-center justify-center border border-cyan-500 rounded text-cyan-500"><FaMapMarkerAlt size={8} /></div>
@@ -2333,7 +2533,7 @@ const SecretariatDetailScreen = () => {
                     </div>
 
                     <div className="space-y-2">
-                        {smsLogs.map((log) => (
+                        {smsLogs.log?.map ? smsLogs.map((log) => (
                             <div key={log.id} className={`p-3 rounded-lg border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ${
@@ -2372,7 +2572,7 @@ const SecretariatDetailScreen = () => {
                                     </button>
                                 </div>
                             </div>
-                        ))}
+                        )) : null}
                     </div>
                 </div>
             )}
@@ -2389,9 +2589,37 @@ const SecretariatDetailScreen = () => {
                 {letter.attachments?.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {letter.attachments.map(file => (
-                            <a key={file.id} href={file.url} target="_blank" rel="noopener noreferrer" className={`flex items-center justify-between p-3 rounded-lg border transition ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500' : 'bg-gray-50 border-gray-200 hover:border-blue-400'}`}>
-                                <span className="text-xs sm:text-sm truncate font-bold" dir="ltr">{file.name}</span><FaDownload className="text-blue-500 ml-2" />
-                            </a>
+                            <div key={file.id} className={`flex items-center justify-between gap-2 p-3 rounded-lg border transition ${isDark ? 'bg-slate-900 border-slate-700 hover:border-blue-500' : 'bg-gray-50 border-gray-200 hover:border-blue-400'}`}>
+                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm truncate font-bold flex-1 min-w-0 hover:text-blue-500 transition" dir="ltr" title={file.name}>
+                                    {file.name}
+                                </a>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition" title="دانلود / مشاهده">
+                                        <FaDownload size={12} />
+                                    </a>
+                                    {hasSecretariatPerm && (
+                                        <>
+                                            <label className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 cursor-pointer transition" title="جایگزینی فایل">
+                                                <FaEdit size={12} />
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip"
+                                                    className="hidden"
+                                                    onChange={(e) => handleReplaceAttachment(file.id, e)}
+                                                />
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteAttachment(file.id, file.name)}
+                                                className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition"
+                                                title="حذف فایل"
+                                            >
+                                                <FaTrash size={12} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         ))}
                     </div>
                 ) : <div className="text-center py-4 text-xs sm:text-sm opacity-60">هیچ سندی پیوست نشده است.</div>}
