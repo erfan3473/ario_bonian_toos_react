@@ -15,7 +15,7 @@ import {
     FaTimesCircle, FaChevronDown, FaSms, FaSyncAlt, FaPaperPlane, 
     FaFont, FaBold, FaUnderline, FaPlus, FaMinus, FaMapMarkerAlt, 
     FaPhoneAlt, FaMobileAlt, FaGlobe, FaEnvelope, FaExternalLinkAlt,
-    FaFilePdf, FaFileImage, FaUndo, FaCopy, FaCut, FaCheck, FaExclamationTriangle
+    FaFilePdf, FaFileImage, FaUndo, FaCopy, FaCut, FaCheck, FaExclamationTriangle, FaShareAlt
 } from 'react-icons/fa';
 import SignatureCanvas from 'react-signature-canvas';
 import logo from '../../assets/ario.png';
@@ -213,7 +213,7 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
         { key: 'REGISTERED', label: 'بایگانی', icon: <FaCheckCircle /> }
     ] : [
         { key: 'PENDING', label: 'ثبت اولیه', icon: <FaEdit /> },
-        { key: 'APPROVED', label: 'تایید و بایگانی', icon: <FaCheckCircle /> }
+        { key: 'APPROVED', label: letterType === 'INCOMING' ? 'تایید و بایگانی' : 'تایید و بایگانی', icon: <FaCheckCircle /> }
     ];
 
     let currentIndex = steps.findIndex(step => step.key === status);
@@ -789,6 +789,25 @@ const SecretariatDetailScreen = () => {
             .catch((err) => toast.error(err || 'خطا در جایگزینی فایل', { id: loadingToast }));
     };
 
+    // اشتراک‌گذاری سریع لینک نامه (مناسب موبایل)
+    const handleShareLetter = async () => {
+        const shareData = {
+            title: `نامه شماره ${letter.indicator_number}`,
+            text: `موضوع: ${letter.subject}`,
+            url: currentLetterUrl,
+        };
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(currentLetterUrl);
+                toast.success('لینک نامه با موفقیت کپی شد!');
+            }
+        } catch (err) {
+            console.log(err);
+        }
+    };
+
     const handleSignDefault = async () => {
         setSigning(true);
         try {
@@ -912,7 +931,7 @@ const SecretariatDetailScreen = () => {
             .finally(() => setRegisteringDest(false));
     };
 
-    // موتور اختصاصی و ایزوله چاپ نامه‌ها (پشتیبانی از A4 معمولی، سربرگ A4 و برگه A5)
+    // موتور اختصاصی و ایزوله چاپ نامه‌ها
     const executeIsolatedPrint = (mode) => {
         const printRoot = document.getElementById('letter-print-root');
         if (!printRoot) {
@@ -944,7 +963,6 @@ const SecretariatDetailScreen = () => {
         const doc = iframe.contentWindow.document;
         const clonedContent = printRoot.cloneNode(true);
 
-        // تبدیل translate3d به translate ساده جهت جلوگیری از باگ پرینترهای ویندوز
         clonedContent.querySelectorAll('[style*="translate3d"]').forEach((el) => {
             const style = el.getAttribute('style') || '';
             const match = style.match(/translate3d\(([^,]+),\s*([^,]+),\s*[^)]+\)/);
@@ -1062,7 +1080,7 @@ const SecretariatDetailScreen = () => {
         'INCOMING': 'وارده', 'OUTGOING': 'صادره', 'INTERNAL': 'داخلی', 'DOCUMENT': 'اسناد',
         'NORMAL': 'عادی', 'URGENT': 'فوری', 'VERY_URGENT': 'خیلی فوری',
         'CONFIDENTIAL': 'محرمانه', 'SECRET': 'سری',
-        'PENDING': 'در انتظار تایید', 'APPROVED': 'آماده صدور', 'ISSUED': 'در دست پیک',
+        'PENDING': 'در انتظار تایید', 'APPROVED': letter.letter_type === 'INCOMING' ? 'تایید و بایگانی شده' : 'آماده صدور', 'ISSUED': 'در دست پیک',
         'REGISTERED': 'تکمیل شده', 'REJECTED': 'رد شده', 'DELETED': 'حذف شده (زباله‌دان)'
     }[val] || val);
 
@@ -1477,6 +1495,11 @@ const SecretariatDetailScreen = () => {
                     
                     {letter.status !== 'DELETED' && (
                         <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
+                            {/* دکمه اشتراک‌گذاری سریع (مناسب موبایل و خارج از سایت) */}
+                            <button onClick={handleShareLetter} className="flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 px-3 sm:px-3.5 py-2 rounded-lg font-bold transition text-xs sm:text-sm shadow-md" title="اشتراک‌گذاری / کپی لینک">
+                                <FaShareAlt /> اشتراک‌گذاری
+                            </button>
+
                             <div className="relative" ref={printMenuRef}>
                                 <button onClick={() => setShowPrintMenu(!showPrintMenu)} className="relative flex items-center gap-1.5 bg-gray-800 text-white hover:bg-black dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white px-3 sm:px-4 py-2 rounded-lg font-bold transition text-xs sm:text-sm shadow-md">
                                     <FaPrint /> چاپ ({getPrintModeLabel(printMode)}) <FaChevronDown className="text-[10px] ml-1 opacity-70" />
@@ -1657,7 +1680,7 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* نوار ابزار تنظیم چیدمان همراه با کنترل کامل حاشیه برگه، حاشیه چپ/راست متن بدنه و انتخاب قالب */}
+            {/* نوار ابزار تنظیم چیدمان */}
             {isLayoutEditMode && (
                 <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 p-3 sm:p-4 rounded-xl mb-4 text-xs font-bold flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-4 print:hidden shadow-md">
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -2533,7 +2556,7 @@ const SecretariatDetailScreen = () => {
                     </div>
 
                     <div className="space-y-2">
-                        {smsLogs.log?.map ? smsLogs.map((log) => (
+                        {smsLogs.map((log) => (
                             <div key={log.id} className={`p-3 rounded-lg border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
                                 <div className="flex items-center gap-3">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white shrink-0 ${
@@ -2572,7 +2595,7 @@ const SecretariatDetailScreen = () => {
                                     </button>
                                 </div>
                             </div>
-                        )) : null}
+                        ))}
                     </div>
                 </div>
             )}

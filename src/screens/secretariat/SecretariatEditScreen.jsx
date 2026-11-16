@@ -7,14 +7,12 @@ import { FaChevronLeft, FaChevronDown, FaExclamationTriangle, FaCalendarAlt, FaU
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import logo from '../../assets/ario.png';
 
-// 🚀 تبدیل اعداد انگلیسی به فارسی
 const toPersianDigits = (str) => {
     if (!str) return '';
     const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
     return str.toString().replace(/[0-9]/g, x => persianDigits[x]);
 };
 
-// 🚀 تابع نمایش نامحدود و استاندارد شماره‌های اسلش‌دار
 const renderFormattedNumber = (numStr, customClass = "text-[13px]") => {
     if (!numStr) return null;
     const str = String(numStr);
@@ -287,8 +285,8 @@ const SecretariatEditScreen = () => {
             external_sender: '', 
             internal_receiver: '', 
             external_receiver: '',
-            destination_indicator: newType !== 'OUTGOING' ? '' : prev.destination_indicator,
-            destination_date: newType !== 'OUTGOING' ? '' : prev.destination_date,
+            destination_indicator: (newType !== 'OUTGOING' && newType !== 'INCOMING') ? '' : prev.destination_indicator,
+            destination_date: (newType !== 'OUTGOING' && newType !== 'INCOMING') ? '' : prev.destination_date,
             delivery_responsible: newType !== 'OUTGOING' ? '' : prev.delivery_responsible
         }));
     };
@@ -503,7 +501,9 @@ const SecretariatEditScreen = () => {
                                 </div>
                                 <div>
                                     <div className="flex justify-between items-center mb-1">
-                                        <label className="text-[10px] font-bold opacity-80">شماره چاپی دستی</label>
+                                        <label className="text-[10px] font-bold opacity-80">
+                                            {formData.letter_type === 'INCOMING' ? 'شماره نامه فرستنده' : 'شماره چاپی دستی'}
+                                        </label>
                                         {formData.original_number && (
                                             <span className="text-blue-600 dark:text-blue-400">
                                                 {renderFormattedNumber(formData.original_number, "text-[11px]")}
@@ -522,11 +522,13 @@ const SecretariatEditScreen = () => {
                                 <div className="relative">
                                     <JalaliDatePicker name="original_date" label="تاریخ نامه کاغذی" value={formData.original_date} onChange={(e) => setFormData({ ...formData, original_date: e.target.value })} placeholder="انتخاب تاریخ" />
                                 </div>
-                                {formData.letter_type === 'OUTGOING' && (
+                                {(formData.letter_type === 'OUTGOING' || formData.letter_type === 'INCOMING') && (
                                     <>
                                         <div>
                                             <div className="flex justify-between items-center mb-1">
-                                                <label className="text-[10px] font-bold opacity-80 text-indigo-700 dark:text-indigo-400">شماره دریافت در مقصد</label>
+                                                <label className="text-[10px] font-bold opacity-80 text-indigo-700 dark:text-indigo-400">
+                                                    {formData.letter_type === 'INCOMING' ? 'شماره ثبت در دبیرخانه' : 'شماره دریافت در مقصد'}
+                                                </label>
                                                 {formData.destination_indicator && (
                                                     <span className="text-indigo-600 dark:text-indigo-400">
                                                         {renderFormattedNumber(formData.destination_indicator, "text-[11px]")}
@@ -536,14 +538,20 @@ const SecretariatEditScreen = () => {
                                             <input 
                                                 type="text" 
                                                 dir="ltr" 
-                                                placeholder="مثال: ۱۴۰۵/۸۵۲"
+                                                placeholder="مثال: و/۱۴۰۵/۰۰۱"
                                                 className={`${inputClass} text-center font-mono font-black border-indigo-300 dark:border-indigo-700 text-xs tracking-wider`} 
                                                 value={formData.destination_indicator} 
                                                 onChange={(e) => setFormData({ ...formData, destination_indicator: toPersianDigits(e.target.value) })} 
                                             />
                                         </div>
                                         <div className="relative">
-                                            <JalaliDatePicker name="destination_date" label="تاریخ تحویل به مقصد" value={formData.destination_date} onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} placeholder="انتخاب تاریخ" />
+                                            <JalaliDatePicker 
+                                                name="destination_date" 
+                                                label={formData.letter_type === 'INCOMING' ? 'تاریخ ثبت در دبیرخانه' : 'تاریخ تحویل به مقصد'} 
+                                                value={formData.destination_date} 
+                                                onChange={(e) => setFormData({ ...formData, destination_date: e.target.value })} 
+                                                placeholder="انتخاب تاریخ" 
+                                            />
                                         </div>
                                     </>
                                 )}

@@ -41,7 +41,6 @@ const HighlightedText = ({ text, highlight }) => {
     );
 };
 
-// 🚀 کامپوننت فرمت‌دهی شماره‌های اسلش‌دار و اداری بر اساس الگوی استاندارد برگه رسمی
 const renderFormattedNumber = (numStr, customClass = "text-[13px]", highlight = null) => {
     if (!numStr) return null;
     const str = String(numStr);
@@ -171,32 +170,54 @@ const DirectionalLogo = ({ type, status }) => {
         : type === 'OUTGOING'
         ? { bg: 'bg-orange-100 dark:bg-orange-900/40', border: 'border-orange-500', text: 'text-orange-600 dark:text-orange-400' }
         : type === 'DOCUMENT'
-        ? { bg: 'bg-slate-100 dark:bg-slate-900/40', border: 'border-slate-500', text: 'text-slate-600 dark:text-slate-400' }
+        ? { bg: 'bg-slate-100 dark:bg-slate-900/40', border: 'border-slate-500', text: 'text-slate-600 dark:text-slate-300' }
         : { bg: 'bg-purple-100 dark:bg-purple-900/40', border: 'border-purple-500', text: 'text-purple-600 dark:text-purple-400' };
+
+    if (isInternal) {
+        return (
+            <div className={`relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center rounded-xl shadow-sm border transition-all duration-500 ${theme.bg} ${theme.border} ${theme.text}`}>
+                <svg viewBox="0 0 36 36" className="w-7 h-7 sm:w-8 sm:h-8" fill="none">
+                    <path d="M4 14L18 4L32 14V30.5C32 31.33 31.33 32 30.5 32H5.5C4.67 32 4 31.33 4 30.5V14Z" stroke="currentColor" strokeWidth="2.1" strokeLinejoin="round" fill="currentColor" fillOpacity="0.12" />
+                    <circle cx="18" cy="16.2" r="2.9" fill="currentColor" />
+                    <path d="M12.6 27.5C12.6 24.3 14.9 22 18 22C21.1 22 23.4 24.3 23.4 27.5" fill="currentColor" />
+                    <circle cx="10.4" cy="18.4" r="2.2" fill="currentColor" fillOpacity="0.85" />
+                    <path d="M6.8 27.5C6.8 25.1 8.3 23.4 10.4 23.4C11.3 23.4 12.1 23.7 12.7 24.1" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+                    <circle cx="25.6" cy="18.4" r="2.2" fill="currentColor" fillOpacity="0.85" />
+                    <path d="M29.2 27.5C29.2 25.1 27.7 23.4 25.6 23.4C24.7 23.4 23.9 23.7 23.3 24.1" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+                </svg>
+            </div>
+        );
+    }
+
+    if (isDocument) {
+        return (
+            <div className={`relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center rounded-xl shadow-sm border transition-all duration-500 ${theme.bg} ${theme.border} ${theme.text}`}>
+                <svg viewBox="0 0 36 36" className="w-7 h-7 sm:w-8 sm:h-8" fill="none">
+                    <path d="M12 5H23L29 11V27C29 28.1 28.1 29 27 29H12C10.9 29 10 28.1 10 27V7C10 5.9 10.9 5 12 5Z" fill="currentColor" fillOpacity="0.16" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                    <path d="M8 9H19L24 14V30C24 31.1 23.1 32 22 32H8C6.9 32 6 31.1 6 30V11C6 9.9 6.9 9 8 9Z" fill="white" className="dark:fill-slate-800" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+                    <path d="M18.5 9V14.5H24" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                    <line x1="10" y1="19" x2="20" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="10" y1="23.5" x2="20" y2="23.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="10" y1="28" x2="16" y2="28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+            </div>
+        );
+    }
 
     return (
         <div className={`relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center rounded-xl shadow-sm border transition-all duration-500 ${theme.bg} ${theme.border}`}>
             <img src={logo} alt="لوگو" className="w-6 h-6 sm:w-7 sm:h-7 object-contain z-10 relative opacity-90" />
-            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isInternal ? 'rotate-45' : isOutward ? 'rotate-90' : isDocument ? 'rotate-180' : 'rotate-0'}`}>
+            <div className={`absolute inset-0 z-20 transition-transform duration-700 ease-in-out ${isOutward ? 'rotate-90' : 'rotate-0'}`}>
                 {[0, 90, 180, 270].map((rotation, i) => (
                     <div key={i} className="absolute inset-0 flex items-start justify-center" style={{ transform: `rotate(${rotation}deg)` }}>
                         <svg
                             width="20"
                             height="20"
                             viewBox="0 0 24 24"
-                            className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-2.5 ${!isInternal && !isOutward && !isDocument ? 'rotate-180' : 'rotate-0'}`}
+                            className={`transition-all duration-500 drop-shadow-sm ${theme.text} -mt-2.5 ${!isOutward ? 'rotate-180' : 'rotate-0'}`}
                         >
-                            {isInternal || isDocument ? (
-                                <>
-                                    <path d="M 22 22 A 18 18 0 0 0 6 6" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
-                                    <path d="M 12 12 L 6 6 L 12 0" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-                                </>
-                            ) : (
-                                <>
-                                    <path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
-                                    <path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" />
-                                </>
-                            )}
+                            <path d="M 12 23 Q 22 14, 12 3" fill="none" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+                            <path d="M 6 9 L 12 3 L 18 9" fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(-40 12 3)" />
                         </svg>
                     </div>
                 ))}
@@ -205,7 +226,6 @@ const DirectionalLogo = ({ type, status }) => {
     );
 };
 
-// 🚀 تابع استخراج تاریخ مبنای مرتب‌سازی جهت نمایش تفکیک‌کننده‌های ماه
 const getEffectiveLetterDate = (letter) => {
     if (!letter) return null;
     if (letter.status !== 'PENDING' && letter.original_date) {
@@ -359,14 +379,16 @@ const SecretariatListScreen = () => {
         }
     };
 
-    const renderStatusBadge = (status) => {
+    const renderStatusBadge = (status, letterType) => {
         switch (status) {
             case 'REGISTERED':
                 return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black shadow-sm text-white bg-emerald-500 whitespace-nowrap"><FaCheckCircle /> تکمیل شده</span>;
             case 'ISSUED':
                 return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black shadow-sm text-white bg-cyan-500 whitespace-nowrap">🏃‍♂️ در دست پیک</span>;
             case 'APPROVED':
-                return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black shadow-sm text-white bg-blue-500 whitespace-nowrap">📄 آماده صدور</span>;
+                return letterType === 'INCOMING'
+                    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black shadow-sm text-white bg-emerald-600 whitespace-nowrap">📁 بایگانی شده</span>
+                    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black shadow-sm text-white bg-blue-500 whitespace-nowrap">📄 آماده صدور</span>;
             case 'REJECTED':
                 return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-black shadow-sm text-white bg-rose-500 whitespace-nowrap">❌ رد شده</span>;
             case 'DELETED':
@@ -592,7 +614,6 @@ const SecretariatListScreen = () => {
                     </div>
                 </div>
 
-                {/* بخش سال بایگانی و مرتب‌سازی */}
                 <div className={`pt-3.5 border-t ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
                     <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between w-full min-w-0">
                         
@@ -671,7 +692,6 @@ const SecretariatListScreen = () => {
             ) : (
                 <div className={`rounded-2xl border shadow-sm overflow-hidden ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
                     
-                    {/* نمایش کارتی ریسپانسیو اختصاصی برای موبایل و تبلت‌های کوچک */}
                     <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
                         {lettersList.map((letter, index) => {
                             const currentMonth = getMonthName(getEffectiveLetterDate(letter));
@@ -712,7 +732,7 @@ const SecretariatListScreen = () => {
                                             </div>
 
                                             <div className="flex flex-col items-end gap-1">
-                                                {renderStatusBadge(letter.status)}
+                                                {renderStatusBadge(letter.status, letter.letter_type)}
                                                 <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold ${
                                                     letter.letter_type === 'INCOMING' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' :
                                                     letter.letter_type === 'OUTGOING' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' :
@@ -769,18 +789,24 @@ const SecretariatListScreen = () => {
                                             <span>ثبت: {formatPersianDate(letter.created_at)}</span>
                                             {letter.original_number && (
                                                 <div className="flex items-center gap-1">
-                                                    <span>فیزیکی:</span>
+                                                    <span>{letter.letter_type === 'INCOMING' ? 'شماره نامه:' : 'فیزیکی:'}</span>
                                                     {renderFormattedNumber(letter.original_number, "text-[10px]")}
                                                 </div>
                                             )}
                                         </div>
+
+                                        {letter.destination_indicator && (
+                                            <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-bold pt-0.5">
+                                                <span>{letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه آریو بنیان توس:' : 'ثبت مقصد:'}</span>
+                                                {renderFormattedNumber(letter.destination_indicator, "text-[10px] text-emerald-600 dark:text-emerald-400")}
+                                            </div>
+                                        )}
                                     </div>
                                 </React.Fragment>
                             );
                         })}
                     </div>
 
-                    {/* نمایش جدولی کامل برای دسکتاپ و صفحات عریض */}
                     <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-right text-sm">
                             <thead className={`text-[11px] uppercase tracking-wider font-black ${isDark ? 'bg-gray-900/50 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
@@ -830,7 +856,6 @@ const SecretariatListScreen = () => {
                                                     </div>
                                                 </td>
 
-                                                {/* ستون شماره‌ها با چینش حرفه‌ای و استایل شیک اسلش‌دار */}
                                                 <td className="px-5 py-4 whitespace-nowrap">
                                                     <div className="flex flex-col gap-2">
                                                         <div className="flex flex-col">
@@ -851,7 +876,9 @@ const SecretariatListScreen = () => {
 
                                                         {letter.destination_indicator && (
                                                             <div className="flex flex-col border-t border-gray-100 dark:border-gray-700 pt-1">
-                                                                <span className="text-[9px] opacity-60 font-bold mb-0.5 text-emerald-600">ثبت مقصد:</span>
+                                                                <span className="text-[9px] opacity-60 font-bold mb-0.5 text-emerald-600">
+                                                                    {letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه آریو بنیان توس:' : 'ثبت مقصد:'}
+                                                                </span>
                                                                 <div className="text-right text-emerald-600 dark:text-emerald-400">
                                                                     {renderFormattedNumber(letter.destination_indicator, "text-[11px] text-emerald-600 dark:text-emerald-400")}
                                                                 </div>
@@ -871,7 +898,7 @@ const SecretariatListScreen = () => {
                                                             {letter.letter_type === 'INCOMING' ? 'وارده' : letter.letter_type === 'OUTGOING' ? 'صادره' : letter.letter_type === 'DOCUMENT' ? '📁 اسناد' : 'داخلی'}
                                                         </span>
                                                         
-                                                        {renderStatusBadge(letter.status)}
+                                                        {renderStatusBadge(letter.status, letter.letter_type)}
                                                     </div>
                                                 </td>
 
@@ -957,7 +984,9 @@ const SecretariatListScreen = () => {
                                                             <div className="flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-1.5">
                                                                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">ثبت مقصد</span>
+                                                                    <span className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">
+                                                                        {letter.letter_type === 'INCOMING' ? 'ثبت در دبیرخانه آریو بنیان توس' : 'ثبت مقصد'}
+                                                                    </span>
                                                                     <span className={`text-[10px] font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                                                                         {formatPersianDate(letter.destination_date)}
                                                                     </span>
@@ -1000,7 +1029,6 @@ const SecretariatListScreen = () => {
                 </div>
             )}
 
-            {/* مودال تنظیمات پیامک */}
             {isSmsModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
                     <div className={`w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border shadow-2xl p-4 sm:p-6 space-y-4 overflow-y-auto ${isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
