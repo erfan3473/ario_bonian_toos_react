@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+// src/App.jsx
+import React, { useEffect, useRef, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import Header from './components/Header';
@@ -34,8 +35,21 @@ import TaskListPage from './pages/TaskListPage';
 import TaskViewPage from './pages/TaskViewPage';
 import RoutineListPage from './pages/RoutineListPage';
 import RoutineTemplatesPage from './pages/RoutineTemplatesPage';
-import { Toaster, toast } from 'react-hot-toast'; 
-import { fetchNotifications, addNotificationFromWS, markNotificationsRead } from './features/notifications/notificationSlice';
+import { Toaster } from 'react-hot-toast';
+import {
+  fetchNotifications,
+  addNotificationFromWS,
+  markNotificationsRead,
+} from './features/notifications/notificationSlice';
+import {
+  fetchMyChats,
+  setActiveChat,
+  setInboxConnectionStatus,
+  updateUserPresence,
+  setChatTyping,
+  handleInboxNewMessage,
+} from './features/chat/chatSlice';
+import NotificationDialog from './components/NotificationDialog';
 import AssetVerifyScreen from './screens/AssetVerifyScreen';
 import WebAttendanceScreen from './screens/WebAttendanceScreen';
 import AiAgentScreen from './screens/AiAgentScreen';
@@ -47,30 +61,49 @@ import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScre
 import SecretariatEditScreen from './screens/secretariat/SecretariatEditScreen';
 import TaskTemplatesPage from './pages/TaskTemplatesPage';
 import InstallPwaPrompt from './components/InstallPwaPrompt';
+import axiosInstance from './api/axiosInstance';
+
+const getInboxWsBaseUrl = () => {
+  const apiBase = axiosInstance?.defaults?.baseURL || '';
+  if (apiBase.startsWith('http://') || apiBase.startsWith('https://')) {
+    return apiBase.replace(/^http/, 'ws').replace(/\/api\/?$/, '');
+  }
+  return 'wss://www.ariobonyantoos.com';
+};
 
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const mode = useSelector((state) => state.theme?.mode || "dark");
-  const isDark = mode === "dark";
+  const mode = useSelector((state) => state.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
   const { userInfo } = useSelector((state) => state.userLogin);
+  const activeChatId = useSelector((state) => state.chat?.activeChatId);
 
   const token = userInfo?.access || userInfo?.token;
+  const myId = userInfo?.id ?? userInfo?.user?.id;
+
+  const [dialogNotifications, setDialogNotifications] = useState([]);
 
   const isFullScreenAppRoute = ['/notebooks', '/chat', '/ai-assistant'].some(
     (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
   );
 
-  const isDarkRef = useRef(isDark);
+  const locationRef = useRef(location);
   useEffect(() => {
-    isDarkRef.current = isDark;
-  }, [isDark]);
+    locationRef.current = location;
+  }, [location]);
+
+  const activeChatIdRef = useRef(activeChatId);
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
 
   useEffect(() => {
     if (!token) return;
 
     dispatch(fetchNotifications());
+    dispatch(fetchMyChats());
 
     let ws = null;
     let pingInterval = null;
@@ -81,12 +114,24 @@ function App() {
     const connectWebSocket = () => {
       if (!isComponentMounted) return;
 
-      const wsUrl = `wss://www.ariobonyantoos.com/ws/inbox/?token=${token}`;
+      if (!navigator.onLine) {
+        dispatch(setInboxConnectionStatus('offline'));
+        return;
+      }
+
+      dispatch(
+        setInboxConnectionStatus(
+          reconnectAttempts > 0 ? 'reconnecting' : 'connecting'
+        )
+      );
+
+      const wsUrl = `${getInboxWsBaseUrl()}/ws/inbox/?token=${token}`;
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('🟢 WebSocket Inbox Connected!');
         reconnectAttempts = 0;
+        dispatch(setInboxConnectionStatus('connected'));
+        dispatch(fetchMyChats());
 
         clearInterval(pingInterval);
         pingInterval = setInterval(() => {
@@ -96,20 +141,21 @@ function App() {
         }, 25000);
       };
 
-      ws.onerror = (e) => {
-        console.error('🔴 WebSocket Inbox Error: ', e);
+      ws.onerror = () => {
+        dispatch(setInboxConnectionStatus('offline'));
       };
 
-      ws.onclose = (e) => {
+      ws.onclose = () => {
         clearInterval(pingInterval);
-        console.warn(`🟠 WebSocket Inbox Closed (Code: ${e.code})`);
+        dispatch(setInboxConnectionStatus('offline'));
 
-        if (isComponentMounted) {
+        if (isComponentMounted && navigator.onLine) {
           clearTimeout(reconnectTimeout);
-          const delay = Math.min(30000, 3000 + (reconnectAttempts * 2000)) + (Math.random() * 1000);
-          reconnectAttempts++;
+          const delay =
+            Math.min(30000, 3000 + reconnectAttempts * 3000) +
+            Math.random() * 500;
+          reconnectAttempts += 1;
           reconnectTimeout = setTimeout(() => {
-            console.log(`🔄 Reconnecting WebSocket Inbox (Attempt ${reconnectAttempts})...`);
             connectWebSocket();
           }, delay);
         }
@@ -119,101 +165,80 @@ function App() {
         let data;
         try {
           data = JSON.parse(event.data);
-        } catch (err) {
+        } catch {
           return;
         }
 
-        if (data.type === 'pong') return;
+        if (data.type === 'pong' || data.type === 'connection') return;
 
-        const notifData = data.payload || data;
+        const payload = data.payload || data;
 
-        if (notifData.type === 'notification') {
-          dispatch(addNotificationFromWS(notifData));
+        // وضعیت آنلاین/آفلاین کاربران
+        if (payload.type === 'inbox_user_status') {
+          dispatch(updateUserPresence(payload));
+          return;
+        }
 
-          const isChat = notifData.notif_type === 'CHAT_MESSAGE';
-          const isTask = notifData.notif_type && notifData.notif_type.startsWith('TASK_');
-          const isRoutine = notifData.notif_type === 'SYSTEM_MESSAGE' && 
-                            notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER';
+        // وضعیت در حال نوشتن در لیست گفتگوها
+        if (payload.type === 'inbox_typing') {
+          if (payload.user_id && payload.user_id !== myId) {
+            dispatch(
+              setChatTyping({
+                chat_id: payload.chat_id,
+                user_id: payload.user_id,
+                user_name: payload.user_name,
+                is_typing: true,
+              })
+            );
+            setTimeout(() => {
+              if (isComponentMounted) {
+                dispatch(
+                  setChatTyping({
+                    chat_id: payload.chat_id,
+                    user_id: payload.user_id,
+                    is_typing: false,
+                  })
+                );
+              }
+            }, 4000);
+          }
+          return;
+        }
 
-          const icon = isChat ? '💬' : (isTask ? '📋' : (isRoutine ? '⏰' : '🔔'));
-          const defaultTitle = isChat ? 'پیام جدید' : (isTask ? 'ماموریت' : (isRoutine ? 'یادآوری روتین' : 'اعلان جدید'));
-          const buttonLabel = isChat ? 'مشاهده پیام' : (isTask ? 'مشاهده ماموریت' : (isRoutine ? 'انجام روتین' : 'مشاهده'));
+        // پیام جدید در اینباکس (آپدیت لحظه‌ای سایدبار چت‌ها)
+        if (payload.type === 'inbox_new_message') {
+          dispatch(handleInboxNewMessage(payload));
+          return;
+        }
 
-          const currentIsDark = isDarkRef.current;
+        // اعلان جدید -> نمایش روی دیالوگ مودال
+        if (payload.type === 'notification') {
+          dispatch(addNotificationFromWS(payload));
 
-          toast.custom((t) => (
-            <div
-              dir="rtl"
-              className={`${
-                t.visible ? 'animate-enter' : 'animate-leave'
-              } max-w-sm w-full shadow-2xl rounded-2xl pointer-events-auto flex flex-col border ${
-                isChat ? 'border-green-500' : (isTask ? 'border-blue-500' : (isRoutine ? 'border-orange-500' : 'border-gray-500'))
-              } overflow-hidden ${
-                currentIsDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-              }`}
-            >
-              <div className={`p-4 flex items-start gap-4 ${currentIsDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                <div className="flex-1">
-                  <h3 className="font-bold text-base flex items-center gap-2 mb-2">
-                    <span className="text-xl">{icon}</span>
-                    <span className={isChat ? 'text-green-500' : (isTask ? 'text-blue-500' : (isRoutine ? 'text-orange-500' : ''))}>
-                      {notifData.title || defaultTitle}
-                    </span>
-                  </h3>
-                  <p className="text-sm opacity-90 leading-relaxed font-medium">
-                    {notifData.body || 'شما یک اعلان جدید دارید.'}
-                  </p>
-                </div>
-              </div>
+          const isChat =
+            payload.notif_type === 'CHAT_MESSAGE' || payload.model === 'chat';
+          if (isChat) {
+            dispatch(fetchMyChats());
+            const targetChatId = Number(
+              payload.object_id || payload.extra_data?.chat_id || 0
+            );
+            const isAlreadyInChat =
+              locationRef.current.pathname === '/chat' &&
+              Number(activeChatIdRef.current) === targetChatId;
 
-              <div className={`flex border-t ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    
-                    if (notifData.id) {
-                      dispatch(markNotificationsRead([notifData.id]));
-                    }
-                    
-                    if (isChat) {
-                      const targetChatId = notifData.object_id || notifData.extra_data?.chat_id;
-                      if (targetChatId) {
-                        navigate(`/chat?active=${targetChatId}`);
-                      } else {
-                        navigate('/chat');
-                      }
-                    } else if (isTask) {
-                      const targetTaskId = notifData.object_id;
-                      if (targetTaskId) {
-                        navigate(`/tasks/${targetTaskId}`);
-                      } else {
-                        navigate('/tasks'); 
-                      }
-                    } else if (isRoutine) {
-                      navigate('/routines');
-                    }
-                  }}
-                  className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors ${
-                    currentIsDark 
-                      ? (isChat ? 'text-green-400 hover:bg-gray-700' : isRoutine ? 'text-orange-400 hover:bg-gray-700' : 'text-blue-400 hover:bg-gray-700') 
-                      : (isChat ? 'text-green-600 hover:bg-gray-100' : isRoutine ? 'text-orange-600 hover:bg-gray-100' : 'text-blue-600 hover:bg-gray-100')
-                  } border-l ${currentIsDark ? 'border-gray-700' : 'border-gray-200'}`}
-                >
-                  {buttonLabel}
-                </button>
-                <button
-                  onClick={() => toast.dismiss(t.id)}
-                  className={`w-full py-3 flex items-center justify-center text-sm font-bold transition-colors opacity-80 ${
-                    currentIsDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
-                  }`}
-                >
-                  بستن
-                </button>
-              </div>
-            </div>
-          ), { 
-            duration: 10000, 
-            position: 'top-center', 
+            if (isAlreadyInChat) {
+              if (payload.id) {
+                dispatch(markNotificationsRead([payload.id]));
+              }
+              return;
+            }
+          }
+
+          setDialogNotifications((prev) => {
+            if (payload.id && prev.some((n) => n.id === payload.id)) {
+              return prev;
+            }
+            return [...prev, payload];
           });
         }
       };
@@ -221,91 +246,271 @@ function App() {
 
     connectWebSocket();
 
+    const handleOnline = () => {
+      reconnectAttempts = 0;
+      connectWebSocket();
+    };
+    const handleOffline = () => {
+      clearTimeout(reconnectTimeout);
+      dispatch(setInboxConnectionStatus('offline'));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     return () => {
       isComponentMounted = false;
       clearInterval(pingInterval);
       clearTimeout(reconnectTimeout);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       if (ws) {
-        ws.close(1000, "Component unmounted");
+        ws.close(1000, 'Component unmounted');
       }
     };
-  }, [dispatch, token, navigate]);
+  }, [dispatch, token, myId]);
+
+  const handleOpenNotificationTarget = (notifData) => {
+    setDialogNotifications((prev) => prev.filter((n) => n.id !== notifData.id));
+
+    if (notifData.id) {
+      dispatch(markNotificationsRead([notifData.id]));
+    }
+
+    const isChat =
+      notifData.notif_type === 'CHAT_MESSAGE' || notifData.model === 'chat';
+    const isTask =
+      (notifData.notif_type && notifData.notif_type.startsWith('TASK_')) ||
+      notifData.model === 'task';
+    const isRoutine =
+      (notifData.notif_type === 'SYSTEM_MESSAGE' &&
+        (notifData.extra_data?.event === 'TIME_BASED_ROUTINE_REMINDER' ||
+          notifData.extra_data?.event === 'INCOMPLETE_ROUTINE_CHECKOUT_WARNING')) ||
+      notifData.model === 'routineinstance';
+
+    if (isChat) {
+      const rawChatId =
+        notifData.object_id ?? notifData.extra_data?.chat_id ?? notifData.chat_id;
+      const targetChatId = rawChatId ? Number(rawChatId) : null;
+
+      if (targetChatId && !Number.isNaN(targetChatId)) {
+        dispatch(setActiveChat(targetChatId));
+        dispatch(fetchMyChats());
+        navigate(`/chat?active=${targetChatId}`);
+      } else {
+        navigate('/chat');
+      }
+    } else if (isTask) {
+      const targetTaskId = notifData.object_id || notifData.extra_data?.task_id;
+      if (targetTaskId) {
+        navigate(`/tasks/${targetTaskId}`);
+      } else {
+        navigate('/tasks');
+      }
+    } else if (isRoutine) {
+      navigate('/routines');
+    }
+  };
 
   return (
     <div
       className={`${
-        isDark ? "bg-blue-800 text-white" : "bg-white text-gray-900"
+        isDark ? 'bg-blue-800 text-white' : 'bg-white text-gray-900'
       } ${
-        isFullScreenAppRoute ? "h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none" : "min-h-screen"
+        isFullScreenAppRoute
+          ? 'h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none'
+          : 'min-h-screen'
       } flex flex-col font-sans transition-colors duration-300`}
-      style={{ direction: "rtl" }}
+      style={{ direction: 'rtl' }}
     >
-      <Toaster /> 
+      <Toaster />
+
+      {/* دیالوگ اعلان‌های زنده */}
+      <NotificationDialog
+        notifications={dialogNotifications}
+        isDark={isDark}
+        onOpenTarget={handleOpenNotificationTarget}
+        onDismissCurrent={() =>
+          setDialogNotifications((prev) => prev.slice(1))
+        }
+        onDismissAll={() => setDialogNotifications([])}
+      />
+
       <div className="shrink-0">
         <Header />
       </div>
       <main
         className={`w-full flex flex-col ${
           isFullScreenAppRoute
-            ? "flex-1 min-h-0 overflow-hidden px-0 sm:px-4 pt-0 pb-0 sm:pb-3"
-            : "flex-grow px-2 sm:px-4 pt-0 pb-4"
+            ? 'flex-1 min-h-0 overflow-hidden px-0 sm:px-4 pt-0 pb-0 sm:pb-3'
+            : 'flex-grow px-2 sm:px-4 pt-0 pb-4'
         }`}
       >
         <div
           className={`${
             isDark
-              ? "bg-blue-800 border border-blue-700 border-t-0 shadow-none"
-              : "bg-white border border-gray-200 border-t-0 shadow-none"
+              ? 'bg-blue-800 border border-blue-700 border-t-0 shadow-none'
+              : 'bg-white border border-gray-200 border-t-0 shadow-none'
           } ${
             isFullScreenAppRoute
-              ? "flex-1 min-h-0 flex flex-col overflow-hidden rounded-none sm:rounded-b-2xl p-0"
-              : "rounded-t-none rounded-b-2xl pt-2 sm:pt-3 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-130px)]"
+              ? 'flex-1 min-h-0 flex flex-col overflow-hidden rounded-none sm:rounded-b-2xl p-0'
+              : 'rounded-t-none rounded-b-2xl pt-2 sm:pt-3 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-130px)]'
           } transition-colors duration-300`}
         >
           <Routes>
             <Route path="/" element={<HomeScreen />} />
             <Route path="/auth" element={<AuthScreen />} />
-            
-            <Route path="/ai-assistant" element={<ProtectedRoute><AiAgentScreen /></ProtectedRoute>} />
+
+            <Route
+              path="/ai-assistant"
+              element={
+                <ProtectedRoute>
+                  <AiAgentScreen />
+                </ProtectedRoute>
+              }
+            />
 
             <Route path="/verify/:assetCode" element={<AssetVerifyScreen />} />
             <Route path="/dashboard" element={<WorkerDashboardScreen />} />
-            <Route path="/profile" element={<ProtectedRoute><ProfileScreen /></ProtectedRoute>} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfileScreen />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/chat" element={<ChatScreen />} />
             <Route path="/projects" element={<ProjectListScreen />} />
-            <Route path="/admin/projects/create" element={<ProjectCreateScreen />} />
-            <Route path="/admin/projects/:id/edit" element={<ProjectEditScreen />} />
-            <Route path="/admin/projects/:id/geofence" element={<ProjectGeofenceScreen />} />
+            <Route
+              path="/admin/projects/create"
+              element={<ProjectCreateScreen />}
+            />
+            <Route
+              path="/admin/projects/:id/edit"
+              element={<ProjectEditScreen />}
+            />
+            <Route
+              path="/admin/projects/:id/geofence"
+              element={<ProjectGeofenceScreen />}
+            />
             <Route path="/notebooks" element={<NotebookScreen />} />
             <Route path="/admin/users" element={<UserManagementScreen />} />
-            <Route path="/admin/users/:userId/location-history" element={<UserLocationHistory />} />
+            <Route
+              path="/admin/users/:userId/location-history"
+              element={<UserLocationHistory />}
+            />
             <Route path="/admin/users/:userId" element={<UserDashboard />} />
-            <Route path="/admin/users/:userId/organizational" element={<OrganizationalPage />} />
-            <Route path="/admin/users/:userId/personal" element={<SystemInfoPage />} />
-            <Route path="/admin/users/:userId/contracts" element={<ContractsPage />} />
-            <Route path="/admin/users/:userId/financial" element={<FinancialPage />} />
-            <Route path="/admin/users/:userId/leave" element={<LeavePage />} />
-            <Route path="/admin/users/new" element={<Navigate to="/admin/users" />} />
+            <Route
+              path="/admin/users/:userId/organizational"
+              element={<OrganizationalPage />}
+            />
+            <Route
+              path="/admin/users/:userId/personal"
+              element={<SystemInfoPage />}
+            />
+            <Route
+              path="/admin/users/:userId/contracts"
+              element={<ContractsPage />}
+            />
+            <Route
+              path="/admin/users/:userId/financial"
+              element={<FinancialPage />}
+            />
+            <Route
+              path="/admin/users/:userId/leave"
+              element={<LeavePage />}
+            />
+            <Route
+              path="/admin/users/new"
+              element={<Navigate to="/admin/users" />}
+            />
             <Route path="/admin/settings" element={<SettingsScreen />} />
-            <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
-            <Route path="/admin/scheme-contracts" element={<SchemeContractScreen />} />
-            <Route path="/admin/scheme-contracts/:id" element={<SchemeContractScreen />} />
-            <Route path="/admin/scheme-managements" element={<SchemeManagementScreen />} />
-            <Route path="/admin/requests" element={<RequestManagementScreen />} />
-            <Route path="/admin/timesheet" element={<AdminTimesheetScreen />} />
+            <Route
+              path="/admin/daily-summary"
+              element={<DailySummaryScreen />}
+            />
+            <Route
+              path="/admin/scheme-contracts"
+              element={<SchemeContractScreen />}
+            />
+            <Route
+              path="/admin/scheme-contracts/:id"
+              element={<SchemeContractScreen />}
+            />
+            <Route
+              path="/admin/scheme-managements"
+              element={<SchemeManagementScreen />}
+            />
+            <Route
+              path="/admin/requests"
+              element={<RequestManagementScreen />}
+            />
+            <Route
+              path="/admin/timesheet"
+              element={<AdminTimesheetScreen />}
+            />
             <Route path="/admin/payroll/list" element={<PayrollListView />} />
-            <Route path="/admin/payroll/detail" element={<PayrollDetailView />} />
+            <Route
+              path="/admin/payroll/detail"
+              element={<PayrollDetailView />}
+            />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/tasks/:id" element={<TaskViewPage />} />
-            <Route path="/tasks/templates" element={<ProtectedRoute><TaskTemplatesPage /></ProtectedRoute>} />
+            <Route
+              path="/tasks/templates"
+              element={
+                <ProtectedRoute>
+                  <TaskTemplatesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/routines" element={<RoutineListPage />} />
-            <Route path="/routines/templates" element={<RoutineTemplatesPage />} /> 
-            <Route path="/attendance" element={<ProtectedRoute><WebAttendanceScreen /></ProtectedRoute>} />
+            <Route
+              path="/routines/templates"
+              element={<RoutineTemplatesPage />}
+            />
+            <Route
+              path="/attendance"
+              element={
+                <ProtectedRoute>
+                  <WebAttendanceScreen />
+                </ProtectedRoute>
+              }
+            />
 
-            <Route path="/secretariat" element={<ProtectedRoute><SecretariatListScreen /></ProtectedRoute>} />
-            <Route path="/secretariat/create" element={<ProtectedRoute><SecretariatCreateScreen /></ProtectedRoute>} />
-            <Route path="/secretariat/:id" element={<ProtectedRoute><SecretariatDetailScreen /></ProtectedRoute>} />
-            <Route path="/secretariat/:id/edit" element={<ProtectedRoute><SecretariatEditScreen /></ProtectedRoute>} />
+            <Route
+              path="/secretariat"
+              element={
+                <ProtectedRoute>
+                  <SecretariatListScreen />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/secretariat/create"
+              element={
+                <ProtectedRoute>
+                  <SecretariatCreateScreen />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/secretariat/:id"
+              element={
+                <ProtectedRoute>
+                  <SecretariatDetailScreen />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/secretariat/:id/edit"
+              element={
+                <ProtectedRoute>
+                  <SecretariatEditScreen />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/domain-qr" element={<DomainQRScreen />} />
           </Routes>
         </div>
@@ -314,7 +519,11 @@ function App() {
       <InstallPwaPrompt />
 
       {!isFullScreenAppRoute && (
-        <footer className={`print:hidden ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"} p-3 text-center text-sm mt-auto transition-colors duration-300`}>
+        <footer
+          className={`print:hidden ${
+            isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-600'
+          } p-3 text-center text-sm mt-auto transition-colors duration-300`}
+        >
           &copy; {new Date().getFullYear()} سامانه مدیریت پروژه آریو بنیان توس
         </footer>
       )}
