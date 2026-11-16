@@ -1128,7 +1128,12 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     </div>
                 </div>
 
-                <TaskSmsSection assignLogs={taskData.assign_sms_logs} reminderLogs={taskData.reminder_sms_logs} onRefresh={onRefresh} />
+                <TaskSmsSection
+                    assignLogs={taskData.assign_sms_logs}
+                    reminderLogs={taskData.reminder_sms_logs}
+                    commentLogs={taskData.comment_sms_logs}
+                    onRefresh={onRefresh}
+                />
             </div>
 
             {modal === 'approve' && <ConfirmModal title="تایید و خاتمه مرحله" message={pendingActionContext.require_file ? `آیا از ارسال فایل‌های لازم اطمینان دارید؟ با تایید، این مرحله خاتمه می‌یابد.` : `با تایید این مرحله، مسئولیت شما به پایان می‌رسد.`} confirmLabel="تایید و ثبت" confirmClass="bg-green-600 hover:bg-green-700" onConfirm={handleApprove} onClose={() => setModal(null)} />}

@@ -504,7 +504,7 @@ const taskSlice = createSlice({
             })
             .addCase(refreshSmsStatus.fulfilled, (state, action) => {
                 state.refreshingSms = false;
-                const updatedSms = action.payload; 
+                const updatedSms = action.payload;
                 if (state.activeTask) {
                     if (state.activeTask.assign_sms_logs) {
                         const idx = state.activeTask.assign_sms_logs.findIndex(sms => sms.id === updatedSms.id);
@@ -513,6 +513,10 @@ const taskSlice = createSlice({
                     if (state.activeTask.reminder_sms_logs) {
                         const idx = state.activeTask.reminder_sms_logs.findIndex(sms => sms.id === updatedSms.id);
                         if (idx !== -1) state.activeTask.reminder_sms_logs[idx] = updatedSms;
+                    }
+                    if (state.activeTask.comment_sms_logs) {
+                        const idx = state.activeTask.comment_sms_logs.findIndex(sms => sms.id === updatedSms.id);
+                        if (idx !== -1) state.activeTask.comment_sms_logs[idx] = updatedSms;
                     }
                 }
             })
