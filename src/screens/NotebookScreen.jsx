@@ -9,7 +9,7 @@ import {
     FaHashtag, FaChevronLeft, FaChevronRight, FaPaperclip, 
     FaTimes, FaPaperPlane, FaBook, FaFolderOpen,
     FaEdit, FaTrash, FaCog, FaSpinner, FaSearch, FaFont,
-    FaAlignLeft, FaAlignRight
+    FaAlignLeft, FaAlignRight, FaArrowDown
 } from 'react-icons/fa';
 
 import { 
@@ -33,7 +33,6 @@ const getCustomScrollbarStyle = (isDark) => `
       background-color: ${isDark ? '#4B5563' : '#9CA3AF'};
   }
   
-  /* رنگ‌های دارک‌مود نوار ابزار */
   .quill-dark .ql-toolbar {
       background-color: #1F2937;
       border-color: #374151;
@@ -53,16 +52,17 @@ const getCustomScrollbarStyle = (isDark) => `
   }
   .quill-dark .ql-editor.ql-blank::before { color: #6B7280; }
 
-  /* ساختار منعطف و ضد سرریز ادیتور */
   .custom-quill-container {
       display: flex;
       flex-direction: column;
-      height: 100%;
       min-height: 0;
       position: relative;
   }
+  .custom-quill-container.is-fixed-height {
+      height: 100%;
+  }
   .custom-quill-container .ql-container {
-      flex: 1 1 0%;
+      flex: 1 1 auto;
       display: flex;
       flex-direction: column;
       min-height: 0;
@@ -71,12 +71,17 @@ const getCustomScrollbarStyle = (isDark) => `
       overflow: hidden !important;
   }
   .custom-quill-container .ql-editor {
-      flex: 1 1 0%;
+      flex: 1 1 auto;
       overflow-y: auto;
+      overscroll-behavior-y: contain;
       font-size: 0.9rem;
       line-height: 1.65;
       padding: 10px 12px;
       -webkit-overflow-scrolling: touch;
+  }
+  .custom-quill-container:not(.is-fixed-height) .ql-editor {
+      min-height: 44px;
+      max-height: 28dvh;
   }
   @media (min-width: 768px) {
       .custom-quill-container .ql-editor {
@@ -84,9 +89,12 @@ const getCustomScrollbarStyle = (isDark) => `
           line-height: 1.7;
           padding: 12px 16px;
       }
+      .custom-quill-container:not(.is-fixed-height) .ql-editor {
+          min-height: 54px;
+          max-height: 38dvh;
+      }
   }
   
-  /* رفع باگ سرریز پلیس‌هولدر هنگام فشرده شدن کادر */
   .custom-quill-container .ql-editor.ql-blank::before {
       max-height: 100%;
       overflow: hidden;
@@ -108,7 +116,6 @@ const getCustomScrollbarStyle = (isDark) => `
       z-index: 30;
   }
 
-  /* هوشمندسازی جهت متن (حل مشکل فارسی و انگلیسی همزمان) */
   .ql-editor p,
   .ql-editor h1,
   .ql-editor h2,
@@ -119,7 +126,6 @@ const getCustomScrollbarStyle = (isDark) => `
       text-align: start !important;
   }
 
-  /* اجبار به چپ‌چین یا راست‌چین بر اساس کلاس‌های تنظیمی */
   .ql-editor .ql-align-left,
   .ql-editor.force-ltr p,
   .ql-editor.force-ltr {
@@ -139,7 +145,6 @@ const getCustomScrollbarStyle = (isDark) => `
       text-align: justify !important;
   }
 
-  /* استایل اختصاصی بلوک کد با اسکرول افقی امن برای موبایل */
   .ql-editor pre.ql-syntax,
   .ql-editor pre {
       direction: ltr !important;
@@ -157,7 +162,6 @@ const getCustomScrollbarStyle = (isDark) => `
       white-space: pre !important;
   }
 
-  /* بهینه‌سازی نوار ابزار Quill در موبایل بدون بریده شدن منوهای بازشونده */
   @media (max-width: 768px) {
       .custom-quill-container .ql-toolbar,
       .bubble-quill-editor .ql-toolbar {
@@ -260,9 +264,33 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                         </div>
                     </div>
                 ) : (
-                    /* چیدمان Flex کنار هم: محتوا در ستون راست (flex-1) و دکمه‌های آیکونی در ستون چپ (shrink-0) بدون هیچ‌گونه همپوشانی با متن */
-                    <div className="flex items-start justify-between gap-2 sm:gap-3">
-                        <div className="flex-1 min-w-0">
+                    <div className="flex flex-col w-full min-w-0">
+                        {canEditOrDelete && (
+                            <div className="flex items-center justify-end gap-1 -mt-1 -ml-1 mb-1 opacity-75 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsEditing(true)} 
+                                    className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
+                                        isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'
+                                    }`} 
+                                    title="ویرایش یادداشت"
+                                >
+                                    <FaEdit className="text-xs sm:text-[13px]" />
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => onDelete(entry.id)} 
+                                    className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
+                                        isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                                    }`} 
+                                    title="حذف یادداشت"
+                                >
+                                    <FaTrash className="text-xs sm:text-[13px]" />
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="w-full min-w-0">
                             {entry.media && entry.media.length > 0 && (
                                 <div className={`${entry.content ? 'mb-3 sm:mb-4' : ''} flex flex-wrap gap-2 sm:gap-3`}>
                                     {entry.media.map((file, idx) => (
@@ -312,31 +340,6 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                                 </div>
                             )}
                         </div>
-
-                        {canEditOrDelete && (
-                            <div className="shrink-0 flex items-center gap-0.5 self-start opacity-60 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsEditing(true)} 
-                                    className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
-                                        isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'
-                                    }`} 
-                                    title="ویرایش یادداشت"
-                                >
-                                    <FaEdit className="text-xs sm:text-[13px]" />
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => onDelete(entry.id)} 
-                                    className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
-                                        isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
-                                    }`} 
-                                    title="حذف یادداشت"
-                                >
-                                    <FaTrash className="text-xs sm:text-[13px]" />
-                                </button>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
@@ -372,41 +375,54 @@ const NotebookScreen = () => {
     const [isUpdatingNb, setIsUpdatingNb] = useState(false);
 
     const [selectedFile, setSelectedFile] = useState(null);
+    const [showScrollBottom, setShowScrollBottom] = useState(false);
+
     const fileInputRef = useRef(null);
-    const endOfNotesRef = useRef(null);
+    const messagesContainerRef = useRef(null);
+    const composerContainerRef = useRef(null);
     const quillRef = useRef(null);
     
     const prevEntriesLengthRef = useRef(0);
     const currentNotebookIdRef = useRef(null);
 
-    // در موبایل به صورت پیش‌فرض نوار ابزار بسته است تا فضای صفحه اشغال نشود
     const [showFormatting, setShowFormatting] = useState(() => {
         if (typeof window !== 'undefined') {
             return window.innerWidth >= 768;
         }
         return true;
     });
-    const [editorDirection, setEditorDirection] = useState('auto'); // 'auto', 'ltr', 'rtl'
+    const [editorDirection, setEditorDirection] = useState('auto');
 
-    // مقداردهی اولیه ارتفاع بخش تایپ متناسب با موبایل و دسکتاپ
-    const [inputHeight, setInputHeight] = useState(() => {
+    const [customInputHeight, setCustomInputHeight] = useState(() => {
         if (typeof window !== 'undefined') {
-            const isMobile = window.innerWidth < 768;
-            const saved = localStorage.getItem('notebook_input_height_v2');
+            const saved = localStorage.getItem('notebook_input_height_v3');
             if (saved) {
                 const parsed = parseInt(saved, 10);
-                if (!isNaN(parsed) && parsed >= 130 && parsed <= 600) {
-                    return isMobile ? Math.min(parsed, 220) : parsed;
+                if (!isNaN(parsed) && parsed >= 120 && parsed <= 600) {
+                    return window.innerWidth < 768 ? Math.min(parsed, 260) : parsed;
                 }
             }
-            return isMobile ? 148 : 240;
         }
-        return 200;
+        return null;
     });
 
     const isDraggingRef = useRef(false);
     const startYRef = useRef(0);
-    const startHeightRef = useRef(200);
+    const startHeightRef = useRef(180);
+
+    const scrollToBottom = (behavior = 'smooth') => {
+        const el = messagesContainerRef.current;
+        if (el) {
+            el.scrollTo({ top: el.scrollHeight, behavior });
+        }
+    };
+
+    const handleMessagesScroll = () => {
+        const el = messagesContainerRef.current;
+        if (!el) return;
+        const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+        setShowScrollBottom(distanceFromBottom > 140);
+    };
 
     useEffect(() => { dispatch(fetchNotebooks()); }, [dispatch]);
 
@@ -434,6 +450,7 @@ const NotebookScreen = () => {
             setIsEditingNotebook(false);
             setSearchQuery('');
             setIsSearchOpen(false);
+            setShowScrollBottom(false);
         }
     }, [activeNotebook, dispatch]);
 
@@ -442,46 +459,48 @@ const NotebookScreen = () => {
         const isNewMessageAdded = currentEntries.length > prevEntriesLengthRef.current;
 
         if ((isNewNotebook || isNewMessageAdded) && !searchQuery) {
-            setTimeout(() => {
-                endOfNotesRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
+            const timer = setTimeout(() => {
+                scrollToBottom(isNewNotebook ? 'auto' : 'smooth');
+            }, 80);
+            prevEntriesLengthRef.current = currentEntries.length;
+            currentNotebookIdRef.current = activeNotebook?.id;
+            return () => clearTimeout(timer);
         }
 
         prevEntriesLengthRef.current = currentEntries.length;
         currentNotebookIdRef.current = activeNotebook?.id;
     }, [currentEntries, activeNotebook, searchQuery]);
 
-    // تنظیم هوشمند ارتفاع هنگام باز/بسته کردن نوار ابزار در موبایل
     const handleToggleFormatting = () => {
         setShowFormatting((prev) => {
             const nextState = !prev;
-            if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                if (nextState && inputHeight < 200) {
-                    setInputHeight(210);
-                } else if (!nextState && inputHeight > 180) {
-                    setInputHeight(148);
+            if (customInputHeight !== null && typeof window !== 'undefined' && window.innerWidth < 768) {
+                if (nextState && customInputHeight < 200) {
+                    setCustomInputHeight(210);
+                } else if (!nextState && customInputHeight > 180) {
+                    setCustomInputHeight(148);
                 }
             }
             return nextState;
         });
     };
 
-    // منطق تغییر اندازه درگبل با ماوس و لمس
     const handleDividerMouseDown = (e) => {
         e.preventDefault();
         isDraggingRef.current = true;
         startYRef.current = e.clientY;
-        startHeightRef.current = inputHeight;
+        const currentBoxHeight = composerContainerRef.current?.offsetHeight || customInputHeight || 180;
+        startHeightRef.current = currentBoxHeight;
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'row-resize';
 
         const handleMouseMove = (moveEvent) => {
             if (!isDraggingRef.current) return;
             const delta = startYRef.current - moveEvent.clientY;
-            const minH = showFormatting ? 165 : 125;
-            const maxHeight = Math.min(window.innerHeight * 0.7, 600);
+            const minH = showFormatting ? 160 : 115;
+            const maxHeight = Math.min(window.innerHeight * 0.65, 580);
             const newHeight = Math.max(minH, Math.min(startHeightRef.current + delta, maxHeight));
-            setInputHeight(newHeight);
+            setCustomInputHeight(newHeight);
         };
 
         const handleMouseUp = () => {
@@ -490,8 +509,10 @@ const NotebookScreen = () => {
             document.body.style.cursor = '';
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
-            setInputHeight((curr) => {
-                localStorage.setItem('notebook_input_height_v2', String(curr));
+            setCustomInputHeight((curr) => {
+                if (curr !== null) {
+                    localStorage.setItem('notebook_input_height_v3', String(curr));
+                }
                 return curr;
             });
         };
@@ -504,24 +525,27 @@ const NotebookScreen = () => {
         if (!e.touches?.[0]) return;
         isDraggingRef.current = true;
         startYRef.current = e.touches[0].clientY;
-        startHeightRef.current = inputHeight;
+        const currentBoxHeight = composerContainerRef.current?.offsetHeight || customInputHeight || 160;
+        startHeightRef.current = currentBoxHeight;
 
         const handleTouchMove = (moveEvent) => {
             if (!isDraggingRef.current || !moveEvent.touches?.[0]) return;
             if (moveEvent.cancelable) moveEvent.preventDefault();
             const delta = startYRef.current - moveEvent.touches[0].clientY;
-            const minH = showFormatting ? 175 : 130;
-            const maxHeight = Math.min(window.innerHeight * 0.6, 450);
+            const minH = showFormatting ? 165 : 115;
+            const maxHeight = Math.min(window.innerHeight * 0.5, 400);
             const newHeight = Math.max(minH, Math.min(startHeightRef.current + delta, maxHeight));
-            setInputHeight(newHeight);
+            setCustomInputHeight(newHeight);
         };
 
         const handleTouchEnd = () => {
             isDraggingRef.current = false;
             window.removeEventListener('touchmove', handleTouchMove);
             window.removeEventListener('touchend', handleTouchEnd);
-            setInputHeight((curr) => {
-                localStorage.setItem('notebook_input_height_v2', String(curr));
+            setCustomInputHeight((curr) => {
+                if (curr !== null) {
+                    localStorage.setItem('notebook_input_height_v3', String(curr));
+                }
                 return curr;
             });
         };
@@ -531,12 +555,10 @@ const NotebookScreen = () => {
     };
 
     const handleResetDividerHeight = () => {
-        const defaultH = typeof window !== 'undefined' && window.innerWidth < 768 ? (showFormatting ? 205 : 148) : 240;
-        setInputHeight(defaultH);
-        localStorage.setItem('notebook_input_height_v2', String(defaultH));
+        setCustomInputHeight(null);
+        localStorage.removeItem('notebook_input_height_v3');
     };
 
-    // سوئیچ سریع جهت نوشتار (فارسی / انگلیسی)
     const toggleDirectionMode = () => {
         const nextMode = editorDirection === 'ltr' ? 'rtl' : 'ltr';
         setEditorDirection(nextMode);
@@ -559,9 +581,8 @@ const NotebookScreen = () => {
 
     const isInputEmpty = !inputText.replace(/<[^>]*>/g, '').trim() && !selectedFile;
 
-    const handleSendMessage = (e) => {
-        e.preventDefault();
-        if (isInputEmpty || !activeNotebook) return;
+    const submitNote = () => {
+        if (isInputEmpty || isSending || !activeNotebook) return;
 
         setIsSending(true);
         const formData = new FormData();
@@ -580,6 +601,18 @@ const NotebookScreen = () => {
                 setIsSearchOpen(false);
             }
         });
+    };
+
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        submitNote();
+    };
+
+    const handleEditorKeyDown = (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            submitNote();
+        }
     };
 
     const handleCreateNotebook = (e) => {
@@ -667,19 +700,17 @@ const NotebookScreen = () => {
     return (
         <div 
             dir="rtl"
-            className={`h-[100dvh] w-full flex flex-col overflow-hidden transition-colors duration-200 ${
+            className={`h-full flex-1 min-h-0 w-full flex flex-col overflow-hidden transition-colors duration-200 ${
                 isDark ? 'bg-gray-950 text-gray-100' : 'bg-gray-50 text-gray-900'
             }`}
         >
             <style>{getCustomScrollbarStyle(isDark)}</style>
             
-            <div className="flex h-full w-full overflow-hidden">
-                
-                {/* ── پنل کناری لیست دفترچه‌ها ── */}
-                <div className={`${activeNotebook ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col shrink-0 transition-colors duration-200 border-l ${
+            <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+                <div className={`${activeNotebook ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col shrink-0 min-h-0 transition-colors duration-200 border-l ${
                     isDark ? 'bg-gray-900/90 border-gray-800' : 'bg-white border-gray-200 shadow-sm'
                 }`}>
-                    <div className={`px-4 py-3.5 md:p-5 font-black text-base md:text-lg border-b flex items-center justify-between ${
+                    <div className={`px-4 py-3.5 md:p-5 font-black text-base md:text-lg border-b flex items-center justify-between shrink-0 ${
                         isDark ? 'border-gray-800 text-white' : 'border-gray-100 text-gray-800'
                     }`}>
                         <div className="flex items-center gap-2.5">
@@ -691,7 +722,7 @@ const NotebookScreen = () => {
                         </span>
                     </div>
 
-                    <form onSubmit={handleCreateNotebook} className={`p-3 md:p-3.5 border-b flex flex-col gap-2.5 ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
+                    <form onSubmit={handleCreateNotebook} className={`p-3 md:p-3.5 border-b flex flex-col gap-2.5 shrink-0 ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
                         {isAdmin && (
                             <div className="flex items-center gap-4 px-1">
                                 <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none">
@@ -726,7 +757,7 @@ const NotebookScreen = () => {
                         </div>
                     </form>
 
-                    <div className="overflow-y-auto flex-1 p-2.5 space-y-1.5 notebook-scrollbar">
+                    <div className="overflow-y-auto overscroll-y-contain touch-pan-y flex-1 min-h-0 p-2.5 space-y-1.5 notebook-scrollbar">
                         {loading && notebooks.length === 0 ? (
                             <p className={`text-center mt-6 font-bold text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>در حال بارگذاری...</p>
                         ) : notebooks.length === 0 ? (
@@ -770,17 +801,14 @@ const NotebookScreen = () => {
                     </div>
                 </div>
 
-                {/* ── صفحه اصلی یادداشت‌ها ── */}
-                <div className={`${!activeNotebook ? 'hidden md:flex' : 'flex'} flex-1 flex-col relative min-w-0 h-full overflow-hidden ${
+                <div className={`${!activeNotebook ? 'hidden md:flex' : 'flex'} flex-1 flex-col relative min-w-0 min-h-0 h-full overflow-hidden ${
                     isDark ? 'bg-gray-950' : 'bg-gray-100/50'
                 }`}>
                     {activeNotebook ? (
                         <>
-                            {/* هدر یکپارچه و واکنش‌گرا برای موبایل و دسکتاپ */}
-                            <div className={`px-3 py-2.5 md:px-6 border-b flex flex-wrap items-center justify-between gap-2 z-10 shrink-0 min-h-[56px] transition-colors ${
+                            <div className={`px-3 py-2.5 md:px-6 border-b flex flex-wrap items-center justify-between gap-2 z-10 shrink-0 min-h-[54px] transition-colors ${
                                 isDark ? 'bg-gray-900/95 backdrop-blur border-gray-800' : 'bg-white/95 backdrop-blur border-gray-200'
                             }`}>
-                                {/* حالت ویرایش نام و نوع دفترچه */}
                                 {isEditingNotebook ? (
                                     <div className="flex flex-wrap items-center justify-between gap-2 w-full">
                                         <div className="flex items-center gap-2 flex-1 min-w-[180px]">
@@ -828,7 +856,6 @@ const NotebookScreen = () => {
                                     </div>
                                 ) : (
                                     <>
-                                        {/* بخش راست هدر: دکمه بازگشت و عنوان */}
                                         <div className={`flex items-center gap-2.5 min-w-0 flex-1 ${isSearchOpen ? 'hidden sm:flex' : 'flex'}`}>
                                             <button
                                                 onClick={handleBackToList}
@@ -857,7 +884,6 @@ const NotebookScreen = () => {
                                             </div>
                                         </div>
 
-                                        {/* بخش چپ هدر: جستجو و تنظیمات دفترچه */}
                                         <div className={`flex items-center gap-1 sm:gap-1.5 ${isSearchOpen ? 'w-full sm:w-auto' : 'shrink-0'}`}>
                                             {isSearchOpen ? (
                                                 <div className={`flex items-center px-3 py-1.5 rounded-xl border transition-all w-full sm:w-auto ${
@@ -920,29 +946,48 @@ const NotebookScreen = () => {
                                 )}
                             </div>
 
-                            {/* ── محوطه نمایش پیام‌ها ── */}
-                            <div className="flex-1 overflow-y-auto min-h-0 flex flex-col scroll-smooth notebook-scrollbar py-1">
-                                {filteredEntries.length > 0 ? (
-                                    filteredEntries.map((entry) => (
-                                        <NoteBubble 
-                                            key={entry.id} 
-                                            entry={entry} 
-                                            isDark={isDark} 
-                                            userInfo={userInfo}
-                                            isAdmin={isAdmin}
-                                            onEdit={handleEditNote}
-                                            onDelete={handleDeleteNote}
-                                        />
-                                    ))
-                                ) : (
-                                    <div className="flex-1 flex items-center justify-center text-gray-400 text-xs mt-10 px-4 text-center">
-                                        یادداشتی وجود ندارد یا نتیجه‌ای یافت نشد.
-                                    </div>
+                            <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+                                <div 
+                                    ref={messagesContainerRef}
+                                    onScroll={handleMessagesScroll}
+                                    className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y flex flex-col notebook-scrollbar py-1.5"
+                                >
+                                    {filteredEntries.length > 0 ? (
+                                        filteredEntries.map((entry) => (
+                                            <NoteBubble 
+                                                key={entry.id} 
+                                                entry={entry} 
+                                                isDark={isDark} 
+                                                userInfo={userInfo}
+                                                isAdmin={isAdmin}
+                                                onEdit={handleEditNote}
+                                                onDelete={handleDeleteNote}
+                                            />
+                                        ))
+                                    ) : (
+                                        <div className="flex-1 flex items-center justify-center text-gray-400 text-xs px-4 text-center">
+                                            یادداشتی وجود ندارد یا نتیجه‌ای یافت نشد.
+                                        </div>
+                                    )}
+                                    <div className="h-3 shrink-0" />
+                                </div>
+
+                                {showScrollBottom && (
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollToBottom('smooth')}
+                                        className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 p-2.5 rounded-full shadow-lg border backdrop-blur-md transition-all active:scale-95 ${
+                                            isDark
+                                                ? 'bg-gray-800/90 border-gray-700 text-gray-200 hover:bg-gray-700'
+                                                : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                        title="رفتن به آخرین یادداشت"
+                                    >
+                                        <FaArrowDown className="text-xs" />
+                                    </button>
                                 )}
-                                <div ref={endOfNotesRef} className="pb-4"></div>
                             </div>
 
-                            {/* ── دیوایدر درگبل لمسی (Touch-Safe) ── */}
                             <div
                                 onMouseDown={handleDividerMouseDown}
                                 onTouchStart={handleDividerTouchStart}
@@ -952,21 +997,21 @@ const NotebookScreen = () => {
                                         ? 'bg-gray-900 hover:bg-blue-900/30 border-gray-800 hover:border-blue-500/40' 
                                         : 'bg-gray-200/70 hover:bg-blue-100 border-gray-300 hover:border-blue-300'
                                 }`}
-                                title="برای تنظیم ارتفاع بکشید (دابل‌کلیک برای بازنشانی)"
+                                title="برای تغییر ارتفاع بکشید (دابل‌کلیک برای بازگشت به حالت خودکار)"
                             >
                                 <div className={`w-10 sm:w-12 h-1 rounded-full transition-colors ${
                                     isDark ? 'bg-gray-700' : 'bg-gray-400'
                                 }`} />
                             </div>
 
-                            {/* ── پنل تایپ با محافظت در برابر کیبورد موبایل ── */}
                             <div 
-                                style={{ height: `${inputHeight}px` }} 
-                                className={`max-h-[42dvh] md:max-h-[65dvh] p-2 sm:p-2.5 md:p-4 shrink-0 transition-colors flex flex-col ${
+                                ref={composerContainerRef}
+                                style={customInputHeight !== null ? { height: `${customInputHeight}px` } : undefined} 
+                                className={`max-h-[45dvh] md:max-h-[60dvh] p-2 sm:p-2.5 md:p-3.5 shrink-0 transition-colors flex flex-col ${
                                     isDark ? 'bg-gray-950' : 'bg-white'
                                 }`}
                             >
-                                <div className="max-w-5xl w-full mx-auto flex flex-col h-full min-h-0 relative">
+                                <div className="max-w-5xl w-full mx-auto flex flex-col flex-1 min-h-0 relative">
                                     {selectedFile && (
                                         <div className={`mb-1.5 shrink-0 flex items-center gap-2 border max-w-full w-max px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-sm ${
                                             isDark ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-800'
@@ -992,8 +1037,10 @@ const NotebookScreen = () => {
                                             className="hidden" 
                                         />
 
-                                        {/* ادیتور متنی مجهز به کلاس هوشمند چپ‌چین/راست‌چین */}
-                                        <div className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isDark ? 'quill-dark' : ''} ${!showFormatting ? 'hide-quill-toolbar' : ''}`}>
+                                        <div 
+                                            onKeyDown={handleEditorKeyDown}
+                                            className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isDark ? 'quill-dark' : ''} ${!showFormatting ? 'hide-quill-toolbar' : ''}`}
+                                        >
                                             <ReactQuill 
                                                 ref={quillRef}
                                                 theme="snow"
@@ -1001,11 +1048,10 @@ const NotebookScreen = () => {
                                                 onChange={setInputText}
                                                 modules={quillModules}
                                                 placeholder="یادداشت خود را بنویسید (فارسی یا انگلیسی)..."
-                                                className={`custom-quill-container ${editorDirection === 'ltr' ? 'force-ltr' : editorDirection === 'rtl' ? 'force-rtl' : ''}`}
+                                                className={`custom-quill-container ${customInputHeight !== null ? 'is-fixed-height' : ''} ${editorDirection === 'ltr' ? 'force-ltr' : editorDirection === 'rtl' ? 'force-rtl' : ''}`}
                                             />
                                         </div>
 
-                                        {/* نوار ابزارهای پایین */}
                                         <div className={`py-1.5 px-2.5 sm:p-2 sm:px-3 flex items-center justify-between border-t shrink-0 relative z-20 ${
                                             isDark ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'
                                         }`}>
@@ -1037,7 +1083,6 @@ const NotebookScreen = () => {
                                                     <span className="hidden sm:inline">ابزارها</span>
                                                 </button>
 
-                                                {/* سوئیچر سریع جهت نوشتار LTR / RTL */}
                                                 <button 
                                                     type="button" 
                                                     onClick={toggleDirectionMode} 
