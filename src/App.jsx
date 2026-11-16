@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import Header from './components/Header';
 import NotebookScreen from './screens/NotebookScreen';
@@ -11,7 +11,6 @@ import ProjectListScreen from './screens/ProjectListScreen';
 import ProjectCreateScreen from './screens/ProjectCreateScreen';
 import ProjectEditScreen from './screens/ProjectEditScreen';
 import ProjectGeofenceScreen from './screens/ProjectGeofenceScreen';
-// import DailyAttendanceScreen from './screens/DailyAttendanceScreen';
 import DailySummaryScreen from './screens/DailySummaryScreen';
 import ProtectedRoute from './components/ProtectedRoute';
 import PhonebookScreen from './screens/admin/PhonebookScreen';
@@ -41,27 +40,27 @@ import AssetVerifyScreen from './screens/AssetVerifyScreen';
 import WebAttendanceScreen from './screens/WebAttendanceScreen';
 import AiAgentScreen from './screens/AiAgentScreen';
 
-// صفحات دبیرخانه
 import DomainQRScreen from './screens/DomainQRScreen';
 import SecretariatListScreen from './screens/secretariat/SecretariatListScreen';
 import SecretariatCreateScreen from './screens/secretariat/SecretariatCreateScreen';
 import SecretariatDetailScreen from './screens/secretariat/SecretariatDetailScreen';
 import SecretariatEditScreen from './screens/secretariat/SecretariatEditScreen';
 import TaskTemplatesPage from './pages/TaskTemplatesPage';
-// کامپوننت پیشنهاد نصب PWA
 import InstallPwaPrompt from './components/InstallPwaPrompt';
-
-// جایگزین بخش مدیریت وب‌سوکت در App.jsx
 
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const mode = useSelector((state) => state.theme?.mode || "dark");
   const isDark = mode === "dark";
   const { userInfo } = useSelector((state) => state.userLogin);
 
-  // استخراج مقدار رشته‌ای توکن جهت جلوگیری از اجرای اثر با رندرهای شیء userInfo
   const token = userInfo?.access || userInfo?.token;
+
+  const isFullScreenAppRoute = ['/notebooks', '/chat', '/ai-assistant'].some(
+    (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
+  );
 
   const isDarkRef = useRef(isDark);
   useEffect(() => {
@@ -89,7 +88,6 @@ function App() {
         console.log('🟢 WebSocket Inbox Connected!');
         reconnectAttempts = 0;
 
-        // ✅ فعال‌سازی پالس حیات (Ping) هر ۲۵ ثانیه برای پیشگیری از تایم‌اوت Nginx/Cloudflare
         clearInterval(pingInterval);
         pingInterval = setInterval(() => {
           if (ws && ws.readyState === WebSocket.OPEN) {
@@ -106,10 +104,8 @@ function App() {
         clearInterval(pingInterval);
         console.warn(`🟠 WebSocket Inbox Closed (Code: ${e.code})`);
 
-        // تلاش برای برقراری مجدد اتصال فقط در صورتی که کامپوننت باز باشد
         if (isComponentMounted) {
           clearTimeout(reconnectTimeout);
-          // تاخیر تصادفی بین ۳ تا ۵ ثانیه جهت جلوگیری از فشار همزمان کلاینت‌ها
           const delay = Math.min(30000, 3000 + (reconnectAttempts * 2000)) + (Math.random() * 1000);
           reconnectAttempts++;
           reconnectTimeout = setTimeout(() => {
@@ -127,7 +123,6 @@ function App() {
           return;
         }
 
-        // ✅ نادیده گرفتن پاسخ‌های pong برای پیشگیری از ایجاد خطا در بخش اعلانات
         if (data.type === 'pong') return;
 
         const notifData = data.payload || data;
@@ -231,28 +226,41 @@ function App() {
       clearInterval(pingInterval);
       clearTimeout(reconnectTimeout);
       if (ws) {
-        // بستن تمیز با کد استاندارد ۱۰۰۰ جهت جلوگیری از پرتاب لاگ ۱۰۰۵ در کنسول
         ws.close(1000, "Component unmounted");
       }
     };
-  }, [dispatch, token, navigate]); // وابستگی فقط به مقدار اولیه token محدود شد
+  }, [dispatch, token, navigate]);
 
   return (
     <div
       className={`${
         isDark ? "bg-blue-800 text-white" : "bg-white text-gray-900"
-      } min-h-screen flex flex-col font-sans transition-colors duration-300`}
+      } ${
+        isFullScreenAppRoute ? "h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none" : "min-h-screen"
+      } flex flex-col font-sans transition-colors duration-300`}
       style={{ direction: "rtl" }}
     >
       <Toaster /> 
-      <Header />
-      <main className="flex-grow w-full px-2 sm:px-4 pt-0 pb-4">
+      <div className="shrink-0">
+        <Header />
+      </div>
+      <main
+        className={`w-full flex flex-col ${
+          isFullScreenAppRoute
+            ? "flex-1 min-h-0 overflow-hidden px-0 sm:px-4 pt-0 pb-0 sm:pb-3"
+            : "flex-grow px-2 sm:px-4 pt-0 pb-4"
+        }`}
+      >
         <div
           className={`${
             isDark
               ? "bg-blue-800 border border-blue-700 border-t-0 shadow-none"
               : "bg-white border border-gray-200 border-t-0 shadow-none"
-          } rounded-t-none rounded-b-2xl pt-2 sm:pt-3 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-130px)] transition-colors duration-300`}
+          } ${
+            isFullScreenAppRoute
+              ? "flex-1 min-h-0 flex flex-col overflow-hidden rounded-none sm:rounded-b-2xl p-0"
+              : "rounded-t-none rounded-b-2xl pt-2 sm:pt-3 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-130px)]"
+          } transition-colors duration-300`}
         >
           <Routes>
             <Route path="/" element={<HomeScreen />} />
@@ -280,7 +288,6 @@ function App() {
             <Route path="/admin/users/new" element={<Navigate to="/admin/users" />} />
             <Route path="/admin/settings" element={<SettingsScreen />} />
             <Route path="/admin/daily-summary" element={<DailySummaryScreen />} />
-            {/* <Route path="/admin/attendance/:projectId/:date" element={<DailyAttendanceScreen />} /> */}
             <Route path="/admin/scheme-contracts" element={<SchemeContractScreen />} />
             <Route path="/admin/scheme-contracts/:id" element={<SchemeContractScreen />} />
             <Route path="/admin/scheme-managements" element={<SchemeManagementScreen />} />
@@ -295,7 +302,6 @@ function App() {
             <Route path="/routines/templates" element={<RoutineTemplatesPage />} /> 
             <Route path="/attendance" element={<ProtectedRoute><WebAttendanceScreen /></ProtectedRoute>} />
 
-            {/* مسیرهای دبیرخانه */}
             <Route path="/secretariat" element={<ProtectedRoute><SecretariatListScreen /></ProtectedRoute>} />
             <Route path="/secretariat/create" element={<ProtectedRoute><SecretariatCreateScreen /></ProtectedRoute>} />
             <Route path="/secretariat/:id" element={<ProtectedRoute><SecretariatDetailScreen /></ProtectedRoute>} />
@@ -305,12 +311,13 @@ function App() {
         </div>
       </main>
 
-      {/* کامپوننت پیشنهاد نصب دقیقاً در این محل قرار می‌گیرد */}
       <InstallPwaPrompt />
 
-      <footer className={`print:hidden ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"} p-3 text-center text-sm mt-auto transition-colors duration-300`}>
-        &copy; {new Date().getFullYear()} سامانه مدیریت پروژه آریو بنیان توس
-      </footer>
+      {!isFullScreenAppRoute && (
+        <footer className={`print:hidden ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"} p-3 text-center text-sm mt-auto transition-colors duration-300`}>
+          &copy; {new Date().getFullYear()} سامانه مدیریت پروژه آریو بنیان توس
+        </footer>
+      )}
     </div>
   );
 }
