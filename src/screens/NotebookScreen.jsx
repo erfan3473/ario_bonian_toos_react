@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -75,9 +75,13 @@ const getCustomScrollbarStyle = (isDark) => `
       overflow-y: auto;
       overscroll-behavior-y: contain;
       font-size: 0.9rem;
-      line-height: 1.65;
+      line-height: 1.75;
       padding: 10px 12px;
       -webkit-overflow-scrolling: touch;
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+      word-wrap: break-word !important;
+      hyphens: none !important;
   }
   .custom-quill-container:not(.is-fixed-height) .ql-editor {
       min-height: 44px;
@@ -86,7 +90,7 @@ const getCustomScrollbarStyle = (isDark) => `
   @media (min-width: 768px) {
       .custom-quill-container .ql-editor {
           font-size: 0.95rem;
-          line-height: 1.7;
+          line-height: 1.8;
           padding: 12px 16px;
       }
       .custom-quill-container:not(.is-fixed-height) .ql-editor {
@@ -114,6 +118,45 @@ const getCustomScrollbarStyle = (isDark) => `
       border-bottom: 1px solid ${isDark ? '#374151' : '#E5E7EB'} !important;
       flex-shrink: 0;
       z-index: 30;
+  }
+
+  .note-rendered-content.ql-editor {
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+      word-wrap: break-word !important;
+      hyphens: none !important;
+      -webkit-hyphens: none !important;
+      white-space: normal !important;
+      line-height: 1.85 !important;
+      font-size: 0.84rem !important;
+      letter-spacing: 0 !important;
+  }
+  @media (min-width: 640px) {
+      .note-rendered-content.ql-editor {
+          font-size: 0.92rem !important;
+          line-height: 1.9 !important;
+      }
+  }
+  .note-rendered-content.ql-editor p,
+  .note-rendered-content.ql-editor li,
+  .note-rendered-content.ql-editor blockquote,
+  .note-rendered-content.ql-editor h1,
+  .note-rendered-content.ql-editor h2,
+  .note-rendered-content.ql-editor h3 {
+      margin-bottom: 0.45rem;
+      word-break: normal !important;
+      overflow-wrap: break-word !important;
+  }
+  .note-rendered-content.ql-editor p:last-child,
+  .note-rendered-content.ql-editor li:last-child,
+  .note-rendered-content.ql-editor blockquote:last-child {
+      margin-bottom: 0;
+  }
+  .note-rendered-content.ql-editor a {
+      word-break: break-all !important;
+      overflow-wrap: anywhere !important;
+      color: #3B82F6;
+      text-decoration: underline;
   }
 
   .ql-editor p,
@@ -160,6 +203,7 @@ const getCustomScrollbarStyle = (isDark) => `
       overflow-x: auto !important;
       max-width: 100% !important;
       white-space: pre !important;
+      word-break: normal !important;
   }
 
   @media (max-width: 768px) {
@@ -180,9 +224,9 @@ const getCustomScrollbarStyle = (isDark) => `
       }
       .custom-quill-container .ql-toolbar button,
       .bubble-quill-editor .ql-toolbar button {
-          width: 24px !important;
-          height: 24px !important;
-          padding: 2px !important;
+          width: 26px !important;
+          height: 26px !important;
+          padding: 3px !important;
       }
       .custom-quill-container .ql-toolbar .ql-picker-label {
           padding-left: 4px !important;
@@ -210,6 +254,15 @@ const quillModules = {
     ]
 };
 
+const normalizeHtmlForMobile = (html) => {
+    if (!html) return '';
+    const sanitized = DOMPurify.sanitize(html);
+    return sanitized.replace(/(<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>)|(&nbsp;|\u00A0)+/gi, (match, codeBlock) => {
+        if (codeBlock) return codeBlock;
+        return ' ';
+    });
+};
+
 const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(entry.content || '');
@@ -217,6 +270,8 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
 
     const isAuthor = userInfo?.id === entry.user;
     const canEditOrDelete = isAuthor || isAdmin;
+
+    const renderedHtml = useMemo(() => normalizeHtmlForMobile(entry.content), [entry.content]);
 
     const handleSaveEdit = () => {
         if (editContent !== entry.content) {
@@ -232,7 +287,7 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
 
     return (
         <div className="w-full flex justify-center py-1.5 sm:py-2.5 px-2.5 sm:px-4 md:px-8 group">
-            <div className={`w-full max-w-5xl p-3 sm:p-4 md:p-5 rounded-2xl shadow-sm border transition-colors overflow-hidden ${
+            <div className={`w-full max-w-5xl p-3.5 sm:p-4 md:p-5 rounded-2xl shadow-sm border transition-colors overflow-hidden ${
                 isDark ? 'bg-gray-800/90 border-gray-700/80 shadow-black/20' : 'bg-white border-gray-200/90 shadow-gray-200/50'
             }`}>
                 {isEditing ? (
@@ -243,7 +298,7 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                                 value={editContent}
                                 onChange={setEditContent}
                                 modules={quillModules}
-                                className="w-full [&_.ql-editor]:min-h-[110px] [&_.ql-editor]:max-h-[45dvh]" 
+                                className="w-full [&_.ql-editor]:min-h-[120px] [&_.ql-editor]:max-h-[45dvh]" 
                             />
                         </div>
                         <div className="flex gap-2 justify-end">
@@ -266,10 +321,13 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                 ) : (
                     <div className="flex flex-col w-full min-w-0">
                         {canEditOrDelete && (
-                            <div className="flex items-center justify-end gap-1 -mt-1 -ml-1 mb-1 opacity-75 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                            <div className="flex items-center justify-end gap-1 -mt-1 -ml-1 mb-1.5 opacity-80 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                 <button 
                                     type="button"
-                                    onClick={() => setIsEditing(true)} 
+                                    onClick={() => {
+                                        setEditContent(entry.content || '');
+                                        setIsEditing(true);
+                                    }} 
                                     className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
                                         isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'
                                     }`} 
@@ -332,10 +390,10 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                             {entry.content && (
                                 <div className={`ql-snow w-full overflow-x-hidden ${isDark ? 'quill-dark' : ''}`}>
                                     <div 
-                                        className={`ql-editor !p-0 max-w-none break-words whitespace-pre-wrap leading-relaxed text-xs sm:text-sm [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl ${
+                                        className={`ql-editor note-rendered-content !p-0 max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl ${
                                             isDark ? 'text-gray-200' : 'text-gray-800'
                                         }`} 
-                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(entry.content) }}
+                                        dangerouslySetInnerHTML={{ __html: renderedHtml }}
                                     />
                                 </div>
                             )}
@@ -689,7 +747,7 @@ const NotebookScreen = () => {
         }
     };
 
-    const stripHTML = (html) => (html || '').replace(/<[^>]*>?/gm, '');
+    const stripHTML = (html) => (html || '').replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/gi, ' ');
 
     const filteredEntries = currentEntries.filter(entry => 
         stripHTML(entry.content).toLowerCase().includes(searchQuery.toLowerCase())
