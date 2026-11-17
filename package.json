@@ -26,6 +26,8 @@
     "dompurify": "^3.4.16",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.22",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "katex": "^0.17.0",
     "leaflet-draw": "^1.0.4",
     "leaflet.markercluster": "^1.5.3",

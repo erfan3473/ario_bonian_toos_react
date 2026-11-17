@@ -158,6 +158,15 @@ export const replaceAttachment = createAsyncThunk('secretariat/replaceAttachment
         return data;
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
+
+export const fetchReferenceOptions = createAsyncThunk('secretariat/fetchReferenceOptions', async (_, { rejectWithValue }) => {
+    try {
+        const { data } = await axiosInstance.get('/secretariat/reference-options/');
+        return data;
+    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+});
+
+
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
@@ -165,6 +174,7 @@ const secretariatSlice = createSlice({
         cartableItems: [], loadingCartable: false, 
         allPersonnel: [], loadingPersonnel: false,
         organizations: [], loadingOrganizations: false, 
+        referenceOptions: [], loadingReferenceOptions: false,
         creating: false, createSuccess: false, forwarding: false, error: null,
         
         // 🚀 استیت‌های مربوط به لاگ پیامک‌ها
@@ -218,7 +228,10 @@ const secretariatSlice = createSlice({
             })
             .addCase(refreshLetterSmsStatus.rejected, (state) => { state.refreshingSms = false; })
             .addCase(registerDestination.fulfilled, (state, action) => { state.activeLetter = action.payload; })
-            .addCase(issueLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; });
+            .addCase(issueLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
+            .addCase(fetchReferenceOptions.pending, (state) => { state.loadingReferenceOptions = true; })
+            .addCase(fetchReferenceOptions.fulfilled, (state, action) => { state.loadingReferenceOptions = false; state.referenceOptions = action.payload; })
+            .addCase(fetchReferenceOptions.rejected, (state) => { state.loadingReferenceOptions = false; });
     }
 });
 

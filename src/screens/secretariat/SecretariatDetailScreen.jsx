@@ -24,7 +24,8 @@ import axiosInstance from '../../api/axiosInstance';
 import JalaliDatePicker from '../../components/JalaliDatePicker'; 
 import LetterInfoBanner from '../../components/LetterInfoBanner'; 
 import QRCode from 'react-qr-code';
-
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 // تبدیل اعداد انگلیسی به فارسی
 const toPersianDigits = (str) => {
     if (!str && str !== 0) return '';
@@ -227,11 +228,11 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
     const progressPercentage = Math.min(100, ((Math.max(0, currentIndex) + progressOffset) / (steps.length - 1)) * 100);
 
     return (
-        <div className={`p-4 sm:p-6 md:p-8 rounded-2xl border mb-4 md:mb-6 print:hidden shadow-sm overflow-hidden ${isDark ? 'bg-slate-900/40 border-slate-700/60' : 'bg-white border-gray-100'}`}>
-            <h4 className={`text-[10px] sm:text-[11px] font-black mb-6 sm:mb-8 md:mb-10 text-center opacity-60 tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>مسیر گردش مکاتبات</h4>
+        <div className={`p-4 sm:p-6 md:p-7 rounded-2xl border mb-4 md:mb-6 print:hidden shadow-sm ${isDark ? 'bg-slate-900/40 border-slate-700/60' : 'bg-white border-gray-100'}`}>
+            <h4 className={`text-[11px] sm:text-xs font-black mb-5 sm:mb-7 text-center opacity-70 tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>مسیر گردش مکاتبات</h4>
             
-            <div className="flex items-center justify-between relative max-w-3xl mx-auto px-2 sm:px-4 md:px-8">
-                <div className={`absolute top-1/2 right-4 left-4 sm:right-6 sm:left-6 h-1.5 -translate-y-1/2 rounded-full z-0 ${isDark ? 'bg-slate-800' : 'bg-gray-200'}`}>
+            <div className="flex items-start justify-between relative max-w-3xl mx-auto px-1 sm:px-4 md:px-8">
+                <div className={`absolute top-4 sm:top-5 md:top-6 right-6 left-6 sm:right-10 sm:left-10 h-1.5 -translate-y-1/2 rounded-full z-0 ${isDark ? 'bg-slate-800' : 'bg-gray-200'}`}>
                     <div 
                         className="absolute top-0 right-0 h-full rounded-full z-0 bg-blue-500 transition-all duration-1000 ease-out"
                         style={{ width: `${progressPercentage}%` }}
@@ -243,7 +244,7 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
                     const isActive = index === currentIndex;
 
                     let bgClass = isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200';
-                    let textClass = isDark ? 'text-gray-500' : 'text-gray-400';
+                    let textClass = isDark ? 'text-gray-400' : 'text-gray-500';
                     let iconWrapperClass = isDark ? 'text-gray-600' : 'text-gray-300';
 
                     if (isCompleted) {
@@ -257,11 +258,11 @@ const LetterProgressStepper = ({ status, letterType, isDark }) => {
                     }
 
                     return (
-                        <div key={step.key} className="relative z-10 flex flex-col items-center gap-2 sm:gap-3">
-                            <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm sm:text-base md:text-xl transition-all duration-700 ${isActive ? 'scale-110' : ''} ${bgClass}`}>
+                        <div key={step.key} className="relative z-10 flex flex-col items-center flex-1 min-w-0 px-0.5">
+                            <div className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-sm sm:text-base md:text-xl transition-all duration-700 shrink-0 ${isActive ? 'scale-110' : ''} ${bgClass}`}>
                                 <span className={iconWrapperClass}>{step.icon}</span>
                             </div>
-                            <span className={`absolute -bottom-6 sm:-bottom-7 text-[9px] sm:text-[10px] md:text-xs whitespace-nowrap transition-all duration-500 ${textClass}`}>
+                            <span className={`mt-2 sm:mt-2.5 text-[10px] sm:text-xs text-center leading-tight break-words transition-all duration-500 ${textClass}`}>
                                 {step.label}
                             </span>
                         </div>
@@ -445,7 +446,7 @@ const SecretariatDetailScreen = () => {
 
     const [destData, setDestData] = useState({ indicator: '', date: '' });
     const [registeringDest, setRegisteringDest] = useState(false);
-
+    const [sharingPdf, setSharingPdf] = useState(false);
     // حالت‌های چاپ: 'BLANK' (برگه معمولی A4) | 'LETTERHEAD' (سربرگ آرم‌دار A4) | 'A5' (برگه A5)
     const [printMode, setPrintMode] = useState('BLANK');
     const [showPrintMenu, setShowPrintMenu] = useState(false);
@@ -472,6 +473,7 @@ const SecretariatDetailScreen = () => {
 
     const [editingRefId, setEditingRefId] = useState(null);
     const [editRefText, setEditRefText] = useState("");
+    const [savingRef, setSavingRef] = useState(false);
     const [selectedScannedId, setSelectedScannedId] = useState(null);
 
     const totalPages = pageCount;
@@ -753,17 +755,38 @@ const SecretariatDetailScreen = () => {
                 toast.success('ارجاع با موفقیت انجام شد');
                 setShowForward(false);
                 setForwardData({ receiver: '', instruction: '' });
-                dispatch(fetchLetterDetail(id)); 
+                dispatch(fetchLetterDetail(id));
+                if (isBoardMember) {
+                    dispatch(fetchLetterSmsLogs(id));
+                }
             })
             .catch((err) => toast.error(err || 'خطا در ارجاع'));
     };
 
+    const handleUpdateReferral = async (refId) => {
+        setSavingRef(true);
+        try {
+            await axiosInstance.put(`/secretariat/referrals/${refId}/update/`, {
+                instruction: editRefText
+            });
+            toast.success('متن ارجاع با موفقیت ویرایش شد');
+            setEditingRefId(null);
+            setEditRefText('');
+            dispatch(fetchLetterDetail(id));
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'خطا در ویرایش متن ارجاع');
+        } finally {
+            setSavingRef(false);
+        }
+    };
+
     const handleScanUpload = (e) => {
         const file = e.target.files[0];
+        e.target.value = '';
         if (!file) return;
         const uploadToast = toast.loading('در حال آپلود سند...');
         dispatch(uploadAttachment({ letterId: id, file })).unwrap()
-            .then(() => toast.success('سند با موفقیت اسکن و ضمیمه شد', { id: uploadToast }))
+            .then(() => toast.success('سند با موفقیت ضمیمه شد', { id: uploadToast }))
             .catch(() => toast.error('خطا در آپلود سند', { id: uploadToast }));
     };
 
@@ -790,21 +813,93 @@ const SecretariatDetailScreen = () => {
     };
 
     // اشتراک‌گذاری سریع لینک نامه (مناسب موبایل)
+    // تولید فایل PDF از برگه‌های نامه و اشتراک‌گذاری مستقیم در گوشی (یا دانلود در دسکتاپ)
     const handleShareLetter = async () => {
-        const shareData = {
-            title: `نامه شماره ${letter.indicator_number}`,
-            text: `موضوع: ${letter.subject}`,
-            url: currentLetterUrl,
-        };
+        if (sharingPdf) return;
+        setSharingPdf(true);
+        const loadingToast = toast.loading('در حال آماده‌سازی فایل PDF نامه...');
+
         try {
-            if (navigator.share) {
-                await navigator.share(shareData);
-            } else {
-                await navigator.clipboard.writeText(currentLetterUrl);
-                toast.success('لینک نامه با موفقیت کپی شد!');
+            if (isLayoutEditMode) {
+                setIsLayoutEditMode(false);
+                await new Promise((resolve) => setTimeout(resolve, 150));
             }
+
+            if (document.fonts && document.fonts.ready) {
+                await document.fonts.ready;
+            }
+
+            const printRoot = document.getElementById('letter-print-root');
+            const pageElements = printRoot ? Array.from(printRoot.querySelectorAll('.letter-a4-page')) : [];
+
+            if (pageElements.length === 0) {
+                toast.error('برگه‌ای برای خروجی PDF یافت نشد.', { id: loadingToast });
+                return;
+            }
+
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: isA5 ? 'a5' : 'a4',
+                compress: true,
+            });
+
+            const pdfWidth = isA5 ? 148 : 210;
+            const pdfMaxHeight = isA5 ? 210 : 297;
+
+            for (let i = 0; i < pageElements.length; i++) {
+                const pageEl = pageElements[i];
+                const imgData = await toPng(pageEl, {
+                    pixelRatio: 2,
+                    backgroundColor: '#ffffff',
+                    cacheBust: true,
+                    style: {
+                        opacity: '1',
+                        filter: 'none',
+                        boxShadow: 'none',
+                        border: 'none',
+                        margin: '0',
+                    },
+                });
+
+                if (i > 0) {
+                    pdf.addPage();
+                }
+
+                const imgProps = pdf.getImageProperties(imgData);
+                const renderedHeight = Math.min(pdfMaxHeight, (imgProps.height * pdfWidth) / imgProps.width);
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, renderedHeight, undefined, 'FAST');
+            }
+
+            const rawNum = letter.original_number || letter.indicator_number || `letter-${letter.id}`;
+            const safeFileName = `نامه-${String(rawNum).replace(/[/\\:*?"<>|]/g, '-')}.pdf`;
+            const pdfBlob = pdf.output('blob');
+            const pdfFile = new File([pdfBlob], safeFileName, { type: 'application/pdf' });
+
+            toast.dismiss(loadingToast);
+
+            if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                try {
+                    await navigator.share({
+                        files: [pdfFile],
+                        title: `نامه شماره ${rawNum}`,
+                        text: `موضوع: ${letter.subject}`,
+                    });
+                    return;
+                } catch (shareErr) {
+                    if (shareErr?.name === 'AbortError') {
+                        return;
+                    }
+                }
+            }
+
+            pdf.save(safeFileName);
+            toast.success('فایل PDF نامه دانلود شد (آماده ارسال)');
         } catch (err) {
-            console.log(err);
+            console.error(err);
+            toast.error('خطا در تولید فایل PDF نامه', { id: loadingToast });
+        } finally {
+            setSharingPdf(false);
         }
     };
 
@@ -1496,8 +1591,14 @@ const SecretariatDetailScreen = () => {
                     {letter.status !== 'DELETED' && (
                         <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg border border-gray-200 dark:border-gray-700">
                             {/* دکمه اشتراک‌گذاری سریع (مناسب موبایل و خارج از سایت) */}
-                            <button onClick={handleShareLetter} className="flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 px-3 sm:px-3.5 py-2 rounded-lg font-bold transition text-xs sm:text-sm shadow-md" title="اشتراک‌گذاری / کپی لینک">
-                                <FaShareAlt /> اشتراک‌گذاری
+                            <button
+                                type="button"
+                                onClick={handleShareLetter}
+                                disabled={sharingPdf}
+                                className="flex items-center gap-1.5 bg-blue-600 text-white hover:bg-blue-700 px-3 sm:px-3.5 py-2 rounded-lg font-bold transition text-xs sm:text-sm shadow-md disabled:opacity-60"
+                                title="اشتراک‌گذاری فایل PDF نامه"
+                            >
+                                <FaShareAlt /> {sharingPdf ? 'در حال ساخت PDF...' : 'اشتراک‌گذاری'}
                             </button>
 
                             <div className="relative" ref={printMenuRef}>
@@ -1933,11 +2034,21 @@ const SecretariatDetailScreen = () => {
 
                             <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer transition shadow-sm">
                                 <FaCamera size={11} />
-                                <span>اسکن جدید</span>
+                                <span>دوربین</span>
                                 <input
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/*"
                                     capture="environment"
+                                    className="hidden"
+                                    onChange={handleScanUpload}
+                                />
+                            </label>
+                            <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition shadow-sm">
+                                <FaPaperclip size={11} />
+                                <span>انتخاب فایل</span>
+                                <input
+                                    type="file"
+                                    accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip"
                                     className="hidden"
                                     onChange={handleScanUpload}
                                 />
@@ -2537,7 +2648,148 @@ const SecretariatDetailScreen = () => {
                     )}
                 </div>
             )}
+            {letter.referrals && letter.referrals.length > 0 && (
+                <div className={`p-4 sm:p-5 rounded-2xl border print:hidden shadow-sm ${isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-white border-indigo-100'}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-gray-200 dark:border-slate-700">
+                        <h4 className="text-xs sm:text-sm font-black flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                            <FaHistory />
+                            <span>سوابق و جزئیات ارجاعات نامه ({toPersianDigits(letter.referrals.length)})</span>
+                        </h4>
+                        {letter.status !== 'DELETED' && (
+                            <button
+                                type="button"
+                                onClick={() => setShowForward(true)}
+                                className="text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 transition flex items-center gap-1.5"
+                            >
+                                <FaShare size={10} /> ارجاع جدید
+                            </button>
+                        )}
+                    </div>
 
+                    <div className="space-y-3">
+                        {letter.referrals.map((ref) => {
+                            const canEditThisRef = isLevelZeroOrAdmin || ref.sender === userInfo?.id;
+                            const isEditingThis = editingRefId === ref.id;
+                            const refStatusLabel =
+                                ref.status === 'DONE' ? 'اقدام شده' :
+                                ref.status === 'IN_PROGRESS' ? 'در دست اقدام' :
+                                'در انتظار مشاهده';
+                            const refStatusClass =
+                                ref.status === 'DONE'
+                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                                    : ref.status === 'IN_PROGRESS'
+                                    ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800'
+                                    : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800';
+
+                            return (
+                                <div
+                                    key={ref.id}
+                                    className={`p-3.5 sm:p-4 rounded-xl border transition ${isDark ? 'bg-slate-900/70 border-slate-700' : 'bg-indigo-50/35 border-indigo-100'}`}
+                                >
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-gray-200/70 dark:border-slate-700/70">
+                                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                <span className="text-[11px] opacity-65 font-bold">از:</span>
+                                                <span className="text-xs sm:text-sm font-black text-gray-800 dark:text-gray-100 break-words">
+                                                    {ref.sender_name?.trim() || 'نامشخص'}
+                                                </span>
+                                                {ref.sender_position_name && (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-200/80 dark:bg-slate-800 text-gray-700 dark:text-gray-300">
+                                                        {ref.sender_position_name}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <FaArrowLeft className="text-indigo-500 text-xs shrink-0 mx-0.5" />
+
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                <span className="text-[11px] opacity-65 font-bold">به:</span>
+                                                <span className="text-xs sm:text-sm font-black text-indigo-700 dark:text-indigo-300 break-words">
+                                                    {ref.receiver_name?.trim() || 'نامشخص'}
+                                                </span>
+                                                {ref.receiver_position_name && (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                                        {ref.receiver_position_name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2 self-end sm:self-center shrink-0">
+                                            <span className={`text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md border ${refStatusClass}`}>
+                                                {refStatusLabel}
+                                            </span>
+                                            <span className="text-[10px] sm:text-[11px] font-mono opacity-65" dir="ltr">
+                                                {new Date(ref.created_at).toLocaleString('fa-IR', {
+                                                    year: 'numeric',
+                                                    month: 'numeric',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
+                                            {canEditThisRef && !isEditingThis && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditingRefId(ref.id);
+                                                        setEditRefText(ref.instruction || '');
+                                                    }}
+                                                    className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition"
+                                                    title="ویرایش متن ارجاع"
+                                                >
+                                                    <FaEdit size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {isEditingThis ? (
+                                        <div className="space-y-2.5">
+                                            <textarea
+                                                rows="3"
+                                                value={editRefText}
+                                                onChange={(e) => setEditRefText(e.target.value)}
+                                                className={`w-full p-2.5 rounded-lg border text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${isDark ? 'bg-slate-800 border-slate-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                                                placeholder="متن دستور یا پاراف ارجاع..."
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setEditingRefId(null);
+                                                        setEditRefText('');
+                                                    }}
+                                                    disabled={savingRef}
+                                                    className="px-3 py-1.5 rounded-lg bg-gray-500 hover:bg-gray-600 text-white text-xs font-bold transition"
+                                                >
+                                                    انصراف
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleUpdateReferral(ref.id)}
+                                                    disabled={savingRef}
+                                                    className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center gap-1.5 disabled:opacity-50"
+                                                >
+                                                    <FaCheck size={11} /> {savingRef ? 'در حال ذخیره...' : 'ذخیره تغییرات'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={`text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words rounded-lg p-2.5 sm:p-3 border ${isDark ? 'bg-slate-800/80 border-slate-700/80 text-gray-200' : 'bg-white border-gray-200/80 text-gray-800'}`}>
+                                            {ref.instruction && ref.instruction.trim() ? (
+                                                ref.instruction
+                                            ) : (
+                                                <span className="opacity-50 italic text-xs">بدون متن پاراف / دستور</span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
             {/* بخش لاگ پیامک‌ها */}
             {isBoardMember && smsLogs && smsLogs.length > 0 && (
                 <div className={`mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-dashed ${isDark ? 'border-gray-600' : 'border-gray-300'} print:hidden`}>
@@ -2604,10 +2856,16 @@ const SecretariatDetailScreen = () => {
             <div className={`p-4 sm:p-5 rounded-xl border print:hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-gray-200'}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-xs sm:text-sm flex items-center gap-2 opacity-80"><FaPaperclip /> پیوست‌ها ({letter.attachments?.length || 0})</h3>
-                    <label className="flex items-center gap-1.5 sm:gap-2 bg-emerald-600 text-white px-2.5 sm:px-3 py-1.5 rounded-lg cursor-pointer transition text-xs font-bold shadow-md hover:bg-emerald-700">
-                        <FaCamera /> اسکن
-                        <input type="file" accept="image/*,application/pdf" capture="environment" className="hidden" onChange={handleScanUpload} />
-                    </label>
+                    <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1.5 bg-emerald-600 text-white px-2.5 sm:px-3 py-1.5 rounded-lg cursor-pointer transition text-xs font-bold shadow-md hover:bg-emerald-700">
+                            <FaCamera /> دوربین
+                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleScanUpload} />
+                        </label>
+                        <label className="flex items-center gap-1.5 bg-blue-600 text-white px-2.5 sm:px-3 py-1.5 rounded-lg cursor-pointer transition text-xs font-bold shadow-md hover:bg-blue-700">
+                            <FaPaperclip /> انتخاب فایل
+                            <input type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.zip" className="hidden" onChange={handleScanUpload} />
+                        </label>
+                    </div>
                 </div>
                 {letter.attachments?.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">

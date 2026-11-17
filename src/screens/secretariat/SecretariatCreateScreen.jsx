@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { createLetter, clearCreateSuccess, fetchAllPersonnel, fetchOrganizations, fetchLetters } from '../../features/secretariat/secretariatSlice';
+import { createLetter, clearCreateSuccess, fetchAllPersonnel, fetchOrganizations, fetchReferenceOptions } from '../../features/secretariat/secretariatSlice';
 import toast from 'react-hot-toast';
 import { 
     FaTrashAlt, FaChevronDown, FaChevronLeft, 
@@ -311,7 +311,163 @@ const DirectionalLogo = ({ type, colorName }) => {
         </div>
     );
 };
+const SearchableReferenceLetterSelect = ({ letters, value, onChange, fallbackLabel }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const wrapperRef = useRef(null);
 
+    const formatOptionSummary = (item) => {
+        if (!item) return '';
+        const partyPart =
+            item.letter_type === 'OUTGOING' && item.receiver_name
+                ? ` | گیرنده: ${item.receiver_name}`
+                : item.letter_type === 'INCOMING' && item.sender_name
+                ? ` | فرستنده: ${item.sender_name}`
+                : '';
+        return `نامه ${item.indicator_number} — ${item.subject}${partyPart}`;
+    };
+
+    useEffect(() => {
+        if (value) {
+            const selected = (letters || []).find((l) => String(l.id) === String(value));
+            if (selected) {
+                setSearchTerm(formatOptionSummary(selected));
+            } else if (fallbackLabel) {
+                setSearchTerm(fallbackLabel);
+            }
+        } else {
+            setSearchTerm('');
+        }
+    }, [value, letters, fallbackLabel]);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, []);
+
+    const selectedItem = (letters || []).find((l) => String(l.id) === String(value));
+    const isShowingSelectedLabel = Boolean(selectedItem && searchTerm === formatOptionSummary(selectedItem));
+
+    const filtered = (letters || []).filter((item) => {
+        if (!searchTerm || isShowingSelectedLabel) return true;
+        const q = searchTerm.toLowerCase();
+        return (
+            item.indicator_number?.toLowerCase().includes(q) ||
+            item.original_number?.toLowerCase().includes(q) ||
+            item.subject?.toLowerCase().includes(q) ||
+            item.sender_name?.toLowerCase().includes(q) ||
+            item.receiver_name?.toLowerCase().includes(q)
+        );
+    });
+
+    return (
+        <div className="relative flex-1 min-w-[200px]" ref={wrapperRef}>
+            <div className="relative flex items-center">
+                <input
+                    type="text"
+                    className="w-full bg-transparent border-b border-dashed border-gray-300 hover:border-blue-400 focus:border-blue-600 text-xs py-0.5 pl-6 pr-1 outline-none font-bold text-gray-900"
+                    placeholder="مستقل (جستجو با شماره، موضوع، فرستنده یا گیرنده...)"
+                    value={searchTerm}
+                    onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setIsOpen(true);
+                        if (e.target.value === '') onChange('');
+                    }}
+                    onFocus={() => setIsOpen(true)}
+                />
+                {value ? (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            onChange('');
+                            setSearchTerm('');
+                            setIsOpen(false);
+                        }}
+                        className="absolute left-1 text-red-500 hover:text-red-700 p-0.5"
+                        title="حذف عطف"
+                    >
+                        <FaTimes size={10} />
+                    </button>
+                ) : (
+                    <FaChevronDown className="absolute left-1.5 text-gray-400 pointer-events-none text-[10px]" />
+                )}
+            </div>
+
+            {isOpen && (
+                <ul className="absolute z-40 right-0 w-full sm:w-[420px] max-w-[calc(100vw-32px)] mt-1 max-h-60 overflow-y-auto rounded-xl border border-gray-300 bg-white text-gray-900 shadow-2xl">
+                    <li
+                        className="p-2 cursor-pointer text-xs font-bold text-gray-500 hover:bg-gray-100 border-b border-gray-100"
+                        onClick={() => {
+                            onChange('');
+                            setSearchTerm('');
+                            setIsOpen(false);
+                        }}
+                    >
+                        مستقل (بدون ارتباط)
+                    </li>
+                    {filtered.map((item) => (
+                        <li
+                            key={item.id}
+                            className={`p-2.5 cursor-pointer text-xs border-b border-gray-100 hover:bg-blue-50 transition ${
+                                String(item.id) === String(value) ? 'bg-blue-50/80' : ''
+                            }`}
+                            onClick={() => {
+                                onChange(String(item.id));
+                                setSearchTerm(formatOptionSummary(item));
+                                setIsOpen(false);
+                            }}
+                        >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="font-mono font-black text-blue-700" dir="ltr">
+                                    {item.indicator_number}
+                                    {item.original_number ? ` (${item.original_number})` : ''}
+                                </span>
+                                <span
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                        item.letter_type === 'OUTGOING'
+                                            ? 'bg-orange-100 text-orange-700'
+                                            : item.letter_type === 'INCOMING'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-purple-100 text-purple-700'
+                                    }`}
+                                >
+                                    {item.letter_type_display}
+                                </span>
+                            </div>
+                            <div className="font-bold text-gray-900 leading-snug">
+                                موضوع: {item.subject}
+                            </div>
+                            {item.letter_type === 'OUTGOING' && item.receiver_name && (
+                                <div className="text-[11px] font-bold text-orange-700 mt-0.5">
+                                    گیرنده: {item.receiver_name}
+                                </div>
+                            )}
+                            {item.letter_type === 'INCOMING' && item.sender_name && (
+                                <div className="text-[11px] font-bold text-green-700 mt-0.5">
+                                    فرستنده: {item.sender_name}
+                                </div>
+                            )}
+                        </li>
+                    ))}
+                    {filtered.length === 0 && (
+                        <li className="p-3 text-xs text-gray-400 text-center font-bold">
+                            نامه‌ای با این مشخصات یافت نشد
+                        </li>
+                    )}
+                </ul>
+            )}
+        </div>
+    );
+};
 const SecretariatCreateScreen = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -330,8 +486,7 @@ const SecretariatCreateScreen = () => {
     const myEmployeeId = userInfo?.employee?.id ? String(userInfo.employee.id) : '';
     const myName = userInfo?.employee?.name || (userInfo?.first_name ? `${userInfo.first_name} ${userInfo.last_name}` : userInfo?.username || 'شما');
 
-    const { creating, error, allPersonnel, organizations, letters: lettersData } = useSelector((state) => state.secretariat);
-    const lettersList = Array.isArray(lettersData) ? lettersData : (lettersData?.results || []);
+    const { creating, error, allPersonnel, organizations, referenceOptions } = useSelector((state) => state.secretariat);
 
     const bossEmployee = allPersonnel?.find(emp => emp.code_meli === '54123');
 
@@ -354,7 +509,7 @@ const SecretariatCreateScreen = () => {
     useEffect(() => {
         dispatch(fetchAllPersonnel());
         dispatch(fetchOrganizations()); 
-        if (!lettersList || lettersList.length === 0) dispatch(fetchLetters({}));
+        dispatch(fetchReferenceOptions());
         
         if (replyData) {
             setFormData(prev => ({
@@ -718,7 +873,7 @@ const SecretariatCreateScreen = () => {
                                                     <input 
                                                         type="text" 
                                                         dir="rtl" 
-                                                        placeholder="شماره دستی..." 
+                                                        placeholder="شماره دبیرخانه" 
                                                         className="w-20 sm:w-28 text-center font-mono font-black text-[10px] sm:text-xs bg-gray-50 border border-gray-300 hover:border-blue-500 focus:border-blue-600 focus:bg-white outline-none px-1 py-0.5 rounded transition" 
                                                         value={formData.original_number} 
                                                         onChange={(e) => setFormData({ ...formData, original_number: toPersianDigits(e.target.value) })} 
@@ -861,14 +1016,12 @@ const SecretariatCreateScreen = () => {
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 pt-1 border-t border-gray-100 text-xs">
                                         <div className="flex flex-wrap items-center gap-1.5 flex-1">
                                             <span className="opacity-80 font-bold shrink-0">عطف به:</span>
-                                            <select 
-                                                className="bg-transparent border-b border-dashed border-gray-300 text-xs py-0.5 outline-none font-bold max-w-[160px] sm:max-w-none truncate" 
-                                                value={formData.reference_letter} 
-                                                onChange={(e) => setFormData({ ...formData, reference_letter: e.target.value })}
-                                            >
-                                                <option value="">مستقل (بدون ارتباط)</option>
-                                                {lettersList?.map(l => (<option key={l.id} value={l.id}>نامه {l.indicator_number}</option>))}
-                                            </select>
+                                            <SearchableReferenceLetterSelect
+                                                letters={referenceOptions}
+                                                value={formData.reference_letter}
+                                                onChange={(val) => setFormData({ ...formData, reference_letter: val })}
+                                                fallbackLabel={replyData ? `نامه ${replyData.indicator} — ${replyData.subject}` : ''}
+                                            />
                                             <span className="opacity-40">|</span>
                                             <input 
                                                 type="text" 
