@@ -35,6 +35,7 @@ import TaskListPage from './pages/TaskListPage';
 import TaskViewPage from './pages/TaskViewPage';
 import RoutineListPage from './pages/RoutineListPage';
 import RoutineTemplatesPage from './pages/RoutineTemplatesPage';
+
 import { Toaster } from 'react-hot-toast';
 import {
   fetchNotifications,
@@ -85,6 +86,8 @@ function App() {
 
   const [dialogNotifications, setDialogNotifications] = useState([]);
 
+
+  
   const isFullScreenAppRoute = ['/notebooks', '/chat', '/ai-assistant'].some(
     (path) => location.pathname === path || location.pathname.startsWith(`${path}/`)
   );
@@ -315,12 +318,14 @@ function App() {
   return (
     <div
       className={`${
-        isDark ? 'bg-blue-800 text-white' : 'bg-white text-gray-900'
+        isDark
+          ? 'bg-tactical-canvas text-slate-200'
+          : 'bg-tactical-lightCanvas text-slate-900'
       } ${
         isFullScreenAppRoute
           ? 'h-[100dvh] max-h-[100dvh] overflow-hidden overscroll-none'
           : 'min-h-screen'
-      } flex flex-col font-sans transition-colors duration-300`}
+      } flex flex-col font-sans transition-colors duration-200`}
       style={{ direction: 'rtl' }}
     >
       <Toaster />
@@ -342,20 +347,16 @@ function App() {
       <main
         className={`w-full flex flex-col ${
           isFullScreenAppRoute
-            ? 'flex-1 min-h-0 overflow-hidden px-0 sm:px-4 pt-0 pb-0 sm:pb-3'
-            : 'flex-grow px-2 sm:px-4 pt-0 pb-4'
+            ? 'flex-1 min-h-0 overflow-hidden p-0'
+            : 'flex-grow p-0'
         }`}
       >
         <div
-          className={`${
-            isDark
-              ? 'bg-blue-800 border border-blue-700 border-t-0 shadow-none'
-              : 'bg-white border border-gray-200 border-t-0 shadow-none'
-          } ${
+          className={
             isFullScreenAppRoute
-              ? 'flex-1 min-h-0 flex flex-col overflow-hidden rounded-none sm:rounded-b-2xl p-0'
-              : 'rounded-t-none rounded-b-2xl pt-2 sm:pt-3 px-3 sm:px-4 pb-3 sm:pb-4 min-h-[calc(100vh-130px)]'
-          } transition-colors duration-300`}
+              ? 'flex-1 min-h-0 flex flex-col overflow-hidden p-0'
+              : 'w-full flex-grow'
+          }
         >
           <Routes>
             <Route path="/" element={<HomeScreen />} />
@@ -520,11 +521,18 @@ function App() {
 
       {!isFullScreenAppRoute && (
         <footer
-          className={`print:hidden ${
-            isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-600'
-          } p-3 text-center text-sm mt-auto transition-colors duration-300`}
+          className={`print:hidden mt-auto transition-colors duration-200 border-t px-4 py-3 text-xs ${
+            isDark
+              ? 'bg-tactical-surface1 border-slate-400/15 text-slate-400'
+              : 'bg-white border-slate-900/15 text-slate-600'
+          }`}
         >
-          &copy; {new Date().getFullYear()} سامانه مدیریت پروژه آریو بنیان توس
+          <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 tracking-normal">
+            <span>© {new Date().getFullYear()} سامانه مدیریت پروژه آریو بنیان توس</span>
+            <span className="text-[11px] font-medium text-slate-500">
+              سامانه یکپارچه عملیات عمرانی، فضای سبز و خدمات شهری
+            </span>
+          </div>
         </footer>
       )}
     </div>

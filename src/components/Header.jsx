@@ -10,12 +10,37 @@ import { setActiveChat, fetchMyChats } from "../features/chat/chatSlice";
 import { formatJalaliDateTime } from "../utils/dateUtils";
 
 import {
-  FaUser, FaSignOutAlt, FaSignInAlt, FaUsers, FaBuilding,
-  FaChartLine, FaClipboardList, FaCheckCircle, FaCog,
-  FaChevronDown, FaBriefcase, FaIdBadge, FaComments,
-  FaBars, FaTimes, FaMoon, FaSun, FaBell, FaCircle,
-  FaSyncAlt, FaHome, FaEnvelope, FaRobot
-} from "react-icons/fa";
+  ArchiveBoxIcon,
+  ArrowLeftOnRectangleIcon,
+  ArrowRightOnRectangleIcon,
+  Bars3Icon,
+  BellIcon,
+  BriefcaseIcon,
+  BuildingOffice2Icon,
+  ChatBubbleLeftRightIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
+  ClockIcon,
+  Cog6ToothIcon,
+  CpuChipIcon,
+  CurrencyDollarIcon,
+  DocumentChartBarIcon,
+  EnvelopeIcon,
+  HomeIcon,
+  IdentificationIcon,
+  MoonIcon,
+  PresentationChartLineIcon,
+  QueueListIcon,
+  SunIcon,
+  UserIcon,
+  UsersIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
+
+const toPersianDigits = (value) =>
+  String(value).replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]);
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -27,7 +52,9 @@ const Header = () => {
   const mode = useSelector((state) => state.theme?.mode || "dark");
   const isDark = mode === "dark";
 
-  const { unreadCount, notifications } = useSelector((state) => state.notifications);
+  const { unreadCount, notifications } = useSelector(
+    (state) => state.notifications
+  );
 
   const isAdmin = userInfo?.is_admin;
   const userPosition = userInfo?.position;
@@ -65,7 +92,7 @@ const Header = () => {
     if (path.startsWith("/admin/settings")) return "مدیریت / تنظیمات";
 
     if (path.startsWith("/tasks")) return "ماموریت";
-    if (path.startsWith("/routines")) return "برنامه‌ریز";
+    if (path.startsWith("/routines")) return "کارتابل";
     if (path.startsWith("/chat")) return "پیام‌رسان";
     if (path.startsWith("/notebooks")) return "بایگانی";
     if (path.startsWith("/dashboard")) return "مانیتور نیروها";
@@ -74,7 +101,7 @@ const Header = () => {
     if (path.startsWith("/profile")) return "پروفایل من";
     if (path.startsWith("/secretariat")) return "دبیرخانه";
     if (path.startsWith("/ai-assistant")) return "مدیریت / هوش مصنوعی";
-    if (path === "/" || path === "") return "خانه";
+    if (path === "/" || path === "") return "پایگاه اصلی";
 
     return "";
   };
@@ -111,8 +138,21 @@ const Header = () => {
       }
     };
 
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setUserMenuOpen(false);
+        setNotifMenuOpen(false);
+        setAdminMenuOpen(false);
+        setMobileMenuOpen(false);
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   useEffect(() => {
@@ -127,7 +167,7 @@ const Header = () => {
   const startsWith = (path) => location.pathname.startsWith(path);
 
   const handleBellClick = () => {
-    setNotifMenuOpen(!notifMenuOpen);
+    setNotifMenuOpen((prev) => !prev);
     setUserMenuOpen(false);
     setAdminMenuOpen(false);
   };
@@ -177,160 +217,277 @@ const Header = () => {
 
   const getRoleStyle = (role) => {
     const styles = {
-      PROJECT_MANAGER: "bg-purple-600/20 text-purple-400 border-purple-600/40",
-      HR_MANAGER: "bg-pink-600/20 text-pink-400 border-pink-600/40",
-      TECHNICAL_OFFICE: "bg-indigo-600/20 text-indigo-400 border-indigo-600/40",
-      ACCOUNTANT: "bg-green-600/20 text-green-400 border-green-600/40",
-      WORKSHOP_SUPERVISOR: "bg-orange-600/20 text-orange-400 border-orange-600/40",
-      FOREMAN: "bg-yellow-600/20 text-yellow-400 border-yellow-600/40",
-      WORKER: "bg-blue-600/20 text-blue-400 border-blue-600/40",
-      UNKNOWN: "bg-gray-600/20 text-gray-400 border-gray-600/40",
+      PROJECT_MANAGER: isDark
+        ? "bg-sky-400/10 text-sky-300 border-sky-400/35"
+        : "bg-sky-50 text-sky-700 border-sky-600/35",
+      HR_MANAGER: isDark
+        ? "bg-amber-400/10 text-amber-300 border-amber-400/35"
+        : "bg-amber-50 text-amber-700 border-amber-600/35",
+      TECHNICAL_OFFICE: isDark
+        ? "bg-sky-400/10 text-sky-300 border-sky-400/35"
+        : "bg-sky-50 text-sky-700 border-sky-600/35",
+      ACCOUNTANT: isDark
+        ? "bg-emerald-400/10 text-emerald-300 border-emerald-400/35"
+        : "bg-emerald-50 text-emerald-700 border-emerald-600/35",
+      WORKSHOP_SUPERVISOR: isDark
+        ? "bg-amber-400/10 text-amber-300 border-amber-400/35"
+        : "bg-amber-50 text-amber-700 border-amber-600/35",
+      FOREMAN: isDark
+        ? "bg-amber-400/10 text-amber-300 border-amber-400/35"
+        : "bg-amber-50 text-amber-700 border-amber-600/35",
+      WORKER: isDark
+        ? "bg-slate-400/10 text-slate-300 border-slate-400/30"
+        : "bg-slate-100 text-slate-700 border-slate-400/40",
+      UNKNOWN: isDark
+        ? "bg-slate-400/10 text-slate-400 border-slate-400/25"
+        : "bg-slate-100 text-slate-600 border-slate-400/35",
     };
     return styles[role] || styles.UNKNOWN;
   };
 
   const getRoleLabel = (role) => {
     const labels = {
-      PROJECT_MANAGER: "👔 مدیر پروژه",
-      HR_MANAGER: "🧑‍💼 مدیر منابع انسانی",
-      TECHNICAL_OFFICE: "🏛️ دفتر فنی",
-      ACCOUNTANT: "💰 حسابدار",
-      WORKSHOP_SUPERVISOR: "👷 سرپرست کارگاه",
-      FOREMAN: "🔨 سرکارگر",
-      WORKER: "⚙️ کارگر",
-      FACILITIES_STAFF: "🔧 پرسنل تاسیسات",
-      SECURITY_GUARD: "🛡️ نگهبان",
-      UNKNOWN: "❓ نامشخص",
+      PROJECT_MANAGER: "مدیر پروژه",
+      HR_MANAGER: "مدیر منابع انسانی",
+      TECHNICAL_OFFICE: "دفتر فنی",
+      ACCOUNTANT: "حسابدار",
+      WORKSHOP_SUPERVISOR: "سرپرست کارگاه",
+      FOREMAN: "سرکارگر",
+      WORKER: "پرسنل اجرایی",
+      FACILITIES_STAFF: "پرسنل تاسیسات",
+      SECURITY_GUARD: "انتظامات و نگهبانی",
+      UNKNOWN: "نامشخص",
     };
     return labels[role] || role;
   };
 
-  const headerBg = isDark
-    ? "bg-gradient-to-r from-blue-800 via-gray-800 to-blue-900"
-    : "bg-gradient-to-r from-blue-500 via-sky-500 to-blue-600";
+  const borderHairline = isDark ? "border-slate-400/15" : "border-slate-900/15";
+  const dropdownPanel = isDark
+    ? "bg-tactical-surface1 border-slate-400/25 shadow-2xl shadow-black/60"
+    : "bg-white border-slate-900/20 shadow-xl shadow-slate-900/10";
 
-  const tabBase =
-    "relative flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1.5 text-[13px] md:text-sm font-semibold rounded-t-lg md:rounded-t-xl border border-b-0 transition-all duration-200 cursor-pointer";
+  const navItemClass = (active, isAdminTab = false) => {
+    const base =
+      "relative h-14 inline-flex items-center gap-1.5 px-2.5 xl:px-3 text-xs xl:text-[13px] font-semibold tracking-normal border-b-2 transition-colors duration-150 cursor-pointer whitespace-nowrap";
 
-  const tabIdle = isDark
-    ? "text-gray-200 border-transparent hover:bg-white/10"
-    : "text-white/90 border-transparent hover:bg-white/30";
+    if (active) {
+      if (isAdminTab) {
+        return `${base} ${
+          isDark
+            ? "border-amber-400 bg-amber-400/10 text-amber-300"
+            : "border-amber-600 bg-amber-50 text-amber-800"
+        }`;
+      }
+      return `${base} ${
+        isDark
+          ? "border-sky-400 bg-sky-400/10 text-sky-300"
+          : "border-sky-600 bg-sky-50 text-sky-800"
+      }`;
+    }
 
-  const tabActive = isDark
-    ? "text-white bg-blue-800 border-blue-700"
-    : "text-blue-700 bg-white border-gray-200";
-
-  const navLinkClass = (active) => `${tabBase} ${active ? tabActive : tabIdle}`;
-
-  const mobileItemClass = (active, activeColor, hoverColor) =>
-    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold ${
-      active ? `${activeColor} text-white` : `text-gray-200 ${hoverColor}`
+    return `${base} border-transparent ${
+      isDark
+        ? "text-slate-300 hover:text-slate-100 hover:bg-tactical-hover"
+        : "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
     }`;
+  };
+
+  const mobileItemClass = (active, isAdminTab = false) => {
+    const base =
+      "flex items-center gap-2.5 px-3 min-h-[42px] rounded-[2px] border border-s-2 text-xs sm:text-sm font-semibold tracking-normal transition-colors duration-150";
+
+    if (active) {
+      if (isAdminTab) {
+        return `${base} ${
+          isDark
+            ? "bg-amber-400/10 border-amber-400/35 border-s-amber-400 text-amber-300"
+            : "bg-amber-50 border-amber-600/35 border-s-amber-600 text-amber-800"
+        }`;
+      }
+      return `${base} ${
+        isDark
+          ? "bg-sky-400/10 border-sky-400/35 border-s-sky-400 text-sky-300"
+          : "bg-sky-50 border-sky-600/35 border-s-sky-600 text-sky-800"
+      }`;
+    }
+
+    return `${base} ${
+      isDark
+        ? "bg-tactical-surface2/40 border-slate-400/10 border-s-transparent text-slate-300 hover:bg-tactical-hover hover:border-s-slate-400/50"
+        : "bg-slate-50 border-slate-900/10 border-s-transparent text-slate-700 hover:bg-slate-100 hover:border-s-slate-400"
+    }`;
+  };
+
+  const iconButtonClass = `relative h-9 w-9 inline-flex items-center justify-center rounded-[2px] border transition-colors duration-150 ${
+    isDark
+      ? "bg-tactical-surface2 border-slate-400/20 text-slate-300 hover:text-sky-300 hover:border-sky-400/45 hover:bg-tactical-hover"
+      : "bg-slate-50 border-slate-900/15 text-slate-700 hover:text-sky-700 hover:border-sky-600/45 hover:bg-sky-50"
+  }`;
 
   const renderNavLinks = (mobile = false) => {
     const adminRoutes = [
-      { path: "/chat", name: "پیام‌رسان", icon: FaComments, color: "text-cyan-300", bg: "bg-cyan-600", hover: "hover:bg-cyan-700/50", activeCheck: isActive("/chat") },
-      { path: "/ai-assistant", name: "هوش مصنوعی", icon: FaRobot, color: "text-indigo-300", bg: "bg-indigo-600", hover: "hover:bg-indigo-700/50", activeCheck: startsWith("/ai-assistant") },
-      { path: "/notebooks", name: "بایگانی", icon: FaClipboardList, color: "text-orange-300", bg: "bg-orange-600", hover: "hover:bg-orange-700/50", activeCheck: isActive("/notebooks") },
-      { path: "/admin/timesheet", name: "لیست حضور", icon: FaClipboardList, color: "text-blue-300", bg: "bg-blue-600", hover: "hover:bg-blue-700/50", activeCheck: isActive("/admin/timesheet") },
-      { path: "/admin/payroll/list", name: "لیست حقوق", icon: FaClipboardList, color: "text-blue-300", bg: "bg-blue-600", hover: "hover:bg-blue-700/50", activeCheck: isActive("/admin/payroll/list") },
-      { path: "/dashboard", name: "مانیتور نیروها", icon: FaChartLine, color: "text-sky-300", bg: "bg-sky-600", hover: "hover:bg-sky-700/50", activeCheck: isActive("/dashboard") },
-      { path: "/admin/users", name: "کاربران", icon: FaUsers, color: "text-green-300", bg: "bg-green-600", hover: "hover:bg-green-700/50", activeCheck: startsWith("/admin/users") },
-      { path: "/projects", name: "پروژه‌ها", icon: FaBuilding, color: "text-purple-300", bg: "bg-purple-600", hover: "hover:bg-purple-700/50", activeCheck: startsWith("/projects") || location.pathname.includes("/admin/projects") },
-      { path: "/admin/requests", name: "درخواست‌ها", icon: FaCheckCircle, color: "text-pink-300", bg: "bg-pink-600", hover: "hover:bg-pink-700/50", activeCheck: isActive("/admin/requests") },
-      { path: "/admin/daily-summary", name: "گزارش‌ها", icon: FaClipboardList, color: "text-indigo-300", bg: "bg-indigo-600", hover: "hover:bg-indigo-700/50", activeCheck: isActive("/admin/daily-summary") },
-      { path: "/admin/settings", name: "تنظیمات", icon: FaCog, color: "text-gray-300", bg: "bg-gray-600", hover: "hover:bg-gray-700/50", activeCheck: isActive("/admin/settings") },
+      {
+        code: "۰۱",
+        path: "/chat",
+        name: "پیام‌رسان",
+        icon: ChatBubbleLeftRightIcon,
+        activeCheck: isActive("/chat"),
+      },
+      {
+        code: "۰۲",
+        path: "/ai-assistant",
+        name: "هوش مصنوعی",
+        icon: CpuChipIcon,
+        activeCheck: startsWith("/ai-assistant"),
+      },
+      {
+        code: "۰۳",
+        path: "/notebooks",
+        name: "بایگانی",
+        icon: ArchiveBoxIcon,
+        activeCheck: isActive("/notebooks"),
+      },
+      {
+        code: "۰۴",
+        path: "/admin/timesheet",
+        name: "لیست حضور",
+        icon: ClipboardDocumentCheckIcon,
+        activeCheck: isActive("/admin/timesheet"),
+      },
+      {
+        code: "۰۵",
+        path: "/admin/payroll/list",
+        name: "لیست حقوق",
+        icon: CurrencyDollarIcon,
+        activeCheck: isActive("/admin/payroll/list"),
+      },
+      {
+        code: "۰۶",
+        path: "/dashboard",
+        name: "مانیتور نیروها",
+        icon: PresentationChartLineIcon,
+        activeCheck: isActive("/dashboard"),
+      },
+      {
+        code: "۰۷",
+        path: "/admin/users",
+        name: "کاربران",
+        icon: UsersIcon,
+        activeCheck: startsWith("/admin/users"),
+      },
+      {
+        code: "۰۸",
+        path: "/projects",
+        name: "پروژه‌ها",
+        icon: BuildingOffice2Icon,
+        activeCheck:
+          startsWith("/projects") ||
+          location.pathname.includes("/admin/projects"),
+      },
+      {
+        code: "۰۹",
+        path: "/admin/requests",
+        name: "درخواست‌ها",
+        icon: CheckCircleIcon,
+        activeCheck: isActive("/admin/requests"),
+      },
+      {
+        code: "۱۰",
+        path: "/admin/daily-summary",
+        name: "گزارش‌ها",
+        icon: DocumentChartBarIcon,
+        activeCheck: isActive("/admin/daily-summary"),
+      },
+      {
+        code: "۱۱",
+        path: "/admin/settings",
+        name: "تنظیمات",
+        icon: Cog6ToothIcon,
+        activeCheck: isActive("/admin/settings"),
+      },
     ];
 
-    const currentActiveAdminRoute = adminRoutes.find((route) => route.activeCheck);
+    const currentActiveAdminRoute = adminRoutes.find(
+      (route) => route.activeCheck
+    );
     const isAdminRouteActive = Boolean(currentActiveAdminRoute);
     const adminButtonLabel = currentActiveAdminRoute
       ? `مدیریت / ${currentActiveAdminRoute.name}`
       : "مدیریت";
 
+    const primaryLinks = [
+      {
+        to: "/",
+        label: "خانه",
+        icon: HomeIcon,
+        active: isActive("/"),
+        show: true,
+      },
+      {
+        to: "/secretariat",
+        label: "دبیرخانه",
+        icon: EnvelopeIcon,
+        active: startsWith("/secretariat"),
+        show: hasSecretariatAccess,
+      },
+      {
+        to: "/tasks",
+        label: "ماموریت",
+        icon: ClipboardDocumentListIcon,
+        active: startsWith("/tasks"),
+        show: true,
+      },
+      {
+        to: "/routines",
+        label: "کارتابل",
+        icon: QueueListIcon,
+        active: startsWith("/routines"),
+        show: true,
+      },
+      {
+        to: "/attendance",
+        label: "ثبت شیفت",
+        icon: ClockIcon,
+        active: startsWith("/attendance"),
+        show: true,
+      },
+    ];
+
     return (
       <>
-        <Link
-          to="/"
-          className={
-            mobile
-              ? mobileItemClass(isActive("/"), "bg-blue-600", "hover:bg-blue-700/50")
-              : navLinkClass(isActive("/"))
-          }
-        >
-          <FaHome className="text-blue-300" />
-          <span>خانه</span>
-        </Link>
-
-        {hasSecretariatAccess && (
-          <Link
-            to="/secretariat"
-            className={
-              mobile
-                ? mobileItemClass(
-                    startsWith("/secretariat"),
-                    "bg-amber-600",
-                    "hover:bg-amber-700/50"
-                  )
-                : navLinkClass(startsWith("/secretariat"))
-            }
-          >
-            <FaEnvelope className="text-amber-300" />
-            <span>دبیرخانه</span>
-          </Link>
-        )}
-
-        <Link
-          to="/tasks"
-          className={
-            mobile
-              ? mobileItemClass(
-                  startsWith("/tasks"),
-                  "bg-emerald-600",
-                  "hover:bg-emerald-700/50"
-                )
-              : navLinkClass(startsWith("/tasks"))
-          }
-        >
-          <FaClipboardList className="text-emerald-300" />
-          <span>ماموریت</span>
-        </Link>
-
-        <Link
-          to="/routines"
-          className={
-            mobile
-              ? mobileItemClass(
-                  startsWith("/routines"),
-                  "bg-teal-600",
-                  "hover:bg-teal-700/50"
-                )
-              : navLinkClass(startsWith("/routines"))
-          }
-        >
-          <FaSyncAlt className="text-teal-300" />
-          <span>کارتابل</span>
-        </Link>
-
-        <Link
-          to="/attendance"
-          className={
-            mobile
-              ? mobileItemClass(
-                  startsWith("/attendance"),
-                  "bg-teal-600",
-                  "hover:bg-teal-700/50"
-                )
-              : navLinkClass(startsWith("/attendance"))
-          }
-        >
-          <FaSyncAlt className="text-teal-300" />
-          <span>ثبت شیفت</span>
-        </Link>
+        {primaryLinks
+          .filter((item) => item.show)
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={
+                  mobile
+                    ? mobileItemClass(item.active)
+                    : navItemClass(item.active)
+                }
+              >
+                <Icon
+                  className={`w-4 h-4 shrink-0 ${
+                    item.active
+                      ? isDark
+                        ? "text-sky-400"
+                        : "text-sky-700"
+                      : isDark
+                      ? "text-slate-400"
+                      : "text-slate-500"
+                  }`}
+                />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
 
         {isAdmin &&
           (mobile ? (
-            <div className="flex flex-col mt-1">
+            <div className="flex flex-col pt-1">
               <button
                 type="button"
                 onClick={(e) => {
@@ -339,38 +496,52 @@ const Header = () => {
                 }}
                 className={`${mobileItemClass(
                   isAdminRouteActive,
-                  "bg-gray-600",
-                  "hover:bg-gray-700/50"
+                  true
                 )} justify-between w-full`}
               >
-                <div className="flex items-center gap-2">
-                  <FaCog className="text-gray-300" />
+                <div className="flex items-center gap-2.5">
+                  <Cog6ToothIcon
+                    className={`w-4 h-4 shrink-0 ${
+                      isDark ? "text-amber-400" : "text-amber-600"
+                    }`}
+                  />
                   <span>{adminButtonLabel}</span>
                 </div>
-                <FaChevronDown
-                  className={`text-xs transition-transform ${
+                <ChevronDownIcon
+                  className={`w-4 h-4 transition-transform duration-150 ${
                     adminMenuOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
 
               {adminMenuOpen && (
-                <div className="flex flex-col gap-1 mt-1 pr-3 border-r-2 border-gray-600 mr-2">
-                  {adminRoutes.map((route, idx) => (
-                    <Link
-                      key={idx}
-                      to={route.path}
-                      className={mobileItemClass(
-                        route.activeCheck,
-                        route.bg,
-                        route.hover
-                      )}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <route.icon className={route.color} />
-                      <span>{route.name}</span>
-                    </Link>
-                  ))}
+                <div
+                  className={`flex flex-col gap-1 mt-1.5 ps-3 ms-2 border-s ${
+                    isDark ? "border-amber-400/35" : "border-amber-600/35"
+                  }`}
+                >
+                  {adminRoutes.map((route) => {
+                    const Icon = route.icon;
+                    return (
+                      <Link
+                        key={route.path}
+                        to={route.path}
+                        className={`${mobileItemClass(
+                          route.activeCheck,
+                          true
+                        )} justify-between`}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 shrink-0 opacity-85" />
+                          <span>{route.name}</span>
+                        </span>
+                        <span className="text-[10px] opacity-60 tabular-nums">
+                          {route.code}
+                        </span>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -381,13 +552,25 @@ const Header = () => {
                 onClick={(e) => {
                   e.stopPropagation();
                   setAdminMenuOpen((prev) => !prev);
+                  setUserMenuOpen(false);
+                  setNotifMenuOpen(false);
                 }}
-                className={navLinkClass(isAdminRouteActive)}
+                className={navItemClass(isAdminRouteActive, true)}
               >
-                <FaCog className="text-gray-300" />
+                <Cog6ToothIcon
+                  className={`w-4 h-4 shrink-0 ${
+                    isAdminRouteActive
+                      ? isDark
+                        ? "text-amber-400"
+                        : "text-amber-700"
+                      : isDark
+                      ? "text-amber-400/80"
+                      : "text-amber-600"
+                  }`}
+                />
                 <span>{adminButtonLabel}</span>
-                <FaChevronDown
-                  className={`text-[10px] transition-transform ${
+                <ChevronDownIcon
+                  className={`w-3.5 h-3.5 transition-transform duration-150 ${
                     adminMenuOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -395,31 +578,47 @@ const Header = () => {
 
               {adminMenuOpen && (
                 <div
-                  className={`absolute right-0 top-full mt-1 w-48 rounded-md shadow-xl py-1 z-50 border ${
-                    isDark
-                      ? "bg-gray-800 border-gray-600"
-                      : "bg-white border-gray-200"
-                  }`}
+                  className={`absolute start-0 top-full mt-px w-56 rounded-[2px] border z-50 ${dropdownPanel}`}
                 >
-                  {adminRoutes.map((route, idx) => (
-                    <Link
-                      key={idx}
-                      to={route.path}
-                      className={`flex items-center gap-2.5 px-3 py-1.5 text-[13px] transition-colors ${
-                        route.activeCheck
-                          ? isDark
-                            ? "bg-gray-700 text-white"
-                            : "bg-blue-50 text-blue-700"
-                          : isDark
-                          ? "text-gray-300 hover:bg-gray-700"
-                          : "text-gray-700 hover:bg-gray-100"
-                      }`}
-                      onClick={() => setAdminMenuOpen(false)}
-                    >
-                      <route.icon className={route.color} />
-                      <span>{route.name}</span>
-                    </Link>
-                  ))}
+                  <div
+                    className={`px-3 py-2 border-b flex items-center justify-between text-[11px] font-semibold tracking-normal ${
+                      isDark
+                        ? "bg-tactical-surface2 border-slate-400/15 text-amber-400"
+                        : "bg-amber-50 border-slate-900/10 text-amber-800"
+                    }`}
+                  >
+                    <span>واحدهای مدیریتی</span>
+                    <span className="tabular-nums opacity-80">۱۱ بخش</span>
+                  </div>
+                  <div className="py-1 max-h-[70vh] overflow-y-auto">
+                    {adminRoutes.map((route) => {
+                      const Icon = route.icon;
+                      return (
+                        <Link
+                          key={route.path}
+                          to={route.path}
+                          className={`flex items-center justify-between gap-2 px-3 py-2 text-xs font-medium tracking-normal border-s-2 transition-colors duration-150 ${
+                            route.activeCheck
+                              ? isDark
+                                ? "bg-amber-400/10 border-s-amber-400 text-amber-300"
+                                : "bg-amber-50 border-s-amber-600 text-amber-800"
+                              : isDark
+                              ? "border-s-transparent text-slate-300 hover:bg-tactical-hover hover:border-s-sky-400 hover:text-slate-100"
+                              : "border-s-transparent text-slate-700 hover:bg-slate-50 hover:border-s-sky-600 hover:text-slate-950"
+                          }`}
+                          onClick={() => setAdminMenuOpen(false)}
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Icon className="w-4 h-4 shrink-0 opacity-85" />
+                            <span>{route.name}</span>
+                          </span>
+                          <span className="text-[10px] opacity-55 tabular-nums">
+                            {route.code}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -429,156 +628,220 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-[1002] w-full print:hidden">
-      <div className={`${headerBg} shadow-none transition-colors duration-300`}>
-        <div className="container mx-auto px-2 md:px-6">
-          <div className="flex justify-between items-center pt-1 pb-0">
-            <div className="flex items-center gap-2">
-              {userInfo && (
-                <button
-                  ref={hamburgerBtnRef}
-                  className="lg:hidden text-white text-lg p-1.5 hover:bg-white/10 rounded-md transition"
-                  onClick={() => setMobileMenuOpen((prev) => !prev)}
-                >
-                  {mobileMenuOpen ? <FaTimes /> : <FaBars />}
-                </button>
-              )}
+    <header
+      className={`sticky top-0 z-[1002] w-full print:hidden border-b transition-colors duration-200 ${
+        isDark
+          ? "bg-tactical-surface1/95 border-slate-400/20 text-slate-100"
+          : "bg-white/95 border-slate-900/15 text-slate-900"
+      } backdrop-blur-md`}
+    >
+      {/* نوار تاکیدی ظریف ۱ پیکسلی در بالاترین لبه کنسول */}
+      <div
+        aria-hidden="true"
+        className={`h-[2px] w-full ${
+          isDark
+            ? "bg-gradient-to-l from-sky-400/80 via-sky-400/20 to-amber-400/60"
+            : "bg-gradient-to-l from-sky-600 via-sky-600/25 to-amber-600/70"
+        }`}
+      />
 
-              {userInfo && (
-                <span className="lg:hidden text-white font-bold text-xs bg-black/20 px-2 py-1 rounded-md whitespace-nowrap">
-                  {getPageName(location.pathname)}
-                </span>
-              )}
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-5">
+        <div className="h-14 flex items-center justify-between gap-2 sm:gap-4">
+          {/* بخش راست: منوی موبایل، لوگو و عنوان سازمانی */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            {userInfo && (
+              <button
+                ref={hamburgerBtnRef}
+                type="button"
+                aria-label="باز و بسته کردن منو"
+                className={`lg:hidden ${iconButtonClass}`}
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+              >
+                {mobileMenuOpen ? (
+                  <XMarkIcon className="w-5 h-5" />
+                ) : (
+                  <Bars3Icon className="w-5 h-5" />
+                )}
+              </button>
+            )}
 
-              <Link
-                to="/"
-                className="hidden lg:flex items-center gap-2 hover:opacity-90 transition"
+            <Link
+              to="/"
+              className="flex items-center gap-2.5 shrink-0 hover:opacity-90 transition-opacity"
+            >
+              <div
+                className={`h-9 w-9 p-1 rounded-[2px] border flex items-center justify-center ${
+                  isDark
+                    ? "bg-tactical-surface2 border-sky-400/30"
+                    : "bg-slate-50 border-slate-900/15"
+                }`}
               >
                 <img
                   src={logo}
-                  alt="Ariobonyan Toos"
-                  className="h-8 md:h-9 w-auto object-contain"
+                  alt="آریو بنیان توس"
+                  className="h-full w-full object-contain"
                 />
-              </Link>
-            </div>
+              </div>
+              <div className="hidden sm:flex flex-col leading-tight">
+                <span className="text-xs xl:text-sm font-bold tracking-normal">
+                  آریو بنیان توس
+                </span>
+                <span
+                  className={`text-[10px] font-medium tracking-normal ${
+                    isDark ? "text-slate-400" : "text-slate-500"
+                  }`}
+                >
+                  سامانه یکپارچه ۸پا
+                </span>
+              </div>
+            </Link>
 
-            {userInfo && (
-              <nav className="hidden lg:flex items-end gap-0.5 md:gap-1 self-end mb-0 translate-y-[1px] overflow-visible">
-                {renderNavLinks(false)}
-              </nav>
+            {userInfo && getPageName(location.pathname) && (
+              <span
+                className={`lg:hidden px-2 py-1 rounded-[2px] border text-[11px] font-semibold truncate tracking-normal ${
+                  isDark
+                    ? "bg-tactical-surface2 border-slate-400/20 text-sky-300"
+                    : "bg-slate-100 border-slate-900/15 text-sky-800"
+                }`}
+              >
+                {getPageName(location.pathname)}
+              </span>
             )}
+          </div>
+
+          {/* بخش میانی: نوار ناوبری اصلی دسکتاپ */}
+          {userInfo && (
+            <nav
+              aria-label="ناوبری اصلی"
+              className="hidden lg:flex items-center gap-0.5 self-stretch"
+            >
+              {renderNavLinks(false)}
+            </nav>
+          )}
+
+          {/* بخش چپ: ابزارها، اعلان‌ها، تغییر تم و حساب کاربری */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* دکمه تغییر تم (در دسترس هم برای کاربران واردشده و هم مهمان) */}
+            <button
+              type="button"
+              onClick={() => dispatch(toggleTheme())}
+              className={iconButtonClass}
+              title={isDark ? "تغییر به حالت روشن" : "تغییر به حالت تاریک"}
+              aria-label={isDark ? "تغییر به حالت روشن" : "تغییر به حالت تاریک"}
+            >
+              {isDark ? (
+                <SunIcon className="w-4 h-4 text-amber-400" />
+              ) : (
+                <MoonIcon className="w-4 h-4 text-slate-700" />
+              )}
+            </button>
 
             {userInfo ? (
-              <div className="relative flex items-center gap-1.5 md:gap-2">
+              <>
+                {/* منوی اعلانات */}
                 <div className="relative" ref={notifMenuRef}>
                   <button
+                    type="button"
                     onClick={handleBellClick}
-                    className={`relative p-1.5 md:p-2 rounded-full transition ${
-                      isDark
-                        ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                        : "bg-white/20 hover:bg-white/30 text-white"
-                    }`}
+                    className={iconButtonClass}
+                    title="اعلانات سامانه"
+                    aria-label="اعلانات سامانه"
                   >
-                    <FaBell className="text-sm md:text-base" />
+                    <BellIcon className="w-4 h-4" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white border border-transparent">
-                        {unreadCount > 99 ? "99+" : unreadCount}
+                      <span className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-[2px] bg-red-500 text-[10px] font-bold text-white tabular-nums">
+                        {unreadCount > 99
+                          ? "+۹۹"
+                          : toPersianDigits(unreadCount)}
                       </span>
                     )}
                   </button>
 
                   {notifMenuOpen && (
                     <div
-                      className={`absolute left-0 top-full mt-2 w-[300px] sm:w-80 max-w-[90vw] rounded-md shadow-xl py-1 z-50 border ${
-                        isDark
-                          ? "bg-gray-800 border-gray-600"
-                          : "bg-white border-gray-200"
-                      }`}
+                      className={`absolute end-0 top-full mt-2 w-[310px] sm:w-80 max-w-[92vw] rounded-[2px] border z-50 ${dropdownPanel}`}
                     >
                       <div
                         className={`px-3 py-2 border-b flex justify-between items-center ${
-                          isDark ? "border-gray-600" : "border-gray-200"
+                          isDark
+                            ? "bg-tactical-surface2 border-slate-400/15"
+                            : "bg-slate-50 border-slate-900/10"
                         }`}
                       >
-                        <span
-                          className={`font-semibold text-xs ${
-                            isDark ? "text-white" : "text-gray-800"
-                          }`}
-                        >
-                          اعلانات
+                        <span className="font-bold text-xs tracking-normal">
+                          مرکز اعلانات
                         </span>
                         {unreadCount > 0 && (
                           <button
+                            type="button"
                             onClick={() => dispatch(markNotificationsRead([]))}
-                            className="text-[10px] text-blue-500 hover:text-blue-400"
+                            className={`text-[11px] font-medium tracking-normal transition-colors ${
+                              isDark
+                                ? "text-sky-400 hover:text-sky-300"
+                                : "text-sky-700 hover:text-sky-800"
+                            }`}
                           >
-                            خواندن همه
+                            علامت‌گذاری همه به‌عنوان خوانده‌شده
                           </button>
                         )}
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto" dir="rtl">
+                      <div className="max-h-72 overflow-y-auto" dir="rtl">
                         {notifications && notifications.length > 0 ? (
                           notifications.map((notif) => (
                             <div
                               key={notif.id}
                               onClick={() => handleNotifClick(notif)}
-                              className={`p-2 border-b cursor-pointer transition-colors ${
+                              className={`p-2.5 border-b border-s-2 cursor-pointer transition-colors duration-150 ${
                                 isDark
                                   ? notif.is_read
-                                    ? "border-gray-700 hover:bg-gray-700"
-                                    : "bg-gray-700/50 border-gray-700 hover:bg-gray-700"
+                                    ? "border-b-slate-400/10 border-s-transparent hover:bg-tactical-hover"
+                                    : "bg-sky-400/10 border-b-slate-400/10 border-s-sky-400 hover:bg-tactical-hover"
                                   : notif.is_read
-                                  ? "border-gray-100 hover:bg-gray-50"
-                                  : "bg-blue-50 border-gray-100 hover:bg-blue-100/50"
+                                  ? "border-b-slate-900/10 border-s-transparent hover:bg-slate-50"
+                                  : "bg-sky-50 border-b-slate-900/10 border-s-sky-600 hover:bg-sky-100/60"
                               }`}
                             >
-                              <div className="flex gap-2 items-start">
-                                {!notif.is_read && (
-                                  <FaCircle className="text-[6px] text-blue-500 mt-1.5 shrink-0" />
-                                )}
-
-                                <div className="min-w-0 flex-1">
-                                  <h4
-                                    className={`text-[13px] font-bold ${
-                                      isDark ? "text-gray-200" : "text-gray-800"
+                              <div className="min-w-0">
+                                <h4
+                                  className={`text-xs font-bold tracking-normal ${
+                                    isDark ? "text-slate-100" : "text-slate-900"
+                                  }`}
+                                >
+                                  {notif.title}
+                                </h4>
+                                {notif.body && (
+                                  <p
+                                    className={`text-[11px] mt-1 leading-5 line-clamp-2 tracking-normal ${
+                                      isDark
+                                        ? "text-slate-400"
+                                        : "text-slate-600"
                                     }`}
                                   >
-                                    {notif.title}
-                                  </h4>
-                                  {notif.body && (
-                                    <p
-                                      className={`text-[11px] mt-0.5 leading-4 line-clamp-2 ${
-                                        isDark
-                                          ? "text-gray-400"
-                                          : "text-gray-600"
-                                      }`}
-                                    >
-                                      {notif.body}
-                                    </p>
-                                  )}
-                                  {notif.created_at && (
-                                    <time
-                                      className={`block mt-1 text-[9px] font-medium ${
-                                        isDark
-                                          ? "text-gray-500"
-                                          : "text-gray-400"
-                                      }`}
-                                    >
-                                      {formatJalaliDateTime(notif.created_at)}
-                                    </time>
-                                  )}
-                                </div>
+                                    {notif.body}
+                                  </p>
+                                )}
+                                {notif.created_at && (
+                                  <time
+                                    className={`block mt-1.5 text-[10px] font-medium tabular-nums ${
+                                      isDark
+                                        ? "text-slate-500"
+                                        : "text-slate-500"
+                                    }`}
+                                  >
+                                    {formatJalaliDateTime(notif.created_at)}
+                                  </time>
+                                )}
                               </div>
                             </div>
                           ))
                         ) : (
                           <div
-                            className={`p-3 text-center text-xs ${
-                              isDark ? "text-gray-400" : "text-gray-500"
+                            className={`p-5 text-center text-xs tracking-normal ${
+                              isDark ? "text-slate-400" : "text-slate-500"
                             }`}
                           >
-                            اعلان جدیدی ندارید.
+                            اعلان جدیدی ثبت نشده است.
                           </div>
                         )}
                       </div>
@@ -586,118 +849,171 @@ const Header = () => {
                   )}
                 </div>
 
-                <button
-                  onClick={() => dispatch(toggleTheme())}
-                  className={`p-1.5 md:p-2 rounded-full transition ${
-                    isDark
-                      ? "bg-gray-700 hover:bg-gray-600 text-yellow-300"
-                      : "bg-white/20 hover:bg-white/30 text-white"
-                  }`}
-                  title={isDark ? "حالت روشن" : "حالت تیره"}
-                >
-                  {isDark ? (
-                    <FaSun className="text-sm md:text-base" />
-                  ) : (
-                    <FaMoon className="text-sm md:text-base" />
-                  )}
-                </button>
-
+                {/* منوی حساب کاربری */}
                 <div className="relative" ref={userMenuRef}>
                   <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-1.5 md:gap-2 bg-gray-700 hover:bg-gray-600 px-2 md:px-3 py-1.5 rounded-full transition text-[13px]"
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen((prev) => !prev);
+                      setNotifMenuOpen(false);
+                      setAdminMenuOpen(false);
+                    }}
+                    className={`h-9 inline-flex items-center gap-2 px-2.5 sm:px-3 rounded-[2px] border text-xs font-semibold tracking-normal transition-colors duration-150 ${
+                      isDark
+                        ? "bg-tactical-surface2 border-slate-400/20 text-slate-100 hover:border-sky-400/45 hover:bg-tactical-hover"
+                        : "bg-slate-50 border-slate-900/15 text-slate-900 hover:border-sky-600/45 hover:bg-sky-50"
+                    }`}
                   >
-                    <FaUser className="text-gray-300 text-xs md:text-sm" />
-                    <div className="text-right max-w-[70px] sm:max-w-none truncate">
-                      <div className="font-semibold text-white truncate">
-                        {userInfo.first_name || userInfo.username || "کاربر"}
-                      </div>
-                    </div>
-                    <FaChevronDown
-                      className={`text-[10px] text-gray-400 transition-transform ${
-                        userMenuOpen ? "rotate-180" : ""
+                    <UserIcon
+                      className={`w-4 h-4 shrink-0 ${
+                        isDark ? "text-sky-400" : "text-sky-700"
                       }`}
                     />
+                    <span className="max-w-[76px] sm:max-w-[130px] truncate">
+                      {userInfo.first_name || userInfo.username || "کاربر"}
+                    </span>
+                    <ChevronDownIcon
+                      className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                        userMenuOpen ? "rotate-180" : ""
+                      } ${isDark ? "text-slate-400" : "text-slate-500"}`}
+                    />
                   </button>
+
                   {userMenuOpen && (
-                    <div className="absolute left-0 top-full mt-1 w-52 md:w-56 bg-gray-700 rounded-md shadow-xl py-1 z-50">
-                      <div className="px-3 py-2 border-b border-gray-600">
-                        <p className="text-[13px] font-semibold text-white">
+                    <div
+                      className={`absolute end-0 top-full mt-2 w-60 rounded-[2px] border z-50 ${dropdownPanel}`}
+                    >
+                      <div
+                        className={`px-3.5 py-3 border-b ${
+                          isDark
+                            ? "bg-tactical-surface2 border-slate-400/15"
+                            : "bg-slate-50 border-slate-900/10"
+                        }`}
+                      >
+                        <p className="text-xs font-bold tracking-normal">
                           {userInfo.first_name || userInfo.username}
                         </p>
 
                         {currentUser?.employee?.position?.title ? (
-                          <p className="text-[11px] text-sky-400 mt-1 flex items-center gap-1 font-medium">
-                            <FaBriefcase className="text-sky-400" />{" "}
-                            {currentUser.employee.position.title}
+                          <p
+                            className={`text-[11px] mt-1.5 flex items-center gap-1.5 font-medium tracking-normal ${
+                              isDark ? "text-sky-400" : "text-sky-700"
+                            }`}
+                          >
+                            <BriefcaseIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span>{currentUser.employee.position.title}</span>
                           </p>
                         ) : userPosition ? (
-                          <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-                            <FaBriefcase className="text-sky-400" />{" "}
-                            {userPosition}
+                          <p
+                            className={`text-[11px] mt-1.5 flex items-center gap-1.5 tracking-normal ${
+                              isDark ? "text-slate-400" : "text-slate-600"
+                            }`}
+                          >
+                            <BriefcaseIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span>{userPosition}</span>
                           </p>
                         ) : null}
 
-                        <div className="mt-1.5 flex flex-col gap-1">
+                        <div className="mt-2">
                           <span
-                            className={`inline-flex w-fit items-center gap-1 px-1.5 py-0.5 text-[9px] md:text-[10px] rounded-full border ${getRoleStyle(
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-semibold rounded-[2px] border tracking-normal ${getRoleStyle(
                               userRole
                             )}`}
                           >
-                            <FaIdBadge />
-                            <span className="font-bold">
-                              نقش: {getRoleLabel(userRole)}
-                            </span>
+                            <IdentificationIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span>نقش: {getRoleLabel(userRole)}</span>
                           </span>
                         </div>
                       </div>
 
-                      <Link
-                        to="/profile"
-                        className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-gray-300 hover:bg-gray-600"
-                        onClick={() => setUserMenuOpen(false)}
+                      <div className="py-1">
+                        <Link
+                          to="/profile"
+                          className={`flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium tracking-normal transition-colors ${
+                            isDark
+                              ? "text-slate-300 hover:bg-tactical-hover hover:text-slate-100"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                          }`}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <UserIcon
+                            className={`w-4 h-4 shrink-0 ${
+                              isDark ? "text-sky-400" : "text-sky-700"
+                            }`}
+                          />
+                          <span>پروفایل من</span>
+                        </Link>
+                        <Link
+                          to="/tasks"
+                          className={`flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium tracking-normal transition-colors ${
+                            isDark
+                              ? "text-slate-300 hover:bg-tactical-hover hover:text-slate-100"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                          }`}
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <ClipboardDocumentListIcon
+                            className={`w-4 h-4 shrink-0 ${
+                              isDark ? "text-sky-400" : "text-sky-700"
+                            }`}
+                          />
+                          <span>ماموریت‌های من</span>
+                        </Link>
+                      </div>
+
+                      <div
+                        className={`border-t p-1 ${
+                          isDark ? "border-slate-400/15" : "border-slate-900/10"
+                        }`}
                       >
-                        <FaUser className="text-sky-400" />{" "}
-                        <span>پروفایل من</span>
-                      </Link>
-                      <Link
-                        to="/tasks"
-                        className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-gray-300 hover:bg-gray-600"
-                        onClick={() => setUserMenuOpen(false)}
-                      >
-                        <FaClipboardList className="text-sky-400" />{" "}
-                        <span>ماموریت های من</span>
-                      </Link>
-                      <div className="border-t border-gray-600 my-1" />
-                      <button
-                        onClick={logoutHandler}
-                        className="w-full text-right px-3 py-1.5 text-[13px] text-red-400 hover:bg-gray-600 flex items-center gap-2"
-                      >
-                        <FaSignOutAlt /> <span>خروج از حساب</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={logoutHandler}
+                          className={`w-full text-start px-2.5 py-2 rounded-[2px] text-xs font-semibold tracking-normal flex items-center gap-2.5 transition-colors ${
+                            isDark
+                              ? "text-red-400 hover:bg-red-500/10"
+                              : "text-red-600 hover:bg-red-50"
+                          }`}
+                        >
+                          <ArrowRightOnRectangleIcon className="w-4 h-4 shrink-0" />
+                          <span>خروج از حساب کاربری</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
-              </div>
+              </>
             ) : (
               <Link
                 to="/auth"
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 px-3 md:px-4 py-1.5 rounded-lg transition text-xs md:text-sm font-semibold"
+                className={`h-9 inline-flex items-center gap-2 px-3.5 sm:px-4 rounded-[2px] text-xs sm:text-[13px] font-semibold tracking-normal transition-colors duration-150 ${
+                  isDark
+                    ? "bg-sky-400 hover:bg-sky-300 text-slate-950"
+                    : "bg-sky-600 hover:bg-sky-700 text-white"
+                }`}
               >
-                <FaSignInAlt />
-                <span className="hidden sm:inline">ورود / ثبت‌نام</span>
+                <ArrowLeftOnRectangleIcon className="w-4 h-4 shrink-0" />
+                <span>ورود به سامانه</span>
               </Link>
             )}
           </div>
         </div>
       </div>
 
+      {/* منوی کشویی موبایل */}
       {userInfo && mobileMenuOpen && (
         <div
           ref={mobileMenuRef}
-          className="lg:hidden bg-gray-800 border-t border-gray-700 max-h-[60vh] overflow-y-auto shadow-lg"
+          className={`lg:hidden border-t max-h-[70vh] overflow-y-auto ${
+            isDark
+              ? "bg-tactical-surface1 border-slate-400/20"
+              : "bg-white border-slate-900/15"
+          }`}
         >
-          <nav className="flex flex-col p-2 gap-1">
+          <nav
+            aria-label="ناوبری موبایل"
+            className="max-w-[1440px] mx-auto flex flex-col p-3 gap-1.5"
+          >
             {renderNavLinks(true)}
           </nav>
         </div>

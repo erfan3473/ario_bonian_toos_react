@@ -1,393 +1,865 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { 
-  FaAndroid, 
-  FaUsers, 
-  FaChartLine, 
-  FaClipboardList,
-  FaCog,
-  FaBuilding,
-  FaFileAlt,
-  FaCheckCircle,
-  FaMobileAlt,
-  FaRocket,
-  FaShieldAlt,
-  FaComments,
-  FaRecycle,
-  FaCertificate,
-  FaArrowLeft
-} from 'react-icons/fa';
+import { FaAndroid, FaRecycle } from 'react-icons/fa';
+import {
+  ArrowLeftIcon,
+  BuildingOffice2Icon,
+  ChatBubbleLeftRightIcon,
+  CheckBadgeIcon,
+  CheckCircleIcon,
+  ClipboardDocumentListIcon,
+  Cog6ToothIcon,
+  DevicePhoneMobileIcon,
+  DocumentTextIcon,
+  MapPinIcon,
+  PresentationChartLineIcon,
+  QueueListIcon,
+  ShieldCheckIcon,
+  SignalIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 
 import bannerImage from '../assets/banner.webp';
+
+const toPersianDigits = (value) =>
+  String(value).replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+
+const formatPersianClock = (date) => {
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return toPersianDigits(`${hh}:${mm}:${ss}`);
+};
 
 const HomeScreen = () => {
   const { userInfo } = useSelector((state) => state.userLogin);
   const mode = useSelector((state) => state.theme?.mode || 'dark');
   const isDark = mode === 'dark';
-  
-  const isAdmin = userInfo?.is_admin;
+  const isAdmin = Boolean(userInfo?.is_admin);
+
+  const [clock, setClock] = useState(() => formatPersianClock(new Date()));
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => setClock(formatPersianClock(new Date())), 1000);
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  const clearanceLabel = isAdmin
+    ? 'سطح دسترسی ۴ | مدیریت ارشد'
+    : userInfo
+      ? 'سطح دسترسی ۲ | کارشناس سامانه'
+      : 'سطح دسترسی ۱ | درگاه عمومی';
+
+  const borderHairline = isDark ? 'border-slate-400/15' : 'border-slate-900/15';
+  const surfacePanel = isDark ? 'bg-tactical-surface1' : 'bg-tactical-lightSurface';
+  const surfaceHeader = isDark ? 'bg-tactical-surface2' : 'bg-tactical-lightElevated';
+  const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
+  const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
+  const textMeta = isDark ? 'text-slate-400' : 'text-slate-500';
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 bg-gradient-to-br ${isDark ? 'from-slate-900 via-slate-800 to-blue-900' : 'from-gray-50 via-gray-100 to-blue-50'}`}>
-      
+    <div
+      className={`relative min-h-screen overflow-x-clip transition-colors duration-200 ${
+        isDark
+          ? 'bg-tactical-canvas text-slate-200 tactical-grid-dark'
+          : 'bg-tactical-lightCanvas text-slate-900 tactical-grid-light'
+      }`}
+    >
+      {/* بافت خطوط اسکن ظریف صرفاً در حالت تاریک */}
+      {isDark && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-0 tactical-scanlines"
+        />
+      )}
+
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 🌿 بنر ویژه معرفی سامانه پسماند اکو با مجوز شهرداری (بالای صفحه) */}
+      {/* 📡 نوار وضعیت عملیاتی و ارتباطی سامانه */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      <section className="container mx-auto px-3 sm:px-4 pt-4 sm:pt-6">
-        <div className={`relative overflow-hidden rounded-2xl p-4 sm:p-6 md:p-8 border shadow-xl backdrop-blur-md transition-all duration-300 ${
-          isDark 
-            ? 'bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-teal-950/80 border-emerald-500/40 text-white' 
-            : 'bg-gradient-to-r from-emerald-50 via-white to-teal-50 border-emerald-300 text-gray-900 shadow-emerald-100/50'
-        }`}>
-          {/* هاله نور پس‌زمینه تزئینی */}
-          <div className="absolute -top-12 -left-12 w-40 h-40 sm:w-56 sm:h-56 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute -bottom-12 -right-12 w-40 h-40 sm:w-56 sm:h-56 bg-teal-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-5 md:gap-6">
-            
-            {/* محتوای متنی و نشان مجوز */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-right gap-3 sm:gap-4 flex-1">
-              {/* آیکون گرد شاخص */}
-              <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white text-2xl sm:text-3xl shadow-lg shadow-emerald-600/30">
-                <FaRecycle className="animate-spin-slow" />
-              </div>
-
-              <div className="space-y-1.5 sm:space-y-2">
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <span className="text-lg sm:text-xl md:text-2xl font-black tracking-tight">
-                    سامانه هوشمند مدیریت پسماند <span className="text-emerald-500">آریو پاک</span>
-                  </span>
-                  {/* نشان رسمی مجوز شهرداری */}
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border ${
-                    isDark 
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
-                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  }`}>
-                    <FaCertificate className="text-amber-400 text-xs" />
-                    دارای مجوز رسمی شهرداری
-                  </span>
-                </div>
-
-                <p className={`text-xs sm:text-sm md:text-base leading-relaxed max-w-3xl ${
-                  isDark ? 'text-gray-300' : 'text-gray-600'
-                }`}>
-                  شرکت آریو بنیان توس با اخذ مجوزهای رسمی از سازمان مدیریت پسماند، سامانه یکپارچه جمع‌آوری و بازیافت را راه‌اندازی نمود. تفکیک هوشمند از مبدا، ناوگان آنلاین و تسویه آنی کیف پول شهروندی.
-                </p>
-              </div>
-            </div>
-
-            {/* دکمه ورود به سامانه اکو */}
-            <div className="w-full sm:w-auto flex-shrink-0 flex justify-center">
-              <a
-                href="https://eco.ariobonyantoos.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-emerald-700/30 transform hover:scale-105 active:scale-95 transition-all duration-300 text-xs sm:text-sm md:text-base"
+      <div
+        className={`relative z-10 border-b ${borderHairline} ${
+          isDark ? 'bg-tactical-surface1/95' : 'bg-white/95'
+        } backdrop-blur-sm`}
+      >
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-5 h-10 flex items-center justify-between gap-3 text-[11px] tracking-normal">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
+                }`}
+              />
+              <span
+                className={
+                  isOnline
+                    ? isDark
+                      ? 'text-emerald-400'
+                      : 'text-emerald-700'
+                    : isDark
+                      ? 'text-red-400'
+                      : 'text-red-600'
+                }
               >
-                <span>ورود به سامانه پسماند آریو پاک</span>
-                <FaArrowLeft className="text-xs sm:text-sm" />
-              </a>
-            </div>
+                {isOnline ? 'ارتباط سامانه برقرار' : 'قطع ارتباط شبکه'}
+              </span>
+            </span>
+            <span className={`hidden sm:inline ${textMeta}`}>|</span>
+            <span className={`hidden sm:inline truncate ${textMeta}`}>
+              ستاد مرکزی | استان خراسان رضوی
+            </span>
+          </div>
 
+          <div className="flex items-center gap-3 shrink-0">
+            <span
+              className={`px-2 py-0.5 rounded-[2px] border text-[11px] font-medium tracking-normal ${
+                isAdmin
+                  ? isDark
+                    ? 'border-amber-500/40 bg-amber-500/10 text-amber-400'
+                    : 'border-amber-600/40 bg-amber-50 text-amber-700'
+                  : isDark
+                    ? 'border-sky-400/30 bg-sky-400/10 text-sky-400'
+                    : 'border-sky-600/30 bg-sky-50 text-sky-700'
+              }`}
+            >
+              {clearanceLabel}
+            </span>
+            <span
+              dir="ltr"
+              className={`tabular-nums font-semibold ${
+                isDark ? 'text-slate-300' : 'text-slate-700'
+              }`}
+            >
+              {clock}
+            </span>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 🎯 بخش Hero با بنر (عکس گرد شده و خوانا) */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <section className="container mx-auto px-3 sm:px-4 pt-4 pb-8 md:pt-6 md:pb-12">
-        <div className={`relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl ${isDark ? 'bg-slate-900' : 'bg-blue-900'}`}>
-          <img 
-            src={bannerImage} 
-            alt="سیستم اتوماسیون آریو بنیان طوس" 
-            className="absolute inset-0 w-full h-full object-cover opacity-40 md:opacity-60"
-          />
-          <div className={`absolute inset-0 bg-gradient-to-t ${isDark ? 'from-slate-900/90 to-transparent' : 'from-slate-900/80 to-transparent'}`}></div>
+      <div className="relative z-10 max-w-[1440px] mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-5 sm:space-y-8">
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 🌿 بخش ۰۱: بنر ویژه سامانه هوشمند پسماند آریو پاک (مجوز شهرداری) */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <section aria-label="سامانه هوشمند مدیریت پسماند آریو پاک">
+          <div
+            className={`group relative border rounded-[2px] transition-colors duration-150 ${
+              isDark
+                ? 'bg-tactical-surface1 border-emerald-500/35 hover:border-emerald-400/60'
+                : 'bg-white border-emerald-600/35 hover:border-emerald-600/60'
+            }`}
+          >
+            <CornerBrackets accent="emerald" isDark={isDark} />
 
-          <div className="relative z-10 px-4 py-10 sm:py-16 md:py-24 text-center">
-            <div className="flex items-center justify-center mb-3 sm:mb-6">
-              <FaRocket className="text-yellow-400 text-2xl sm:text-4xl md:text-5xl animate-bounce" />
-            </div>
-            
-            <h1 className="text-2xl sm:text-4xl md:text-6xl lg:text-7xl font-black mb-3 md:mb-4 drop-shadow-lg text-white">
-              سیستم اتوماسیون <span className="text-yellow-400">۸ پا</span>
-            </h1>
-            
-            <p className="text-xs sm:text-base md:text-xl mb-6 sm:mb-8 max-w-3xl mx-auto px-2 text-gray-200 leading-relaxed">
-              مدیریت هوشمند پروژه‌های عمرانی | حضور و غیاب | گزارش‌دهی لحظه‌ای
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-md mx-auto sm:max-w-none">
-              {/* دکمه دانلود اپلیکیشن اندروید ۸پا */}
-              <a 
-                href="https://ariobonyantoos.com/media/downloads/8pa.apk"
-                download="8Pa.apk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center w-full sm:w-auto gap-2.5 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-5 md:py-3.5 md:px-8 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300"
-              >
-                <FaAndroid className="text-xl md:text-3xl" />
-                <div className="text-right">
-                  <div className="text-[9px] md:text-xs text-green-100">دانلود اپلیکیشن سازمانی</div>
-                  <div className="text-xs sm:text-sm md:text-lg">Android (85MB)</div>
-                </div>
-              </a>
-
-              {!userInfo && (
-                <Link 
-                  to="/auth"
-                  className="flex items-center justify-center w-full sm:w-auto gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-5 md:py-4 md:px-8 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 text-xs sm:text-sm md:text-base"
+            {/* نوار سرصفحه پنل */}
+            <div
+              className={`flex items-center justify-between gap-2 px-3.5 py-2 border-b ${
+                isDark
+                  ? 'bg-emerald-950/35 border-emerald-500/20'
+                  : 'bg-emerald-50/80 border-emerald-600/20'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span
+                  className={`text-xs font-semibold truncate tracking-normal ${
+                    isDark ? 'text-emerald-300' : 'text-emerald-800'
+                  }`}
                 >
-                  <FaShieldAlt className="text-base md:text-2xl" />
-                  <span>ورود به پنل سازمان</span>
-                </Link>
-              )}
+                  پروژه شهری و محیط‌زیستی | دارای مجوز رسمی سازمان مدیریت پسماند
+                </span>
+              </div>
+              <span
+                className={`hidden sm:inline text-[11px] font-medium shrink-0 tracking-normal ${
+                  isDark ? 'text-emerald-400/85' : 'text-emerald-700'
+                }`}
+              >
+                بخش ۰۱ | سامانه آریو پاک
+              </span>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 📱 معرفی ویژگی‌های اپلیکیشن */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <section className={`py-8 md:py-16 ${isDark ? 'bg-slate-900/50' : 'bg-white/40'}`}>
-        <div className="container mx-auto px-3 sm:px-4 md:px-6">
-          <h2 className={`text-lg sm:text-2xl md:text-4xl font-bold text-center mb-6 md:mb-12 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            ویژگی‌های اپلیکیشن موبایل
-          </h2>
+            {/* بدنه بنر */}
+            <div className="p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6">
+              <div className="flex items-start gap-3.5 flex-1">
+                <div
+                  className={`shrink-0 w-12 h-12 rounded-[2px] border flex items-center justify-center ${
+                    isDark
+                      ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
+                      : 'bg-emerald-50 border-emerald-600/35 text-emerald-700'
+                  }`}
+                >
+                  <FaRecycle className="text-xl animate-spin-slow" />
+                </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-8">
-            <FeatureCard
-              isDark={isDark}
-              icon={<FaMobileAlt />}
-              title="ثبت حضور با GPS"
-              description="ثبت ورود و خروج خودکار با موقعیت جغرافیایی"
-              color="blue"
-            />
-            <FeatureCard
-              isDark={isDark}
-              icon={<FaFileAlt />}
-              title="گزارش‌دهی سریع"
-              description="ارسال گزارش کارکرد روزانه با عکس و توضیحات"
-              color="green"
-            />
-            <FeatureCard
-              isDark={isDark}
-              icon={<FaCheckCircle />}
-              title="درخواست‌ها"
-              description="ثبت درخواست مرخصی، مالی و تجهیزات"
-              color="yellow"
-            />
-          </div>
-        </div>
-      </section>
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className={`text-base sm:text-lg md:text-xl font-bold tracking-normal ${textPrimary}`}>
+                      سامانه هوشمند مدیریت پسماند{' '}
+                      <span className={isDark ? 'text-emerald-400' : 'text-emerald-600'}>
+                        آریو پاک
+                      </span>
+                    </h2>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] text-[11px] font-medium border tracking-normal ${
+                        isDark
+                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/35'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-600/30'
+                      }`}
+                    >
+                      <CheckBadgeIcon className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      دارای مجوز رسمی شهرداری
+                    </span>
+                  </div>
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 🎛️ پنل مدیریت (فقط برای ادمین‌ها) */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {isAdmin && (
-        <section className="py-8 md:py-16">
-          <div className="container mx-auto px-3 sm:px-4 md:px-6">
-            <div className={`rounded-2xl p-4 sm:p-6 md:p-8 border-2 transition-colors duration-300 ${
-              isDark 
-                ? 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10 border-yellow-500/30' 
-                : 'bg-gradient-to-r from-yellow-100 to-orange-50 border-yellow-300 shadow-sm'
-            }`}>
-              <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-4 mb-5 sm:mb-8 text-center sm:text-right">
-                <FaShieldAlt className={`text-2xl sm:text-3xl md:text-4xl ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`} />
-                <h2 className={`text-base sm:text-xl md:text-3xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  پنل مدیریت سیستم
-                </h2>
+                  <p className={`text-xs sm:text-sm leading-7 max-w-3xl tracking-normal ${textSecondary}`}>
+                    شرکت آریو بنیان توس با اخذ مجوزهای رسمی از سازمان مدیریت پسماند، سامانه یکپارچه جمع‌آوری و بازیافت را راه‌اندازی نمود. تفکیک هوشمند از مبدا، ناوگان آنلاین و تسویه آنی کیف پول شهروندی.
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 md:gap-5">
-                <AdminButton
-                  isDark={isDark}
-                  to="/chat"
-                  icon={<FaComments />}
-                  title="پیام‌رسان"
-                  description="گفت‌وگو و مدیریت ماموریت‌ها"
-                  color="cyan"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/admin/users"
-                  icon={<FaUsers />}
-                  title="کاربران"
-                  description="افزودن و ویرایش کارکنان"
-                  color="blue"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/projects"
-                  icon={<FaBuilding />}
-                  title="پروژه‌ها"
-                  description="پروژه‌ها و محدوده جغرافیایی"
-                  color="purple"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/dashboard"
-                  icon={<FaChartLine />}
-                  title="مانیتور نیروها"
-                  description="وضعیت لحظه‌ای کارکنان"
-                  color="green"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/admin/daily-summary"
-                  icon={<FaClipboardList />}
-                  title="خلاصه گزارش"
-                  description="آمار و ارقام کلی"
-                  color="indigo"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/admin/requests"
-                  icon={<FaCheckCircle />}
-                  title="درخواست‌ها"
-                  description="تایید مرخصی، مالی و تجهیزات"
-                  color="pink"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/admin/settings"
-                  icon={<FaCog />}
-                  title="تنظیمات"
-                  description="مشاغل، نوع مرخصی و ..."
-                  color="gray"
-                />
-                <AdminButton
-                  isDark={isDark}
-                  to="/tasks"
-                  icon={<FaClipboardList />}
-                  title="ماموریت‌ها"
-                  description="مدیریت و پیگیری ماموریت‌های اداری"
-                  color="orange"
-                />
+              <div className="w-full lg:w-auto shrink-0">
+                <a
+                  href="https://pak.ariobonyantoos.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full lg:w-auto inline-flex items-center justify-center gap-2.5 h-10 px-5 rounded-[2px] font-semibold text-xs sm:text-sm tracking-normal transition-all duration-150 ${
+                    isDark
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  <span>ورود به سامانه پسماند آریو پاک</span>
+                  <ArrowLeftIcon className="w-4 h-4 shrink-0" />
+                </a>
               </div>
             </div>
           </div>
         </section>
-      )}
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/* 💬 راهنمای سریع */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <section className={`py-8 md:py-16 ${isDark ? 'bg-slate-900/50' : 'bg-white/40'}`}>
-        <div className="container mx-auto px-3 sm:px-4 md:px-6 max-w-4xl">
-          <div className={`rounded-2xl p-4 sm:p-6 md:p-8 backdrop-blur-md border transition-colors ${
-            isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-white/90 border-gray-200 shadow-sm'
-          }`}>
-            <h2 className={`text-lg sm:text-2xl md:text-3xl font-bold mb-4 sm:mb-6 text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              چگونه شروع کنم؟
-            </h2>
-            
-            <div className="space-y-2.5 sm:space-y-4">
-              <GuideStep 
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 🎯 بخش ۰۲: معرفی سیستم اتوماسیون ۸پا (چیدمان مهندسی ۷ به ۵) */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <section aria-label="معرفی سیستم اتوماسیون ۸پا">
+          <div className={`relative border rounded-[2px] ${surfacePanel} ${borderHairline}`}>
+            <CornerBrackets accent="cyan" isDark={isDark} />
+
+            {/* نوار سرصفحه بخش اصلی */}
+            <div
+              className={`flex items-center justify-between px-3.5 py-2 border-b ${borderHairline} ${surfaceHeader}`}
+            >
+              <div className="flex items-center gap-2">
+                <SignalIcon className={`w-4 h-4 ${isDark ? 'text-sky-400' : 'text-sky-600'}`} />
+                <span className={`text-xs font-semibold tracking-normal ${textPrimary}`}>
+                  مرکز فرماندهی و اتوماسیون پروژه‌های عمرانی و فضای سبز
+                </span>
+              </div>
+              <span className={`hidden sm:inline text-[11px] font-medium tracking-normal ${textMeta}`}>
+                بخش ۰۲ | هسته مرکزی ۸پا
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12">
+              {/* ستون راست (۷ ستون): معرفی، مشخصات ساختاری و دکمه‌های اصلی */}
+              <div
+                className={`lg:col-span-7 p-5 sm:p-7 md:p-8 flex flex-col justify-between gap-6 lg:border-e ${borderHairline}`}
+              >
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded-[2px] border text-[11px] font-medium tracking-normal ${
+                        isDark
+                          ? 'border-sky-400/35 bg-sky-400/10 text-sky-400'
+                          : 'border-sky-600/35 bg-sky-50 text-sky-700'
+                      }`}
+                    >
+                      سامانه سازمانی ۸پا | نسخه رسمی
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-[2px] border text-[11px] font-medium tracking-normal ${
+                        isDark
+                          ? 'border-slate-400/20 bg-slate-800/60 text-slate-300'
+                          : 'border-slate-900/15 bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      عمرانی • فضای سبز • خدمات شهری
+                    </span>
+                  </div>
+
+                  <h1
+                    className={`text-2xl sm:text-4xl md:text-[42px] font-bold leading-[1.25] tracking-normal ${textPrimary}`}
+                  >
+                    سیستم اتوماسیون{' '}
+                    <span className={isDark ? 'text-amber-400' : 'text-amber-600'}>
+                      ۸ پا
+                    </span>
+                  </h1>
+
+                  <p className={`text-sm sm:text-base leading-8 max-w-2xl tracking-normal ${textSecondary}`}>
+                    مدیریت هوشمند پروژه‌های عمرانی | حضور و غیاب | گزارش‌دهی لحظه‌ای
+                  </p>
+
+                  {/* نوار شاخص‌های ساختاری کوتاه */}
+                  <div
+                    className={`grid grid-cols-3 border ${borderHairline} rounded-[2px] divide-x divide-x-reverse ${
+                      isDark ? 'divide-slate-400/15 bg-tactical-canvas/60' : 'divide-slate-900/15 bg-slate-50'
+                    }`}
+                  >
+                    <div className="p-2.5 sm:p-3">
+                      <div className={`text-[11px] tracking-normal ${textMeta}`}>
+                        پایش موقعیت
+                      </div>
+                      <div className={`text-xs sm:text-sm font-semibold mt-0.5 tracking-normal ${textPrimary}`}>
+                        ثبت مکانی برخط
+                      </div>
+                    </div>
+                    <div className="p-2.5 sm:p-3">
+                      <div className={`text-[11px] tracking-normal ${textMeta}`}>
+                        گزارش‌گیری
+                      </div>
+                      <div className={`text-xs sm:text-sm font-semibold mt-0.5 tracking-normal ${textPrimary}`}>
+                        گزارش میدانی زنده
+                      </div>
+                    </div>
+                    <div className="p-2.5 sm:p-3">
+                      <div className={`text-[11px] tracking-normal ${textMeta}`}>
+                        بستر اجرا
+                      </div>
+                      <div className={`text-xs sm:text-sm font-semibold mt-0.5 tracking-normal ${textPrimary}`}>
+                        وب و اندروید
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* دکمه‌های عملیاتی اصلی */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                  <a
+                    href="https://ariobonyantoos.com/media/downloads/8pa.apk"
+                    download="8Pa.apk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center justify-center sm:justify-start gap-3 min-h-[44px] px-5 py-2.5 rounded-[2px] font-semibold tracking-normal transition-all duration-150 ${
+                      isDark
+                        ? 'bg-sky-400 hover:bg-sky-300 text-slate-950'
+                        : 'bg-sky-600 hover:bg-sky-700 text-white'
+                    }`}
+                  >
+                    <FaAndroid className="text-2xl shrink-0" />
+                    <div className="text-start leading-tight">
+                      <div className="text-[11px] opacity-85">دانلود اپلیکیشن سازمانی</div>
+                      <div className="text-xs sm:text-sm font-bold tabular-nums">
+                        نسخه اندروید (۸۵ مگابایت)
+                      </div>
+                    </div>
+                  </a>
+
+                  {!userInfo && (
+                    <Link
+                      to="/auth"
+                      className={`flex items-center justify-center gap-2 min-h-[44px] px-6 py-2.5 rounded-[2px] border font-semibold text-xs sm:text-sm tracking-normal transition-all duration-150 ${
+                        isDark
+                          ? 'border-sky-400/50 bg-sky-400/10 hover:bg-sky-400/20 text-sky-300'
+                          : 'border-sky-600/50 bg-sky-50 hover:bg-sky-100 text-sky-800'
+                      }`}
+                    >
+                      <ShieldCheckIcon className="w-5 h-5 shrink-0" />
+                      <span>ورود به پنل سازمان</span>
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              {/* ستون چپ (۵ ستون): قاب تصویر عملیاتی با نوار شناسنامه */}
+              <div className="lg:col-span-5 p-3 sm:p-4 flex flex-col justify-center">
+                <div
+                  className={`relative w-full h-56 sm:h-72 lg:h-full min-h-[240px] border rounded-[2px] overflow-hidden ${
+                    isDark ? 'border-sky-400/30 bg-tactical-canvas' : 'border-slate-900/20 bg-slate-900'
+                  }`}
+                >
+                  <img
+                    src={bannerImage}
+                    alt="سیستم اتوماسیون آریو بنیان توس"
+                    className="w-full h-full object-cover opacity-80"
+                  />
+
+                  {/* لایه کنتراست تصویر */}
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-gradient-to-t from-[#05070A]/90 via-[#05070A]/25 to-[#05070A]/45"
+                  />
+
+                  {/* براکت‌های نشانه داخل فریم تصویر */}
+                  <CornerBrackets accent="cyan" isDark={true} />
+
+                  {/* نوار شناسنامه بالای تصویر */}
+                  <div className="absolute top-2.5 inset-x-3 flex items-center justify-between text-[11px] text-slate-200 tracking-normal">
+                    <span className="px-2 py-0.5 bg-[#05070A]/80 border border-sky-400/35 font-medium">
+                     ۸پا دستیار عملیاتی | آریو بنیان توس
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#05070A]/80 border border-slate-400/25 text-emerald-400 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                     سازمانی /میدانی 
+                    </span>
+                  </div>
+
+                  {/* نوار شناسنامه پایین تصویر */}
+                  <div className="absolute bottom-0 inset-x-0 px-3 py-2.5 bg-[#05070A]/85 border-t border-slate-400/20 flex items-center justify-between gap-2 tracking-normal">
+                    <span className="text-xs font-medium text-slate-200 truncate">
+                      شرکت عمرانی و خدمات شهری آریو بنیان توس
+                    </span>
+                    <span className="text-[11px] text-sky-400 font-medium shrink-0">
+                      شبکه میدانی ۸پا
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 📱 بخش ۰۳: ویژگی‌های اپلیکیشن موبایل */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <section aria-label="ویژگی‌های اپلیکیشن موبایل" className="space-y-3">
+          <SectionHeader
+            code="بخش ۰۳ | امکانات میدانی"
+            title="ویژگی‌های اپلیکیشن موبایل"
+            isDark={isDark}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <FeatureCard
+              isDark={isDark}
+              code="قابلیت ۰۱ | ثبت مکانی"
+              icon={<MapPinIcon className="w-5 h-5" />}
+              title="ثبت حضور با موقعیت‌یاب"
+              description="ثبت ورود و خروج خودکار با موقعیت جغرافیایی"
+              accent="cyan"
+            />
+            <FeatureCard
+              isDark={isDark}
+              code="قابلیت ۰۲ | ثبت گزارش"
+              icon={<DocumentTextIcon className="w-5 h-5" />}
+              title="گزارش‌دهی سریع"
+              description="ارسال گزارش کارکرد روزانه با عکس و توضیحات"
+              accent="emerald"
+            />
+            <FeatureCard
+              isDark={isDark}
+              code="قابلیت ۰۳ | پیگیری درخواست"
+              icon={<CheckCircleIcon className="w-5 h-5" />}
+              title="درخواست‌ها"
+              description="ثبت درخواست مرخصی، مالی و تجهیزات"
+              accent="amber"
+            />
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 🎛️ بخش ۰۴: پنل مدیریت سیستم (فقط برای مدیران) */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {isAdmin && (
+          <section aria-label="پنل مدیریت سیستم">
+            <div
+              className={`relative border rounded-[2px] ${
+                isDark
+                  ? 'bg-tactical-surface1 border-amber-500/35'
+                  : 'bg-white border-amber-600/35'
+              }`}
+            >
+              <CornerBrackets accent="amber" isDark={isDark} />
+
+              <div
+                className={`flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 border-b ${
+                  isDark
+                    ? 'bg-amber-500/10 border-amber-500/25'
+                    : 'bg-amber-50 border-amber-600/20'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldCheckIcon
+                    className={`w-5 h-5 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}
+                  />
+                  <h2 className={`text-sm sm:text-base font-bold tracking-normal ${textPrimary}`}>
+                    پنل مدیریت سیستم
+                  </h2>
+                </div>
+                <span
+                  className={`text-[11px] font-medium tracking-normal px-2 py-0.5 rounded-[2px] border ${
+                    isDark
+                      ? 'border-amber-500/40 bg-tactical-canvas/60 text-amber-400'
+                      : 'border-amber-600/35 bg-white text-amber-700'
+                  }`}
+                >
+                  بخش ۰۴ | سطح دسترسی مدیران
+                </span>
+              </div>
+
+              <div className="p-3 sm:p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۱"
+                  to="/chat"
+                  icon={<ChatBubbleLeftRightIcon className="w-5 h-5" />}
+                  title="پیام‌رسان"
+                  description="گفت‌وگو و مدیریت ماموریت‌ها"
+                  accent="cyan"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۲"
+                  to="/admin/users"
+                  icon={<UsersIcon className="w-5 h-5" />}
+                  title="کاربران"
+                  description="افزودن و ویرایش کارکنان"
+                  accent="cyan"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۳"
+                  to="/projects"
+                  icon={<BuildingOffice2Icon className="w-5 h-5" />}
+                  title="پروژه‌ها"
+                  description="پروژه‌ها و محدوده جغرافیایی"
+                  accent="amber"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۴"
+                  to="/dashboard"
+                  icon={<PresentationChartLineIcon className="w-5 h-5" />}
+                  title="مانیتور نیروها"
+                  description="وضعیت لحظه‌ای کارکنان"
+                  accent="emerald"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۵"
+                  to="/admin/daily-summary"
+                  icon={<ClipboardDocumentListIcon className="w-5 h-5" />}
+                  title="خلاصه گزارش"
+                  description="آمار و ارقام کلی"
+                  accent="cyan"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۶"
+                  to="/admin/requests"
+                  icon={<CheckCircleIcon className="w-5 h-5" />}
+                  title="درخواست‌ها"
+                  description="تایید مرخصی، مالی و تجهیزات"
+                  accent="amber"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۷"
+                  to="/admin/settings"
+                  icon={<Cog6ToothIcon className="w-5 h-5" />}
+                  title="تنظیمات"
+                  description="مشاغل، نوع مرخصی و ..."
+                  accent="slate"
+                />
+                <AdminModuleCard
+                  isDark={isDark}
+                  code="واحد ۰۸"
+                  to="/tasks"
+                  icon={<QueueListIcon className="w-5 h-5" />}
+                  title="ماموریت‌ها"
+                  description="مدیریت و پیگیری ماموریت‌های اداری"
+                  accent="emerald"
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* 📋 بخش ۰۵: راهنمای سریع شروع به کار */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        <section aria-label="چگونه شروع کنم؟" className="space-y-3 pb-4">
+          <SectionHeader
+            code="بخش ۰۵ | دستورالعمل شروع به کار"
+            title="چگونه شروع کنم؟"
+            isDark={isDark}
+          />
+
+          <div className={`relative border rounded-[2px] ${surfacePanel} ${borderHairline}`}>
+            <CornerBrackets accent="cyan" isDark={isDark} />
+
+            <div
+              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x sm:divide-x-reverse ${
+                isDark ? 'divide-slate-400/15' : 'divide-slate-900/15'
+              }`}
+            >
+              <GuideStep
                 isDark={isDark}
-                number="1"
+                number="۰۱"
                 title="دانلود اپلیکیشن"
-                description="فایل APK را دانلود و روی گوشی خود نصب کنید"
+                description="فایل نصبی اپلیکیشن را دریافت و روی تلفن همراه خود نصب نمایید"
               />
-              <GuideStep 
+              <GuideStep
                 isDark={isDark}
-                number="2"
+                number="۰۲"
                 title="ورود به سیستم"
-                description="با شماره موبایل و رمز عبور دریافتی وارد شوید"
+                description="با شماره موبایل و رمز عبور دریافتی وارد سامانه شوید"
               />
-              <GuideStep 
+              <GuideStep
                 isDark={isDark}
-                number="3"
+                number="۰۳"
                 title="ثبت حضور"
-                description="در محل کار، دکمه ثبت حضور را بزنید"
+                description="در محدوده محل کار، دکمه ثبت حضور را انتخاب کنید"
               />
-              <GuideStep 
+              <GuideStep
                 isDark={isDark}
-                number="4"
+                number="۰۴"
                 title="گزارش‌دهی"
-                description="در پایان روز، گزارش کارکرد خود را ارسال کنید"
+                description="در پایان روز کاری، گزارش کارکرد خود را ثبت و ارسال نمایید"
               />
             </div>
           </div>
-        </div>
-      </section>
-
+        </section>
+      </div>
     </div>
   );
 };
 
 // ═══════════════════════════════════════════════════════════
-// 🎨 Component های کمکی
+// 🧩 کامپوننت‌های کمکی سبک اتاق فرمان
 // ═══════════════════════════════════════════════════════════
 
-const FeatureCard = ({ isDark, icon, title, description, color }) => {
-  const colors = {
-    blue: 'from-blue-500 to-blue-600',
-    green: 'from-green-500 to-green-600',
-    yellow: 'from-yellow-400 to-yellow-600',
+const CornerBrackets = ({ accent = 'cyan', isDark = true }) => {
+  const accentMap = {
+    cyan: isDark ? 'border-sky-400/60' : 'border-sky-600/60',
+    amber: isDark ? 'border-amber-400/60' : 'border-amber-600/60',
+    emerald: isDark ? 'border-emerald-400/60' : 'border-emerald-600/60',
+  };
+  const colorClass = accentMap[accent] || accentMap.cyan;
+
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-0 start-0 w-2 h-2 border-t border-s ${colorClass}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute top-0 end-0 w-2 h-2 border-t border-e ${colorClass}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute bottom-0 start-0 w-2 h-2 border-b border-s ${colorClass}`}
+      />
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute bottom-0 end-0 w-2 h-2 border-b border-e ${colorClass}`}
+      />
+    </>
+  );
+};
+
+const SectionHeader = ({ code, title, isDark }) => (
+  <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-2.5">
+      <span
+        className={`w-1.5 h-5 rounded-[1px] ${
+          isDark ? 'bg-sky-400' : 'bg-sky-600'
+        }`}
+      />
+      <h2
+        className={`text-base sm:text-lg md:text-xl font-bold tracking-normal ${
+          isDark ? 'text-slate-100' : 'text-slate-900'
+        }`}
+      >
+        {title}
+      </h2>
+    </div>
+    <span
+      className={`text-[11px] sm:text-xs font-medium tracking-normal ${
+        isDark ? 'text-slate-400' : 'text-slate-500'
+      }`}
+    >
+      {code}
+    </span>
+  </div>
+);
+
+const FeatureCard = ({ isDark, code, icon, title, description, accent }) => {
+  const accentStyles = {
+    cyan: isDark
+      ? 'text-sky-400 border-sky-400/35 bg-sky-400/10'
+      : 'text-sky-700 border-sky-600/30 bg-sky-50',
+    emerald: isDark
+      ? 'text-emerald-400 border-emerald-400/35 bg-emerald-400/10'
+      : 'text-emerald-700 border-emerald-600/30 bg-emerald-50',
+    amber: isDark
+      ? 'text-amber-400 border-amber-400/35 bg-amber-400/10'
+      : 'text-amber-700 border-amber-600/30 bg-amber-50',
   };
 
   return (
-    <div className={`backdrop-blur-sm rounded-xl p-4 sm:p-5 border transition-all hover:transform hover:-translate-y-1 ${
-      isDark ? 'bg-slate-800/80 border-slate-700 hover:border-slate-500' : 'bg-white/90 border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md'
-    }`}>
-      <div className={`w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br ${colors[color]} rounded-xl flex items-center justify-center text-white text-xl md:text-3xl mb-3 md:mb-4 mx-auto shadow-sm`}>
-        {icon}
+    <article
+      className={`group relative border rounded-[2px] transition-colors duration-150 ${
+        isDark
+          ? 'bg-tactical-surface1 border-slate-400/15 hover:border-sky-400/45 hover:bg-tactical-hover'
+          : 'bg-white border-slate-900/15 hover:border-sky-600/50 hover:bg-slate-50'
+      }`}
+    >
+      <CornerBrackets accent={accent} isDark={isDark} />
+
+      <div
+        className={`flex items-center justify-between px-3.5 py-2 border-b ${
+          isDark
+            ? 'border-slate-400/15 bg-tactical-surface2/70'
+            : 'border-slate-900/10 bg-tactical-lightElevated/70'
+        }`}
+      >
+        <span
+          className={`text-[11px] font-medium tracking-normal ${
+            isDark ? 'text-slate-400' : 'text-slate-600'
+          }`}
+        >
+          {code}
+        </span>
+        <DevicePhoneMobileIcon className="w-3.5 h-3.5 text-slate-500" />
       </div>
-      <h3 className={`text-sm sm:text-base md:text-xl font-bold mb-1 sm:mb-2 text-center ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        {title}
-      </h3>
-      <p className={`text-[11px] sm:text-xs md:text-sm text-center leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-        {description}
-      </p>
-    </div>
+
+      <div className="p-4 sm:p-5 flex items-start gap-3.5">
+        <div
+          className={`shrink-0 w-10 h-10 rounded-[2px] border flex items-center justify-center ${accentStyles[accent]}`}
+        >
+          {icon}
+        </div>
+        <div className="space-y-1">
+          <h3
+            className={`text-sm sm:text-base font-bold tracking-normal ${
+              isDark ? 'text-slate-100' : 'text-slate-900'
+            }`}
+          >
+            {title}
+          </h3>
+          <p
+            className={`text-xs sm:text-sm leading-6 tracking-normal ${
+              isDark ? 'text-slate-400' : 'text-slate-600'
+            }`}
+          >
+            {description}
+          </p>
+        </div>
+      </div>
+    </article>
   );
 };
 
-const AdminButton = ({ isDark, to, icon, title, description, color }) => {
-  const colors = {
-    blue: 'from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800',
-    purple: 'from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800',
-    green: 'from-green-500 to-green-700 hover:from-green-600 hover:to-green-800',
-    orange: 'from-orange-500 to-orange-700 hover:from-orange-600 hover:to-orange-800',
-    indigo: 'from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800',
-    pink: 'from-pink-500 to-pink-700 hover:from-pink-600 hover:to-pink-800',
-    gray: 'from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800',
-    cyan: 'from-cyan-500 to-cyan-700 hover:from-cyan-600 hover:to-cyan-800',
+const AdminModuleCard = ({ isDark, code, to, icon, title, description, accent }) => {
+  const dotColors = {
+    cyan: 'bg-sky-400',
+    emerald: 'bg-emerald-400',
+    amber: 'bg-amber-400',
+    slate: 'bg-slate-400',
   };
 
   return (
     <Link
       to={to}
-      className={`bg-gradient-to-br ${colors[color]} p-2.5 sm:p-4 md:p-6 rounded-xl text-white shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 flex flex-col items-center sm:items-start text-center sm:text-right`}
+      className={`group relative flex flex-col justify-between gap-3 p-3.5 rounded-[2px] border border-s-2 transition-all duration-150 ${
+        isDark
+          ? 'bg-tactical-canvas/70 border-slate-400/15 border-s-amber-500/50 hover:bg-tactical-hover hover:border-sky-400/40 hover:border-s-sky-400'
+          : 'bg-slate-50/80 border-slate-900/15 border-s-amber-600/60 hover:bg-white hover:border-sky-600/40 hover:border-s-sky-600'
+      }`}
     >
-      <div className="text-xl sm:text-3xl md:text-4xl mb-1.5 sm:mb-3 opacity-90">{icon}</div>
-      <h3 className="text-xs sm:text-sm md:text-lg font-bold mb-0.5 sm:mb-1">{title}</h3>
-      <p className="text-[10px] sm:text-xs md:text-sm opacity-80 leading-tight hidden sm:block">{description}</p>
+      <div className="flex items-center justify-between gap-2">
+        <div
+          className={`w-9 h-9 rounded-[2px] border flex items-center justify-center transition-colors duration-150 ${
+            isDark
+              ? 'bg-tactical-surface2 border-slate-400/15 text-slate-300 group-hover:text-sky-400 group-hover:border-sky-400/40'
+              : 'bg-white border-slate-900/15 text-slate-700 group-hover:text-sky-700 group-hover:border-sky-600/40'
+          }`}
+        >
+          {icon}
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium tracking-normal text-slate-400">
+          <span className={`w-1.5 h-1.5 rounded-full ${dotColors[accent]}`} />
+          {code}
+        </span>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <h3
+            className={`text-sm font-bold tracking-normal ${
+              isDark ? 'text-slate-100' : 'text-slate-900'
+            }`}
+          >
+            {title}
+          </h3>
+          <ArrowLeftIcon
+            className={`w-3.5 h-3.5 transition-transform duration-150 group-hover:-translate-x-0.5 ${
+              isDark ? 'text-slate-500 group-hover:text-sky-400' : 'text-slate-400 group-hover:text-sky-600'
+            }`}
+          />
+        </div>
+        <p
+          className={`text-xs mt-1 leading-5 tracking-normal ${
+            isDark ? 'text-slate-400' : 'text-slate-600'
+          }`}
+        >
+          {description}
+        </p>
+      </div>
     </Link>
   );
 };
 
 const GuideStep = ({ isDark, number, title, description }) => (
-  <div className={`flex gap-2.5 sm:gap-3 items-start p-2 sm:p-3 md:p-4 rounded-xl transition-colors ${
-    isDark ? 'hover:bg-slate-700/50' : 'hover:bg-gray-50'
-  }`}>
-    <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 text-gray-900 rounded-lg flex items-center justify-center font-bold text-xs sm:text-sm md:text-base ${
-      isDark ? 'bg-yellow-500' : 'bg-yellow-400 shadow-sm'
-    }`}>
-      {number}
+  <div
+    className={`p-4 sm:p-5 transition-colors duration-150 ${
+      isDark ? 'hover:bg-tactical-hover' : 'hover:bg-slate-50'
+    }`}
+  >
+    <div className="flex items-center justify-between mb-3">
+      <span
+        className={`inline-flex items-center justify-center px-2 py-0.5 rounded-[2px] border text-xs font-bold tabular-nums tracking-normal ${
+          isDark
+            ? 'border-amber-400/40 bg-amber-400/10 text-amber-400'
+            : 'border-amber-600/40 bg-amber-50 text-amber-700'
+        }`}
+      >
+        گام {number}
+      </span>
+      <span
+        aria-hidden="true"
+        className={`h-px flex-1 ms-3 ${
+          isDark ? 'bg-slate-400/15' : 'bg-slate-900/15'
+        }`}
+      />
     </div>
-    <div>
-      <h3 className={`font-bold mb-0.5 text-xs sm:text-sm md:text-base ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        {title}
-      </h3>
-      <p className={`text-[10px] sm:text-xs md:text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-        {description}
-      </p>
-    </div>
+
+    <h3
+      className={`text-sm sm:text-base font-bold mb-1.5 tracking-normal ${
+        isDark ? 'text-slate-100' : 'text-slate-900'
+      }`}
+    >
+      {title}
+    </h3>
+    <p
+      className={`text-xs sm:text-sm leading-6 tracking-normal ${
+        isDark ? 'text-slate-400' : 'text-slate-600'
+      }`}
+    >
+      {description}
+    </p>
   </div>
 );
 

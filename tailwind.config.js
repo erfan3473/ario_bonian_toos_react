@@ -13,19 +13,37 @@ export default {
           700: '#1d4ed8',
           900: '#1e3a8a',
         },
+        tactical: {
+          canvas: '#05070A',
+          surface1: '#0B1017',
+          surface2: '#111822',
+          hover: '#16202D',
+          cyan: '#38BDF8',
+          amber: '#F59E0B',
+          emerald: '#10B981',
+          danger: '#EF4444',
+          lightCanvas: '#F3F5F8',
+          lightSurface: '#FFFFFF',
+          lightElevated: '#E9EEF4',
+        },
       },
       fontFamily: {
-        // نام فونت دقیقاً همونی شد که در index.css تعریف کردیم
         sans: ['Vazirmatn', 'Tahoma', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       keyframes: {
         shimmer: {
           '0%': { backgroundPosition: '200% 0' },
           '100%': { backgroundPosition: '-200% 0' },
         },
+        'spin-slow': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
       },
       animation: {
         shimmer: 'shimmer 2s linear infinite',
+        'spin-slow': 'spin-slow 12s linear infinite',
       },
     },
   },
@@ -33,4 +51,4 @@ export default {
     require('@tailwindcss/forms'),
     require('@tailwindcss/typography'),
   ],
-}
+};
