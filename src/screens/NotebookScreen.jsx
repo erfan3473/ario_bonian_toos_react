@@ -17,7 +17,7 @@ import {
     FaHashtag, FaChevronLeft, FaChevronRight, FaPaperclip, 
     FaTimes, FaPaperPlane, FaBook, FaFolderOpen,
     FaEdit, FaTrash, FaCog, FaSpinner, FaSearch, FaFont,
-    FaAlignLeft, FaAlignRight, FaArrowDown
+    FaAlignLeft, FaAlignRight, FaArrowDown, FaExpand, FaCompress
 } from 'react-icons/fa';
 
 import { 
@@ -170,9 +170,9 @@ const getCustomScrollbarStyle = (isDark) => `
       flex: 1 1 auto;
       overflow-y: auto;
       overscroll-behavior-y: contain;
-      font-size: 0.9rem;
-      line-height: 1.75;
-      padding: 10px 12px;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      padding: 6px 10px;
       -webkit-overflow-scrolling: touch;
       word-break: normal !important;
       overflow-wrap: break-word !important;
@@ -182,8 +182,8 @@ const getCustomScrollbarStyle = (isDark) => `
       -moz-tab-size: 4 !important;
   }
   .custom-quill-container:not(.is-fixed-height) .ql-editor {
-      min-height: 44px;
-      max-height: 28dvh;
+      min-height: 34px;
+      max-height: 20dvh;
   }
   @media (min-width: 768px) {
       .custom-quill-container .ql-editor {
@@ -203,10 +203,17 @@ const getCustomScrollbarStyle = (isDark) => `
       text-overflow: ellipsis;
       white-space: nowrap;
       pointer-events: none;
-      right: 12px;
-      left: 12px;
+      right: 10px;
+      left: 10px;
       font-style: normal;
-      font-size: 0.82rem;
+      font-size: 0.76rem;
+  }
+  @media (min-width: 768px) {
+      .custom-quill-container .ql-editor.ql-blank::before {
+          right: 16px;
+          left: 16px;
+          font-size: 0.82rem;
+      }
   }
 
   .custom-quill-container .ql-toolbar {
@@ -225,8 +232,8 @@ const getCustomScrollbarStyle = (isDark) => `
       hyphens: none !important;
       -webkit-hyphens: none !important;
       white-space: pre-wrap !important;
-      line-height: 1.85 !important;
-      font-size: 0.84rem !important;
+      line-height: 1.8 !important;
+      font-size: 0.83rem !important;
       letter-spacing: 0 !important;
       tab-size: 4 !important;
       -moz-tab-size: 4 !important;
@@ -243,7 +250,7 @@ const getCustomScrollbarStyle = (isDark) => `
   .note-rendered-content.ql-editor h1,
   .note-rendered-content.ql-editor h2,
   .note-rendered-content.ql-editor h3 {
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.4rem;
       word-break: normal !important;
       overflow-wrap: break-word !important;
   }
@@ -307,11 +314,11 @@ const getCustomScrollbarStyle = (isDark) => `
       color: #E2E8F0 !important;
       border: 1px solid #334155 !important;
       border-radius: 10px !important;
-      padding: 34px 12px 10px 12px !important;
-      margin: 6px 0 !important;
+      padding: 32px 10px 8px 10px !important;
+      margin: 5px 0 !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-      font-size: 0.8rem !important;
-      line-height: 1.6 !important;
+      font-size: 0.74rem !important;
+      line-height: 1.55 !important;
       overflow-x: auto !important;
       max-width: 100% !important;
       white-space: pre !important;
@@ -320,10 +327,19 @@ const getCustomScrollbarStyle = (isDark) => `
       tab-size: 4 !important;
       -moz-tab-size: 4 !important;
   }
+  @media (min-width: 768px) {
+      .ql-code-block-container,
+      .ql-editor .ql-code-block-container {
+          padding: 34px 12px 10px 12px !important;
+          margin: 6px 0 !important;
+          font-size: 0.8rem !important;
+          line-height: 1.6 !important;
+      }
+  }
 
   .ql-editor .ql-code-block-container .ql-ui {
       position: absolute !important;
-      top: 6px !important;
+      top: 5px !important;
       right: 8px !important;
       left: auto !important;
       background-color: #1E293B !important;
@@ -341,28 +357,38 @@ const getCustomScrollbarStyle = (isDark) => `
 
   .note-rendered-content.ql-editor .ql-code-block-container {
       position: relative !important;
-      padding: 12px 14px !important;
+      padding: 10px 11px !important;
       overflow: hidden !important;
+  }
+  @media (min-width: 768px) {
+      .note-rendered-content.ql-editor .ql-code-block-container {
+          padding: 12px 14px !important;
+      }
   }
 
   .note-rendered-content.ql-editor .ql-code-block-container[data-language]:not([data-language=""]):not([data-language="plain"]) {
-      padding-top: 32px !important;
+      padding-top: 28px !important;
+  }
+  @media (min-width: 768px) {
+      .note-rendered-content.ql-editor .ql-code-block-container[data-language]:not([data-language=""]):not([data-language="plain"]) {
+          padding-top: 32px !important;
+      }
   }
 
   .note-rendered-content.ql-editor .ql-code-block-container[data-language]:not([data-language=""]):not([data-language="plain"])::before {
       content: attr(data-language);
       position: absolute;
-      top: 7px;
-      right: 10px;
-      font-size: 10px;
+      top: 6px;
+      right: 8px;
+      font-size: 9px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #94A3B8;
       background-color: rgba(148, 163, 184, 0.12);
       border: 1px solid rgba(148, 163, 184, 0.22);
-      padding: 1px 7px;
-      border-radius: 6px;
+      padding: 1px 6px;
+      border-radius: 5px;
       pointer-events: none;
       user-select: none;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -427,10 +453,10 @@ const getCustomScrollbarStyle = (isDark) => `
       color: #E2E8F0 !important;
       border: 1px solid #334155 !important;
       border-radius: 10px !important;
-      padding: 12px 14px !important;
+      padding: 10px 11px !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-      font-size: 0.8rem !important;
-      line-height: 1.6 !important;
+      font-size: 0.74rem !important;
+      line-height: 1.55 !important;
       overflow-x: auto !important;
       max-width: 100% !important;
       white-space: pre !important;
@@ -438,6 +464,16 @@ const getCustomScrollbarStyle = (isDark) => `
       overflow-wrap: normal !important;
       tab-size: 4 !important;
       -moz-tab-size: 4 !important;
+  }
+  @media (min-width: 768px) {
+      .ql-editor pre.ql-syntax,
+      .ql-editor pre,
+      .note-rendered-content.ql-editor pre.ql-syntax,
+      .note-rendered-content.ql-editor pre {
+          padding: 12px 14px !important;
+          font-size: 0.8rem !important;
+          line-height: 1.6 !important;
+      }
   }
 
   .ql-editor code:not(.hljs-code-display),
@@ -454,26 +490,26 @@ const getCustomScrollbarStyle = (isDark) => `
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          padding: 4px 6px !important;
-          gap: 2px;
+          padding: 3px 5px !important;
+          gap: 1px;
       }
       .custom-quill-container .ql-toolbar .ql-formats,
       .bubble-quill-editor .ql-toolbar .ql-formats {
           margin-right: 2px !important;
-          margin-bottom: 2px !important;
+          margin-bottom: 1px !important;
           display: inline-flex !important;
           align-items: center;
       }
       .custom-quill-container .ql-toolbar button,
       .bubble-quill-editor .ql-toolbar button {
-          width: 26px !important;
-          height: 26px !important;
-          padding: 3px !important;
+          width: 24px !important;
+          height: 24px !important;
+          padding: 2px !important;
       }
       .custom-quill-container .ql-toolbar .ql-picker-label {
-          padding-left: 4px !important;
+          padding-left: 3px !important;
           padding-right: 2px !important;
-          font-size: 11px !important;
+          font-size: 10px !important;
       }
   }
 
@@ -971,7 +1007,7 @@ const QuillVoiceButton = ({ quillRef, size = 'sm', className = '' }) => {
                     isPendingStartRef.current = false;
                 }, 0);
             }}
-            className="inline-flex items-center"
+            className="inline-flex items-center scale-[0.88] md:scale-100 origin-center"
         >
             <VoiceInputButton
                 value=""
@@ -983,7 +1019,7 @@ const QuillVoiceButton = ({ quillRef, size = 'sm', className = '' }) => {
     );
 };
 
-const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete }) => {
+const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, isReadingMode, onEdit, onDelete }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(entry.content || '');
     const [isSaving, setIsSaving] = useState(false);
@@ -996,6 +1032,13 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
         () => sanitizeAndNormalizeHtml(entry.content, { forDisplay: true }),
         [entry.content]
     );
+
+    useEffect(() => {
+        if (isReadingMode && isEditing) {
+            stopAllVoiceInputs();
+            setIsEditing(false);
+        }
+    }, [isReadingMode, isEditing]);
 
     useEffect(() => {
         if (!isEditing) return;
@@ -1024,36 +1067,44 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
     };
 
     return (
-        <div className="w-full flex justify-center py-1.5 sm:py-2.5 px-2.5 sm:px-4 md:px-8 group">
-            <div className={`w-full max-w-5xl p-3.5 sm:p-4 md:p-5 rounded-2xl shadow-sm border transition-colors overflow-hidden ${
+        <div className={`w-full flex justify-center group ${
+            isReadingMode
+                ? 'py-1 px-1 sm:px-3 md:px-6'
+                : 'py-1 sm:py-2 px-2 sm:px-4 md:px-8'
+        }`}>
+            <div className={`w-full shadow-sm border transition-colors overflow-hidden ${
+                isReadingMode
+                    ? 'max-w-6xl p-2.5 sm:p-4 md:p-6 rounded-xl sm:rounded-2xl'
+                    : 'max-w-5xl p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl'
+            } ${
                 isDark ? 'bg-gray-800/90 border-gray-700/80 shadow-black/20' : 'bg-white border-gray-200/90 shadow-gray-200/50'
             }`}>
                 {isEditing ? (
                     <div className="relative z-20 bubble-quill-editor">
-                        <div className={`mb-2.5 rounded-xl overflow-hidden border ${isDark ? 'quill-dark border-gray-600' : 'bg-white border-gray-300'}`}>
+                        <div className={`mb-2 rounded-xl overflow-hidden border ${isDark ? 'quill-dark border-gray-600' : 'bg-white border-gray-300'}`}>
                             <ReactQuill 
                                 ref={editQuillRef}
                                 theme="snow"
                                 value={editContent}
                                 onChange={setEditContent}
                                 modules={quillModules}
-                                className="w-full [&_.ql-editor]:min-h-[120px] [&_.ql-editor]:max-h-[45dvh]" 
+                                className="w-full [&_.ql-editor]:min-h-[100px] md:[&_.ql-editor]:min-h-[120px] [&_.ql-editor]:max-h-[45dvh]" 
                             />
                         </div>
                         <div className="flex items-center justify-between gap-2">
                             <QuillVoiceButton quillRef={editQuillRef} size="sm" />
-                            <div className="flex gap-2 justify-end">
+                            <div className="flex gap-1.5 sm:gap-2 justify-end">
                                 <button 
                                     onClick={handleCancelEdit} 
                                     disabled={isSaving} 
-                                    className={`px-3.5 py-1.5 rounded-lg font-bold text-xs transition-colors ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+                                    className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
                                 >
                                     انصراف
                                 </button>
                                 <button 
                                     onClick={handleSaveEdit} 
                                     disabled={isSaving} 
-                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition-colors shadow-sm min-w-[95px] flex items-center justify-center"
+                                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition-colors shadow-sm min-w-[85px] flex items-center justify-center"
                                 >
                                     {isSaving ? <FaSpinner className="animate-spin text-sm" /> : 'ذخیره تغییرات'}
                                 </button>
@@ -1062,37 +1113,37 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                     </div>
                 ) : (
                     <div className="flex flex-col w-full min-w-0">
-                        {canEditOrDelete && (
-                            <div className="flex items-center justify-end gap-1 -mt-1 -ml-1 mb-1.5 opacity-80 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        {canEditOrDelete && !isReadingMode && (
+                            <div className="flex items-center justify-end gap-0.5 sm:gap-1 -mt-1 -ml-1 mb-1 opacity-80 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                 <button 
                                     type="button"
                                     onClick={() => {
                                         setEditContent(entry.content || '');
                                         setIsEditing(true);
                                     }} 
-                                    className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
+                                    className={`p-1 sm:p-1.5 rounded-lg transition-colors active:scale-95 ${
                                         isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-blue-600 hover:bg-gray-100'
                                     }`} 
                                     title="ویرایش یادداشت"
                                 >
-                                    <FaEdit className="text-xs sm:text-[13px]" />
+                                    <FaEdit className="text-[11px] sm:text-[13px]" />
                                 </button>
                                 <button 
                                     type="button"
                                     onClick={() => onDelete(entry.id)} 
-                                    className={`p-1.5 rounded-lg transition-colors active:scale-95 ${
+                                    className={`p-1 sm:p-1.5 rounded-lg transition-colors active:scale-95 ${
                                         isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-700/70' : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
                                     }`} 
                                     title="حذف یادداشت"
                                 >
-                                    <FaTrash className="text-xs sm:text-[13px]" />
+                                    <FaTrash className="text-[11px] sm:text-[13px]" />
                                 </button>
                             </div>
                         )}
 
                         <div className="w-full min-w-0">
                             {entry.media && entry.media.length > 0 && (
-                                <div className={`${entry.content ? 'mb-3 sm:mb-4' : ''} flex flex-wrap gap-2 sm:gap-3`}>
+                                <div className={`${entry.content ? 'mb-2.5 sm:mb-4' : ''} flex flex-wrap gap-2 sm:gap-3`}>
                                     {entry.media.map((file, idx) => (
                                         file.file_type === 'IMAGE' ? (
                                             <img 
@@ -1117,7 +1168,7 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                                                 href={file.file} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer" 
-                                                className={`inline-flex items-center gap-2 border px-3 py-2 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-colors shadow-sm max-w-full truncate ${
+                                                className={`inline-flex items-center gap-2 border px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition-colors shadow-sm max-w-full truncate ${
                                                     isDark ? 'bg-gray-700/50 border-gray-600 text-blue-400 hover:bg-gray-700' : 'bg-gray-50 border-gray-300 text-blue-600 hover:bg-gray-100'
                                                 }`}
                                             >
@@ -1169,6 +1220,7 @@ const NotebookScreen = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isReadingMode, setIsReadingMode] = useState(false);
 
     const [isSending, setIsSending] = useState(false);
     const [isCreatingNb, setIsCreatingNb] = useState(false);
@@ -1198,8 +1250,8 @@ const NotebookScreen = () => {
             const saved = localStorage.getItem('notebook_input_height_v3');
             if (saved) {
                 const parsed = parseInt(saved, 10);
-                if (!isNaN(parsed) && parsed >= 120 && parsed <= 600) {
-                    return window.innerWidth < 768 ? Math.min(parsed, 260) : parsed;
+                if (!isNaN(parsed) && parsed >= 88 && parsed <= 600) {
+                    return window.innerWidth < 768 ? Math.min(parsed, 220) : parsed;
                 }
             }
         }
@@ -1227,11 +1279,22 @@ const NotebookScreen = () => {
     useEffect(() => { dispatch(fetchNotebooks()); }, [dispatch]);
 
     useEffect(() => {
-        if (!activeNotebook) return;
+        if (!activeNotebook || isReadingMode) return;
         const editor = quillRef.current?.getEditor();
         if (!editor) return;
         return attachQuillCodeHandlers(editor);
-    }, [activeNotebook]);
+    }, [activeNotebook, isReadingMode]);
+
+    useEffect(() => {
+        if (!isReadingMode) return;
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                setIsReadingMode(false);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [isReadingMode]);
 
     useEffect(() => {
         if (notebooks.length > 0) {
@@ -1279,14 +1342,26 @@ const NotebookScreen = () => {
         currentNotebookIdRef.current = activeNotebook?.id;
     }, [currentEntries, activeNotebook, searchQuery]);
 
+    const handleToggleReadingMode = () => {
+        setIsReadingMode((prev) => {
+            const next = !prev;
+            if (next) {
+                stopAllVoiceInputs();
+                setIsEditingNotebook(false);
+                setIsSearchOpen(false);
+            }
+            return next;
+        });
+    };
+
     const handleToggleFormatting = () => {
         setShowFormatting((prev) => {
             const nextState = !prev;
             if (customInputHeight !== null && typeof window !== 'undefined' && window.innerWidth < 768) {
-                if (nextState && customInputHeight < 200) {
-                    setCustomInputHeight(210);
-                } else if (!nextState && customInputHeight > 180) {
-                    setCustomInputHeight(148);
+                if (nextState && customInputHeight < 170) {
+                    setCustomInputHeight(180);
+                } else if (!nextState && customInputHeight > 140) {
+                    setCustomInputHeight(110);
                 }
             }
             return nextState;
@@ -1297,7 +1372,7 @@ const NotebookScreen = () => {
         e.preventDefault();
         isDraggingRef.current = true;
         startYRef.current = e.clientY;
-        const currentBoxHeight = composerContainerRef.current?.offsetHeight || customInputHeight || 180;
+        const currentBoxHeight = composerContainerRef.current?.offsetHeight || customInputHeight || 160;
         startHeightRef.current = currentBoxHeight;
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'row-resize';
@@ -1305,7 +1380,7 @@ const NotebookScreen = () => {
         const handleMouseMove = (moveEvent) => {
             if (!isDraggingRef.current) return;
             const delta = startYRef.current - moveEvent.clientY;
-            const minH = showFormatting ? 160 : 115;
+            const minH = showFormatting ? 150 : 100;
             const maxHeight = Math.min(window.innerHeight * 0.65, 580);
             const newHeight = Math.max(minH, Math.min(startHeightRef.current + delta, maxHeight));
             setCustomInputHeight(newHeight);
@@ -1333,15 +1408,15 @@ const NotebookScreen = () => {
         if (!e.touches?.[0]) return;
         isDraggingRef.current = true;
         startYRef.current = e.touches[0].clientY;
-        const currentBoxHeight = composerContainerRef.current?.offsetHeight || customInputHeight || 160;
+        const currentBoxHeight = composerContainerRef.current?.offsetHeight || customInputHeight || 110;
         startHeightRef.current = currentBoxHeight;
 
         const handleTouchMove = (moveEvent) => {
             if (!isDraggingRef.current || !moveEvent.touches?.[0]) return;
             if (moveEvent.cancelable) moveEvent.preventDefault();
             const delta = startYRef.current - moveEvent.touches[0].clientY;
-            const minH = showFormatting ? 165 : 115;
-            const maxHeight = Math.min(window.innerHeight * 0.5, 400);
+            const minH = showFormatting ? 140 : 88;
+            const maxHeight = Math.min(window.innerHeight * 0.48, 360);
             const newHeight = Math.max(minH, Math.min(startHeightRef.current + delta, maxHeight));
             setCustomInputHeight(newHeight);
         };
@@ -1388,6 +1463,7 @@ const NotebookScreen = () => {
 
     const handleBackToList = () => {
         stopAllVoiceInputs();
+        setIsReadingMode(false);
         setActiveNotebook(null);
         localStorage.removeItem('activeNotebookId');
     };
@@ -1521,22 +1597,22 @@ const NotebookScreen = () => {
             <style>{getCustomScrollbarStyle(isDark)}</style>
             
             <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-                <div className={`${activeNotebook ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col shrink-0 min-h-0 transition-colors duration-200 border-l ${
+                <div className={`${isReadingMode ? 'hidden' : activeNotebook ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col shrink-0 min-h-0 transition-colors duration-200 border-l ${
                     isDark ? 'bg-gray-900/90 border-gray-800' : 'bg-white border-gray-200 shadow-sm'
                 }`}>
-                    <div className={`px-4 py-3.5 md:p-5 font-black text-base md:text-lg border-b flex items-center justify-between shrink-0 ${
+                    <div className={`px-3.5 py-2.5 md:p-5 font-black text-sm md:text-lg border-b flex items-center justify-between shrink-0 ${
                         isDark ? 'border-gray-800 text-white' : 'border-gray-100 text-gray-800'
                     }`}>
-                        <div className="flex items-center gap-2.5">
-                            <FaBookOpen className="text-blue-500 text-lg md:text-xl" />
+                        <div className="flex items-center gap-2">
+                            <FaBookOpen className="text-blue-500 text-base md:text-xl" />
                             <span>مدیریت دفترچه‌ها</span>
                         </div>
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded-full ${isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
                             {notebooks.length} مورد
                         </span>
                     </div>
 
-                    <form onSubmit={handleCreateNotebook} className={`p-3 md:p-3.5 border-b flex flex-col gap-2.5 shrink-0 ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
+                    <form onSubmit={handleCreateNotebook} className={`p-2.5 md:p-3.5 border-b flex flex-col gap-2 shrink-0 ${isDark ? 'border-gray-800' : 'border-gray-100'}`}>
                         {isAdmin && (
                             <div className="flex items-center gap-4 px-1">
                                 <label className="flex items-center gap-1.5 text-xs font-bold cursor-pointer select-none">
@@ -1555,14 +1631,14 @@ const NotebookScreen = () => {
                                 value={newNotebookTitle} 
                                 onChange={(e) => setNewNotebookTitle(e.target.value)} 
                                 placeholder="نام دفترچه جدید..." 
-                                className={`w-full py-2.5 pl-10 pr-3.5 rounded-xl text-xs font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
+                                className={`w-full py-2 md:py-2.5 pl-10 pr-3 rounded-xl text-xs font-bold border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
                                     isDark ? 'bg-gray-800/80 text-white border-gray-700 placeholder-gray-500' : 'bg-gray-50 text-gray-900 border-gray-200 placeholder-gray-400'
                                 }`} 
                             />
                             <button 
                                 type="submit" 
                                 disabled={isCreatingNb} 
-                                className={`absolute left-1.5 top-1/2 transform -translate-y-1/2 p-2 rounded-lg transition-colors ${
+                                className={`absolute left-1.5 top-1/2 transform -translate-y-1/2 p-1.5 md:p-2 rounded-lg transition-colors ${
                                     isDark ? 'text-blue-400 hover:text-white hover:bg-blue-600' : 'text-blue-600 hover:text-white hover:bg-blue-500'
                                 } ${isCreatingNb ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
@@ -1571,7 +1647,7 @@ const NotebookScreen = () => {
                         </div>
                     </form>
 
-                    <div className="overflow-y-auto overscroll-y-contain touch-pan-y flex-1 min-h-0 p-2.5 space-y-1.5 notebook-scrollbar">
+                    <div className="overflow-y-auto overscroll-y-contain touch-pan-y flex-1 min-h-0 p-2 md:p-2.5 space-y-1.5 notebook-scrollbar">
                         {loading && notebooks.length === 0 ? (
                             <p className={`text-center mt-6 font-bold text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>در حال بارگذاری...</p>
                         ) : notebooks.length === 0 ? (
@@ -1584,7 +1660,7 @@ const NotebookScreen = () => {
                                 <button
                                     key={nb.id}
                                     onClick={() => handleSelectNotebook(nb)}
-                                    className={`w-full text-right px-3.5 py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-between group border relative overflow-hidden active:scale-[0.99] ${
+                                    className={`w-full text-right px-3 py-2.5 md:px-3.5 md:py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-between group border relative overflow-hidden active:scale-[0.99] ${
                                         activeNotebook?.id === nb.id
                                             ? isDark 
                                                 ? 'bg-blue-900/30 text-blue-400 border-blue-500/40' 
@@ -1620,151 +1696,166 @@ const NotebookScreen = () => {
                 }`}>
                     {activeNotebook ? (
                         <>
-                            <div className={`px-3 py-2.5 md:px-6 border-b flex flex-wrap items-center justify-between gap-2 z-10 shrink-0 min-h-[54px] transition-colors ${
-                                isDark ? 'bg-gray-900/95 backdrop-blur border-gray-800' : 'bg-white/95 backdrop-blur border-gray-200'
-                            }`}>
-                                {isEditingNotebook ? (
-                                    <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-                                        <div className="flex items-center gap-2 flex-1 min-w-[180px]">
-                                            <input 
-                                                type="text" 
-                                                value={editNbTitle} 
-                                                onChange={e => setEditNbTitle(e.target.value)} 
-                                                placeholder="نام دفترچه..."
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold border focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0 ${
-                                                    isDark ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-300'
-                                                }`} 
-                                            />
-                                            {isAdmin && (
-                                                <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border shrink-0 ${
-                                                    isDark ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-100 border-gray-200'
-                                                }`}>
-                                                    <label className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold cursor-pointer">
-                                                        <input type="radio" value="PERSONAL" checked={editNbType === 'PERSONAL'} onChange={(e) => setEditNbType(e.target.value)} className="accent-blue-500" />
-                                                        <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>شخصی</span>
-                                                    </label>
-                                                    <label className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold cursor-pointer">
-                                                        <input type="radio" value="COMPANY" checked={editNbType === 'COMPANY'} onChange={(e) => setEditNbType(e.target.value)} className="accent-yellow-500" />
-                                                        <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>شرکتی</span>
-                                                    </label>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                            <button 
-                                                onClick={handleSaveNotebookUpdate} 
-                                                disabled={isUpdatingNb} 
-                                                className="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-colors flex items-center justify-center min-w-[60px]"
-                                            >
-                                                {isUpdatingNb ? <FaSpinner className="animate-spin" /> : 'ذخیره'}
-                                            </button>
-                                            <button 
-                                                onClick={() => setIsEditingNotebook(false)} 
-                                                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                                                    isDark ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-gray-100 text-gray-700 border-gray-200'
-                                                }`}
-                                            >
-                                                لغو
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className={`flex items-center gap-2.5 min-w-0 flex-1 ${isSearchOpen ? 'hidden sm:flex' : 'flex'}`}>
-                                            <button
-                                                onClick={handleBackToList}
-                                                className={`md:hidden flex items-center justify-center p-2 rounded-xl border shrink-0 active:scale-95 transition-transform ${
-                                                    isDark ? 'bg-gray-800 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'
-                                                }`}
-                                                title="بازگشت به لیست دفترچه‌ها"
-                                            >
-                                                <FaChevronRight className="text-xs" />
-                                            </button>
-
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <h2 className={`font-black text-sm sm:text-lg md:text-xl truncate flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-gray-800'}`} title={activeNotebook.title}>
-                                                    <FaHashtag className="text-blue-500 opacity-80 shrink-0 text-xs sm:text-base" />
-                                                    <span className="truncate">{activeNotebook.title}</span>
-                                                </h2>
-                                                {activeNotebook.notebook_type === 'COMPANY' ? (
-                                                    <span className="bg-yellow-500/15 text-yellow-600 border border-yellow-500/30 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg font-bold shrink-0">
-                                                        شرکتی
-                                                    </span>
-                                                ) : (
-                                                    <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-lg font-bold shrink-0">
-                                                        شخصی
-                                                    </span>
+                            {!isReadingMode && (
+                                <div className={`px-2 py-1 md:px-6 md:py-2.5 border-b flex flex-wrap items-center justify-between gap-1.5 md:gap-2 z-10 shrink-0 min-h-[40px] md:min-h-[54px] transition-colors ${
+                                    isDark ? 'bg-gray-900/95 backdrop-blur border-gray-800' : 'bg-white/95 backdrop-blur border-gray-200'
+                                }`}>
+                                    {isEditingNotebook ? (
+                                        <div className="flex flex-wrap items-center justify-between gap-1.5 w-full">
+                                            <div className="flex items-center gap-1.5 flex-1 min-w-[160px]">
+                                                <input 
+                                                    type="text" 
+                                                    value={editNbTitle} 
+                                                    onChange={e => setEditNbTitle(e.target.value)} 
+                                                    placeholder="نام دفترچه..."
+                                                    className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl text-xs font-bold border focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0 ${
+                                                        isDark ? 'bg-gray-800 text-white border-gray-700' : 'bg-white text-gray-900 border-gray-300'
+                                                    }`} 
+                                                />
+                                                {isAdmin && (
+                                                    <div className={`flex items-center gap-2 px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg md:rounded-xl border shrink-0 ${
+                                                        isDark ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-100 border-gray-200'
+                                                    }`}>
+                                                        <label className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold cursor-pointer">
+                                                            <input type="radio" value="PERSONAL" checked={editNbType === 'PERSONAL'} onChange={(e) => setEditNbType(e.target.value)} className="accent-blue-500" />
+                                                            <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>شخصی</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold cursor-pointer">
+                                                            <input type="radio" value="COMPANY" checked={editNbType === 'COMPANY'} onChange={(e) => setEditNbType(e.target.value)} className="accent-yellow-500" />
+                                                            <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>شرکتی</span>
+                                                        </label>
+                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
-
-                                        <div className={`flex items-center gap-1 sm:gap-1.5 ${isSearchOpen ? 'w-full sm:w-auto' : 'shrink-0'}`}>
-                                            {isSearchOpen ? (
-                                                <div className={`flex items-center px-3 py-1.5 rounded-xl border transition-all w-full sm:w-auto ${
-                                                    isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-300'
-                                                }`}>
-                                                    <FaSearch className="text-gray-400 text-xs ml-2 shrink-0" />
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="جستجو در یادداشت‌ها..."
-                                                        value={searchQuery}
-                                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                                        autoFocus
-                                                        className={`bg-transparent border-none focus:outline-none text-xs flex-1 sm:w-44 min-w-0 ${
-                                                            isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
-                                                        }`}
-                                                    />
-                                                    <button 
-                                                        onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} 
-                                                        className="text-gray-400 hover:text-red-500 mr-1.5 p-0.5 shrink-0"
-                                                    >
-                                                        <FaTimes className="text-xs" />
-                                                    </button>
-                                                </div>
-                                            ) : (
+                                            <div className="flex items-center gap-1.5 shrink-0">
                                                 <button 
-                                                    onClick={() => setIsSearchOpen(true)} 
-                                                    className={`p-2 rounded-xl transition-colors ${
-                                                        isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'
-                                                    }`} 
-                                                    title="جستجو"
+                                                    onClick={handleSaveNotebookUpdate} 
+                                                    disabled={isUpdatingNb} 
+                                                    className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 md:px-3.5 md:py-1.5 rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold shadow-sm transition-colors flex items-center justify-center min-w-[54px]"
                                                 >
-                                                    <FaSearch className="text-sm" />
+                                                    {isUpdatingNb ? <FaSpinner className="animate-spin" /> : 'ذخیره'}
                                                 </button>
-                                            )}
-
-                                            {canManageNotebook && !isSearchOpen && (
-                                                <>
-                                                    <button 
-                                                        onClick={handleStartEditNotebook} 
-                                                        className={`p-2 rounded-xl transition-colors ${
-                                                            isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'
-                                                        }`} 
-                                                        title="ویرایش نام دفترچه"
-                                                    >
-                                                        <FaCog className="text-sm" />
-                                                    </button>
-                                                    <button 
-                                                        onClick={handleDeleteNotebook} 
-                                                        className={`p-2 rounded-xl transition-colors ${
-                                                            isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-800' : 'text-gray-500 hover:text-red-600 hover:bg-gray-100'
-                                                        }`} 
-                                                        title="حذف دفترچه"
-                                                    >
-                                                        <FaTrash className="text-sm" />
-                                                    </button>
-                                                </>
-                                            )}
+                                                <button 
+                                                    onClick={() => setIsEditingNotebook(false)} 
+                                                    className={`px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold border transition-colors ${
+                                                        isDark ? 'bg-gray-800 text-gray-300 border-gray-700' : 'bg-gray-100 text-gray-700 border-gray-200'
+                                                    }`}
+                                                >
+                                                    لغو
+                                                </button>
+                                            </div>
                                         </div>
-                                    </>
-                                )}
-                            </div>
+                                    ) : (
+                                        <>
+                                            <div className={`flex items-center gap-1.5 md:gap-2.5 min-w-0 flex-1 ${isSearchOpen ? 'hidden sm:flex' : 'flex'}`}>
+                                                <button
+                                                    onClick={handleBackToList}
+                                                    className={`md:hidden flex items-center justify-center p-1.5 rounded-lg border shrink-0 active:scale-95 transition-transform ${
+                                                        isDark ? 'bg-gray-800 text-white border-gray-700' : 'bg-gray-50 text-gray-800 border-gray-200'
+                                                    }`}
+                                                    title="بازگشت به لیست دفترچه‌ها"
+                                                >
+                                                    <FaChevronRight className="text-[11px]" />
+                                                </button>
+
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <h2 className={`font-black text-xs sm:text-base md:text-xl truncate flex items-center gap-1 ${isDark ? 'text-white' : 'text-gray-800'}`} title={activeNotebook.title}>
+                                                        <FaHashtag className="text-blue-500 opacity-80 shrink-0 text-[10px] sm:text-sm md:text-base" />
+                                                        <span className="truncate">{activeNotebook.title}</span>
+                                                    </h2>
+                                                    {activeNotebook.notebook_type === 'COMPANY' ? (
+                                                        <span className="bg-yellow-500/15 text-yellow-600 border border-yellow-500/30 text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-md font-bold shrink-0">
+                                                            شرکتی
+                                                        </span>
+                                                    ) : (
+                                                        <span className="bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[8px] sm:text-[10px] px-1.5 py-0.5 rounded-md font-bold shrink-0">
+                                                            شخصی
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className={`flex items-center gap-0.5 sm:gap-1.5 ${isSearchOpen ? 'w-full sm:w-auto' : 'shrink-0'}`}>
+                                                {isSearchOpen ? (
+                                                    <div className={`flex items-center px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl border transition-all w-full sm:w-auto ${
+                                                        isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-300'
+                                                    }`}>
+                                                        <FaSearch className="text-gray-400 text-[11px] ml-1.5 shrink-0" />
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="جستجو در یادداشت‌ها..."
+                                                            value={searchQuery}
+                                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                                            autoFocus
+                                                            className={`bg-transparent border-none focus:outline-none text-xs flex-1 sm:w-44 min-w-0 ${
+                                                                isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'
+                                                            }`}
+                                                        />
+                                                        <button 
+                                                            onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} 
+                                                            className="text-gray-400 hover:text-red-500 mr-1 p-0.5 shrink-0"
+                                                        >
+                                                            <FaTimes className="text-[11px]" />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <button 
+                                                            onClick={handleToggleReadingMode} 
+                                                            className={`p-1.5 md:p-2 rounded-lg md:rounded-xl transition-colors ${
+                                                                isDark ? 'text-gray-400 hover:text-emerald-400 hover:bg-gray-800' : 'text-gray-500 hover:text-emerald-600 hover:bg-gray-100'
+                                                            }`} 
+                                                            title="حالت مطالعه تمام‌صفحه"
+                                                        >
+                                                            <FaExpand className="text-xs md:text-sm" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => setIsSearchOpen(true)} 
+                                                            className={`p-1.5 md:p-2 rounded-lg md:rounded-xl transition-colors ${
+                                                                isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'
+                                                            }`} 
+                                                            title="جستجو"
+                                                        >
+                                                            <FaSearch className="text-xs md:text-sm" />
+                                                        </button>
+                                                    </>
+                                                )}
+
+                                                {canManageNotebook && !isSearchOpen && (
+                                                    <>
+                                                        <button 
+                                                            onClick={handleStartEditNotebook} 
+                                                            className={`p-1.5 md:p-2 rounded-lg md:rounded-xl transition-colors ${
+                                                                isDark ? 'text-gray-400 hover:text-blue-400 hover:bg-gray-800' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'
+                                                            }`} 
+                                                            title="ویرایش نام دفترچه"
+                                                        >
+                                                            <FaCog className="text-xs md:text-sm" />
+                                                        </button>
+                                                        <button 
+                                                            onClick={handleDeleteNotebook} 
+                                                            className={`p-1.5 md:p-2 rounded-lg md:rounded-xl transition-colors ${
+                                                                isDark ? 'text-gray-400 hover:text-red-400 hover:bg-gray-800' : 'text-gray-500 hover:text-red-600 hover:bg-gray-100'
+                                                            }`} 
+                                                            title="حذف دفترچه"
+                                                        >
+                                                            <FaTrash className="text-xs md:text-sm" />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
                                 <div 
                                     ref={messagesContainerRef}
                                     onScroll={handleMessagesScroll}
-                                    className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y flex flex-col notebook-scrollbar py-1.5"
+                                    className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y flex flex-col notebook-scrollbar ${
+                                        isReadingMode ? 'py-1 pb-12' : 'py-1'
+                                    }`}
                                 >
                                     {filteredEntries.length > 0 ? (
                                         filteredEntries.map((entry) => (
@@ -1774,6 +1865,7 @@ const NotebookScreen = () => {
                                                 isDark={isDark} 
                                                 userInfo={userInfo}
                                                 isAdmin={isAdmin}
+                                                isReadingMode={isReadingMode}
                                                 onEdit={handleEditNote}
                                                 onDelete={handleDeleteNote}
                                             />
@@ -1783,156 +1875,176 @@ const NotebookScreen = () => {
                                             یادداشتی وجود ندارد یا نتیجه‌ای یافت نشد.
                                         </div>
                                     )}
-                                    <div className="h-3 shrink-0" />
+                                    <div className="h-2 shrink-0" />
                                 </div>
+
+                                {isReadingMode && (
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleReadingMode}
+                                        className={`absolute bottom-2.5 left-2.5 z-30 px-2.5 py-1.5 rounded-full shadow-lg border backdrop-blur-md flex items-center gap-1.5 text-[11px] font-bold transition-all active:scale-95 ${
+                                            isDark
+                                                ? 'bg-gray-900/85 border-gray-700 text-gray-200 hover:bg-gray-800'
+                                                : 'bg-white/90 border-gray-300 text-gray-800 hover:bg-gray-50'
+                                        }`}
+                                        title="خروج از حالت مطالعه (Esc)"
+                                    >
+                                        <FaCompress className="text-[10px]" />
+                                        <span>خروج</span>
+                                    </button>
+                                )}
 
                                 {showScrollBottom && (
                                     <button
                                         type="button"
                                         onClick={() => scrollToBottom('smooth')}
-                                        className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-20 p-2.5 rounded-full shadow-lg border backdrop-blur-md transition-all active:scale-95 ${
+                                        className={`absolute bottom-2 md:bottom-3 left-1/2 -translate-x-1/2 z-20 p-1.5 md:p-2 rounded-full shadow-md border backdrop-blur-md transition-all active:scale-95 ${
                                             isDark
-                                                ? 'bg-gray-800/90 border-gray-700 text-gray-200 hover:bg-gray-700'
-                                                : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-50'
+                                                ? 'bg-gray-800/85 border-gray-700 text-gray-200 hover:bg-gray-700'
+                                                : 'bg-white/90 border-gray-200 text-gray-700 hover:bg-gray-50'
                                         }`}
                                         title="رفتن به آخرین یادداشت"
                                     >
-                                        <FaArrowDown className="text-xs" />
+                                        <FaArrowDown className="text-[10px] md:text-xs" />
                                     </button>
                                 )}
                             </div>
 
-                            <div
-                                onMouseDown={handleDividerMouseDown}
-                                onTouchStart={handleDividerTouchStart}
-                                onDoubleClick={handleResetDividerHeight}
-                                className={`w-full h-3.5 cursor-row-resize touch-none flex items-center justify-center select-none transition-colors border-t border-b shrink-0 z-10 ${
-                                    isDark 
-                                        ? 'bg-gray-900 hover:bg-blue-900/30 border-gray-800 hover:border-blue-500/40' 
-                                        : 'bg-gray-200/70 hover:bg-blue-100 border-gray-300 hover:border-blue-300'
-                                }`}
-                                title="برای تغییر ارتفاع بکشید (دابل‌کلیک برای بازگشت به حالت خودکار)"
-                            >
-                                <div className={`w-10 sm:w-12 h-1 rounded-full transition-colors ${
-                                    isDark ? 'bg-gray-700' : 'bg-gray-400'
-                                }`} />
-                            </div>
+                            {!isReadingMode && (
+                                <>
+                                    <div
+                                        onMouseDown={handleDividerMouseDown}
+                                        onTouchStart={handleDividerTouchStart}
+                                        onDoubleClick={handleResetDividerHeight}
+                                        className={`w-full h-2.5 md:h-3.5 cursor-row-resize touch-none flex items-center justify-center select-none transition-colors border-t border-b shrink-0 z-10 ${
+                                            isDark 
+                                                ? 'bg-gray-900 hover:bg-blue-900/30 border-gray-800 hover:border-blue-500/40' 
+                                                : 'bg-gray-200/70 hover:bg-blue-100 border-gray-300 hover:border-blue-300'
+                                        }`}
+                                        title="برای تغییر ارتفاع بکشید (دابل‌کلیک برای بازگشت به حالت خودکار)"
+                                    >
+                                        <div className={`w-8 sm:w-12 h-0.5 md:h-1 rounded-full transition-colors ${
+                                            isDark ? 'bg-gray-700' : 'bg-gray-400'
+                                        }`} />
+                                    </div>
 
-                            <div 
-                                ref={composerContainerRef}
-                                style={customInputHeight !== null ? { height: `${customInputHeight}px` } : undefined} 
-                                className={`max-h-[45dvh] md:max-h-[60dvh] p-2 sm:p-2.5 md:p-3.5 shrink-0 transition-colors flex flex-col ${
-                                    isDark ? 'bg-gray-950' : 'bg-white'
-                                }`}
-                            >
-                                <div className="max-w-5xl w-full mx-auto flex flex-col flex-1 min-h-0 relative">
-                                    {selectedFile && (
-                                        <div className={`mb-1.5 shrink-0 flex items-center gap-2 border max-w-full w-max px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-sm ${
-                                            isDark ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-800'
-                                        }`}>
-                                            <FaPaperclip className="text-blue-500 shrink-0" />
-                                            <span className="truncate max-w-[180px] sm:max-w-[260px]">{selectedFile.name}</span>
-                                            <button type="button" onClick={() => setSelectedFile(null)} className="text-gray-400 hover:text-red-500 mr-1 shrink-0">
-                                                <FaTimes />
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <form 
-                                        onSubmit={handleSendMessage} 
-                                        className={`flex-1 min-h-0 flex flex-col border rounded-2xl shadow-sm overflow-hidden transition-colors ${
-                                            isDark ? 'bg-gray-900 border-gray-800 focus-within:border-blue-500/60' : 'bg-white border-gray-300 focus-within:border-blue-500'
+                                    <div 
+                                        ref={composerContainerRef}
+                                        style={customInputHeight !== null ? { height: `${customInputHeight}px` } : undefined} 
+                                        className={`max-h-[38dvh] md:max-h-[60dvh] p-1 sm:p-2 md:p-3.5 shrink-0 transition-colors flex flex-col ${
+                                            isDark ? 'bg-gray-950' : 'bg-white'
                                         }`}
                                     >
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])} 
-                                            className="hidden" 
-                                        />
+                                        <div className="max-w-5xl w-full mx-auto flex flex-col flex-1 min-h-0 relative">
+                                            {selectedFile && (
+                                                <div className={`mb-1 shrink-0 flex items-center gap-1.5 border max-w-full w-max px-2 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold shadow-sm ${
+                                                    isDark ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-gray-50 border-gray-200 text-gray-800'
+                                                }`}>
+                                                    <FaPaperclip className="text-blue-500 shrink-0 text-[10px]" />
+                                                    <span className="truncate max-w-[160px] sm:max-w-[260px]">{selectedFile.name}</span>
+                                                    <button type="button" onClick={() => setSelectedFile(null)} className="text-gray-400 hover:text-red-500 mr-1 shrink-0">
+                                                        <FaTimes className="text-[10px]" />
+                                                    </button>
+                                                </div>
+                                            )}
 
-                                        <div 
-                                            onKeyDown={handleEditorKeyDown}
-                                            className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isDark ? 'quill-dark' : ''} ${!showFormatting ? 'hide-quill-toolbar' : ''}`}
-                                        >
-                                            <ReactQuill 
-                                                ref={quillRef}
-                                                theme="snow"
-                                                value={inputText}
-                                                onChange={setInputText}
-                                                modules={quillModules}
-                                                placeholder="یادداشت خود را بنویسید (فارسی یا انگلیسی)..."
-                                                className={`custom-quill-container ${customInputHeight !== null ? 'is-fixed-height' : ''} ${editorDirection === 'ltr' ? 'force-ltr' : editorDirection === 'rtl' ? 'force-rtl' : ''}`}
-                                            />
+                                            <form 
+                                                onSubmit={handleSendMessage} 
+                                                className={`flex-1 min-h-0 flex flex-col border rounded-xl md:rounded-2xl shadow-sm overflow-hidden transition-colors ${
+                                                    isDark ? 'bg-gray-900 border-gray-800 focus-within:border-blue-500/60' : 'bg-white border-gray-300 focus-within:border-blue-500'
+                                                }`}
+                                            >
+                                                <input 
+                                                    type="file" 
+                                                    ref={fileInputRef} 
+                                                    onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])} 
+                                                    className="hidden" 
+                                                />
+
+                                                <div 
+                                                    onKeyDown={handleEditorKeyDown}
+                                                    className={`flex-1 min-h-0 flex flex-col overflow-hidden ${isDark ? 'quill-dark' : ''} ${!showFormatting ? 'hide-quill-toolbar' : ''}`}
+                                                >
+                                                    <ReactQuill 
+                                                        ref={quillRef}
+                                                        theme="snow"
+                                                        value={inputText}
+                                                        onChange={setInputText}
+                                                        modules={quillModules}
+                                                        placeholder="یادداشت خود را بنویسید..."
+                                                        className={`custom-quill-container ${customInputHeight !== null ? 'is-fixed-height' : ''} ${editorDirection === 'ltr' ? 'force-ltr' : editorDirection === 'rtl' ? 'force-rtl' : ''}`}
+                                                    />
+                                                </div>
+
+                                                <div className={`py-1 px-1.5 sm:p-2 sm:px-3 flex items-center justify-between border-t shrink-0 relative z-20 ${
+                                                    isDark ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'
+                                                }`}>
+                                                    <div className="flex items-center gap-1 sm:gap-2">
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => fileInputRef.current.click()} 
+                                                            className={`p-1.5 md:p-2 rounded-lg md:rounded-xl transition-colors active:scale-95 ${
+                                                                isDark ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                                                            }`}
+                                                            title="پیوست فایل"
+                                                        >
+                                                            <FaPaperclip className="text-[11px] sm:text-sm" />
+                                                        </button>
+                                                        
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={handleToggleFormatting} 
+                                                            className={`p-1.5 px-2 md:p-2 md:px-2.5 rounded-lg md:rounded-xl transition-colors flex items-center gap-1 text-[10px] sm:text-xs font-bold active:scale-95 ${
+                                                                showFormatting 
+                                                                    ? 'bg-blue-600/15 text-blue-500 border border-blue-500/30' 
+                                                                    : isDark 
+                                                                        ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' 
+                                                                        : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
+                                                            }`}
+                                                            title={showFormatting ? "پنهان‌سازی نوار ابزار" : "نمایش ابزارهای نگارش"}
+                                                        >
+                                                            <FaFont className="text-[11px] sm:text-xs" />
+                                                            <span className="hidden sm:inline">ابزارها</span>
+                                                        </button>
+
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={toggleDirectionMode} 
+                                                            className={`p-1.5 px-2 md:p-2 md:px-2.5 rounded-lg md:rounded-xl transition-colors flex items-center gap-1 text-[10px] sm:text-xs font-bold active:scale-95 ${
+                                                                editorDirection === 'ltr' 
+                                                                    ? 'bg-emerald-600/15 text-emerald-500 border border-emerald-500/30' 
+                                                                    : isDark 
+                                                                        ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' 
+                                                                        : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
+                                                            }`}
+                                                            title="تغییر جهت چپ‌چین (انگلیسی) / راست‌چین (فارسی)"
+                                                        >
+                                                            {editorDirection === 'ltr' ? <FaAlignLeft className="text-[10px] sm:text-xs" /> : <FaAlignRight className="text-[10px] sm:text-xs" />}
+                                                            <span className="text-[9px] sm:text-xs">{editorDirection === 'ltr' ? 'LTR' : 'RTL'}</span>
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1 sm:gap-2">
+                                                        <QuillVoiceButton quillRef={quillRef} size="sm" />
+                                                        <button 
+                                                            type="submit" 
+                                                            disabled={isInputEmpty || isSending} 
+                                                            className={`px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg md:rounded-xl transition-all font-bold text-[11px] sm:text-xs flex items-center gap-1.5 ${
+                                                                isInputEmpty || isSending 
+                                                                    ? (isDark ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed') 
+                                                                    : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md active:scale-95'
+                                                            }`}
+                                                        >
+                                                            <span>ارسال</span>
+                                                            {isSending ? <FaSpinner className="text-[11px] sm:text-xs animate-spin" /> : <FaPaperPlane className="text-[10px] sm:text-xs" />}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </form>
                                         </div>
-
-                                        <div className={`py-1.5 px-2.5 sm:p-2 sm:px-3 flex items-center justify-between border-t shrink-0 relative z-20 ${
-                                            isDark ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'
-                                        }`}>
-                                            <div className="flex items-center gap-1.5 sm:gap-2">
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => fileInputRef.current.click()} 
-                                                    className={`p-2 rounded-xl transition-colors active:scale-95 ${
-                                                        isDark ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                                                    }`}
-                                                    title="پیوست فایل"
-                                                >
-                                                    <FaPaperclip className="text-xs sm:text-sm" />
-                                                </button>
-                                                
-                                                <button 
-                                                    type="button" 
-                                                    onClick={handleToggleFormatting} 
-                                                    className={`p-2 px-2.5 rounded-xl transition-colors flex items-center gap-1.5 text-[11px] sm:text-xs font-bold active:scale-95 ${
-                                                        showFormatting 
-                                                            ? 'bg-blue-600/15 text-blue-500 border border-blue-500/30' 
-                                                            : isDark 
-                                                                ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' 
-                                                                : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
-                                                    }`}
-                                                    title={showFormatting ? "پنهان‌سازی نوار ابزار" : "نمایش ابزارهای نگارش"}
-                                                >
-                                                    <FaFont className="text-xs" />
-                                                    <span className="hidden sm:inline">ابزارها</span>
-                                                </button>
-
-                                                <button 
-                                                    type="button" 
-                                                    onClick={toggleDirectionMode} 
-                                                    className={`p-2 px-2.5 rounded-xl transition-colors flex items-center gap-1.5 text-[11px] sm:text-xs font-bold active:scale-95 ${
-                                                        editorDirection === 'ltr' 
-                                                            ? 'bg-emerald-600/15 text-emerald-500 border border-emerald-500/30' 
-                                                            : isDark 
-                                                                ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' 
-                                                                : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
-                                                    }`}
-                                                    title="تغییر جهت چپ‌چین (انگلیسی) / راست‌چین (فارسی)"
-                                                >
-                                                    {editorDirection === 'ltr' ? <FaAlignLeft className="text-xs" /> : <FaAlignRight className="text-xs" />}
-                                                    <span className="text-[10px] sm:text-xs">{editorDirection === 'ltr' ? 'LTR' : 'RTL'}</span>
-                                                </button>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <QuillVoiceButton quillRef={quillRef} size="sm" />
-                                                <button 
-                                                    type="submit" 
-                                                    disabled={isInputEmpty || isSending} 
-                                                    className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl transition-all font-bold text-xs flex items-center gap-1.5 ${
-                                                        isInputEmpty || isSending 
-                                                            ? (isDark ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed') 
-                                                            : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md active:scale-95'
-                                                    }`}
-                                                >
-                                                    <span>ارسال</span>
-                                                    {isSending ? <FaSpinner className="text-xs animate-spin" /> : <FaPaperPlane className="text-xs" />}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
+                                    </div>
+                                </>
+                            )}
                         </>
                     ) : (
                         <div className={`hidden md:flex flex-1 items-center justify-center flex-col gap-4 ${isDark ? 'bg-gray-950' : 'bg-gray-50'}`}>
