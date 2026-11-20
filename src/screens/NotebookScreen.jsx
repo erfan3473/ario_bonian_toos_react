@@ -24,7 +24,7 @@ import {
     fetchNotebooks, fetchNoteEntries, createNoteEntry, createNotebook, 
     editNoteEntry, deleteNoteEntry, updateNotebook, deleteNotebook 
 } from '../features/notebook/notebookSlice';
-import VoiceInputButton from '../components/VoiceInputButton';
+import VoiceInputButton from '../components/common/VoiceInputButton';
 
 hljs.registerLanguage('python', python);
 hljs.registerLanguage('javascript', javascript);
