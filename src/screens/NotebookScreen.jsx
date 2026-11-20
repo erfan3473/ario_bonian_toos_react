@@ -82,6 +82,8 @@ const getCustomScrollbarStyle = (isDark) => `
       overflow-wrap: break-word !important;
       word-wrap: break-word !important;
       hyphens: none !important;
+      tab-size: 4 !important;
+      -moz-tab-size: 4 !important;
   }
   .custom-quill-container:not(.is-fixed-height) .ql-editor {
       min-height: 44px;
@@ -126,10 +128,12 @@ const getCustomScrollbarStyle = (isDark) => `
       word-wrap: break-word !important;
       hyphens: none !important;
       -webkit-hyphens: none !important;
-      white-space: normal !important;
+      white-space: pre-wrap !important;
       line-height: 1.85 !important;
       font-size: 0.84rem !important;
       letter-spacing: 0 !important;
+      tab-size: 4 !important;
+      -moz-tab-size: 4 !important;
   }
   @media (min-width: 640px) {
       .note-rendered-content.ql-editor {
@@ -170,14 +174,23 @@ const getCustomScrollbarStyle = (isDark) => `
   }
 
   .ql-editor .ql-align-left,
-  .ql-editor.force-ltr p,
-  .ql-editor.force-ltr {
+  .force-ltr .ql-editor,
+  .force-ltr .ql-editor p,
+  .force-ltr .ql-editor h1,
+  .force-ltr .ql-editor h2,
+  .force-ltr .ql-editor h3,
+  .force-ltr .ql-editor li,
+  .force-ltr .ql-editor blockquote {
       direction: ltr !important;
       text-align: left !important;
   }
   .ql-editor .ql-align-right,
-  .ql-editor.force-rtl p,
-  .ql-editor.force-rtl {
+  .force-rtl .ql-editor p,
+  .force-rtl .ql-editor h1,
+  .force-rtl .ql-editor h2,
+  .force-rtl .ql-editor h3,
+  .force-rtl .ql-editor li,
+  .force-rtl .ql-editor blockquote {
       direction: rtl !important;
       text-align: right !important;
   }
@@ -188,10 +201,65 @@ const getCustomScrollbarStyle = (isDark) => `
       text-align: justify !important;
   }
 
-  .ql-editor pre.ql-syntax,
-  .ql-editor pre {
+  .ql-code-block-container,
+  .ql-editor .ql-code-block-container,
+  .note-rendered-content.ql-editor .ql-code-block-container {
       direction: ltr !important;
       text-align: left !important;
+      unicode-bidi: isolate !important;
+      background-color: ${isDark ? '#111827' : '#1E293B'} !important;
+      color: #38BDF8 !important;
+      border: 1px solid ${isDark ? '#374151' : '#334155'} !important;
+      border-radius: 8px !important;
+      padding: 10px 12px !important;
+      margin: 6px 0 !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      font-size: 0.78rem !important;
+      line-height: 1.55 !important;
+      overflow-x: auto !important;
+      max-width: 100% !important;
+      white-space: pre !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+      tab-size: 4 !important;
+      -moz-tab-size: 4 !important;
+  }
+
+  .ql-code-block,
+  .ql-editor .ql-code-block,
+  .note-rendered-content.ql-editor .ql-code-block,
+  .ql-editor .ql-code-block.ql-direction-rtl,
+  .ql-editor .ql-code-block.ql-align-right,
+  .ql-editor .ql-code-block.ql-align-center,
+  .ql-editor .ql-code-block.ql-align-justify,
+  .note-rendered-content.ql-editor .ql-code-block.ql-direction-rtl,
+  .note-rendered-content.ql-editor .ql-code-block.ql-align-right,
+  .note-rendered-content.ql-editor .ql-code-block.ql-align-center,
+  .note-rendered-content.ql-editor .ql-code-block.ql-align-justify {
+      direction: ltr !important;
+      text-align: left !important;
+      unicode-bidi: isolate !important;
+      white-space: pre !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      color: #38BDF8 !important;
+      tab-size: 4 !important;
+      -moz-tab-size: 4 !important;
+      min-height: 1.3em;
+  }
+
+  .ql-editor pre.ql-syntax,
+  .ql-editor pre,
+  .note-rendered-content.ql-editor pre.ql-syntax,
+  .note-rendered-content.ql-editor pre,
+  .ql-editor pre.ql-direction-rtl,
+  .ql-editor pre.ql-align-right,
+  .note-rendered-content.ql-editor pre.ql-direction-rtl,
+  .note-rendered-content.ql-editor pre.ql-align-right {
+      direction: ltr !important;
+      text-align: left !important;
+      unicode-bidi: isolate !important;
       background-color: ${isDark ? '#111827' : '#1E293B'} !important;
       color: #38BDF8 !important;
       border: 1px solid ${isDark ? '#374151' : '#334155'} !important;
@@ -199,11 +267,22 @@ const getCustomScrollbarStyle = (isDark) => `
       padding: 10px 12px !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
       font-size: 0.78rem !important;
-      line-height: 1.5 !important;
+      line-height: 1.55 !important;
       overflow-x: auto !important;
       max-width: 100% !important;
       white-space: pre !important;
       word-break: normal !important;
+      overflow-wrap: normal !important;
+      tab-size: 4 !important;
+      -moz-tab-size: 4 !important;
+  }
+
+  .ql-editor code,
+  .note-rendered-content.ql-editor code {
+      direction: ltr !important;
+      unicode-bidi: isolate !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      white-space: pre-wrap !important;
   }
 
   @media (max-width: 768px) {
@@ -241,42 +320,230 @@ const getCustomScrollbarStyle = (isDark) => `
 `;
 
 const quillModules = {
-    toolbar: [
-        [{ 'header': [1, 2, 3, false] }],
-        [{ 'size': ['small', false, 'large'] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],          
-        [{ 'align': ['', 'center', 'right', 'justify'] }],                      
-        [{ 'direction': 'rtl' }],                         
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }], 
-        ['link', 'blockquote', 'code-block'],
-        ['clean']                                         
-    ]
+    toolbar: {
+        container: [
+            [{ 'header': [1, 2, 3, false] }],
+            [{ 'size': ['small', false, 'large'] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'align': ['', 'center', 'right', 'justify'] }],
+            [{ 'direction': 'rtl' }],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            ['link', 'blockquote', 'code-block'],
+            ['clean']
+        ],
+        handlers: {
+            'code-block': function (value) {
+                const range = this.quill.getSelection(true);
+                if (!range) return;
+                if (value) {
+                    this.quill.formatLine(range.index, range.length, 'direction', false, 'user');
+                    this.quill.formatLine(range.index, range.length, 'align', false, 'user');
+                    this.quill.formatLine(range.index, range.length, 'code-block', value, 'user');
+                } else {
+                    this.quill.formatLine(range.index, range.length, 'code-block', false, 'user');
+                }
+            }
+        }
+    },
+    clipboard: {
+        matchers: [
+            ['.ql-code-block', (node, delta) => {
+                const Delta = delta.constructor;
+                const text = (node.textContent || '').replace(/\u00A0/g, ' ');
+                const lang = node.getAttribute('data-language') || 'plain';
+                return new Delta().insert(text).insert('\n', { 'code-block': lang });
+            }],
+            ['PRE', (node, delta) => {
+                const Delta = delta.constructor;
+                const raw = (node.textContent || '').replace(/\r\n?/g, '\n').replace(/\u00A0/g, ' ');
+                const lines = raw.split('\n');
+                if (lines.length > 1 && lines[lines.length - 1] === '') {
+                    lines.pop();
+                }
+                const result = new Delta();
+                lines.forEach((line) => {
+                    result.insert(line).insert('\n', { 'code-block': 'plain' });
+                });
+                return result;
+            }]
+        ]
+    }
 };
 
-const normalizeHtmlForMobile = (html) => {
+const isBlockCodeHtml = (html) => {
+    if (!html || typeof DOMParser === 'undefined') return false;
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const getMeaningfulNodes = (parent) =>
+            Array.from(parent.childNodes).filter(
+                (n) => !(n.nodeType === Node.TEXT_NODE && !n.textContent.trim())
+            );
+
+        let nodes = getMeaningfulNodes(doc.body);
+        while (
+            nodes.length === 1 &&
+            nodes[0].nodeType === Node.ELEMENT_NODE &&
+            nodes[0].tagName.toUpperCase() === 'DIV' &&
+            !nodes[0].classList.contains('ql-code-block-container') &&
+            !nodes[0].classList.contains('ql-code-block')
+        ) {
+            const inner = getMeaningfulNodes(nodes[0]);
+            if (inner.length === 0) break;
+            nodes = inner;
+        }
+
+        if (nodes.length === 0) return false;
+        return nodes.every((n) => {
+            if (n.nodeType !== Node.ELEMENT_NODE) return false;
+            const tag = n.tagName.toUpperCase();
+            return (
+                tag === 'PRE' ||
+                n.classList.contains('ql-code-block-container') ||
+                n.classList.contains('ql-code-block')
+            );
+        });
+    } catch {
+        return false;
+    }
+};
+
+const attachQuillCodePasteHandler = (quill) => {
+    if (!quill || !quill.root) return () => {};
+
+    const handlePaste = (e) => {
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
+
+        const plainText = clipboardData.getData('text/plain');
+        if (!plainText) return;
+
+        const htmlText = clipboardData.getData('text/html');
+        const types = Array.from(clipboardData.types || []);
+        const isFromVSCode = types.includes('vscode-editor-data');
+
+        const range = quill.getSelection(true);
+        const currentFormat = range ? quill.getFormat(range.index, range.length) : {};
+        const inCodeBlock = Boolean(currentFormat['code-block']);
+
+        const normalized = plainText.replace(/\r\n?/g, '\n').replace(/\u00A0/g, ' ');
+        const isMultiLineOrIndented = normalized.includes('\n') || /^[ \t]{2,}/m.test(normalized);
+
+        const shouldInsertAsCodeBlock =
+            inCodeBlock ||
+            (isFromVSCode && isMultiLineOrIndented) ||
+            isBlockCodeHtml(htmlText);
+
+        const shouldInsertAsPlainPreservingSpaces =
+            !shouldInsertAsCodeBlock &&
+            ((!htmlText && isMultiLineOrIndented) || (isFromVSCode && !isMultiLineOrIndented));
+
+        if (!shouldInsertAsCodeBlock && !shouldInsertAsPlainPreservingSpaces) {
+            return;
+        }
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const insertIndex = range ? range.index : Math.max(0, quill.getLength() - 1);
+        if (range && range.length > 0) {
+            quill.deleteText(insertIndex, range.length, 'user');
+        }
+
+        if (shouldInsertAsCodeBlock) {
+            const codeBlockValue =
+                typeof currentFormat['code-block'] === 'string'
+                    ? currentFormat['code-block']
+                    : 'plain';
+
+            let prefixNewline = false;
+            if (!inCodeBlock && insertIndex > 0) {
+                const prevChar = quill.getText(insertIndex - 1, 1);
+                if (prevChar && prevChar !== '\n') {
+                    prefixNewline = true;
+                }
+            }
+
+            const textToInsert = prefixNewline ? `\n${normalized}` : normalized;
+            quill.insertText(insertIndex, textToInsert, 'user');
+
+            const codeStart = prefixNewline ? insertIndex + 1 : insertIndex;
+            const codeLen = normalized.endsWith('\n')
+                ? Math.max(0, normalized.length - 1)
+                : normalized.length;
+
+            quill.formatLine(codeStart, codeLen, 'direction', false, 'user');
+            quill.formatLine(codeStart, codeLen, 'align', false, 'user');
+            quill.formatLine(codeStart, codeLen, 'code-block', codeBlockValue, 'user');
+            quill.setSelection(insertIndex + textToInsert.length, 0, 'silent');
+        } else {
+            quill.insertText(insertIndex, normalized, 'user');
+            quill.setSelection(insertIndex + normalized.length, 0, 'silent');
+        }
+    };
+
+    quill.root.addEventListener('paste', handlePaste, true);
+    return () => {
+        quill.root.removeEventListener('paste', handlePaste, true);
+    };
+};
+
+const sanitizeAndNormalizeHtml = (html, { forDisplay = false } = {}) => {
     if (!html) return '';
-    const sanitized = DOMPurify.sanitize(html);
-    return sanitized.replace(/(<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>)|(&nbsp;|\u00A0)+/gi, (match, codeBlock) => {
-        if (codeBlock) return codeBlock;
-        return ' ';
+    const cleaned = forDisplay ? DOMPurify.sanitize(html) : html;
+    if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+        return cleaned;
+    }
+
+    const doc = new DOMParser().parseFromString(cleaned, 'text/html');
+    const codeSelectors = '.ql-code-block-container, .ql-code-block, pre, pre.ql-syntax';
+
+    doc.body.querySelectorAll(codeSelectors).forEach((el) => {
+        el.setAttribute('dir', 'ltr');
+        el.classList.remove('ql-direction-rtl', 'ql-align-right', 'ql-align-center', 'ql-align-justify');
+        if (el.style) {
+            el.style.removeProperty('direction');
+            el.style.removeProperty('text-align');
+        }
     });
+
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while ((node = walker.nextNode())) {
+        if (node.nodeValue && node.nodeValue.includes('\u00A0')) {
+            node.nodeValue = node.nodeValue.replace(/\u00A0/g, ' ');
+        }
+    }
+
+    return doc.body.innerHTML;
 };
 
 const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(entry.content || '');
     const [isSaving, setIsSaving] = useState(false);
+    const editQuillRef = useRef(null);
 
     const isAuthor = userInfo?.id === entry.user;
     const canEditOrDelete = isAuthor || isAdmin;
 
-    const renderedHtml = useMemo(() => normalizeHtmlForMobile(entry.content), [entry.content]);
+    const renderedHtml = useMemo(
+        () => sanitizeAndNormalizeHtml(entry.content, { forDisplay: true }),
+        [entry.content]
+    );
+
+    useEffect(() => {
+        if (!isEditing) return;
+        const editor = editQuillRef.current?.getEditor();
+        if (!editor) return;
+        return attachQuillCodePasteHandler(editor);
+    }, [isEditing]);
 
     const handleSaveEdit = () => {
-        if (editContent !== entry.content) {
+        const cleanedContent = sanitizeAndNormalizeHtml(editContent);
+        if (cleanedContent !== entry.content) {
             setIsSaving(true);
-            onEdit(entry.id, editContent, () => {
+            onEdit(entry.id, cleanedContent, () => {
                 setIsSaving(false);
                 setIsEditing(false);
             }).catch(() => setIsSaving(false));
@@ -294,6 +561,7 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                     <div className="relative z-20 bubble-quill-editor">
                         <div className={`mb-2.5 rounded-xl overflow-hidden border ${isDark ? 'quill-dark border-gray-600' : 'bg-white border-gray-300'}`}>
                             <ReactQuill 
+                                ref={editQuillRef}
                                 theme="snow"
                                 value={editContent}
                                 onChange={setEditContent}
@@ -485,6 +753,13 @@ const NotebookScreen = () => {
     useEffect(() => { dispatch(fetchNotebooks()); }, [dispatch]);
 
     useEffect(() => {
+        if (!activeNotebook) return;
+        const editor = quillRef.current?.getEditor();
+        if (!editor) return;
+        return attachQuillCodePasteHandler(editor);
+    }, [activeNotebook]);
+
+    useEffect(() => {
         if (notebooks.length > 0) {
             const savedNotebookId = localStorage.getItem('activeNotebookId');
             if (savedNotebookId) {
@@ -622,8 +897,12 @@ const NotebookScreen = () => {
         setEditorDirection(nextMode);
         const editor = quillRef.current?.getEditor();
         if (editor) {
-            editor.format('direction', nextMode === 'rtl' ? 'rtl' : false);
-            editor.format('align', nextMode === 'rtl' ? 'right' : 'left');
+            const range = editor.getSelection();
+            const currentFmt = range ? editor.getFormat(range.index, range.length) : {};
+            if (!currentFmt['code-block']) {
+                editor.format('direction', nextMode === 'rtl' ? 'rtl' : false);
+                editor.format('align', nextMode === 'rtl' ? 'right' : 'left');
+            }
         }
     };
 
@@ -644,7 +923,7 @@ const NotebookScreen = () => {
 
         setIsSending(true);
         const formData = new FormData();
-        formData.append('content', inputText);
+        formData.append('content', sanitizeAndNormalizeHtml(inputText));
         if (selectedFile) formData.append('file', selectedFile);
 
         dispatch(createNoteEntry({ notebookId: activeNotebook.id, formData })).then((action) => {
