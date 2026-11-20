@@ -3,6 +3,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js/lib/core';
+import python from 'highlight.js/lib/languages/python';
+import javascript from 'highlight.js/lib/languages/javascript';
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import json from 'highlight.js/lib/languages/json';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+import 'highlight.js/styles/atom-one-dark.css';
 
 import { 
     FaFileDownload, FaBookOpen, FaPlus, 
@@ -16,6 +24,94 @@ import {
     fetchNotebooks, fetchNoteEntries, createNoteEntry, createNotebook, 
     editNoteEntry, deleteNoteEntry, updateNotebook, deleteNotebook 
 } from '../features/notebook/notebookSlice';
+import VoiceInputButton from '../components/VoiceInputButton';
+
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('plaintext', plaintext);
+hljs.registerLanguage('plain', plaintext);
+
+if (typeof window !== 'undefined' && !window.hljs) {
+    window.hljs = hljs;
+}
+
+const SUPPORTED_CODE_LANGUAGES = ['python', 'javascript', 'bash', 'sql', 'json'];
+const INDENT_SPACES = '    ';
+
+const stopAllVoiceInputs = () => {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('custom-voice-mic-start', { detail: '__stop_all_voice__' }));
+    }
+};
+
+const detectCodeLanguage = (code) => {
+    if (!code || !code.trim()) return 'plain';
+    const trimmed = code.trim();
+
+    if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (typeof parsed === 'object' && parsed !== null) {
+                return 'json';
+            }
+        } catch (_) {}
+    }
+
+    const sqlScore =
+        (/\bSELECT\b[\s\S]*?\bFROM\b/i.test(trimmed) ? 5 : 0) +
+        (/\b(?:INSERT\s+INTO|UPDATE\s+[\w."`]+\s+SET|DELETE\s+FROM|CREATE\s+(?:TABLE|INDEX|VIEW|DATABASE|OR\s+REPLACE)|ALTER\s+TABLE|DROP\s+(?:TABLE|INDEX|DATABASE))\b/i.test(trimmed) ? 5 : 0) +
+        (/\b(?:INNER\s+JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|FULL\s+JOIN|GROUP\s+BY|ORDER\s+BY|PRIMARY\s+KEY|FOREIGN\s+KEY|VALUES\s*\()\b/i.test(trimmed) ? 3 : 0) +
+        (/\b(?:WHERE|HAVING|LIMIT|OFFSET|DISTINCT|UNION\s+ALL)\b/i.test(trimmed) ? 1 : 0);
+
+    const bashScore =
+        (/^#!\/(?:usr\/bin\/env\s+)?(?:ba|z|da)?sh\b/m.test(trimmed) ? 6 : 0) +
+        (/(?:^|\n)\s*(?:sudo|apt|apt-get|systemctl|journalctl|docker|docker-compose|nginx|certbot|chmod|chown|mkdir|rm\s+-|cp\s+|mv\s+|ls\s|cd\s+|grep\s|awk\s|sed\s|curl\s|wget\s|ssh\s|scp\s|ufw\s|npm\s|npx\s|yarn\s|pip3?\s|python3?\s|git\s|export\s+\w+=|echo\s+|cat\s+|tail\s+|psql\s|gunicorn\s|daphne\s)\b/m.test(trimmed) ? 4 : 0) +
+        (/(?:\$\{\w+\}|\$\(\s*\w+|&&|\|\s*(?:grep|awk|sed|xargs|head|tail|wc|sort|jq)\b|(?:^|\n)\s*(?:fi|done|esac)\s*$)/m.test(trimmed) ? 3 : 0);
+
+    const pyScore =
+        (/(?:^|\n)\s*(?:def|class)\s+\w+.*:\s*(?:#.*)?$/m.test(trimmed) ? 4 : 0) +
+        (/(?:^|\n)\s*from\s+[\w.]+\s+import\s+/m.test(trimmed) ? 4 : 0) +
+        (/(?:^|\n)\s*import\s+[\w.]+(?:\s+as\s+\w+)?\s*$/m.test(trimmed) ? 3 : 0) +
+        (/(?:^|\n)\s*(?:elif|except|finally)\b.*:/m.test(trimmed) ? 3 : 0) +
+        (/\b(?:None|True|False|self|__init__|__name__)\b/.test(trimmed) ? 2 : 0) +
+        (/(?:^|\n)\s*@\w+/.test(trimmed) ? 2 : 0) +
+        (/\bprint\s*\(/.test(trimmed) ? 1 : 0);
+
+    const jsScore =
+        (/\b(?:const|let|var)\s+[\w{[\s,]+\s*=/.test(trimmed) ? 3 : 0) +
+        (/=>\s*[{(]/.test(trimmed) ? 3 : 0) +
+        (/\b(?:function\s+\w*\s*\(|export\s+(?:default\s+)?|import\s+.*\s+from\s+['"])/.test(trimmed) ? 4 : 0) +
+        (/\b(?:console\.log|document\.|window\.|useState|useEffect|async\s+function|Promise|JSON\.|===|!==)\b/.test(trimmed) ? 3 : 0) +
+        (/;\s*$/m.test(trimmed) ? 1 : 0) +
+        (/{\s*$/m.test(trimmed) && /^\s*}/m.test(trimmed) ? 2 : 0);
+
+    const scores = [
+        { lang: 'sql', score: sqlScore },
+        { lang: 'bash', score: bashScore },
+        { lang: 'python', score: pyScore },
+        { lang: 'javascript', score: jsScore }
+    ].sort((a, b) => b.score - a.score);
+
+    if (scores[0].score >= 2 && scores[0].score > scores[1].score) {
+        return scores[0].lang;
+    }
+
+    try {
+        const auto = hljs.highlightAuto(trimmed, SUPPORTED_CODE_LANGUAGES);
+        if (auto.language && auto.relevance >= 4) {
+            return auto.language;
+        }
+    } catch {
+        return 'plain';
+    }
+    return 'plain';
+};
 
 const getCustomScrollbarStyle = (isDark) => `
   .notebook-scrollbar::-webkit-scrollbar {
@@ -202,20 +298,20 @@ const getCustomScrollbarStyle = (isDark) => `
   }
 
   .ql-code-block-container,
-  .ql-editor .ql-code-block-container,
-  .note-rendered-content.ql-editor .ql-code-block-container {
+  .ql-editor .ql-code-block-container {
+      position: relative !important;
       direction: ltr !important;
       text-align: left !important;
       unicode-bidi: isolate !important;
-      background-color: ${isDark ? '#111827' : '#1E293B'} !important;
-      color: #38BDF8 !important;
-      border: 1px solid ${isDark ? '#374151' : '#334155'} !important;
-      border-radius: 8px !important;
-      padding: 10px 12px !important;
+      background-color: ${isDark ? '#0F172A' : '#1E293B'} !important;
+      color: #E2E8F0 !important;
+      border: 1px solid #334155 !important;
+      border-radius: 10px !important;
+      padding: 34px 12px 10px 12px !important;
       margin: 6px 0 !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-      font-size: 0.78rem !important;
-      line-height: 1.55 !important;
+      font-size: 0.8rem !important;
+      line-height: 1.6 !important;
       overflow-x: auto !important;
       max-width: 100% !important;
       white-space: pre !important;
@@ -225,17 +321,63 @@ const getCustomScrollbarStyle = (isDark) => `
       -moz-tab-size: 4 !important;
   }
 
+  .ql-editor .ql-code-block-container .ql-ui {
+      position: absolute !important;
+      top: 6px !important;
+      right: 8px !important;
+      left: auto !important;
+      background-color: #1E293B !important;
+      color: #E2E8F0 !important;
+      border: 1px solid #475569 !important;
+      border-radius: 6px !important;
+      font-size: 11px !important;
+      font-family: ui-sans-serif, system-ui, sans-serif !important;
+      padding: 2px 6px !important;
+      cursor: pointer !important;
+      outline: none !important;
+      z-index: 5 !important;
+      direction: ltr !important;
+  }
+
+  .note-rendered-content.ql-editor .ql-code-block-container {
+      position: relative !important;
+      padding: 12px 14px !important;
+      overflow: hidden !important;
+  }
+
+  .note-rendered-content.ql-editor .ql-code-block-container[data-language]:not([data-language=""]):not([data-language="plain"]) {
+      padding-top: 32px !important;
+  }
+
+  .note-rendered-content.ql-editor .ql-code-block-container[data-language]:not([data-language=""]):not([data-language="plain"])::before {
+      content: attr(data-language);
+      position: absolute;
+      top: 7px;
+      right: 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94A3B8;
+      background-color: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      padding: 1px 7px;
+      border-radius: 6px;
+      pointer-events: none;
+      user-select: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .note-rendered-content.ql-editor .ql-ui {
+      display: none !important;
+  }
+
   .ql-code-block,
   .ql-editor .ql-code-block,
-  .note-rendered-content.ql-editor .ql-code-block,
   .ql-editor .ql-code-block.ql-direction-rtl,
   .ql-editor .ql-code-block.ql-align-right,
   .ql-editor .ql-code-block.ql-align-center,
-  .ql-editor .ql-code-block.ql-align-justify,
-  .note-rendered-content.ql-editor .ql-code-block.ql-direction-rtl,
-  .note-rendered-content.ql-editor .ql-code-block.ql-align-right,
-  .note-rendered-content.ql-editor .ql-code-block.ql-align-center,
-  .note-rendered-content.ql-editor .ql-code-block.ql-align-justify {
+  .ql-editor .ql-code-block.ql-align-justify {
       direction: ltr !important;
       text-align: left !important;
       unicode-bidi: isolate !important;
@@ -243,10 +385,30 @@ const getCustomScrollbarStyle = (isDark) => `
       word-break: normal !important;
       overflow-wrap: normal !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-      color: #38BDF8 !important;
+      color: #E2E8F0 !important;
       tab-size: 4 !important;
       -moz-tab-size: 4 !important;
-      min-height: 1.3em;
+      min-height: 1.35em;
+  }
+
+  .note-rendered-content.ql-editor .hljs-code-display {
+      display: block !important;
+      background: transparent !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      color: #E2E8F0 !important;
+      direction: ltr !important;
+      text-align: left !important;
+      unicode-bidi: isolate !important;
+      white-space: pre !important;
+      overflow-x: auto !important;
+      word-break: normal !important;
+      overflow-wrap: normal !important;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+      font-size: inherit !important;
+      line-height: inherit !important;
+      tab-size: 4 !important;
+      -moz-tab-size: 4 !important;
   }
 
   .ql-editor pre.ql-syntax,
@@ -257,17 +419,18 @@ const getCustomScrollbarStyle = (isDark) => `
   .ql-editor pre.ql-align-right,
   .note-rendered-content.ql-editor pre.ql-direction-rtl,
   .note-rendered-content.ql-editor pre.ql-align-right {
+      position: relative !important;
       direction: ltr !important;
       text-align: left !important;
       unicode-bidi: isolate !important;
-      background-color: ${isDark ? '#111827' : '#1E293B'} !important;
-      color: #38BDF8 !important;
-      border: 1px solid ${isDark ? '#374151' : '#334155'} !important;
-      border-radius: 8px !important;
-      padding: 10px 12px !important;
+      background-color: ${isDark ? '#0F172A' : '#1E293B'} !important;
+      color: #E2E8F0 !important;
+      border: 1px solid #334155 !important;
+      border-radius: 10px !important;
+      padding: 12px 14px !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-      font-size: 0.78rem !important;
-      line-height: 1.55 !important;
+      font-size: 0.8rem !important;
+      line-height: 1.6 !important;
       overflow-x: auto !important;
       max-width: 100% !important;
       white-space: pre !important;
@@ -277,8 +440,8 @@ const getCustomScrollbarStyle = (isDark) => `
       -moz-tab-size: 4 !important;
   }
 
-  .ql-editor code,
-  .note-rendered-content.ql-editor code {
+  .ql-editor code:not(.hljs-code-display),
+  .note-rendered-content.ql-editor code:not(.hljs-code-display) {
       direction: ltr !important;
       unicode-bidi: isolate !important;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
@@ -320,6 +483,17 @@ const getCustomScrollbarStyle = (isDark) => `
 `;
 
 const quillModules = {
+    syntax: {
+        hljs,
+        languages: [
+            { key: 'plain', label: 'Plain' },
+            { key: 'python', label: 'Python' },
+            { key: 'javascript', label: 'JavaScript' },
+            { key: 'bash', label: 'Bash' },
+            { key: 'sql', label: 'SQL' },
+            { key: 'json', label: 'JSON' }
+        ]
+    },
     toolbar: {
         container: [
             [{ 'header': [1, 2, 3, false] }],
@@ -339,7 +513,9 @@ const quillModules = {
                 if (value) {
                     this.quill.formatLine(range.index, range.length, 'direction', false, 'user');
                     this.quill.formatLine(range.index, range.length, 'align', false, 'user');
-                    this.quill.formatLine(range.index, range.length, 'code-block', value, 'user');
+                    const selectedText = range.length > 0 ? this.quill.getText(range.index, range.length) : '';
+                    const lang = selectedText.trim() ? detectCodeLanguage(selectedText) : 'plain';
+                    this.quill.formatLine(range.index, range.length, 'code-block', lang, 'user');
                 } else {
                     this.quill.formatLine(range.index, range.length, 'code-block', false, 'user');
                 }
@@ -348,6 +524,10 @@ const quillModules = {
     },
     clipboard: {
         matchers: [
+            ['.ql-ui', (node, delta) => {
+                const Delta = delta.constructor;
+                return new Delta();
+            }],
             ['.ql-code-block', (node, delta) => {
                 const Delta = delta.constructor;
                 const text = (node.textContent || '').replace(/\u00A0/g, ' ');
@@ -361,9 +541,10 @@ const quillModules = {
                 if (lines.length > 1 && lines[lines.length - 1] === '') {
                     lines.pop();
                 }
+                const lang = detectCodeLanguage(raw);
                 const result = new Delta();
                 lines.forEach((line) => {
-                    result.insert(line).insert('\n', { 'code-block': 'plain' });
+                    result.insert(line).insert('\n', { 'code-block': lang });
                 });
                 return result;
             }]
@@ -408,7 +589,7 @@ const isBlockCodeHtml = (html) => {
     }
 };
 
-const attachQuillCodePasteHandler = (quill) => {
+const attachQuillCodeHandlers = (quill) => {
     if (!quill || !quill.root) return () => {};
 
     const handlePaste = (e) => {
@@ -451,10 +632,14 @@ const attachQuillCodePasteHandler = (quill) => {
         }
 
         if (shouldInsertAsCodeBlock) {
-            const codeBlockValue =
+            const existingLang =
                 typeof currentFormat['code-block'] === 'string'
                     ? currentFormat['code-block']
-                    : 'plain';
+                    : null;
+            const codeBlockValue =
+                existingLang && SUPPORTED_CODE_LANGUAGES.includes(existingLang)
+                    ? existingLang
+                    : detectCodeLanguage(normalized);
 
             let prefixNewline = false;
             if (!inCodeBlock && insertIndex > 0) {
@@ -482,22 +667,154 @@ const attachQuillCodePasteHandler = (quill) => {
         }
     };
 
+    const handleKeyDown = (e) => {
+        if (e.key !== 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return;
+
+        const range = quill.getSelection();
+        if (!range) return;
+
+        const effectiveLength =
+            range.length > 0 && quill.getText(range.index + range.length - 1, 1) === '\n'
+                ? range.length - 1
+                : range.length;
+
+        const lines = quill.getLines(range.index, effectiveLength);
+        if (!lines || lines.length === 0) return;
+
+        const hasCodeBlock = lines.some((line) => {
+            const lineIdx = quill.getIndex(line);
+            const fmt = quill.getFormat(lineIdx, 0);
+            return Boolean(fmt['code-block']);
+        });
+
+        if (!hasCodeBlock) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const firstLineStart = quill.getIndex(lines[0]);
+
+        if (!e.shiftKey) {
+            if (range.length === 0) {
+                quill.insertText(range.index, INDENT_SPACES, 'user');
+                quill.setSelection(range.index + INDENT_SPACES.length, 0, 'silent');
+                return;
+            }
+
+            if (lines.length === 1) {
+                const lineContentLen = Math.max(0, lines[0].length() - 1);
+                if (range.index > firstLineStart || range.length < lineContentLen) {
+                    quill.deleteText(range.index, range.length, 'user');
+                    quill.insertText(range.index, INDENT_SPACES, 'user');
+                    quill.setSelection(range.index + INDENT_SPACES.length, 0, 'silent');
+                    return;
+                }
+            }
+
+            for (let i = lines.length - 1; i >= 0; i -= 1) {
+                const lineStart = quill.getIndex(lines[i]);
+                quill.insertText(lineStart, INDENT_SPACES, 'user');
+            }
+
+            if (range.index === firstLineStart) {
+                quill.setSelection(
+                    firstLineStart,
+                    range.length + INDENT_SPACES.length * lines.length,
+                    'silent'
+                );
+            } else {
+                quill.setSelection(
+                    range.index + INDENT_SPACES.length,
+                    range.length + INDENT_SPACES.length * (lines.length - 1),
+                    'silent'
+                );
+            }
+            return;
+        }
+
+        let firstRemoved = 0;
+        let totalRemoved = 0;
+
+        for (let i = lines.length - 1; i >= 0; i -= 1) {
+            const lineStart = quill.getIndex(lines[i]);
+            const lineContentLen = Math.max(0, lines[i].length() - 1);
+            const prefix = quill.getText(lineStart, Math.min(4, lineContentLen));
+
+            let removeCount = 0;
+            if (prefix.startsWith('\t')) {
+                removeCount = 1;
+            } else {
+                const spaceMatch = prefix.match(/^ {1,4}/);
+                if (spaceMatch) {
+                    removeCount = spaceMatch[0].length;
+                }
+            }
+
+            if (removeCount > 0) {
+                quill.deleteText(lineStart, removeCount, 'user');
+                totalRemoved += removeCount;
+                if (i === 0) {
+                    firstRemoved = removeCount;
+                }
+            }
+        }
+
+        if (range.length === 0) {
+            const newIndex = Math.max(firstLineStart, range.index - firstRemoved);
+            quill.setSelection(newIndex, 0, 'silent');
+        } else {
+            const startOffset = range.index - firstLineStart;
+            const removedBeforeStart = Math.min(firstRemoved, startOffset);
+            const newStart = range.index - removedBeforeStart;
+            const removedInside = totalRemoved - removedBeforeStart;
+            const newLength = Math.max(0, range.length - removedInside);
+            quill.setSelection(newStart, newLength, 'silent');
+        }
+    };
+
     quill.root.addEventListener('paste', handlePaste, true);
+    quill.root.addEventListener('keydown', handleKeyDown, true);
     return () => {
         quill.root.removeEventListener('paste', handlePaste, true);
+        quill.root.removeEventListener('keydown', handleKeyDown, true);
     };
+};
+
+const highlightCodeToElement = (doc, rawCode, lang) => {
+    const codeEl = doc.createElement('code');
+    codeEl.setAttribute('dir', 'ltr');
+
+    if (SUPPORTED_CODE_LANGUAGES.includes(lang)) {
+        codeEl.className = `hljs hljs-code-display language-${lang}`;
+        try {
+            const highlighted = hljs.highlight(rawCode, { language: lang, ignoreIllegals: true }).value;
+            codeEl.innerHTML = highlighted;
+        } catch {
+            codeEl.textContent = rawCode;
+        }
+    } else {
+        codeEl.className = 'hljs hljs-code-display';
+        codeEl.textContent = rawCode;
+    }
+
+    return codeEl;
 };
 
 const sanitizeAndNormalizeHtml = (html, { forDisplay = false } = {}) => {
     if (!html) return '';
-    const cleaned = forDisplay ? DOMPurify.sanitize(html) : html;
+    const cleaned = forDisplay
+        ? DOMPurify.sanitize(html, { ADD_ATTR: ['data-language', 'dir'] })
+        : html;
+
     if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
         return cleaned;
     }
 
     const doc = new DOMParser().parseFromString(cleaned, 'text/html');
-    const codeSelectors = '.ql-code-block-container, .ql-code-block, pre, pre.ql-syntax';
 
+    doc.body.querySelectorAll('.ql-ui').forEach((el) => el.remove());
+
+    const codeSelectors = '.ql-code-block-container, .ql-code-block, pre, pre.ql-syntax';
     doc.body.querySelectorAll(codeSelectors).forEach((el) => {
         el.setAttribute('dir', 'ltr');
         el.classList.remove('ql-direction-rtl', 'ql-align-right', 'ql-align-center', 'ql-align-justify');
@@ -515,7 +832,155 @@ const sanitizeAndNormalizeHtml = (html, { forDisplay = false } = {}) => {
         }
     }
 
+    if (forDisplay) {
+        doc.body.querySelectorAll('.ql-code-block-container').forEach((container) => {
+            const blocks = Array.from(container.querySelectorAll('.ql-code-block'));
+            if (blocks.length === 0) return;
+
+            const rawLines = blocks.map((b) => (b.textContent || '').replace(/\u00A0/g, ' '));
+            const fullCode = rawLines.join('\n');
+            const declaredLang = blocks[0].getAttribute('data-language') || '';
+            const lang = SUPPORTED_CODE_LANGUAGES.includes(declaredLang)
+                ? declaredLang
+                : declaredLang === 'plain'
+                    ? 'plain'
+                    : detectCodeLanguage(fullCode);
+
+            if (SUPPORTED_CODE_LANGUAGES.includes(lang)) {
+                container.setAttribute('data-language', lang);
+            } else {
+                container.removeAttribute('data-language');
+            }
+
+            container.innerHTML = '';
+            container.appendChild(highlightCodeToElement(doc, fullCode, lang));
+        });
+
+        doc.body.querySelectorAll('pre').forEach((preEl) => {
+            if (preEl.closest('.ql-code-block-container')) return;
+            const fullCode = (preEl.textContent || '').replace(/\u00A0/g, ' ');
+            const lang = detectCodeLanguage(fullCode);
+            preEl.innerHTML = '';
+            preEl.appendChild(highlightCodeToElement(doc, fullCode, lang));
+        });
+    }
+
     return doc.body.innerHTML;
+};
+
+const QuillVoiceButton = ({ quillRef, size = 'sm', className = '' }) => {
+    const isPendingStartRef = useRef(false);
+    const sessionRef = useRef(null);
+
+    useEffect(() => {
+        const handleMicStart = () => {
+            if (!isPendingStartRef.current) {
+                sessionRef.current = null;
+                return;
+            }
+            isPendingStartRef.current = false;
+
+            const editor = quillRef.current?.getEditor();
+            if (!editor) {
+                sessionRef.current = null;
+                return;
+            }
+
+            const sel = editor.getSelection();
+            const maxIdx = Math.max(0, editor.getLength() - 1);
+            const startIndex = sel ? Math.min(sel.index, maxIdx) : maxIdx;
+            const replaceLength = sel ? Math.min(sel.length, maxIdx - startIndex) : 0;
+
+            let needsSpace = false;
+            if (startIndex > 0) {
+                const prevChar = editor.getText(startIndex - 1, 1);
+                needsSpace = Boolean(prevChar && !/[\s\n]/.test(prevChar));
+            }
+
+            sessionRef.current = {
+                startIndex,
+                replaceLength,
+                insertedLength: 0,
+                needsSpace
+            };
+        };
+
+        window.addEventListener('custom-voice-mic-start', handleMicStart);
+        return () => {
+            window.removeEventListener('custom-voice-mic-start', handleMicStart);
+        };
+    }, [quillRef]);
+
+    const handleVoiceChange = (spokenText) => {
+        const editor = quillRef.current?.getEditor();
+        if (!editor) return;
+
+        const cleanText = spokenText || '';
+        const maxIdx = Math.max(0, editor.getLength() - 1);
+
+        if (!sessionRef.current) {
+            const sel = editor.getSelection();
+            const startIndex = sel ? Math.min(sel.index, maxIdx) : maxIdx;
+            let needsSpace = false;
+            if (startIndex > 0) {
+                const prevChar = editor.getText(startIndex - 1, 1);
+                needsSpace = Boolean(prevChar && !/[\s\n]/.test(prevChar));
+            }
+            sessionRef.current = {
+                startIndex,
+                replaceLength: 0,
+                insertedLength: 0,
+                needsSpace
+            };
+        }
+
+        const session = sessionRef.current;
+        const safeStart = Math.min(session.startIndex, maxIdx);
+
+        if (session.replaceLength > 0) {
+            const safeReplace = Math.min(session.replaceLength, Math.max(0, editor.getLength() - 1 - safeStart));
+            if (safeReplace > 0) {
+                editor.deleteText(safeStart, safeReplace, 'user');
+            }
+            session.replaceLength = 0;
+        }
+
+        if (session.insertedLength > 0) {
+            const safeDelete = Math.min(session.insertedLength, Math.max(0, editor.getLength() - 1 - safeStart));
+            if (safeDelete > 0) {
+                editor.deleteText(safeStart, safeDelete, 'user');
+            }
+        }
+
+        const textToInsert = cleanText ? `${session.needsSpace ? ' ' : ''}${cleanText}` : '';
+        if (textToInsert.length > 0) {
+            editor.insertText(safeStart, textToInsert, 'user');
+        }
+
+        session.startIndex = safeStart;
+        session.insertedLength = textToInsert.length;
+        editor.setSelection(safeStart + textToInsert.length, 0, 'silent');
+    };
+
+    return (
+        <div
+            onMouseDown={(e) => e.preventDefault()}
+            onClickCapture={() => {
+                isPendingStartRef.current = true;
+                setTimeout(() => {
+                    isPendingStartRef.current = false;
+                }, 0);
+            }}
+            className="inline-flex items-center"
+        >
+            <VoiceInputButton
+                value=""
+                onChange={handleVoiceChange}
+                size={size}
+                className={className}
+            />
+        </div>
+    );
 };
 
 const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete }) => {
@@ -536,10 +1001,16 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
         if (!isEditing) return;
         const editor = editQuillRef.current?.getEditor();
         if (!editor) return;
-        return attachQuillCodePasteHandler(editor);
+        return attachQuillCodeHandlers(editor);
     }, [isEditing]);
 
+    const handleCancelEdit = () => {
+        stopAllVoiceInputs();
+        setIsEditing(false);
+    };
+
     const handleSaveEdit = () => {
+        stopAllVoiceInputs();
         const cleanedContent = sanitizeAndNormalizeHtml(editContent);
         if (cleanedContent !== entry.content) {
             setIsSaving(true);
@@ -569,21 +1040,24 @@ const NoteBubble = memo(({ entry, isDark, userInfo, isAdmin, onEdit, onDelete })
                                 className="w-full [&_.ql-editor]:min-h-[120px] [&_.ql-editor]:max-h-[45dvh]" 
                             />
                         </div>
-                        <div className="flex gap-2 justify-end">
-                            <button 
-                                onClick={() => setIsEditing(false)} 
-                                disabled={isSaving} 
-                                className={`px-3.5 py-1.5 rounded-lg font-bold text-xs transition-colors ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
-                            >
-                                انصراف
-                            </button>
-                            <button 
-                                onClick={handleSaveEdit} 
-                                disabled={isSaving} 
-                                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition-colors shadow-sm min-w-[95px] flex items-center justify-center"
-                            >
-                                {isSaving ? <FaSpinner className="animate-spin text-sm" /> : 'ذخیره تغییرات'}
-                            </button>
+                        <div className="flex items-center justify-between gap-2">
+                            <QuillVoiceButton quillRef={editQuillRef} size="sm" />
+                            <div className="flex gap-2 justify-end">
+                                <button 
+                                    onClick={handleCancelEdit} 
+                                    disabled={isSaving} 
+                                    className={`px-3.5 py-1.5 rounded-lg font-bold text-xs transition-colors ${isDark ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+                                >
+                                    انصراف
+                                </button>
+                                <button 
+                                    onClick={handleSaveEdit} 
+                                    disabled={isSaving} 
+                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition-colors shadow-sm min-w-[95px] flex items-center justify-center"
+                                >
+                                    {isSaving ? <FaSpinner className="animate-spin text-sm" /> : 'ذخیره تغییرات'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -756,7 +1230,7 @@ const NotebookScreen = () => {
         if (!activeNotebook) return;
         const editor = quillRef.current?.getEditor();
         if (!editor) return;
-        return attachQuillCodePasteHandler(editor);
+        return attachQuillCodeHandlers(editor);
     }, [activeNotebook]);
 
     useEffect(() => {
@@ -779,6 +1253,7 @@ const NotebookScreen = () => {
 
     useEffect(() => {
         if (activeNotebook) {
+            stopAllVoiceInputs();
             dispatch(fetchNoteEntries(activeNotebook.id));
             setIsEditingNotebook(false);
             setSearchQuery('');
@@ -912,6 +1387,7 @@ const NotebookScreen = () => {
     };
 
     const handleBackToList = () => {
+        stopAllVoiceInputs();
         setActiveNotebook(null);
         localStorage.removeItem('activeNotebookId');
     };
@@ -921,6 +1397,7 @@ const NotebookScreen = () => {
     const submitNote = () => {
         if (isInputEmpty || isSending || !activeNotebook) return;
 
+        stopAllVoiceInputs();
         setIsSending(true);
         const formData = new FormData();
         formData.append('content', sanitizeAndNormalizeHtml(inputText));
@@ -1438,6 +1915,7 @@ const NotebookScreen = () => {
                                             </div>
 
                                             <div className="flex items-center gap-2">
+                                                <QuillVoiceButton quillRef={quillRef} size="sm" />
                                                 <button 
                                                     type="submit" 
                                                     disabled={isInputEmpty || isSending} 
