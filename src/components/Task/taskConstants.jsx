@@ -1,10 +1,8 @@
 import React from 'react';
-import { 
-    FaClock, FaCheckCircle, FaArrowLeft, FaTimesCircle, 
-    FaUser, FaFileImage, FaFileAudio, FaFileVideo, FaFile 
+import {
+    FaClock, FaCheckCircle, FaArrowLeft, FaTimesCircle,
+    FaPlay, FaFileImage, FaFileAudio, FaFileVideo, FaFile
 } from 'react-icons/fa';
-
-
 
 export const STATUS_COLORS = {
     PENDING:     'bg-yellow-500/20 text-yellow-600 border-yellow-500/50',
@@ -13,7 +11,6 @@ export const STATUS_COLORS = {
     REJECTED:    'bg-red-500/20    text-red-400    border-red-500/50',
     CANCELLED:   'bg-zinc-500/20   text-zinc-400   border-zinc-500/40',
 };
-
 
 export const STATUS_LABELS = {
     PENDING: 'در انتظار',
@@ -24,20 +21,21 @@ export const STATUS_LABELS = {
 };
 
 export const STEP_STATE_CONFIG = {
-    PENDING:            { label: 'در انتظار',   color: 'text-yellow-400', icon: <FaClock /> },
-    APPROVED:           { label: 'تایید شد',    color: 'text-green-400',  icon: <FaCheckCircle /> },
-    REJECTED_FORWARDED: { label: 'رد و ارجاع',  color: 'text-orange-400', icon: <FaArrowLeft /> },
-    REJECTED:           { label: 'رد شد',       color: 'text-red-400',    icon: <FaTimesCircle /> },
-    FORWARDED:          { label: 'ارجاع شد',    color: 'text-blue-400',   icon: <FaArrowLeft /> },
-    COMPLETED:          { label: 'خاتمه',       color: 'text-zinc-400',   icon: <FaCheckCircle /> },
-    SKIPPED:          { label: 'عبور مرحله',       color: 'text-zinc-400',   icon: <FaCheckCircle /> },
+    PENDING:            { label: 'در انتظار',    color: 'text-yellow-400', icon: <FaClock /> },
+    IN_PROGRESS:        { label: 'در حال انجام', color: 'text-blue-500',   icon: <FaPlay /> },
+    APPROVED:           { label: 'تایید شد',     color: 'text-green-400',  icon: <FaCheckCircle /> },
+    REJECTED_FORWARDED: { label: 'رد و ارجاع',   color: 'text-orange-400', icon: <FaArrowLeft /> },
+    REJECTED:           { label: 'رد شد',        color: 'text-red-400',    icon: <FaTimesCircle /> },
+    FORWARDED:          { label: 'ارجاع شد',     color: 'text-blue-400',   icon: <FaArrowLeft /> },
+    COMPLETED:          { label: 'خاتمه',        color: 'text-zinc-400',   icon: <FaCheckCircle /> },
+    SKIPPED:            { label: 'عبور مرحله',   color: 'text-zinc-400',   icon: <FaCheckCircle /> },
 };
 
 export const URGENCY_LABELS = {
-  LOW: 'کم',
-  MEDIUM: 'متوسط',
-  HIGH: 'زیاد',
-  CRITICAL: 'بحرانی',
+    LOW: 'کم',
+    MEDIUM: 'متوسط',
+    HIGH: 'زیاد',
+    CRITICAL: 'بحرانی',
 };
 
 export const URGENCY_COLORS = {
@@ -57,7 +55,7 @@ export const ACTION_LABELS = {
     RETURNED: 'برگشت مامور اجرا',
     INTERMEDIATE_APPROVE: 'تایید ناظر صورت گرفت',
     INTERMEDIATE_REJECT: 'رد توسط ناظر صورت گرفت',
-    FORWARD_ASSIST: ' ارجاع جهت همکاری',
+    FORWARD_ASSIST: 'ارجاع جهت همکاری',
     EDIT: 'ویرایش ماموریت انجام شده است',
     IN_PROGRESS: 'شروع عملیات',
 };
@@ -71,6 +69,7 @@ export const FILE_ICONS = {
 
 export const stepDotColor = (state, isDark) => {
     if (state === 'PENDING') return isDark ? 'border-yellow-400 bg-slate-800' : 'border-yellow-500 bg-white';
+    if (state === 'IN_PROGRESS') return 'border-blue-500 bg-blue-500';
     if (state === 'APPROVED') return 'border-green-500 bg-green-500';
     if (state === 'REJECTED' || state === 'REJECTED_FORWARDED') return 'border-red-500 bg-red-500';
     return isDark ? 'border-slate-600 bg-slate-600' : 'border-gray-300 bg-gray-300';

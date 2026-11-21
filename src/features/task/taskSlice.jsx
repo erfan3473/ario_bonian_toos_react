@@ -134,9 +134,11 @@ export const startTaskStep = createAsyncThunk(
         }
     }
 );
+
+
 export const forwardStep = createAsyncThunk(
     'task/forwardStep',
-    async ({ taskId, to_user_id, note, send_sms, is_assist = false }, { rejectWithValue }) => {
+    async ({ taskId, to_user_id, note, send_sms = true, is_assist = false }, { rejectWithValue }) => {
         try {
             const { data } = await axiosInstance.post(`/tasks/${taskId}/forward/`, {
                 to_user_id,

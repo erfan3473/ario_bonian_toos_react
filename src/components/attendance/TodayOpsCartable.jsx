@@ -1,7 +1,7 @@
 // src/components/attendance/TodayOpsCartable.jsx
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { toast } from 'react-hot-toast';
 import moment from 'moment-jalaali';
 import axiosInstance from '../../api/axiosInstance';
@@ -171,7 +171,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
       await dispatch(toggleRoutineItem(itemId)).unwrap();
       await fetchCartable(true);
     } catch (err) {
-      toast.error(typeof err === 'string' ? err : 'خطا در به‌روزرسانی آیتم وظایف');
+      toast.error(typeof err === 'string' ? err : 'خطا در به‌روزرسانی آیتم وظیفه');
     } finally {
       setBusyRoutineItemId(null);
     }
@@ -257,7 +257,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
     );
   }
 
-  // اگر کاربر امروز نه ماموریتی داشت و نه آیتم وظایفی، کل بخش را رندر نکن
+  // اگر کاربر امروز نه ماموریتی داشت و نه آیتم وظیفه‌ای، کل بخش را رندر نکن
   if (!data?.summary?.has_any) {
     return null;
   }
@@ -318,7 +318,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className={`text-xs sm:text-sm font-bold tracking-normal ${textPrimary}`}>
-               شرحی کوتاه از امروز
+                شرحی کوتاه از امروز
               </h2>
               <span
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] border text-[10px] font-semibold tabular-nums ${
@@ -332,7 +332,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
               </span>
             </div>
             <p className={`text-[10.5px] mt-0.5 tracking-normal ${textSecondary}`}>
-              ماموریت‌های در نوبت اقدام یا پیش‌رو (امروز و فردا) و چک‌لیست وظایف‌های امروز
+              ماموریت‌های در نوبت اقدام یا پیش‌رو (امروز و فردا) و چک‌لیست وظایف امروز
             </p>
           </div>
         </div>
@@ -344,7 +344,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
               {[
                 { id: 'ALL', label: 'نمای یکپارچه' },
                 { id: 'TASKS', label: `ماموریت‌ها (${toPersianDigits(summary.tasks_total)})` },
-                { id: 'ROUTINES', label: `وظایف‌ها (${toPersianDigits(summary.routine_remaining_items)})` },
+                { id: 'ROUTINES', label: `وظایف (${toPersianDigits(summary.routine_remaining_items)})` },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -420,7 +420,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
         </div>
       </div>
 
-      {/* ── بدنه دو ستونه (ماموریت‌ها | وظایف‌های امروز) ── */}
+      {/* ── بدنه دو ستونه (ماموریت‌ها | وظایف امروز) ── */}
       <div className={`grid grid-cols-1 ${twoColumnLayout ? 'lg:grid-cols-12' : ''} divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse ${isDark ? 'divide-slate-400/15' : 'divide-slate-900/15'}`}>
 
         {/* ═══ ستون ۱: پرونده‌های ماموریت ═══ */}
@@ -718,7 +718,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
           </div>
         )}
 
-        {/* ═══ ستون ۲: چک‌لیست وظایف‌های امروز ═══ */}
+        {/* ═══ ستون ۲: چک‌لیست وظایف امروز ═══ */}
         {showRoutinesPane && (
           <div className={`${twoColumnLayout ? 'lg:col-span-5' : ''} p-3 sm:p-4 space-y-3`}>
             <div className="flex items-center justify-between gap-2 pb-2 border-b border-dashed border-slate-500/25">
@@ -739,7 +739,7 @@ const TodayOpsCartable = ({ isDark = true }) => {
               </Link>
             </div>
 
-            {/* نوار پیشرفت وظایف‌های امروز */}
+            {/* نوار پیشرفت وظایف امروز */}
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[10.5px] tabular-nums">
                 <span className={textSecondary}>

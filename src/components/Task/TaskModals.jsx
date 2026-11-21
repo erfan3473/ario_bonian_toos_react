@@ -138,8 +138,7 @@ export const ForwardModal = ({ taskId, userRole = 'ASSIGNEE', onSuccess, onClose
     const [search, setSearch] = useState('');
     const [selected, setSelected] = useState(null);
     const [note, setNote] = useState('');
-    const [sendSms, setSendSms] = useState(false);
-    const [isAssist, setIsAssist] = useState(false); // false = ارجاع کامل (انتقال) | true = ارجاع کمکی (مشارکت)
+    const [isAssist, setIsAssist] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -165,7 +164,7 @@ export const ForwardModal = ({ taskId, userRole = 'ASSIGNEE', onSuccess, onClose
                 taskId,
                 to_user_id: selected.user_id,
                 note,
-                send_sms: sendSms,
+                send_sms: true,
                 is_assist: isAssist,
             })
         );
@@ -393,27 +392,14 @@ export const ForwardModal = ({ taskId, userRole = 'ASSIGNEE', onSuccess, onClose
                         }`}
                     />
                     <div
-                        onClick={() => setSendSms((v) => !v)}
-                        className={`flex items-center justify-between p-2.5 rounded-[2px] border cursor-pointer ${
+                        className={`flex items-center gap-2 px-2.5 py-2 rounded-[2px] border text-[11px] ${
                             isDark
-                                ? 'border-slate-400/20 bg-tactical-canvas'
-                                : 'border-slate-900/15 bg-white'
+                                ? 'border-sky-400/25 bg-sky-400/10 text-sky-300'
+                                : 'border-sky-600/25 bg-sky-50 text-sky-800'
                         }`}
                     >
-                        <span className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                            ارسال پیامک اطلاع‌رسانی
-                        </span>
-                        <div
-                            className={`relative w-9 h-5 rounded-[2px] transition-colors duration-200 ${
-                                sendSms ? 'bg-sky-500' : isDark ? 'bg-slate-700' : 'bg-slate-300'
-                            }`}
-                        >
-                            <span
-                                className={`absolute top-0.5 w-4 h-4 bg-white rounded-[1px] shadow transition-all duration-200 ${
-                                    sendSms ? 'left-0.5' : 'right-0.5'
-                                }`}
-                            />
-                        </div>
+                        <FaCheckCircle className="shrink-0" size={11} />
+                        <span>پیامک اطلاع‌رسانی ارجاع به‌صورت خودکار برای فرد مقصد ارسال می‌شود.</span>
                     </div>
                     {error && (
                         <div className="text-red-400 text-xs text-center p-2 bg-red-500/10 border border-red-500/30 rounded-[2px]">
