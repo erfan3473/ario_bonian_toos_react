@@ -32,7 +32,7 @@ const APPROVAL_RULES = [
 ];
 const APPROVER_RULES = [ 
     { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, 
-    { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } 
+    { value: 'ANY_APPROVER', label: 'تایید یک نفر کافیست' } 
 ];
 
 const ASSIGNEE_STATE_OPTIONS = [
