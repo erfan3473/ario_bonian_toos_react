@@ -101,7 +101,7 @@ const Header = () => {
     if (path.startsWith("/profile")) return "پروفایل من";
     if (path.startsWith("/secretariat")) return "دبیرخانه";
     if (path.startsWith("/ai-assistant")) return "مدیریت / هوش مصنوعی";
-    if (path === "/" || path === "") return "پایگاه اصلی";
+    if (path === "/" || path === "") return "خانه";
 
     return "";
   };

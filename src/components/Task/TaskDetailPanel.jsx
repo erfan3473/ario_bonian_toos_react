@@ -2,8 +2,9 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
     uploadTaskFile, addTaskComment, returnTaskStep, freezeTaskTemplate, 
-    fetchSubordinates, editTask, fetchTaskTypes 
+    fetchSubordinates, editTask, fetchTaskTypes, startTaskStep 
 } from '../../features/task/taskSlice';
+import { toast } from 'react-hot-toast';
 import axiosInstance from '../../api/axiosInstance';
 import moment from 'moment-jalaali';
 import {
@@ -11,7 +12,7 @@ import {
     FaPaperclip, FaUpload, FaSpinner, FaDownload, FaChevronRight,
     FaRegComment, FaPaperPlane, FaSitemap, FaAlignRight, FaUndo, 
     FaSnowflake, FaAddressCard, FaTimes, FaEdit, FaPlus, FaTrash,
-    FaSun, FaMoon, FaLock, FaCheck, FaInfoCircle, FaCog, FaUserPlus
+    FaSun, FaMoon, FaLock, FaCheck, FaInfoCircle, FaCog, FaUserPlus ,FaPlay
 } from 'react-icons/fa';
 import JalaliDatePicker from '../common/JalaliDatePicker';
 
@@ -31,7 +32,7 @@ const APPROVAL_RULES = [
 ];
 const APPROVER_RULES = [ 
     { value: 'ALL_APPROVERS', label: 'تایید همه اجباری است' }, 
-    { value: 'ANY_APPROVER', label: 'تایید توسط یک نفر کافیست' } 
+    { value: 'ANY_APPROVER', label: 'تایید یک نفر کافیست' } 
 ];
 
 const ASSIGNEE_STATE_OPTIONS = [
@@ -110,6 +111,7 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     const fileInputRef = useRef();
 
     const [modal, setModal] = useState(null);
+    const [startingTask, setStartingTask] = useState(false);
     const [templateModal, setTemplateModal] = useState(false);
     const [templateName, setTemplateName] = useState('');
 
@@ -143,7 +145,16 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
     }, [subordinates, task?.created_by_id]);
 
     let myPendingAction = null;
-    let pendingActionContext = { type: null, name: '', require_file: false, rolesText: '' };
+    let pendingActionContext = {
+        type: null,
+        stageId: null,
+        name: '',
+        require_file: false,
+        rolesText: '',
+        canStart: false,
+        hasAcknowledged: false,
+        userRole: 'ASSIGNEE',
+    };
     let isWaitingForAssignees = false;
 
     const isCreatorOrAdmin = Number(task.created_by_id) === Number(currentUserId) || isAdminOrBoard;
@@ -413,33 +424,54 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
             if (stage.status !== 'ACTIVE') continue;
 
             let assigneesDone = false;
-            if (stage.approval_rule === 'ANY_ASSIGNEE') {
-                assigneesDone = stage.assignees?.some(a => a.state === 'APPROVED');
+            if (!stage.assignees || stage.assignees.length === 0) {
+                assigneesDone = true;
+            } else if (stage.approval_rule === 'ANY_ASSIGNEE') {
+                assigneesDone =
+                    stage.assignees.some(a => a.state === 'APPROVED') ||
+                    stage.assignees.every(a => !['PENDING', 'IN_PROGRESS'].includes(a.state));
             } else if (stage.approval_rule === 'ALL_ASSIGNEES') {
-                assigneesDone = stage.assignees?.every(a => !['PENDING', 'IN_PROGRESS'].includes(a.state));
+                assigneesDone = stage.assignees.every(a => !['PENDING', 'IN_PROGRESS'].includes(a.state));
             } else {
-                assigneesDone = stage.assignees?.length === 0;
+                assigneesDone = stage.assignees.length === 0;
             }
 
-            const assigneeRecord = stage.assignees?.find(a => (Number(a.user_id) === Number(currentUserId) || Number(a.user) === Number(currentUserId)));
-            const approverRecord = stage.approval_records?.find(a => Number(a.user) === Number(currentUserId));
+            const assigneeRecord = stage.assignees?.find(
+                a => (Number(a.user_id) === Number(currentUserId) || Number(a.user) === Number(currentUserId))
+            );
+            const approverRecord = stage.approval_records?.find(
+                a => Number(a.user) === Number(currentUserId)
+            );
 
-            let currentRoles = [];
-            let assigneePending = assigneeRecord && ['PENDING', 'IN_PROGRESS'].includes(assigneeRecord.state);
-            let approverPending = approverRecord && ['PENDING', 'RESUBMITTED', 'RETURNED'].includes(approverRecord.status);
+            const currentRoles = [];
+            const assigneePending = assigneeRecord && ['PENDING', 'IN_PROGRESS'].includes(assigneeRecord.state);
+            const approverPending = approverRecord && ['PENDING', 'RESUBMITTED', 'RETURNED'].includes(approverRecord.status);
 
             if (assigneeRecord) currentRoles.push('مجری');
             if (approverRecord) currentRoles.push('تاییدکننده میانی');
 
             const rolesText = currentRoles.length > 0 ? currentRoles.join(' و ') : '';
 
+            // بررسی ثبت «مشاهده و دریافت» تاییدکننده میانی از روی تاریخچه لاگ همین مرحله
+            const hasApproverAcknowledged = logs.some(
+                (l) =>
+                    l.action === 'IN_PROGRESS' &&
+                    Number(l.actor_id) === Number(currentUserId) &&
+                    Number(l.stage_id) === Number(stage.id)
+            );
+
             if (assigneePending) {
+                const hasAck = assigneeRecord.state === 'IN_PROGRESS';
                 myPendingAction = assigneeRecord;
                 pendingActionContext = {
                     type: 'STAGE',
+                    stageId: stage.id,
                     name: stage.stage_name || `مرحله ${stage.step_index || 1}`,
                     require_file: stage.require_file,
-                    rolesText: rolesText
+                    rolesText,
+                    canStart: assigneeRecord.state === 'PENDING',
+                    hasAcknowledged: hasAck,
+                    userRole: approverPending ? 'BOTH' : 'ASSIGNEE',
                 };
                 break;
             }
@@ -449,18 +481,45 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     myPendingAction = approverRecord;
                     pendingActionContext = {
                         type: 'APPROVER',
+                        stageId: stage.id,
                         name: `تاییدیه میانی: ${stage.stage_name || `مرحله ${stage.step_index || 1}`}`,
                         require_file: false,
-                        rolesText: rolesText
+                        rolesText,
+                        canStart: !hasApproverAcknowledged,
+                        hasAcknowledged: hasApproverAcknowledged,
+                        userRole: 'INTERMEDIATE_APPROVER',
                     };
                 } else {
                     isWaitingForAssignees = true;
-                    pendingActionContext = { rolesText: rolesText };
+                    pendingActionContext = {
+                        type: 'APPROVER_WAITING',
+                        stageId: stage.id,
+                        name: stage.stage_name || `مرحله ${stage.step_index || 1}`,
+                        require_file: false,
+                        rolesText,
+                        canStart: !hasApproverAcknowledged,
+                        hasAcknowledged: hasApproverAcknowledged,
+                        userRole: 'INTERMEDIATE_APPROVER',
+                    };
                 }
                 break;
             }
         }
     }
+
+    const handleStartTask = async () => {
+        if (startingTask) return;
+        setStartingTask(true);
+        try {
+            const res = await dispatch(startTaskStep(task.id)).unwrap();
+            toast.success(res?.detail || 'دریافت و شروع ماموریت ثبت شد.');
+            if (onRefresh) onRefresh();
+        } catch (err) {
+            toast.error(typeof err === 'string' ? err : err?.message || 'خطا در ثبت شروع ماموریت');
+        } finally {
+            setStartingTask(false);
+        }
+    };
 
     const handleFileSelect = (e) => {
         const file = e.target.files?.[0];
@@ -473,24 +532,27 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
 
     const handleApprove = async (note) => {
         await axiosInstance.post(`/tasks/${task.id}/approve/`, { note });
+        toast.success('تایید مرحله با موفقیت ثبت شد.');
         setModal(null);
         if (onRefresh) onRefresh();
     };
 
     const handleReject = async (note) => {
         await axiosInstance.post(`/tasks/${task.id}/reject/`, { note });
+        toast.success('عدم تایید / رد ماموریت ثبت شد.');
         setModal(null);
         if (onRefresh) onRefresh();
     };
 
     const handleReturn = async (targetIds, note) => {
-        if (!targetIds || targetIds.length === 0) return alert('لطفاً حداقل یک مجری را انتخاب کنید.');
+        if (!targetIds || targetIds.length === 0) return toast.error('لطفاً حداقل یک مجری را انتخاب کنید.');
         try {
             await dispatch(returnTaskStep({ taskId: task.id, target_user_ids: targetIds, note })).unwrap();
+            toast.success('ماموریت جهت اصلاح به مجریان برگشت داده شد.');
             setModal(null);
             if (onRefresh) onRefresh();
         } catch (err) {
-            alert(typeof err === 'string' ? err : err?.message || 'خطای سرور در برگشت دادن کار');
+            toast.error(typeof err === 'string' ? err : err?.message || 'خطای سرور در برگشت دادن کار');
         }
     };
 
@@ -607,14 +669,39 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                 {/* بنرهای اقدام در انتظار */}
                 {isWaitingForAssignees && !myPendingAction && (
                     <div className="p-2.5 sm:p-4 bg-orange-500/15 border border-orange-500/50 rounded-sm">
-                        <div className="flex items-center gap-2">
-                            <FaClock className="text-orange-400 text-sm sm:text-lg shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="text-orange-400 text-[10px] sm:text-xs font-bold mb-0.5 sm:mb-1">نقش شما: {pendingActionContext.rolesText}</span>
-                                <p className="text-orange-300 text-xs sm:text-sm font-semibold">
-                                    {pendingActionContext.rolesText.includes('مجری') ? 'شما کار خود را انجام داده‌اید. منتظر بمانید تا سایر مجریان نیز تمام کنند.' : 'لطفاً منتظر بمانید تا مجریان کارشان را به اتمام برسانند.'}
-                                </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2">
+                                <FaClock className="text-orange-400 text-sm sm:text-lg shrink-0" />
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2 flex-wrap mb-0.5 sm:mb-1">
+                                        <span className="text-orange-400 text-[10px] sm:text-xs font-bold">
+                                            نقش شما: {pendingActionContext.rolesText}
+                                        </span>
+                                        {pendingActionContext.hasAcknowledged && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-sky-500/15 border border-sky-400/40 text-sky-300">
+                                                <FaCheckCircle size={9} /> مشاهده و دریافت شده
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-orange-300 text-xs sm:text-sm font-semibold">
+                                        {pendingActionContext.rolesText.includes('مجری')
+                                            ? 'شما کار خود را انجام داده‌اید. منتظر بمانید تا سایر مجریان نیز تمام کنند.'
+                                            : 'لطفاً منتظر بمانید تا مجریان کارشان را به اتمام برسانند.'}
+                                    </p>
+                                </div>
                             </div>
+
+                            {pendingActionContext.canStart && (
+                                <button
+                                    type="button"
+                                    onClick={handleStartTask}
+                                    disabled={startingTask}
+                                    className="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs py-1.5 px-3 rounded-sm transition-colors font-bold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                    {startingTask ? <FaSpinner className="animate-spin" size={11} /> : <FaPlay size={10} />}
+                                    <span>دیدم و دریافت شد</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -623,22 +710,76 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                     <div className="p-2.5 sm:p-4 bg-blue-500/15 border border-blue-500/50 rounded-sm">
                         <div className="flex items-center justify-between mb-2.5 sm:mb-3 flex-wrap gap-1.5 sm:gap-2">
                             <div className="flex flex-col gap-1">
-                                <span className="text-blue-400 text-[10px] sm:text-[11px] font-bold bg-blue-500/15 px-1.5 sm:px-2 py-0.5 rounded-sm border border-blue-500/30 w-fit">نقش شما: {pendingActionContext.rolesText}</span>
-                                <p className="text-blue-300 text-xs sm:text-sm font-semibold">اقدام شما برای «{pendingActionContext.name}» نیاز است</p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-blue-400 text-[10px] sm:text-[11px] font-bold bg-blue-500/15 px-1.5 sm:px-2 py-0.5 rounded-sm border border-blue-500/30 w-fit">
+                                        نقش شما: {pendingActionContext.rolesText}
+                                    </span>
+                                    {pendingActionContext.hasAcknowledged && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold bg-sky-500/15 text-sky-300 px-1.5 sm:px-2 py-0.5 rounded-sm border border-sky-400/40">
+                                            <FaCheckCircle size={10} />
+                                            {pendingActionContext.type === 'APPROVER' ? 'مشاهده و دریافت شده' : 'دریافت شده / در حال انجام'}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-blue-300 text-xs sm:text-sm font-semibold">
+                                    اقدام شما برای «{pendingActionContext.name}» نیاز است
+                                </p>
                             </div>
                             {pendingActionContext.require_file && (
-                                <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-red-300/20 text-yellow-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-sm border border-yellow-500/40 font-bold"><FaPaperclip size={9} /> ارسال فایل الزامیست</span>
+                                <span className="flex items-center gap-1 text-[9px] sm:text-[10px] bg-red-300/20 text-yellow-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-sm border border-yellow-500/40 font-bold">
+                                    <FaPaperclip size={9} /> ارسال فایل الزامیست
+                                </span>
                             )}
                         </div>
-                        <div className="grid grid-cols-2 sm:flex gap-1.5 sm:gap-3">
-                            <button onClick={() => setModal('approve')} className="sm:flex-1 bg-green-600 hover:bg-green-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm"><FaCheckCircle size={12} /> تایید</button>
-                            {pendingActionContext.type !== 'APPROVER' && (
-                                <button onClick={() => setModal('forward')} className="sm:flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm"><FaArrowLeft size={11} /> ارجاع</button>
+
+                        <div className="grid grid-cols-2 sm:flex flex-wrap gap-1.5 sm:gap-2.5">
+                            {pendingActionContext.canStart && (
+                                <button
+                                    type="button"
+                                    onClick={handleStartTask}
+                                    disabled={startingTask}
+                                    className="col-span-2 sm:col-span-1 sm:flex-1 bg-sky-500 hover:bg-sky-400 text-slate-950 text-xs sm:text-sm py-1.5 sm:py-2 px-2.5 rounded-sm transition-colors font-bold flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                                >
+                                    {startingTask ? <FaSpinner className="animate-spin" size={12} /> : <FaPlay size={10} />}
+                                    <span>
+                                        {pendingActionContext.type === 'APPROVER' ? 'دیدم و دریافت شد' : 'شروع (دیده و دریافت شد)'}
+                                    </span>
+                                </button>
                             )}
+
+                            <button
+                                type="button"
+                                onClick={() => setModal('approve')}
+                                className="sm:flex-1 bg-green-600 hover:bg-green-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                                <FaCheckCircle size={12} /> تایید
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setModal('forward')}
+                                className="sm:flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                                <FaArrowLeft size={11} /> ارجاع / کمکی
+                            </button>
+
                             {pendingActionContext.type === 'APPROVER' && (
-                                <button onClick={() => setModal('return')} className="sm:flex-1 bg-orange-600 hover:bg-orange-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm"><FaUndo size={11} /> برگشت جهت اصلاح</button>
+                                <button
+                                    type="button"
+                                    onClick={() => setModal('return')}
+                                    className="sm:flex-1 bg-orange-600 hover:bg-orange-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 shadow-sm"
+                                >
+                                    <FaUndo size={11} /> برگشت جهت اصلاح
+                                </button>
                             )}
-                            <button onClick={() => setModal('reject')} className="sm:flex-1 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm"><FaTimesCircle size={12} /> رد کردن</button>
+
+                            <button
+                                type="button"
+                                onClick={() => setModal('reject')}
+                                className="sm:flex-1 bg-red-600 hover:bg-red-500 text-white text-xs sm:text-sm py-1.5 sm:py-2 px-2 rounded-sm transition-colors font-medium flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                                <FaTimesCircle size={12} /> رد کردن
+                            </button>
                         </div>
                     </div>
                 )}
@@ -1026,7 +1167,9 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
                                         <div className={`flex-1 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-700'}`}>
                                             <span className={`font-medium ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{actorDisplayName}</span>
                                             {' '}
-                                            <span className="text-blue-500">{ACTION_LABELS[log.action] || log.action}</span>
+                                            <span className="text-blue-500">
+                                                {ACTION_LABELS[log.action] || (log.action === 'IN_PROGRESS' ? 'دریافت و شروع اقدام' : log.action)}
+                                            </span>
                                             {log.note && <span className="text-gray-500 italic"> — "{log.note}"</span>}
                                             <div className="text-[10px] sm:text-[11px] text-gray-500 mt-0.5 sm:mt-1">
                                                 {isValidDate 
@@ -1138,7 +1281,18 @@ const TaskDetailPanel = ({ taskData, currentUserId, onRefresh, onBack }) => {
 
             {modal === 'approve' && <ConfirmModal title="تایید و خاتمه مرحله" message={pendingActionContext.require_file ? `آیا از ارسال فایل‌های لازم اطمینان دارید؟ با تایید، این مرحله خاتمه می‌یابد.` : `با تایید این مرحله، مسئولیت شما به پایان می‌رسد.`} confirmLabel="تایید و ثبت" confirmClass="bg-green-600 hover:bg-green-700" onConfirm={handleApprove} onClose={() => setModal(null)} />}
             {modal === 'reject' && <ConfirmModal title="رد کردن ماموریت" message={`آیا از رد کردن این گردش کار اطمینان دارید؟`} confirmLabel="تایید و رد ماموریت" confirmClass="bg-red-600 hover:bg-red-700" onConfirm={handleReject} onClose={() => setModal(null)} />}
-            {modal === 'forward' && <ForwardModal taskId={task.id} onSuccess={() => { setModal(null); if (onRefresh) onRefresh(); }} onClose={() => setModal(null)} />}
+            {modal === 'forward' && (
+                <ForwardModal
+                    taskId={task.id}
+                    userRole={pendingActionContext.userRole}
+                    onSuccess={() => {
+                        toast.success('ارجاع با موفقیت انجام شد.');
+                        setModal(null);
+                        if (onRefresh) onRefresh();
+                    }}
+                    onClose={() => setModal(null)}
+                />
+            )}
             {modal === 'return' && <ReturnModal title="برگشت دادن به مجریان" assignees={stages.find(s => s.status === 'ACTIVE')?.assignees || []} onConfirm={handleReturn} onClose={() => setModal(null)} />}
 
             {/* ── 🌟 مودال ویرایش کامل پرونده و گردش کار به صورت استپر چند مرحله‌ای ── */}

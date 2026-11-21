@@ -123,15 +123,26 @@ export const uploadTaskFile = createAsyncThunk(
         }
     }
 );
-
+export const startTaskStep = createAsyncThunk(
+    'task/startTaskStep',
+    async (taskId, { rejectWithValue }) => {
+        try {
+            const { data } = await axiosInstance.post(`/tasks/${taskId}/start/`);
+            return { taskId, ...data };
+        } catch (err) {
+            return rejectWithValue(err.response?.data?.detail || err.message);
+        }
+    }
+);
 export const forwardStep = createAsyncThunk(
     'task/forwardStep',
-    async ({ taskId, to_user_id, note, send_sms }, { rejectWithValue }) => {
+    async ({ taskId, to_user_id, note, send_sms, is_assist = false }, { rejectWithValue }) => {
         try {
             const { data } = await axiosInstance.post(`/tasks/${taskId}/forward/`, {
                 to_user_id,
                 note,
                 send_sms,
+                is_assist,
             });
             return data;
         } catch (err) {
