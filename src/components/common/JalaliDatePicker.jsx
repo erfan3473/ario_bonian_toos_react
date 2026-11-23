@@ -5,7 +5,6 @@ import { useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
 import { FaChevronLeft, FaChevronRight, FaCalendarAlt } from 'react-icons/fa';
 
-// ❌ فراخوانی moment.loadPersian حذف شد تا فرمت‌های جهانی سیستم به هم نریزد و باگ NaN رفع شود.
 
 const MONTH_NAMES = [
   'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',

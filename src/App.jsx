@@ -35,7 +35,7 @@ import TaskListPage from './pages/TaskListPage';
 import TaskViewPage from './pages/TaskViewPage';
 import RoutineListPage from './pages/RoutineListPage';
 import RoutineTemplatesPage from './pages/RoutineTemplatesPage';
-
+import BoqManagementScreen from './screens/admin/BoqManagementScreen';
 import { Toaster } from 'react-hot-toast';
 import {
   fetchNotifications,
@@ -430,6 +430,14 @@ function App() {
             <Route
               path="/admin/daily-summary"
               element={<DailySummaryScreen />}
+            />
+            <Route
+              path="/admin/boq-management"
+              element={
+                <ProtectedRoute>
+                  <BoqManagementScreen />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/admin/scheme-contracts"
