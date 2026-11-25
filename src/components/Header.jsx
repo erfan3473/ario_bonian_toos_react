@@ -84,7 +84,6 @@ const Header = () => {
 
   const getPageName = (path) => {
     if (path.startsWith("/admin/timesheet")) return "مدیریت / لیست حضور";
-    if (path.startsWith("/admin/payroll/list")) return "مدیریت / لیست حقوق";
     if (path.startsWith("/admin/users")) return "مدیریت / کاربران";
     if (path.startsWith("/admin/projects")) return "مدیریت / پروژه‌ها";
     if (path.startsWith("/admin/requests")) return "مدیریت / درخواست‌ها";
@@ -354,29 +353,23 @@ const Header = () => {
         icon: ClipboardDocumentCheckIcon,
         activeCheck: isActive("/admin/timesheet"),
       },
+      
       {
         code: "۰۵",
-        path: "/admin/payroll/list",
-        name: "لیست حقوق",
-        icon: CurrencyDollarIcon,
-        activeCheck: isActive("/admin/payroll/list"),
-      },
-      {
-        code: "۰۶",
         path: "/dashboard",
         name: "مانیتور نیروها",
         icon: PresentationChartLineIcon,
         activeCheck: isActive("/dashboard"),
       },
       {
-        code: "۰۷",
+        code: "۰۶",
         path: "/admin/users",
         name: "کاربران",
         icon: UsersIcon,
         activeCheck: startsWith("/admin/users"),
       },
       {
-        code: "۰۸",
+        code: "۰۷",
         path: "/projects",
         name: "پروژه‌ها",
         icon: BuildingOffice2Icon,
@@ -385,21 +378,21 @@ const Header = () => {
           location.pathname.includes("/admin/projects"),
       },
       {
-        code: "۰۹",
+        code: "۰۸",
         path: "/admin/requests",
         name: "درخواست‌ها",
         icon: CheckCircleIcon,
         activeCheck: isActive("/admin/requests"),
       },
       {
-        code: "۱۰",
+        code: "۰۹",
         path: "/admin/daily-summary",
         name: "گزارش‌ها",
         icon: DocumentChartBarIcon,
         activeCheck: isActive("/admin/daily-summary"),
       },
       {
-        code: "۱۱",
+        code: "۱۰",
         path: "/admin/settings",
         name: "تنظیمات",
         icon: Cog6ToothIcon,

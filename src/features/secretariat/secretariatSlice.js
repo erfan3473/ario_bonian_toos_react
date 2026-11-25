@@ -1,11 +1,16 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../api/axiosInstance';
 
-export const fetchLetters = createAsyncThunk('secretariat/fetchLetters', async (params, { rejectWithValue }) => {
+export const fetchLetters = createAsyncThunk('secretariat/fetchLetters', async (params, { rejectWithValue, signal }) => {
     try {
-        const { data } = await axiosInstance.get('/secretariat/', { params });
+        const { data } = await axiosInstance.get('/secretariat/', { params, signal });
         return data;
-    } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
+    } catch (err) {
+        if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') {
+            throw err;
+        }
+        return rejectWithValue(err.response?.data?.detail || err.message);
+    }
 });
 
 export const fetchLetterDetail = createAsyncThunk('secretariat/fetchLetterDetail', async (letterId, { rejectWithValue }) => {
@@ -62,7 +67,7 @@ export const uploadAttachment = createAsyncThunk('secretariat/uploadAttachment',
 export const signLetter = createAsyncThunk('secretariat/signLetter', async ({ letterId, signature }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.post(`/secretariat/${letterId}/sign/`, { signature });
-        return data; 
+        return data;
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
 
@@ -84,52 +89,47 @@ export const approveLetter = createAsyncThunk('secretariat/approveLetter', async
     try {
         const { data } = await axiosInstance.post(`/secretariat/${letterId}/approve/`, payload);
         return data;
-    } catch (err) { 
-        return rejectWithValue(err.response?.data?.detail || err.message); 
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.detail || err.message);
     }
 });
 
-// 🚀 اکشن واکشی لیست پیامک‌های نامه
 export const fetchLetterSmsLogs = createAsyncThunk('secretariat/fetchLetterSmsLogs', async (letterId, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.get(`/secretariat/${letterId}/sms-logs/`);
         return data;
-    } catch (err) { 
-        return rejectWithValue(err.response?.data?.detail || err.message); 
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.detail || err.message);
     }
 });
 
-// 🚀 اکشن استعلام وضعیت یک پیامک
 export const refreshLetterSmsStatus = createAsyncThunk('secretariat/refreshLetterSmsStatus', async (logId, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.post(`/secretariat/sms-logs/refresh/`, { log_id: logId });
         return data;
-    } catch (err) { 
-        return rejectWithValue(err.response?.data?.detail || err.message); 
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.detail || err.message);
     }
 });
-
 
 export const registerDestination = createAsyncThunk('secretariat/registerDestination', async ({ letterId, payload }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.post(`/secretariat/${letterId}/register-destination/`, payload);
         return data;
-    } catch (err) { 
-        return rejectWithValue(err.response?.data?.detail || err.message); 
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.detail || err.message);
     }
 });
 
-// 🚀 اکشن خروج نامه از شرکت و تخصیص پیک
 export const issueLetter = createAsyncThunk('secretariat/issueLetter', async ({ letterId, payload }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.post(`/secretariat/${letterId}/issue/`, payload);
         return data;
-    } catch (err) { 
-        return rejectWithValue(err.response?.data?.detail || err.message); 
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.detail || err.message);
     }
 });
 
-// 🚀 اکشن‌های تنظیمات پیامک بر اساس نوع نامه
 export const fetchLetterTypeSmsSettings = createAsyncThunk('secretariat/fetchLetterTypeSmsSettings', async (type, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.get('/secretariat/sms-type-settings/', { params: { type } });
@@ -143,6 +143,7 @@ export const updateLetterTypeSmsSettings = createAsyncThunk('secretariat/updateL
         return data;
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
+
 export const deleteAttachment = createAsyncThunk('secretariat/deleteAttachment', async ({ letterId, attachmentId }, { rejectWithValue }) => {
     try {
         const { data } = await axiosInstance.delete(`/secretariat/${letterId}/attachments/${attachmentId}/delete/`);
@@ -166,19 +167,29 @@ export const fetchReferenceOptions = createAsyncThunk('secretariat/fetchReferenc
     } catch (err) { return rejectWithValue(err.response?.data?.detail || err.message); }
 });
 
-
 const secretariatSlice = createSlice({
     name: 'secretariat',
     initialState: {
-        letters: [], loadingList: false, activeLetter: null, loadingDetail: false,
-        cartableItems: [], loadingCartable: false, 
-        allPersonnel: [], loadingPersonnel: false,
-        organizations: [], loadingOrganizations: false, 
-        referenceOptions: [], loadingReferenceOptions: false,
-        creating: false, createSuccess: false, forwarding: false, error: null,
-        
-        // 🚀 استیت‌های مربوط به لاگ پیامک‌ها
-        smsLogs: [], loadingSmsLogs: false, refreshingSms: false,
+        letters: [],
+        loadingList: false,
+        currentListRequestId: null,
+        activeLetter: null,
+        loadingDetail: false,
+        cartableItems: [],
+        loadingCartable: false,
+        allPersonnel: [],
+        loadingPersonnel: false,
+        organizations: [],
+        loadingOrganizations: false,
+        referenceOptions: [],
+        loadingReferenceOptions: false,
+        creating: false,
+        createSuccess: false,
+        forwarding: false,
+        error: null,
+        smsLogs: [],
+        loadingSmsLogs: false,
+        refreshingSms: false,
     },
     reducers: {
         clearActiveLetter: (state) => { state.activeLetter = null; state.smsLogs = []; },
@@ -187,36 +198,46 @@ const secretariatSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
-            .addCase(fetchLetters.pending, (state) => { state.loadingList = true; state.error = null; })
-            .addCase(fetchLetters.fulfilled, (state, action) => { state.loadingList = false; state.letters = action.payload; })
-            .addCase(fetchLetters.rejected, (state, action) => { state.loadingList = false; state.error = action.payload; })
-            
+            .addCase(fetchLetters.pending, (state, action) => {
+                state.loadingList = true;
+                state.error = null;
+                state.currentListRequestId = action.meta.requestId;
+            })
+            .addCase(fetchLetters.fulfilled, (state, action) => {
+                if (state.currentListRequestId !== action.meta.requestId) return;
+                state.loadingList = false;
+                state.letters = action.payload;
+            })
+            .addCase(fetchLetters.rejected, (state, action) => {
+                if (action.meta.aborted || state.currentListRequestId !== action.meta.requestId) return;
+                state.loadingList = false;
+                state.error = action.payload;
+            })
+
             .addCase(fetchLetterDetail.pending, (state) => { state.loadingDetail = true; state.error = null; })
             .addCase(fetchLetterDetail.fulfilled, (state, action) => { state.loadingDetail = false; state.activeLetter = action.payload; })
             .addCase(fetchLetterDetail.rejected, (state, action) => { state.loadingDetail = false; state.error = action.payload; })
-            
+
             .addCase(createLetter.pending, (state) => { state.creating = true; state.createSuccess = false; state.error = null; })
             .addCase(createLetter.fulfilled, (state) => { state.creating = false; state.createSuccess = true; })
             .addCase(createLetter.rejected, (state, action) => { state.creating = false; state.error = action.payload; })
-            
+
             .addCase(fetchAllPersonnel.fulfilled, (state, action) => { state.allPersonnel = action.payload; })
-            
+
             .addCase(fetchOrganizations.pending, (state) => { state.loadingOrganizations = true; })
             .addCase(fetchOrganizations.fulfilled, (state, action) => { state.loadingOrganizations = false; state.organizations = action.payload; })
-            .addCase(fetchOrganizations.rejected, (state, action) => { state.loadingOrganizations = false; })
-            
+            .addCase(fetchOrganizations.rejected, (state) => { state.loadingOrganizations = false; })
+
             .addCase(uploadAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(deleteAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(replaceAttachment.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(signLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
             .addCase(approveLetter.fulfilled, (state, action) => { state.activeLetter = action.payload; })
 
-            // 🚀 مدیریت استیت‌های مربوط به پیامک
             .addCase(fetchLetterSmsLogs.pending, (state) => { state.loadingSmsLogs = true; })
             .addCase(fetchLetterSmsLogs.fulfilled, (state, action) => { state.loadingSmsLogs = false; state.smsLogs = action.payload; })
             .addCase(fetchLetterSmsLogs.rejected, (state) => { state.loadingSmsLogs = false; })
-            
-            // 🚀 جایگزینی لاگِ آپدیت شده در لیست پیامک‌ها بعد از رفرش
+
             .addCase(refreshLetterSmsStatus.pending, (state) => { state.refreshingSms = true; })
             .addCase(refreshLetterSmsStatus.fulfilled, (state, action) => {
                 state.refreshingSms = false;

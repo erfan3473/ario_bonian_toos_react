@@ -1,61 +1,254 @@
-import React, { useState } from 'react';
+// src/components/TimesheetSummary.jsx
+import React, { useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { ArrowPathIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import { decimalHoursToHHMM } from '../utils/dateUtils';
 import { fetchWorkerLocationStats } from '../features/attendance/attendanceSlice';
+import { aggregateWorkerDailyLocation } from '../utils/timesheetExcelExport';
 
-const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
-  const dispatch = useDispatch();
-  const isDark = useSelector((s) => s.theme?.mode === 'dark');
+const toPersianDigits = (value) =>
+  String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
 
-  const { filters, locationStats, locationStatsLoading, locationStatsError } = useSelector((state) => state.attendance);
-  const [activeGpsWorker, setActiveGpsWorker] = useState(null);
-
-  if (loading || !meta || !workers || workers.length === 0) {
+const GpsMiniDonut = ({ stats, isDark }) => {
+  if (!stats || stats.total_logs === 0) {
     return (
-      <div className={`text-center py-6 border border-dashed rounded-lg mt-4 text-xs ${isDark ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-        <p>دیتایی برای نمایش خلاصه وجود ندارد.</p>
-      </div>
+      <span className={`text-[10px] tracking-normal ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
+        ---
+      </span>
     );
   }
 
-  const handleToggleGps = (workerId) => {
-    if (activeGpsWorker === workerId) {
-      setActiveGpsWorker(null);
-    } else {
-      setActiveGpsWorker(workerId);
-      dispatch(fetchWorkerLocationStats({
-        worker_id: workerId,
-        start_date: filters.start_date,
-        end_date: filters.end_date,
-        project_id: filters.projectId
-      }));
-    }
-  };
+  const inside = stats.chart_data?.inside_project_percent ?? 0;
+  const outside = stats.chart_data?.outside_project_percent ?? 0;
+  const stop1 = inside;
+  const stop2 = Math.min(100, inside + outside);
 
   return (
-    <div className="mt-4">
-      <div className="mb-2 flex justify-between items-end">
-        <h3 className={`text-sm font-bold ${isDark ? 'text-gray-800' : 'text-gray-800'}`}>
-          کارنامه کلی پرسنل
-        </h3>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-sm border ${isDark ? 'bg-gray-700 text-gray-200 border-gray-600' : 'bg-white text-slate-800 border-slate-300'}`}>
-           تعداد پرسنل: {workers.length}
+    <div
+      className="relative w-10 h-10 rounded-full mx-auto shrink-0 print:w-8 print:h-8"
+      title={`داخل محدوده: ${inside}% | خارج محدوده: ${outside}% | خاموش: ${
+        stats.chart_data?.gps_off_percent ?? 0
+      }%`}
+      style={{
+        background: `conic-gradient(
+          #10b981 0% ${stop1}%,
+          #f59e0b ${stop1}% ${stop2}%,
+          #ef4444 ${stop2}% 100%
+        )`,
+      }}
+    >
+      <div
+        className={`absolute inset-[4px] rounded-full flex items-center justify-center ${
+          isDark ? 'bg-tactical-surface1 print:bg-white' : 'bg-white'
+        }`}
+      >
+        <span
+          className={`text-[9px] font-bold tabular-nums leading-none ${
+            isDark ? 'text-slate-100 print:text-slate-900' : 'text-slate-900'
+          }`}
+        >
+          {toPersianDigits(Math.round(inside))}٪
+        </span>
+      </div>
+    </div>
+  );
+};
+
+const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
+  const dispatch = useDispatch();
+  const mode = useSelector((s) => s.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
+
+  const {
+    filters,
+    dailyLocationStats = {},
+    locationStatsByWorker = {},
+    locationStatsLoadingByWorker = {},
+  } = useSelector((state) => state.attendance);
+
+  const days = meta?.days || [];
+
+  // تجمیع خودکار آمار مکانی روزانه هر کارگر برای جدول خلاصه (بدون کوئری اضافی)
+  const aggregatedGpsByWorker = useMemo(() => {
+    const result = {};
+    (workers || []).forEach((w) => {
+      const wid = String(w.worker_id);
+      result[wid] = aggregateWorkerDailyLocation(
+        w.worker_id,
+        days,
+        dailyLocationStats,
+        locationStatsByWorker[wid] || null
+      );
+    });
+    return result;
+  }, [workers, days, dailyLocationStats, locationStatsByWorker]);
+
+  if (loading || !meta || !workers || workers.length === 0) {
+    return null;
+  }
+
+  const handleLoadSingleGps = (workerId) => {
+    dispatch(
+      fetchWorkerLocationStats({
+        worker_id: workerId,
+        start_date: filters.start_date || meta.start_date,
+        end_date: filters.end_date || meta.end_date,
+        project_id: filters.projectId || null,
+      })
+    );
+  };
+
+  const totals = workers.reduce(
+    (acc, w) => {
+      const s = byWorker[w.worker_id]?.summary || {};
+      acc.present += s.total_present_days || 0;
+      acc.hours += s.total_hours || 0;
+      acc.night += s.total_night_hours || 0;
+      acc.friday += s.total_friday_hours || 0;
+      acc.calcOt += s.total_calculated_overtime || 0;
+      acc.approvedOt += s.total_overtime_hours || 0;
+      return acc;
+    },
+    { present: 0, hours: 0, night: 0, friday: 0, calcOt: 0, approvedOt: 0 }
+  );
+
+  const borderHairline = isDark ? 'border-slate-400/15' : 'border-slate-900/15';
+  const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
+  const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
+
+  return (
+    <div className="mt-6 space-y-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`w-1.5 h-4 rounded-[1px] ${isDark ? 'bg-amber-400' : 'bg-amber-600'}`} />
+          <h3 className={`text-sm font-bold tracking-normal ${textPrimary}`}>
+            خلاصه کارنامه کل پرسنل در بازه انتخابی
+          </h3>
+          <span
+            className={`text-[11px] font-semibold px-2 py-0.5 rounded-[2px] border tabular-nums tracking-normal ${
+              isDark
+                ? 'bg-tactical-surface2 border-slate-400/20 text-amber-300'
+                : 'bg-white border-slate-900/15 text-amber-800'
+            }`}
+          >
+            تعداد پرسنل: {toPersianDigits(workers.length)} نفر
+          </span>
+        </div>
+        <span className={`text-[10px] tracking-normal ${textSecondary}`}>
+          آمار مکانی این جدول به‌صورت خودکار از مجموع روزهای محاسبه‌شده بالا به‌روزرسانی می‌شود
         </span>
       </div>
 
-      <div className={`border rounded-lg shadow-sm overflow-hidden ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-        <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
+      <div
+        className={`border rounded-[2px] overflow-hidden ${
+          isDark
+            ? 'bg-tactical-surface1 border-slate-400/20 print:bg-white print:border-slate-400'
+            : 'bg-white border-slate-900/20'
+        }`}
+      >
+        <div className="overflow-x-auto print:overflow-visible">
           <table className="min-w-full text-[11px] whitespace-nowrap border-collapse">
-            <thead className={`sticky top-0 z-20 shadow-sm ${isDark ? 'bg-slate-800 text-gray-300 border-gray-700' : 'bg-slate-200 text-gray-700 border-gray-300'}`}>
+            <thead
+              className={`border-b-2 tracking-normal ${
+                isDark
+                  ? 'bg-tactical-surface2 text-slate-200 border-slate-400/25 print:bg-slate-200 print:text-slate-900'
+                  : 'bg-tactical-lightElevated text-slate-800 border-slate-900/20'
+              }`}
+            >
               <tr>
-                <th className={`px-2 py-2 text-right font-bold sticky right-0 z-30 border-l ${isDark ? 'bg-slate-800 border-gray-700 shadow-[1px_0_0_#374151]' : 'bg-slate-200 border-gray-300 shadow-[1px_0_0_#d1d5db]'}`}>ردیف و نام پرسنل</th>
-                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>حضور<br/>(روز)</th>
-                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-blue-400 border-gray-700' : 'text-blue-700 border-gray-300'}`}>مجموع<br/>کارکرد</th>
-                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-teal-400 border-gray-700' : 'text-teal-600 border-gray-300'}`}>میانگین<br/>ساعت حضور</th>
-                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-indigo-400 border-gray-700' : 'text-indigo-700 border-gray-300'}`}>شب‌کاری</th>
-                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-rose-400 border-gray-700' : 'text-rose-600 border-gray-300'}`}>جمعه‌کاری</th>
-                <th className={`px-2 py-2 text-center font-bold border-l ${isDark ? 'text-purple-400 border-gray-700' : 'text-purple-600 border-gray-300'}`}>اضافه کار<br/>(سیستم)</th>
-                <th className={`px-2 py-2 text-center font-bold ${isDark ? 'text-green-400' : 'text-green-700'}`}>اضافه کار<br/>(تایید شده)</th>
+                <th
+                  className={`px-2.5 py-2.5 text-right font-bold sticky right-0 z-20 border-e print:static ${
+                    isDark
+                      ? 'bg-tactical-surface2 border-slate-400/20 print:bg-slate-200'
+                      : 'bg-tactical-lightElevated border-slate-900/15'
+                  }`}
+                >
+                  ردیف و نام پرسنل
+                </th>
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  حضور
+                  <br />
+                  (روز)
+                </th>
+                <th
+                  className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline} ${
+                    isDark ? 'text-sky-300 print:text-slate-900' : 'text-sky-800'
+                  }`}
+                >
+                  مجموع
+                  <br />
+                  کارکرد
+                </th>
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  میانگین
+                  <br />
+                  روزانه
+                </th>
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  شب‌کاری
+                </th>
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  جمعه‌کاری
+                </th>
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  اضافه‌کار
+                  <br />
+                  (سیستم)
+                </th>
+                <th
+                  className={`px-2 py-2.5 text-center font-bold border-e-2 ${
+                    isDark
+                      ? 'border-slate-400/30 text-emerald-300 print:text-slate-900'
+                      : 'border-slate-900/25 text-emerald-800'
+                  }`}
+                >
+                  اضافه‌کار
+                  <br />
+                  (تایید شده)
+                </th>
+
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  مسافت
+                  <br />
+                  (کیلومتر)
+                </th>
+                <th className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline}`}>
+                  تعداد
+                  <br />
+                  نقاط
+                </th>
+                <th
+                  className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline} ${
+                    isDark ? 'text-emerald-400 print:text-slate-900' : 'text-emerald-700'
+                  }`}
+                >
+                  داخل
+                  <br />
+                  محدوده
+                </th>
+                <th
+                  className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline} ${
+                    isDark ? 'text-amber-400 print:text-slate-900' : 'text-amber-700'
+                  }`}
+                >
+                  خارج
+                  <br />
+                  محدوده
+                </th>
+                <th
+                  className={`px-2 py-2.5 text-center font-bold border-e ${borderHairline} ${
+                    isDark ? 'text-red-400 print:text-slate-900' : 'text-red-700'
+                  }`}
+                >
+                  خاموش /
+                  <br />
+                  خطا
+                </th>
+                <th className="px-2.5 py-2.5 text-center font-bold">
+                  نمودار
+                  <br />
+                  مکانی
+                </th>
               </tr>
             </thead>
 
@@ -67,172 +260,286 @@ const TimesheetSummary = ({ meta, workers, byWorker, loading }) => {
                 const summary = wData.summary;
                 const presentDays = summary.total_present_days || 0;
                 const hours = summary.total_hours || 0;
-                const averageHours = presentDays > 0 ? (hours / presentDays) : 0;
+                const averageHours = presentDays > 0 ? hours / presentDays : 0;
                 const night = summary.total_night_hours || 0;
                 const friday = summary.total_friday_hours || 0;
                 const calcOvertime = summary.total_calculated_overtime || 0;
                 const approvedOvertime = summary.total_overtime_hours || 0;
 
-                const isGpsOpen = activeGpsWorker === worker.worker_id;
+                const wid = String(worker.worker_id);
+                const gps = aggregatedGpsByWorker[wid];
+                const isSingleLoading = Boolean(locationStatsLoadingByWorker[wid]);
+                const isEven = index % 2 === 0;
 
-                const rowBgColor = isGpsOpen 
-                  ? (isDark ? 'bg-indigo-900/30' : 'bg-indigo-50/50') 
-                  : (isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50');
+                const rowBg = isEven
+                  ? isDark
+                    ? 'bg-tactical-surface1 hover:bg-tactical-hover border-b-2 border-tactical-canvas print:bg-white'
+                    : 'bg-white hover:bg-sky-50/45 border-b-2 border-slate-200'
+                  : isDark
+                  ? 'bg-tactical-surface2/80 hover:bg-tactical-hover border-b-2 border-tactical-canvas print:bg-slate-50'
+                  : 'bg-slate-100/75 hover:bg-sky-50/45 border-b-2 border-slate-200';
 
-                const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
+                const stickyBg = isEven
+                  ? isDark
+                    ? 'bg-tactical-surface1 print:bg-white'
+                    : 'bg-white'
+                  : isDark
+                  ? 'bg-tactical-surface2 print:bg-slate-50'
+                  : 'bg-slate-100';
 
                 return (
-                  <React.Fragment key={worker.worker_id}>
-                    {/* --- ردیف اصلی اطلاعات --- */}
-                    <tr className={`border-b transition-colors duration-150 ${borderColor} ${rowBgColor}`}>
-                      <td className={`px-2 py-1.5 sticky right-0 z-10 border-l align-middle ${borderColor} ${rowBgColor} ${isDark ? 'shadow-[1px_0_0_#374151]' : 'shadow-[1px_0_0_#e5e7eb]'}`}>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-mono shadow-sm shrink-0 ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
-                            {index + 1}
-                          </span>
-                          <div className="leading-tight">
-                            <div className={`font-bold text-[11px] ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                              {worker.worker_name}
-                            </div>
-                            <div className={`text-[9px] font-mono mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                              {worker.worker_code}
-                            </div>
+                  <tr
+                    key={worker.worker_id}
+                    className={`transition-colors duration-150 print-row-avoid-break ${rowBg}`}
+                  >
+                    <td
+                      className={`px-2.5 py-2 sticky right-0 z-10 border-e border-s-[3px] align-middle print:static ${borderHairline} ${stickyBg} ${
+                        isEven
+                          ? isDark
+                            ? 'border-s-sky-400/50'
+                            : 'border-s-sky-600/50'
+                          : isDark
+                          ? 'border-s-amber-400/50'
+                          : 'border-s-amber-600/50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-[2px] text-[10px] font-bold tabular-nums shrink-0 ${
+                            isDark
+                              ? 'bg-tactical-canvas text-slate-300 border border-slate-400/20'
+                              : 'bg-white text-slate-700 border border-slate-900/15'
+                          }`}
+                        >
+                          {toPersianDigits(index + 1)}
+                        </span>
+                        <div className="leading-tight min-w-0">
+                          <div className={`font-bold text-xs tracking-normal ${textPrimary}`}>
+                            {worker.worker_name}
                           </div>
-                          <button
-                            onClick={() => handleToggleGps(worker.worker_id)}
-                            title="تحلیل موقعیت مکانی"
-                            className={`mr-auto p-1 rounded-full border transition-colors ${
-                              isGpsOpen 
-                                ? (isDark ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-600 text-white border-indigo-600') 
-                                : (isDark ? 'bg-gray-700 text-indigo-400 border-gray-600 hover:bg-gray-600' : 'bg-gray-50 text-indigo-500 border-gray-200 hover:bg-indigo-100')
-                            }`}
-                          >
-                            📍
-                          </button>
+                          <div className={`text-[10px] tabular-nums mt-0.5 ${textSecondary}`}>
+                            کد: {toPersianDigits(worker.worker_code || '-')}
+                          </div>
                         </div>
-                      </td>
 
-                      <td className={`px-2 py-1.5 text-center border-l align-middle ${borderColor}`}>
-                        <span className={`font-bold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{presentDays}</span>
-                      </td>
-                      <td className={`px-2 py-1.5 text-center font-mono font-bold dir-ltr border-l align-middle ${borderColor} ${isDark ? 'text-blue-400 bg-blue-900/10' : 'text-blue-700 bg-blue-50/40'}`}>
-                        {decimalHoursToHHMM(hours)}
-                      </td>
-                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
-                        {averageHours > 0 ? <span className={`font-bold ${isDark ? 'text-teal-400' : 'text-teal-600'}`}>{decimalHoursToHHMM(averageHours)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                      </td>
-                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
-                        {night > 0 ? <span className={`font-bold ${isDark ? 'text-indigo-400' : 'text-indigo-700'}`}>{decimalHoursToHHMM(night)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                      </td>
-                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
-                        {friday > 0 ? <span className={`font-bold ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>{decimalHoursToHHMM(friday)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                      </td>
-                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr border-l align-middle ${borderColor}`}>
-                        {calcOvertime > 0 ? <span className={`font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{decimalHoursToHHMM(calcOvertime)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                      </td>
-                      <td className={`px-2 py-1.5 text-center font-mono dir-ltr align-middle ${isDark ? 'bg-green-900/10' : 'bg-green-50/40'}`}>
-                        {approvedOvertime > 0 ? <span className={`font-bold ${isDark ? 'text-green-400' : 'text-green-700'}`}>{decimalHoursToHHMM(approvedOvertime)}</span> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                      </td>
-                    </tr>
+                        <button
+                          type="button"
+                          onClick={() => handleLoadSingleGps(worker.worker_id)}
+                          disabled={isSingleLoading}
+                          title="دریافت آمار مکانی تجمیعی همین فرد"
+                          className={`ms-auto p-1 rounded-[2px] border transition-colors no-print ${
+                            gps
+                              ? isDark
+                                ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300 hover:bg-emerald-500/25'
+                                : 'bg-emerald-50 border-emerald-600/35 text-emerald-700 hover:bg-emerald-100'
+                              : isDark
+                              ? 'bg-tactical-canvas border-slate-400/20 text-sky-400 hover:border-sky-400/50'
+                              : 'bg-white border-slate-900/15 text-sky-700 hover:border-sky-600/50'
+                          }`}
+                        >
+                          {isSingleLoading ? (
+                            <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <MapPinIcon className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
 
-                    {/* --- ردیف کشویی (Expandable Row) برای GPS --- */}
-                    {isGpsOpen && (
-                      <tr>
-                        <td colSpan="8" className={`p-0 border-b-2 ${isDark ? 'border-indigo-800 bg-indigo-900/20' : 'border-indigo-200 bg-indigo-50/40'}`}>
-                          <div className="p-3 animate-fade-in shadow-inner">
-                            <h4 className={`font-bold mb-3 text-xs flex items-center gap-1 ${isDark ? 'text-indigo-300' : 'text-indigo-800'}`}>
-                              📊 تحلیل مکانی ({worker.worker_name}) در بازه انتخابی
-                            </h4>
-                            
-                            {locationStatsLoading && <div className={`animate-pulse text-xs ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>در حال دریافت و تحلیل نقاط مکانی...</div>}
-                            {locationStatsError && <div className={`p-2 rounded text-xs ${isDark ? 'bg-red-900/40 text-red-400' : 'bg-red-50 text-red-600'}`}>{locationStatsError}</div>}
-                            
-                            {!locationStatsLoading && !locationStatsError && locationStats && (
-                              locationStats.total_logs === 0 ? (
-                                <div className={`p-3 rounded-lg border text-center text-[11px] ${isDark ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-500'}`}>
-                                  دیتای موقعیت مکانی (GPS) برای این شخص در این بازه ثبت نشده است.
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                  {/* بخش آماری */}
-                                  <div className="flex flex-col gap-2 justify-center">
-                                    <div className={`p-2 rounded-lg border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                                      <span className={`text-[10px] font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>مجموع مسافت طی شده:</span>
-                                      <span className={`text-sm font-bold dir-ltr ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                                        {locationStats.distance_kilometers} <span className="text-[9px] font-normal opacity-70">km</span>
-                                      </span>
-                                    </div>
-                                    <div className={`p-2 rounded-lg border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                                      <span className={`text-[10px] font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>تعداد کل نقاط ثبت شده:</span>
-                                      <span className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{locationStats.total_logs}</span>
-                                    </div>
-                                  </div>
+                    <td className={`px-2 py-2 text-center border-e tabular-nums font-bold ${borderHairline} ${textPrimary}`}>
+                      {toPersianDigits(presentDays)}
+                    </td>
 
-                                  {/* بخش چارت (Donut) */}
-                                  <div className="flex justify-center items-center">
-                                    <div 
-                                      className="relative w-24 h-24 rounded-full shadow-inner"
-                                      style={{
-                                        background: `conic-gradient(
-                                          #22c55e 0% ${locationStats.chart_data.inside_project_percent}%, 
-                                          #eab308 ${locationStats.chart_data.inside_project_percent}% ${locationStats.chart_data.inside_project_percent + locationStats.chart_data.outside_project_percent}%, 
-                                          #ef4444 ${locationStats.chart_data.inside_project_percent + locationStats.chart_data.outside_project_percent}% 100%
-                                        )`
-                                      }}
-                                    >
-                                      <div className={`absolute inset-2.5 rounded-full flex items-center justify-center shadow-sm ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
-                                        <div className="text-center">
-                                          <div className={`text-sm font-black ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>{locationStats.chart_data.inside_project_percent}%</div>
-                                          <div className={`text-[8px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>در پروژه</div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
+                    <td
+                      dir="ltr"
+                      className={`px-2 py-2 text-center font-bold tabular-nums border-e ${borderHairline} ${
+                        isDark ? 'text-sky-300 bg-sky-400/5 print:text-slate-900' : 'text-sky-800 bg-sky-50/50'
+                      }`}
+                    >
+                      {toPersianDigits(decimalHoursToHHMM(hours))}
+                    </td>
 
-                                  {/* بخش راهنما */}
-                                  <div className="flex flex-col justify-center gap-1.5">
-                                    <div className={`p-1.5 rounded border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                        <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>داخل پروژه</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[9px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({locationStats.raw_counts.inside} نقطه)</span>
-                                        <span className="font-bold text-green-500 text-[10px] w-6 text-left">{locationStats.chart_data.inside_project_percent}%</span>
-                                      </div>
-                                    </div>
-                                    <div className={`p-1.5 rounded border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                                        <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>خارج محدوده</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[9px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({locationStats.raw_counts.outside} نقطه)</span>
-                                        <span className="font-bold text-yellow-500 text-[10px] w-6 text-left">{locationStats.chart_data.outside_project_percent}%</span>
-                                      </div>
-                                    </div>
-                                    <div className={`p-1.5 rounded border flex items-center justify-between shadow-sm ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                                      <div className="flex items-center gap-1.5">
-                                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                        <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>GPS خاموش</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[9px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>({locationStats.raw_counts.off} نقطه)</span>
-                                        <span className="font-bold text-red-500 text-[10px] w-6 text-left">{locationStats.chart_data.gps_off_percent}%</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            )}
+                    <td dir="ltr" className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {averageHours > 0 ? (
+                        <span className={`font-semibold ${isDark ? 'text-teal-300 print:text-slate-900' : 'text-teal-700'}`}>
+                          {toPersianDigits(decimalHoursToHHMM(averageHours))}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td dir="ltr" className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {night > 0 ? (
+                        <span className={`font-semibold ${isDark ? 'text-indigo-300 print:text-slate-900' : 'text-indigo-700'}`}>
+                          {toPersianDigits(decimalHoursToHHMM(night))}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td dir="ltr" className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {friday > 0 ? (
+                        <span className={`font-semibold ${isDark ? 'text-rose-300 print:text-slate-900' : 'text-rose-700'}`}>
+                          {toPersianDigits(decimalHoursToHHMM(friday))}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td dir="ltr" className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {calcOvertime > 0 ? (
+                        <span className={`font-semibold ${isDark ? 'text-purple-300 print:text-slate-900' : 'text-purple-700'}`}>
+                          {toPersianDigits(decimalHoursToHHMM(calcOvertime))}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td
+                      dir="ltr"
+                      className={`px-2 py-2 text-center tabular-nums border-e-2 ${
+                        isDark
+                          ? 'border-slate-400/30 bg-emerald-500/5'
+                          : 'border-slate-900/25 bg-emerald-50/45'
+                      }`}
+                    >
+                      {approvedOvertime > 0 ? (
+                        <span className={`font-bold ${isDark ? 'text-emerald-300 print:text-slate-900' : 'text-emerald-700'}`}>
+                          {toPersianDigits(decimalHoursToHHMM(approvedOvertime))}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    {/* ۶ ستون آمار مکانی تجمیعی */}
+                    <td className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {isSingleLoading ? (
+                        <span className="text-[10px] text-sky-400">...</span>
+                      ) : gps ? (
+                        <span className={`font-bold ${isDark ? 'text-sky-300 print:text-slate-900' : 'text-sky-800'}`}>
+                          {toPersianDigits(gps.distance_kilometers)}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {gps ? (
+                        <span className={`font-semibold ${textPrimary}`}>
+                          {toPersianDigits(gps.total_logs)}
+                        </span>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {gps && gps.total_logs > 0 ? (
+                        <div className="leading-tight">
+                          <div className={`font-bold ${isDark ? 'text-emerald-400 print:text-slate-900' : 'text-emerald-700'}`}>
+                            {toPersianDigits(gps.chart_data?.inside_project_percent ?? 0)}٪
                           </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                          <div className={`text-[9px] ${textSecondary}`}>
+                            ({toPersianDigits(gps.raw_counts?.inside ?? 0)})
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {gps && gps.total_logs > 0 ? (
+                        <div className="leading-tight">
+                          <div className={`font-bold ${isDark ? 'text-amber-400 print:text-slate-900' : 'text-amber-700'}`}>
+                            {toPersianDigits(gps.chart_data?.outside_project_percent ?? 0)}٪
+                          </div>
+                          <div className={`text-[9px] ${textSecondary}`}>
+                            ({toPersianDigits(gps.raw_counts?.outside ?? 0)})
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td className={`px-2 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                      {gps && gps.total_logs > 0 ? (
+                        <div className="leading-tight">
+                          <div className={`font-bold ${isDark ? 'text-red-400 print:text-slate-900' : 'text-red-700'}`}>
+                            {toPersianDigits(gps.chart_data?.gps_off_percent ?? 0)}٪
+                          </div>
+                          <div className={`text-[9px] ${textSecondary}`}>
+                            ({toPersianDigits(gps.raw_counts?.off ?? 0)})
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="opacity-35">-</span>
+                      )}
+                    </td>
+
+                    <td className="px-2 py-1.5 text-center align-middle">
+                      <GpsMiniDonut stats={gps} isDark={isDark} />
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
+
+            <tfoot>
+              <tr
+                className={`border-t-2 font-bold tracking-normal ${
+                  isDark
+                    ? 'bg-tactical-surface2 border-sky-400/35 text-slate-100 print:bg-slate-200 print:text-slate-900'
+                    : 'bg-tactical-lightElevated border-sky-600/35 text-slate-900'
+                }`}
+              >
+                <td
+                  className={`px-3 py-2.5 text-right sticky right-0 z-10 border-e print:static ${
+                    isDark
+                      ? 'bg-tactical-surface2 border-slate-400/20 print:bg-slate-200'
+                      : 'bg-tactical-lightElevated border-slate-900/15'
+                  }`}
+                >
+                  جمع کل ({toPersianDigits(workers.length)} نفر)
+                </td>
+                <td className={`px-2 py-2.5 text-center tabular-nums border-e ${borderHairline}`}>
+                  {toPersianDigits(totals.present)}
+                </td>
+                <td dir="ltr" className={`px-2 py-2.5 text-center tabular-nums border-e ${borderHairline}`}>
+                  {toPersianDigits(decimalHoursToHHMM(totals.hours))}
+                </td>
+                <td dir="ltr" className={`px-2 py-2.5 text-center tabular-nums border-e ${borderHairline}`}>
+                  {totals.present > 0 ? toPersianDigits(decimalHoursToHHMM(totals.hours / totals.present)) : '-'}
+                </td>
+                <td dir="ltr" className={`px-2 py-2.5 text-center tabular-nums border-e ${borderHairline}`}>
+                  {toPersianDigits(decimalHoursToHHMM(totals.night))}
+                </td>
+                <td dir="ltr" className={`px-2 py-2.5 text-center tabular-nums border-e ${borderHairline}`}>
+                  {toPersianDigits(decimalHoursToHHMM(totals.friday))}
+                </td>
+                <td dir="ltr" className={`px-2 py-2.5 text-center tabular-nums border-e ${borderHairline}`}>
+                  {toPersianDigits(decimalHoursToHHMM(totals.calcOt))}
+                </td>
+                <td
+                  dir="ltr"
+                  className={`px-2 py-2.5 text-center tabular-nums border-e-2 ${
+                    isDark ? 'border-slate-400/30' : 'border-slate-900/25'
+                  }`}
+                >
+                  {toPersianDigits(decimalHoursToHHMM(totals.approvedOt))}
+                </td>
+                <td colSpan={6} className={`px-3 py-2.5 text-center text-[10px] font-medium ${textSecondary}`}>
+                  سبز: داخل محدوده | کهربایی: خارج محدوده | قرمز: خاموش یا بدون مجوز
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>

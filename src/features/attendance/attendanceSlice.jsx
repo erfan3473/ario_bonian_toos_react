@@ -77,7 +77,7 @@ export const approveBulkOvertime = createAsyncThunk(
 );
 
 // =========================
-// آمار GPS
+// آمار GPS (تکی برای بازه کامل یک کارگر)
 // =========================
 export const fetchWorkerLocationStats = createAsyncThunk(
   'attendance/fetchWorkerLocationStats',
@@ -91,10 +91,62 @@ export const fetchWorkerLocationStats = createAsyncThunk(
       if (worker_id) query.append('worker_id', worker_id);
 
       const response = await api.get(`/attendance/worker-location-stats/?${query.toString()}`);
-      return response.data;
+      return {
+        worker_id,
+        data: response.data,
+      };
+    } catch (error) {
+      return rejectWithValue({
+        worker_id: params.worker_id,
+        message: error.response?.data?.detail || 'خطا در دریافت آمار موقعیت مکانی',
+      });
+    }
+  }
+);
+
+// =========================
+// آمار GPS (گروهی تجمیعی)
+// =========================
+export const fetchBulkWorkerLocationStats = createAsyncThunk(
+  'attendance/fetchBulkWorkerLocationStats',
+  async ({ worker_ids, start_date, end_date, project_id }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/attendance/worker-location-stats-bulk/', {
+        worker_ids,
+        start_date,
+        end_date,
+        project_id: project_id || null,
+      });
+      return response.data?.results || {};
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.detail || 'خطا در دریافت آمار موقعیت مکانی'
+        error.response?.data?.detail || 'خطا در محاسبه گروهی آمار موقعیت مکانی'
+      );
+    }
+  }
+);
+
+// =========================
+// آمار GPS روزانه (به‌تفکیک کارگر و روز با کش Redis)
+// =========================
+export const fetchDailyBulkWorkerLocationStats = createAsyncThunk(
+  'attendance/fetchDailyBulkWorkerLocationStats',
+  async (
+    { worker_ids, start_date, end_date, project_id, force_refresh = false },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await api.post('/attendance/worker-location-stats-daily-bulk/', {
+        worker_ids,
+        start_date,
+        end_date,
+        project_id: project_id || null,
+        force_refresh,
+      });
+      return response.data?.daily_results || {};
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.detail || 'خطا در دریافت آمار مکانی روزانه'
       );
     }
   }
@@ -176,6 +228,16 @@ const initialState = {
   locationStats: null,
   locationStatsError: null,
 
+  locationStatsByWorker: {},
+  locationStatsLoadingByWorker: {},
+  locationStatsErrorByWorker: {},
+  bulkLocationStatsLoading: false,
+  bulkLocationStatsError: null,
+
+  // آمار مکانی روزانه با کلید `${workerId}:${gregorianDate}`
+  dailyLocationStats: {},
+  dailyLocationError: null,
+
   smsLogsByKey: {},
   smsSendingKey: null,
   smsRefreshingId: null,
@@ -208,6 +270,13 @@ const attendanceSlice = createSlice({
       state.error = null;
       state.locationStats = null;
       state.locationStatsError = null;
+      state.locationStatsByWorker = {};
+      state.locationStatsLoadingByWorker = {};
+      state.locationStatsErrorByWorker = {};
+      state.bulkLocationStatsLoading = false;
+      state.bulkLocationStatsError = null;
+      state.dailyLocationStats = {};
+      state.dailyLocationError = null;
       state.smsLogsByKey = {};
       state.smsSendingKey = null;
       state.smsRefreshingId = null;
@@ -219,9 +288,6 @@ const attendanceSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // =========================
-      // Fetch Timesheet
-      // =========================
       .addCase(fetchTimesheetByRange.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -233,7 +299,16 @@ const attendanceSlice = createSlice({
         state.byWorker = action.payload.by_worker;
         state.byDay = action.payload.by_day;
 
-        // 👈 بارگذاری اولیه لاگ‌های پیامک درون کش ریداکس
+        // پاکسازی کش GPS بازه قبلی
+        state.locationStats = null;
+        state.locationStatsError = null;
+        state.locationStatsByWorker = {};
+        state.locationStatsLoadingByWorker = {};
+        state.locationStatsErrorByWorker = {};
+        state.bulkLocationStatsError = null;
+        state.dailyLocationStats = {};
+        state.dailyLocationError = null;
+
         const newSmsLogsByKey = { ...state.smsLogsByKey };
         if (action.payload.by_day) {
           Object.entries(action.payload.by_day).forEach(([dateStr, dayData]) => {
@@ -252,9 +327,6 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // =========================
-      // Update Overtime
-      // =========================
       .addCase(updateOvertime.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -267,25 +339,58 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // =========================
-      // GPS Stats
-      // =========================
-      .addCase(fetchWorkerLocationStats.pending, (state) => {
+      .addCase(fetchWorkerLocationStats.pending, (state, action) => {
+        const wid = String(action.meta.arg.worker_id);
         state.locationStatsLoading = true;
         state.locationStatsError = null;
+        state.locationStatsLoadingByWorker[wid] = true;
+        state.locationStatsErrorByWorker[wid] = null;
       })
       .addCase(fetchWorkerLocationStats.fulfilled, (state, action) => {
+        const wid = String(action.payload.worker_id);
         state.locationStatsLoading = false;
-        state.locationStats = action.payload;
+        state.locationStats = action.payload.data;
+        state.locationStatsLoadingByWorker[wid] = false;
+        state.locationStatsByWorker[wid] = action.payload.data;
       })
       .addCase(fetchWorkerLocationStats.rejected, (state, action) => {
+        const wid = String(action.payload?.worker_id ?? action.meta.arg.worker_id);
+        const message = action.payload?.message || 'خطا در دریافت آمار موقعیت مکانی';
         state.locationStatsLoading = false;
-        state.locationStatsError = action.payload;
+        state.locationStatsError = message;
+        state.locationStatsLoadingByWorker[wid] = false;
+        state.locationStatsErrorByWorker[wid] = message;
       })
 
-      // =========================
-      // Bulk Approve
-      // =========================
+      .addCase(fetchBulkWorkerLocationStats.pending, (state) => {
+        state.bulkLocationStatsLoading = true;
+        state.bulkLocationStatsError = null;
+      })
+      .addCase(fetchBulkWorkerLocationStats.fulfilled, (state, action) => {
+        state.bulkLocationStatsLoading = false;
+        state.locationStatsByWorker = {
+          ...state.locationStatsByWorker,
+          ...action.payload,
+        };
+      })
+      .addCase(fetchBulkWorkerLocationStats.rejected, (state, action) => {
+        state.bulkLocationStatsLoading = false;
+        state.bulkLocationStatsError = action.payload;
+      })
+
+      .addCase(fetchDailyBulkWorkerLocationStats.pending, (state) => {
+        state.dailyLocationError = null;
+      })
+      .addCase(fetchDailyBulkWorkerLocationStats.fulfilled, (state, action) => {
+        state.dailyLocationStats = {
+          ...state.dailyLocationStats,
+          ...action.payload,
+        };
+      })
+      .addCase(fetchDailyBulkWorkerLocationStats.rejected, (state, action) => {
+        state.dailyLocationError = action.payload;
+      })
+
       .addCase(approveBulkOvertime.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -298,9 +403,6 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // =========================
-      // Fetch SMS Logs
-      // =========================
       .addCase(fetchAttendanceSmsLogs.pending, (state, action) => {
         state.error = null;
         state.smsLogsLoadingKey = `${action.meta.arg.worker_id}-${action.meta.arg.date}`;
@@ -315,9 +417,6 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // =========================
-      // Send SMS
-      // =========================
       .addCase(sendAttendanceSms.pending, (state, action) => {
         state.error = null;
         state.smsSendingKey = `${action.meta.arg.worker_id}-${action.meta.arg.date}`;
@@ -333,9 +432,6 @@ const attendanceSlice = createSlice({
         state.error = action.payload;
       })
 
-      // =========================
-      // Refresh SMS Status
-      // =========================
       .addCase(refreshAttendanceSmsStatus.pending, (state, action) => {
         state.error = null;
         state.smsRefreshingId = action.meta.arg.log_id;

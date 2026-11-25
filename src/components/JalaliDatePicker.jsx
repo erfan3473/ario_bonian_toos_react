@@ -2,6 +2,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import moment from 'moment-jalaali';
+import {
+  CalendarDaysIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+
+const toPersianDigits = (value) =>
+  String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
 
 const MONTH_NAMES = [
   'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
@@ -17,8 +26,8 @@ const YEARS = (() => {
 })();
 
 const getPersianWeekdayIndex = (m) => {
-  const g = m.day(); 
-  return (g + 1) % 7; 
+  const g = m.day();
+  return (g + 1) % 7;
 };
 
 const JalaliDatePicker = ({
@@ -31,7 +40,8 @@ const JalaliDatePicker = ({
   modal = false,
   placeholder = 'انتخاب تاریخ',
 }) => {
-  const isDark = useSelector((s) => s.theme?.mode === 'dark');
+  const mode = useSelector((s) => s.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
 
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(() => moment().jMonth());
@@ -53,14 +63,21 @@ const JalaliDatePicker = ({
   }, [value]);
 
   useEffect(() => {
-    if (!isOpen || modal) return;
+    if (!isOpen) return;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      if (!modal && containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false);
       }
     };
+    document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [isOpen, modal]);
 
   const daysGrid = useMemo(() => {
@@ -85,13 +102,16 @@ const JalaliDatePicker = ({
     return { day: t.jDate(), month: t.jMonth(), year: t.jYear() };
   }, []);
 
-  const handleDayClick = useCallback((day) => {
-    if (!day) return;
-    const newDate = moment(`${currentYear}/${currentMonth + 1}/${day}`, 'jYYYY/jM/jD');
-    setSelectedDate(newDate);
-    onChange({ target: { name, value: newDate.format('YYYY-MM-DD') } });
-    setIsOpen(false);
-  }, [currentYear, currentMonth, name, onChange]);
+  const handleDayClick = useCallback(
+    (day) => {
+      if (!day) return;
+      const newDate = moment(`${currentYear}/${currentMonth + 1}/${day}`, 'jYYYY/jM/jD');
+      setSelectedDate(newDate);
+      onChange({ target: { name, value: newDate.format('YYYY-MM-DD') } });
+      setIsOpen(false);
+    },
+    [currentYear, currentMonth, name, onChange]
+  );
 
   const handlePrevMonth = useCallback(() => {
     setCurrentMonth((m) => {
@@ -113,15 +133,25 @@ const JalaliDatePicker = ({
     });
   }, []);
 
-  const isToday = useCallback((day) => {
-    if (!day) return false;
-    return day === todayRef.day && currentMonth === todayRef.month && currentYear === todayRef.year;
-  }, [currentMonth, currentYear, todayRef]);
+  const isToday = useCallback(
+    (day) => {
+      if (!day) return false;
+      return day === todayRef.day && currentMonth === todayRef.month && currentYear === todayRef.year;
+    },
+    [currentMonth, currentYear, todayRef]
+  );
 
-  const isSelected = useCallback((day) => {
-    if (!day || !selectedDate) return false;
-    return day === selectedDate.jDate() && currentMonth === selectedDate.jMonth() && currentYear === selectedDate.jYear();
-  }, [currentMonth, currentYear, selectedDate]);
+  const isSelected = useCallback(
+    (day) => {
+      if (!day || !selectedDate) return false;
+      return (
+        day === selectedDate.jDate() &&
+        currentMonth === selectedDate.jMonth() &&
+        currentYear === selectedDate.jYear()
+      );
+    },
+    [currentMonth, currentYear, selectedDate]
+  );
 
   const handleToday = useCallback(() => {
     const today = moment();
@@ -136,37 +166,49 @@ const JalaliDatePicker = ({
     setIsOpen(false);
   }, [name, onChange]);
 
-  const displayValue = selectedDate ? selectedDate.format('jYYYY/jMM/jDD') : '';
+  const displayValue = selectedDate ? toPersianDigits(selectedDate.format('jYYYY/jMM/jDD')) : '';
 
-  // استایل‌های پویا با Tailwind بر اساس تم سیستم
-  const selectClass = `border rounded-md px-1.5 py-1 text-xs font-semibold cursor-pointer outline-none transition-colors ${
-    isDark ? 'bg-gray-700 border-gray-600 text-gray-200 hover:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 hover:border-blue-500'
+  const borderHairline = isDark ? 'border-slate-400/20' : 'border-slate-900/15';
+
+  const selectClass = `border rounded-[2px] px-1.5 py-1 text-xs font-semibold cursor-pointer outline-none transition-colors tracking-normal ${
+    isDark
+      ? 'bg-tactical-canvas border-slate-400/25 text-slate-100 hover:border-sky-400'
+      : 'bg-slate-50 border-slate-900/20 text-slate-900 hover:border-sky-600'
   }`;
 
-  const navBtnClass = `w-7 h-7 rounded-full flex items-center justify-center text-[10px] transition-colors ${
-    isDark ? 'bg-gray-700 text-gray-400 hover:bg-blue-600 hover:text-white' : 'bg-gray-100 text-gray-600 hover:bg-blue-600 hover:text-white'
+  const navBtnClass = `w-7 h-7 rounded-[2px] border flex items-center justify-center transition-colors ${
+    isDark
+      ? 'bg-tactical-surface2 border-slate-400/20 text-slate-300 hover:border-sky-400 hover:text-sky-300'
+      : 'bg-slate-50 border-slate-900/15 text-slate-600 hover:border-sky-600 hover:text-sky-700'
   }`;
 
-  const footerBtnClass = `px-4 py-1 text-xs font-semibold rounded-full border transition-colors ${
-    isDark ? 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-blue-600 hover:border-blue-600 hover:text-white' : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-blue-600 hover:border-blue-600 hover:text-white'
+  const footerBtnClass = `h-7 px-3.5 text-xs font-semibold rounded-[2px] border transition-colors tracking-normal ${
+    isDark
+      ? 'bg-tactical-surface2 border-slate-400/20 text-slate-200 hover:border-sky-400 hover:text-sky-300'
+      : 'bg-slate-50 border-slate-900/15 text-slate-700 hover:border-sky-600 hover:text-sky-700'
   }`;
 
   const getDayClass = (day, cell) => {
-    if (!day) return "pointer-events-none";
-    let base = "aspect-square flex items-center justify-center text-xs rounded-lg cursor-pointer transition-colors font-medium ";
-    
+    if (!day) return 'pointer-events-none';
+    let base =
+      'aspect-square flex items-center justify-center text-xs tabular-nums rounded-[2px] border cursor-pointer transition-colors font-medium ';
+
     if (isSelected(day)) {
-      base += "bg-blue-600 text-white font-bold shadow-md";
+      base += isDark
+        ? 'bg-sky-400 border-sky-400 text-slate-950 font-bold'
+        : 'bg-sky-600 border-sky-700 text-white font-bold';
     } else if (isToday(day)) {
-      base += isDark 
-        ? "bg-yellow-900/40 text-yellow-400 ring-1 ring-yellow-600 font-bold " 
-        : "bg-yellow-100 text-yellow-800 ring-1 ring-yellow-400 font-bold ";
+      base += isDark
+        ? 'bg-amber-400/20 border-amber-400 text-amber-300 font-bold'
+        : 'bg-amber-50 border-amber-600 text-amber-800 font-bold';
     } else {
-      base += isDark ? "hover:bg-gray-700 hover:text-blue-300 " : "hover:bg-blue-50 hover:text-blue-600 ";
+      base += isDark
+        ? 'border-transparent hover:bg-tactical-hover hover:border-sky-400/40 '
+        : 'border-transparent hover:bg-sky-50 hover:border-sky-600/30 ';
       if (cell.isFriday) {
-        base += isDark ? "text-red-400 " : "text-red-600 ";
+        base += isDark ? 'text-red-400 ' : 'text-red-600 ';
       } else {
-        base += isDark ? "text-gray-300 " : "text-gray-800 ";
+        base += isDark ? 'text-slate-200 ' : 'text-slate-800 ';
       }
     }
     return base;
@@ -175,23 +217,56 @@ const JalaliDatePicker = ({
   const calendarContent = (
     <div dir="rtl">
       {/* هدر تقویم */}
-      <div className={`flex justify-between items-center mb-3 pb-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <button type="button" onClick={handlePrevMonth} className={navBtnClass}>▶</button>
+      <div className={`flex justify-between items-center mb-3 pb-2 border-b ${borderHairline}`}>
+        <button type="button" onClick={handlePrevMonth} className={navBtnClass} aria-label="ماه قبل">
+          <ChevronRightIcon className="w-3.5 h-3.5" />
+        </button>
         <div className="flex gap-1.5">
-          <select value={currentMonth} onChange={(e) => setCurrentMonth(parseInt(e.target.value))} className={selectClass}>
-            {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          <select
+            value={currentMonth}
+            onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
+            className={selectClass}
+          >
+            {MONTH_NAMES.map((m, i) => (
+              <option key={i} value={i}>
+                {m}
+              </option>
+            ))}
           </select>
-          <select value={currentYear} onChange={(e) => setCurrentYear(parseInt(e.target.value))} className={selectClass}>
-            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+          <select
+            value={currentYear}
+            onChange={(e) => setCurrentYear(parseInt(e.target.value))}
+            className={selectClass}
+          >
+            {YEARS.map((y) => (
+              <option key={y} value={y}>
+                {toPersianDigits(y)}
+              </option>
+            ))}
           </select>
         </div>
-        <button type="button" onClick={handleNextMonth} className={navBtnClass}>◀</button>
+        <button type="button" onClick={handleNextMonth} className={navBtnClass} aria-label="ماه بعد">
+          <ChevronLeftIcon className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       {/* روزهای هفته */}
       <div className="grid grid-cols-7 gap-1 mb-1">
         {WEEK_DAYS.map((d, i) => (
-          <div key={i} className={`text-center text-[10px] font-bold py-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{d}</div>
+          <div
+            key={i}
+            className={`text-center text-[10px] font-bold py-1 tracking-normal ${
+              i === 6
+                ? isDark
+                  ? 'text-red-400'
+                  : 'text-red-600'
+                : isDark
+                ? 'text-slate-400'
+                : 'text-slate-500'
+            }`}
+          >
+            {d}
+          </div>
         ))}
       </div>
 
@@ -201,23 +276,43 @@ const JalaliDatePicker = ({
           const day = cell ? cell.day : null;
           return (
             <div key={i} onClick={() => handleDayClick(day)} className={getDayClass(day, cell)}>
-              {day}
+              {day ? toPersianDigits(day) : null}
             </div>
           );
         })}
       </div>
 
       {/* فوتر */}
-      <div className={`flex justify-center gap-2 mt-3 pt-2 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <button type="button" onClick={handleToday} className={footerBtnClass}>امروز</button>
-        <button type="button" onClick={handleClear} className={`${footerBtnClass} !text-red-500 hover:!bg-red-500 hover:!text-white hover:!border-red-500`}>پاک کردن</button>
+      <div className={`flex justify-center gap-2 mt-3 pt-2.5 border-t ${borderHairline}`}>
+        <button type="button" onClick={handleToday} className={footerBtnClass}>
+          امروز
+        </button>
+        <button
+          type="button"
+          onClick={handleClear}
+          className={`h-7 px-3.5 text-xs font-semibold rounded-[2px] border transition-colors tracking-normal ${
+            isDark
+              ? 'bg-red-500/10 border-red-500/35 text-red-400 hover:bg-red-500/20'
+              : 'bg-red-50 border-red-600/35 text-red-700 hover:bg-red-100'
+          }`}
+        >
+          پاک کردن
+        </button>
       </div>
     </div>
   );
 
   return (
     <div ref={containerRef} className={`relative ${className}`} dir="rtl">
-    {label && <label className={`block text-[11px] font-bold mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{label}</label>}
+      {label && (
+        <label
+          className={`block text-[11px] font-semibold mb-1 tracking-normal ${
+            isDark ? 'text-slate-300' : 'text-slate-700'
+          }`}
+        >
+          {label}
+        </label>
+      )}
 
       {/* اینپوت اصلی */}
       <div className="relative">
@@ -228,43 +323,62 @@ const JalaliDatePicker = ({
           placeholder={placeholder}
           readOnly
           disabled={disabled}
-          className={`w-full pl-2 pr-8 py-0 leading-normal rounded-md border focus:ring-1 focus:ring-blue-500 focus:outline-none text-xs font-semibold h-[32px] cursor-pointer transition-colors ${
-            isDark 
-              ? 'bg-gray-800 text-gray-200 border-gray-600' 
-              : 'bg-white text-gray-800 border-gray-300'
-          } ${disabled ? (isDark ? 'opacity-50 cursor-not-allowed bg-gray-900' : 'opacity-60 cursor-not-allowed bg-gray-100') : ''}`}
+          className={`w-full h-9 ps-8 pe-2.5 rounded-[2px] border focus:outline-none text-xs font-semibold tabular-nums cursor-pointer transition-colors tracking-normal ${
+            isDark
+              ? 'bg-tactical-canvas text-slate-100 border-slate-400/25 hover:border-sky-400/50 focus:border-sky-400'
+              : 'bg-slate-50 text-slate-900 border-slate-900/20 hover:border-sky-600/50 focus:border-sky-600'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         />
-        <span className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[14px] pointer-events-none ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-          📅
-        </span>
+        <CalendarDaysIcon
+          className={`w-4 h-4 absolute start-2.5 top-1/2 -translate-y-1/2 pointer-events-none ${
+            isDark ? 'text-sky-400' : 'text-sky-700'
+          }`}
+        />
       </div>
 
       {/* پاپ‌آپ (بدون مودال) */}
       {isOpen && !disabled && !modal && (
-        <div className={`absolute top-full right-0 mt-1.5 z-[1000] p-3 rounded-xl border shadow-xl w-64 ${
-          isDark ? 'bg-gray-800 border-gray-700 text-gray-200 shadow-black/50' : 'bg-white border-gray-200 text-gray-800'
-        }`}>
+        <div
+          className={`absolute top-full start-0 mt-1.5 z-[1000] p-3 rounded-[2px] border shadow-2xl w-64 ${
+            isDark
+              ? 'bg-tactical-surface1 border-sky-400/40 text-slate-100 shadow-black/70'
+              : 'bg-white border-sky-600/40 text-slate-900 shadow-slate-900/15'
+          }`}
+        >
           {calendarContent}
         </div>
       )}
 
-      {/* حالت مودال (برای صفحه گوشی یا انتخاب کارفرما) */}
+      {/* حالت مودال */}
       {isOpen && !disabled && modal && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className={`p-4 rounded-2xl shadow-2xl border w-full max-w-[320px] ${
-            isDark ? 'bg-gray-800 border-gray-700 text-gray-200' : 'bg-white border-gray-200 text-gray-800'
-          }`}>
-            <div className={`flex items-center justify-between mb-3 pb-2 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <span className="text-xs font-bold">انتخاب تاریخ</span>
-              <button 
-                type="button" 
-                onClick={() => setIsOpen(false)} 
-                className={`text-lg leading-none transition-colors ${isDark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-800'}`}
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className={`rounded-[2px] shadow-2xl border w-full max-w-[320px] overflow-hidden ${
+              isDark
+                ? 'bg-tactical-surface1 border-sky-400/45 text-slate-100'
+                : 'bg-white border-sky-600/45 text-slate-900'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`flex items-center justify-between px-4 py-2.5 border-b ${borderHairline} ${
+                isDark ? 'bg-tactical-surface2' : 'bg-tactical-lightElevated'
+              }`}
+            >
+              <span className="text-xs font-bold tracking-normal">انتخاب تاریخ شمسی</span>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="p-1 text-slate-400 hover:text-red-400 transition-colors"
+                aria-label="بستن تقویم"
               >
-                ×
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
-            {calendarContent}
+            <div className="p-3.5">{calendarContent}</div>
           </div>
         </div>
       )}

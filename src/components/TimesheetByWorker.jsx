@@ -1,11 +1,16 @@
 // src/components/TimesheetByWorker.jsx
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import {
+  ArrowPathIcon,
+  ChevronDownIcon,
+  MapPinIcon,
+} from '@heroicons/react/24/outline';
 import { fetchWorkerLocationStats } from '../features/attendance/attendanceSlice';
 
-/* ==========================================
-   توابع کمکی
-   ========================================== */
+const toPersianDigits = (value) =>
+  String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
+
 const formatMinutes = (minutes) => {
   if (minutes === null || minutes === undefined || isNaN(minutes)) return '-';
   const h = Math.floor(minutes / 60).toString().padStart(2, '0');
@@ -19,63 +24,150 @@ const decimalHoursToHHMM = (hours) => {
   return formatMinutes(totalMinutes);
 };
 
-/* ==========================================
-   وضعیت‌ها و برچسب‌های رنگی (پشتیبانی از Dark/Light)
-   ========================================== */
 const getStatusInfo = (status, isDark) => {
   const STATUS_MAP = {
-    PRESENT: { label: 'حاضر', color: isDark ? 'text-green-400 bg-green-900/40 border-green-700' : 'text-green-700 bg-green-50 border-green-200' },
-    ABSENT: { label: 'غایب', color: isDark ? 'text-red-400 bg-red-900/40 border-red-700' : 'text-red-700 bg-red-50 border-red-200' },
-    LEAVE: { label: 'مرخصی', color: isDark ? 'text-blue-400 bg-blue-900/40 border-blue-700' : 'text-blue-700 bg-blue-50 border-blue-200' },
-    APPROVED: { label: 'تایید شده', color: isDark ? 'text-green-300 bg-green-800/40 border-green-600' : 'text-green-700 bg-green-100 border-green-300' },
-    PENDING: { label: 'در انتظار', color: isDark ? 'text-yellow-400 bg-yellow-900/40 border-yellow-700' : 'text-yellow-700 bg-yellow-100 border-yellow-300' },
-    REJECTED: { label: 'رد شده', color: isDark ? 'text-red-300 bg-red-800/40 border-red-600' : 'text-red-700 bg-red-200 border-red-400' },
-    RETURNED: { label: 'برگشتی', color: isDark ? 'text-purple-400 bg-purple-900/40 border-purple-700' : 'text-purple-700 bg-purple-100 border-purple-300' },
-    SKIPPED: { label: 'رد مرحله', color: isDark ? 'text-gray-400 bg-gray-700 border-gray-500' : 'text-gray-500 bg-gray-100 border-gray-300' },
-    NO_CONTRACT: { label: 'بدون قرارداد', color: isDark ? 'text-slate-300 bg-slate-700 border-slate-500' : 'text-slate-600 bg-slate-100 border-slate-300' },
+    PRESENT: {
+      label: 'حاضر',
+      color: isDark
+        ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/40'
+        : 'text-emerald-800 bg-emerald-50 border-emerald-600/35',
+    },
+    ABSENT: {
+      label: 'غایب',
+      color: isDark
+        ? 'text-red-300 bg-red-500/15 border-red-500/40'
+        : 'text-red-700 bg-red-50 border-red-600/35',
+    },
+    LEAVE: {
+      label: 'مرخصی',
+      color: isDark
+        ? 'text-sky-300 bg-sky-400/15 border-sky-400/40'
+        : 'text-sky-800 bg-sky-50 border-sky-600/35',
+    },
+    APPROVED: {
+      label: 'تایید شده',
+      color: isDark
+        ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/40'
+        : 'text-emerald-800 bg-emerald-50 border-emerald-600/35',
+    },
+    PENDING: {
+      label: 'در انتظار',
+      color: isDark
+        ? 'text-amber-300 bg-amber-500/15 border-amber-500/40'
+        : 'text-amber-800 bg-amber-50 border-amber-600/35',
+    },
+    REJECTED: {
+      label: 'رد شده',
+      color: isDark
+        ? 'text-red-300 bg-red-500/15 border-red-500/40'
+        : 'text-red-700 bg-red-50 border-red-600/35',
+    },
+    RETURNED: {
+      label: 'برگشتی',
+      color: isDark
+        ? 'text-purple-300 bg-purple-500/15 border-purple-500/40'
+        : 'text-purple-800 bg-purple-50 border-purple-600/35',
+    },
+    SKIPPED: {
+      label: 'رد مرحله',
+      color: isDark
+        ? 'text-slate-400 bg-slate-500/15 border-slate-500/35'
+        : 'text-slate-600 bg-slate-100 border-slate-400/40',
+    },
+    NO_CONTRACT: {
+      label: 'بدون قرارداد',
+      color: isDark
+        ? 'text-slate-300 bg-slate-600/20 border-slate-500/40'
+        : 'text-slate-700 bg-slate-100 border-slate-400/40',
+    },
   };
 
-  return STATUS_MAP[status] || {
-    label: status || 'نامشخص',
-    color: isDark ? 'text-gray-400 bg-gray-800 border-gray-600' : 'text-gray-600 bg-gray-100 border-gray-300',
-  };
+  return (
+    STATUS_MAP[status] || {
+      label: status || 'نامشخص',
+      color: isDark
+        ? 'text-slate-400 bg-tactical-surface2 border-slate-400/20'
+        : 'text-slate-600 bg-slate-100 border-slate-300',
+    }
+  );
 };
 
 const StatusBadge = ({ status }) => {
-  const isDark = useSelector((s) => s.theme?.mode === 'dark');
+  const mode = useSelector((s) => s.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
   const { label, color } = getStatusInfo(status, isDark);
-  return <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold border ${color}`}>{label}</span>;
+  return (
+    <span
+      className={`inline-block px-1.5 py-0.5 rounded-[2px] text-[10px] font-semibold border tracking-normal whitespace-nowrap ${color}`}
+    >
+      {label}
+    </span>
+  );
 };
 
-/* ==========================================
-   کامپوننت جدول مراحل تأیید مینیاتوری
-   ========================================== */
 const ApprovalStepsMiniTable = ({ steps }) => {
-  const isDark = useSelector((s) => s.theme?.mode === 'dark');
+  const mode = useSelector((s) => s.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
 
   if (!steps || steps.length === 0) {
-    return <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>-</span>;
+    return <span className="text-[10px] opacity-35">-</span>;
   }
 
   return (
-    <table className={`min-w-[180px] text-[10px] border rounded overflow-hidden shadow-sm ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>
+    <table
+      className={`min-w-[180px] w-full text-[10px] border rounded-[2px] overflow-hidden ${
+        isDark ? 'border-slate-400/20' : 'border-slate-900/15'
+      }`}
+    >
       <thead>
-        <tr className={isDark ? 'bg-gray-800' : 'bg-gray-100'}>
-          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-300'}`}>مرحله</th>
-          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-300'}`}>وضعیت</th>
-          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-300'}`}>تأییدکننده</th>
-          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-300'}`}>سمت</th>
-          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'text-gray-300 border-gray-700' : 'text-gray-700 border-gray-300'}`}>یادداشت</th>
+        <tr className={isDark ? 'bg-tactical-surface2' : 'bg-slate-100'}>
+          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'border-slate-400/15 text-slate-300' : 'border-slate-900/10 text-slate-700'}`}>
+            مرحله
+          </th>
+          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'border-slate-400/15 text-slate-300' : 'border-slate-900/10 text-slate-700'}`}>
+            وضعیت
+          </th>
+          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'border-slate-400/15 text-slate-300' : 'border-slate-900/10 text-slate-700'}`}>
+            تأییدکننده
+          </th>
+          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'border-slate-400/15 text-slate-300' : 'border-slate-900/10 text-slate-700'}`}>
+            سمت
+          </th>
+          <th className={`px-1 py-0.5 text-center font-semibold border-b ${isDark ? 'border-slate-400/15 text-slate-300' : 'border-slate-900/10 text-slate-700'}`}>
+            یادداشت
+          </th>
         </tr>
       </thead>
       <tbody>
         {steps.map((step, idx) => (
-          <tr key={idx} className={`border-t ${isDark ? 'border-gray-700 even:bg-gray-800/50' : 'border-gray-200 even:bg-gray-50'}`}>
-            <td className={`px-1 py-0.5 text-center font-mono ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{step.step_order ?? '-'}</td>
-            <td className="px-1 py-0.5 text-center"><StatusBadge status={step.status} /></td>
-            <td className={`px-1 py-0.5 text-center whitespace-nowrap ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{step.approver_name || '---'}</td>
-            <td className={`px-1 py-0.5 text-center whitespace-nowrap ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{step.approver_position || '---'}</td>
-            <td className={`px-1 py-0.5 text-center max-w-[80px] truncate ${isDark ? 'text-gray-300' : 'text-gray-700'}`} title={step.note}>{step.note || '---'}</td>
+          <tr
+            key={idx}
+            className={`border-t ${
+              isDark
+                ? 'border-slate-400/15 even:bg-tactical-canvas/50'
+                : 'border-slate-900/10 even:bg-slate-50'
+            }`}
+          >
+            <td className="px-1 py-0.5 text-center tabular-nums">
+              {step.step_order !== null && step.step_order !== undefined
+                ? toPersianDigits(step.step_order)
+                : '-'}
+            </td>
+            <td className="px-1 py-0.5 text-center">
+              <StatusBadge status={step.status} />
+            </td>
+            <td className="px-1 py-0.5 text-center whitespace-nowrap tracking-normal">
+              {step.approver_name || '---'}
+            </td>
+            <td className="px-1 py-0.5 text-center whitespace-nowrap tracking-normal">
+              {step.approver_position || '---'}
+            </td>
+            <td
+              className="px-1 py-0.5 text-center max-w-[90px] truncate tracking-normal"
+              title={step.note}
+            >
+              {step.note || '---'}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -83,18 +175,32 @@ const ApprovalStepsMiniTable = ({ steps }) => {
   );
 };
 
-/* ==========================================
-   کامپوننت اصلی TimesheetByWorker
-   ========================================== */
 const TimesheetByWorker = ({ workers, byWorker }) => {
   const dispatch = useDispatch();
-  const isDark = useSelector((s) => s.theme?.mode === 'dark');
+  const mode = useSelector((s) => s.theme?.mode || 'dark');
+  const isDark = mode === 'dark';
 
-  const { filters, locationStats, locationStatsLoading, locationStatsError } = useSelector((state) => state.attendance);
-  const [activeGpsWorker, setActiveGpsWorker] = useState(null);
+  const {
+    filters,
+    locationStatsByWorker = {},
+    locationStatsLoadingByWorker = {},
+    locationStatsErrorByWorker = {},
+  } = useSelector((state) => state.attendance);
+
+  const [openedGpsWorkers, setOpenedGpsWorkers] = useState({});
 
   if (!workers || workers.length === 0) {
-    return <div className={`p-4 text-center text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>داده‌ای برای نمایش وجود ندارد.</div>;
+    return (
+      <div
+        className={`p-6 text-center text-xs rounded-[2px] border border-dashed tracking-normal ${
+          isDark
+            ? 'bg-tactical-surface1 border-slate-400/20 text-slate-400'
+            : 'bg-white border-slate-900/15 text-slate-500'
+        }`}
+      >
+        داده‌ای برای نمایش وجود ندارد.
+      </div>
+    );
   }
 
   const getDayType = (day) => {
@@ -104,243 +210,557 @@ const TimesheetByWorker = ({ workers, byWorker }) => {
   };
 
   const handleToggleGps = (workerId) => {
-    if (activeGpsWorker === workerId) {
-      setActiveGpsWorker(null);
-    } else {
-      setActiveGpsWorker(workerId);
-      dispatch(fetchWorkerLocationStats({
-        worker_id: workerId,
-        start_date: filters.start_date,
-        end_date: filters.end_date,
-        project_id: filters.projectId
-      }));
+    const key = String(workerId);
+    const willOpen = !openedGpsWorkers[key];
+    setOpenedGpsWorkers((prev) => ({ ...prev, [key]: willOpen }));
+
+    if (willOpen && !locationStatsByWorker[key]) {
+      dispatch(
+        fetchWorkerLocationStats({
+          worker_id: workerId,
+          start_date: filters.start_date,
+          end_date: filters.end_date,
+          project_id: filters.projectId,
+        })
+      );
     }
   };
 
+  const borderHairline = isDark ? 'border-slate-400/15' : 'border-slate-900/15';
+  const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
+  const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 mt-2">
       {workers.map((w, index) => {
         const wData = byWorker[w.worker_id];
         if (!wData) return null;
 
         const days = wData.days || [];
         const summary = wData.summary || {};
-        const isGpsOpen = activeGpsWorker === w.worker_id;
+        const wid = String(w.worker_id);
+        const isGpsOpen = Boolean(openedGpsWorkers[wid]);
+        const gps = locationStatsByWorker[wid];
+        const gpsLoading = Boolean(locationStatsLoadingByWorker[wid]);
+        const gpsError = locationStatsErrorByWorker[wid];
+
+        // محاسبه پویا برای تعداد ستون‌های ورود/خروج و اضافه‌کاری همین کارگر (حداقل ۱، حداکثر ۳ جفت)
+        const maxAttCount = Math.min(
+          3,
+          Math.max(1, ...days.map((d) => d.attendance_logs?.length || 0))
+        );
+        const maxOtCount = Math.min(
+          2,
+          Math.max(1, ...days.map((d) => d.overtime_logs?.length || 0))
+        );
 
         return (
-          <div key={w.worker_id} className={`overflow-hidden rounded-lg border shadow-sm mb-4 ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-            
-            {/* هدر کارگر فشرده شده */}
-            <div className={`px-3 py-2 border-b ${isDark ? 'bg-slate-800 border-gray-700' : 'bg-slate-100 border-gray-200'}`}>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  {/* دایره شماره ردیف */}
-                  <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-mono shadow-sm ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                    {index + 1}
-                  </span>
-                  
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${isDark ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-200 text-blue-800'}`}>
-                    {(w.worker_name || '?')[0]}
-                  </div>
-                  <div className="leading-tight">
-                    <h3 className={`font-bold text-[13px] ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{w.worker_name}</h3>
-                    <div className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>کد: <span className="font-mono">{w.worker_code}</span></div>
+          <div
+            key={w.worker_id}
+            className={`overflow-hidden rounded-[2px] border ${
+              isDark
+                ? 'bg-tactical-surface1 border-slate-400/20 print:bg-white print:border-slate-400'
+                : 'bg-white border-slate-900/20'
+            }`}
+          >
+            {/* هدر کارگر */}
+            <div
+              className={`px-3.5 py-2.5 border-b flex flex-wrap items-center justify-between gap-2 ${borderHairline} ${
+                isDark
+                  ? 'bg-tactical-surface2 print:bg-slate-200'
+                  : 'bg-tactical-lightElevated'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`inline-flex items-center justify-center min-w-[22px] h-6 px-1.5 rounded-[2px] border text-[11px] font-bold tabular-nums ${
+                    isDark
+                      ? 'bg-tactical-canvas border-sky-400/35 text-sky-300'
+                      : 'bg-white border-sky-600/35 text-sky-800'
+                  }`}
+                >
+                  {toPersianDigits(index + 1)}
+                </span>
+                <div className="leading-tight">
+                  <h3 className={`font-bold text-xs sm:text-sm tracking-normal ${textPrimary}`}>
+                    {w.worker_name}
+                  </h3>
+                  <div className={`text-[10px] mt-0.5 tabular-nums tracking-normal ${textSecondary}`}>
+                    کد پرسنلی: {toPersianDigits(w.worker_code || '-')}
                   </div>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-2">
-                  <div className={`text-[11px] px-2 py-1 rounded shadow-sm border ${isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-700 border-gray-200'}`}>
-                    <span className="font-semibold">حضور:</span> <span className="font-mono">{summary.total_present_days ?? 0}</span> روز
-                  </div>
-
-                  {/* دکمه باز کردن تحلیل مکانی */}
-                  <button 
-                    onClick={() => handleToggleGps(w.worker_id)}
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition-colors flex items-center gap-1 border ${
-                      isGpsOpen 
-                        ? (isDark ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-600 text-white border-indigo-600') 
-                        : (isDark ? 'bg-gray-800 text-indigo-400 border-indigo-900 hover:bg-gray-700' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50')
-                    }`}
-                  >
-                    <span>📍</span> جی‌پی‌اس {isGpsOpen ? '▲' : '▼'}
-                  </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div
+                  className={`text-[11px] px-2.5 py-1 rounded-[2px] border tabular-nums tracking-normal ${
+                    isDark
+                      ? 'bg-tactical-canvas border-slate-400/20 text-slate-200'
+                      : 'bg-white border-slate-900/15 text-slate-800'
+                  }`}
+                >
+                  حضور: <strong>{toPersianDigits(summary.total_present_days ?? 0)}</strong> روز
                 </div>
+
+                <div
+                  className={`text-[11px] px-2.5 py-1 rounded-[2px] border tabular-nums tracking-normal ${
+                    isDark
+                      ? 'bg-tactical-canvas border-sky-400/30 text-sky-300'
+                      : 'bg-sky-50 border-sky-600/30 text-sky-800'
+                  }`}
+                >
+                  کل کارکرد:{' '}
+                  <strong dir="ltr">{toPersianDigits(decimalHoursToHHMM(summary.total_hours ?? 0))}</strong>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleGps(w.worker_id)}
+                  className={`h-7 px-2.5 rounded-[2px] text-[11px] font-semibold inline-flex items-center gap-1.5 border tracking-normal transition-colors no-print ${
+                    isGpsOpen
+                      ? isDark
+                        ? 'bg-sky-400 text-slate-950 border-sky-400'
+                        : 'bg-sky-600 text-white border-sky-600'
+                      : isDark
+                      ? 'bg-tactical-canvas text-sky-300 border-sky-400/35 hover:bg-tactical-hover'
+                      : 'bg-white text-sky-700 border-sky-600/35 hover:bg-sky-50'
+                  }`}
+                >
+                  <MapPinIcon className="w-3.5 h-3.5" />
+                  <span>آمار موقعیت مکانی</span>
+                  <ChevronDownIcon
+                    className={`w-3 h-3 transition-transform ${isGpsOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
               </div>
             </div>
 
-            {/* پنل تحلیل موقعیت مکانی */}
-            {isGpsOpen && (
-              <div className={`border-b p-4 ${isDark ? 'bg-indigo-900/20 border-gray-700' : 'bg-indigo-50/50 border-gray-200'} animate-fade-in`}>
-                <h4 className={`font-bold mb-3 text-xs flex items-center gap-1 ${isDark ? 'text-indigo-300' : 'text-indigo-800'}`}>
-                  📊 تحلیل جی‌پی‌اس (ساعات موظفی)
-                </h4>
-
-                {locationStatsLoading && <div className={`text-xs animate-pulse ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>در حال دریافت اطلاعات...</div>}
-                {locationStatsError && <div className={`text-xs p-2 rounded ${isDark ? 'bg-red-900/40 text-red-400' : 'bg-red-50 text-red-600'}`}>{locationStatsError}</div>}
-
-                {!locationStatsLoading && !locationStatsError && locationStats && (
-                  locationStats.total_logs === 0 ? (
-                    <div className={`text-xs p-3 rounded-lg border text-center ${isDark ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-500'}`}>
-                      دیتای موقعیت مکانی (GPS) برای این شخص در بازه انتخابی ثبت نشده است.
+            {/* جدول ستونی تحلیل موقعیت مکانی + دایره در آخرین ستون */}
+            {(isGpsOpen || gps) && (
+              <div
+                className={`border-b p-3 ${borderHairline} ${
+                  isDark ? 'bg-tactical-canvas/70 print:bg-slate-50' : 'bg-slate-50/75'
+                }`}
+              >
+                {gpsLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-sky-400 tracking-normal">
+                    <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                    <span>در حال دریافت و تحلیل نقاط مکانی...</span>
+                  </div>
+                ) : gpsError ? (
+                  <div className="text-xs text-red-400 tracking-normal">{gpsError}</div>
+                ) : gps ? (
+                  gps.total_logs === 0 ? (
+                    <div className={`text-xs text-center py-2 tracking-normal ${textSecondary}`}>
+                      اطلاعات موقعیت مکانی در ساعات موظفی این بازه ثبت نشده است.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* کارت‌های آماری */}
-                      <div className="flex flex-col gap-2 justify-center">
-                        <div className={`p-2.5 rounded-lg border shadow-sm flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                          <span className={`text-[11px] font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>مسافت طی شده:</span>
-                          <span className={`text-sm font-bold dir-ltr ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                            {locationStats.distance_kilometers} <span className="text-[9px] font-normal opacity-70">km</span>
-                          </span>
-                        </div>
-                        <div className={`p-2.5 rounded-lg border shadow-sm flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-                          <span className={`text-[11px] font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>تعداد نقاط:</span>
-                          <span className={`text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>{locationStats.total_logs}</span>
-                        </div>
-                      </div>
-
-                      {/* نمودار دایره‌ای */}
-                      <div className="flex justify-center items-center">
-                        <div 
-                          className="relative w-28 h-28 rounded-full shadow-inner"
-                          style={{
-                            background: `conic-gradient(
-                              #22c55e 0% ${locationStats.chart_data.inside_project_percent}%, 
-                              #eab308 ${locationStats.chart_data.inside_project_percent}% ${locationStats.chart_data.inside_project_percent + locationStats.chart_data.outside_project_percent}%, 
-                              #ef4444 ${locationStats.chart_data.inside_project_percent + locationStats.chart_data.outside_project_percent}% 100%
-                            )`
-                          }}
-                        >
-                          <div className={`absolute inset-2.5 rounded-full flex items-center justify-center shadow-sm ${isDark ? 'bg-gray-900' : 'bg-white'}`}>
-                            <div className="text-center">
-                              <div className={`text-lg font-black ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>{locationStats.chart_data.inside_project_percent}%</div>
-                              <div className={`text-[8px] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>در پروژه</div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* راهنمای نمودار */}
-                      <div className="flex flex-col justify-center gap-2">
-                        <div className={`p-2 rounded border flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                            <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>داخل محدوده</span>
-                          </div>
-                          <span className="font-bold text-green-500 text-[11px] w-8 text-left">{locationStats.chart_data.inside_project_percent}%</span>
-                        </div>
-                        <div className={`p-2 rounded border flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                            <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>خارج محدوده</span>
-                          </div>
-                          <span className="font-bold text-yellow-500 text-[11px] w-8 text-left">{locationStats.chart_data.outside_project_percent}%</span>
-                        </div>
-                        <div className={`p-2 rounded border flex items-center justify-between ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                          <div className="flex items-center gap-1.5">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                            <span className={`text-[10px] ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>خاموش/خطا</span>
-                          </div>
-                          <span className="font-bold text-red-500 text-[11px] w-8 text-left">{locationStats.chart_data.gps_off_percent}%</span>
-                        </div>
-                      </div>
+                    <div className="overflow-x-auto">
+                      <table
+                        className={`w-full text-[11px] border rounded-[2px] border-collapse ${
+                          isDark ? 'border-slate-400/20' : 'border-slate-900/15'
+                        }`}
+                      >
+                        <thead>
+                          <tr
+                            className={`border-b tracking-normal ${
+                              isDark
+                                ? 'bg-tactical-surface2 border-slate-400/20 text-slate-300'
+                                : 'bg-white border-slate-900/15 text-slate-700'
+                            }`}
+                          >
+                            <th className={`px-3 py-1.5 text-center border-e ${borderHairline}`}>
+                              مسافت طی‌شده (کیلومتر)
+                            </th>
+                            <th className={`px-3 py-1.5 text-center border-e ${borderHairline}`}>
+                              کل نقاط ثبت‌شده
+                            </th>
+                            <th className={`px-3 py-1.5 text-center border-e ${borderHairline} ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                              داخل محدوده
+                            </th>
+                            <th className={`px-3 py-1.5 text-center border-e ${borderHairline} ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                              خارج محدوده
+                            </th>
+                            <th className={`px-3 py-1.5 text-center border-e ${borderHairline} ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+                              خاموش / خطا
+                            </th>
+                            <th className="px-3 py-1.5 text-center">نمودار دایره‌ای</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className={isDark ? 'bg-tactical-surface1' : 'bg-white'}>
+                            <td className={`px-3 py-2 text-center font-bold tabular-nums border-e ${borderHairline} ${isDark ? 'text-sky-300' : 'text-sky-800'}`}>
+                              {toPersianDigits(gps.distance_kilometers)}
+                            </td>
+                            <td className={`px-3 py-2 text-center font-bold tabular-nums border-e ${borderHairline} ${textPrimary}`}>
+                              {toPersianDigits(gps.total_logs)}
+                            </td>
+                            <td className={`px-3 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                              <span className={`font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                                {toPersianDigits(gps.chart_data?.inside_project_percent ?? 0)}٪
+                              </span>{' '}
+                              <span className={`text-[10px] ${textSecondary}`}>
+                                ({toPersianDigits(gps.raw_counts?.inside ?? 0)} نقطه)
+                              </span>
+                            </td>
+                            <td className={`px-3 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                              <span className={`font-bold ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
+                                {toPersianDigits(gps.chart_data?.outside_project_percent ?? 0)}٪
+                              </span>{' '}
+                              <span className={`text-[10px] ${textSecondary}`}>
+                                ({toPersianDigits(gps.raw_counts?.outside ?? 0)} نقطه)
+                              </span>
+                            </td>
+                            <td className={`px-3 py-2 text-center tabular-nums border-e ${borderHairline}`}>
+                              <span className={`font-bold ${isDark ? 'text-red-400' : 'text-red-700'}`}>
+                                {toPersianDigits(gps.chart_data?.gps_off_percent ?? 0)}٪
+                              </span>{' '}
+                              <span className={`text-[10px] ${textSecondary}`}>
+                                ({toPersianDigits(gps.raw_counts?.off ?? 0)} نقطه)
+                              </span>
+                            </td>
+                            <td className="px-3 py-1.5 text-center align-middle">
+                              <div
+                                className="relative w-11 h-11 rounded-full mx-auto"
+                                style={{
+                                  background: `conic-gradient(
+                                    #10b981 0% ${gps.chart_data?.inside_project_percent ?? 0}%,
+                                    #f59e0b ${gps.chart_data?.inside_project_percent ?? 0}% ${
+                                      (gps.chart_data?.inside_project_percent ?? 0) +
+                                      (gps.chart_data?.outside_project_percent ?? 0)
+                                    }%,
+                                    #ef4444 ${
+                                      (gps.chart_data?.inside_project_percent ?? 0) +
+                                      (gps.chart_data?.outside_project_percent ?? 0)
+                                    }% 100%
+                                  )`,
+                                }}
+                              >
+                                <div
+                                  className={`absolute inset-[4px] rounded-full flex items-center justify-center ${
+                                    isDark ? 'bg-tactical-surface1 print:bg-white' : 'bg-white'
+                                  }`}
+                                >
+                                  <span className="text-[9px] font-bold tabular-nums">
+                                    {toPersianDigits(
+                                      Math.round(gps.chart_data?.inside_project_percent ?? 0)
+                                    )}
+                                    ٪
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   )
-                )}
+                ) : null}
               </div>
             )}
 
-            {/* جدول روزها */}
-            <div className="overflow-x-auto">
+            {/* جدول روزهای کارگر با ستون‌های تفکیک‌شده ورود ۱ / خروج ۱ / ورود ۲ / خروج ۲ ... */}
+            <div className="overflow-x-auto print:overflow-visible">
               <table className="min-w-full text-[11px] border-collapse">
-                <thead className={`sticky top-0 z-10 shadow-sm ${isDark ? 'bg-slate-800 text-gray-200 border-gray-700' : 'bg-slate-200 text-gray-700 border-gray-300'}`}>
+                <thead
+                  className={`border-b-2 tracking-normal ${
+                    isDark
+                      ? 'bg-tactical-surface2/90 text-slate-200 border-slate-400/25 print:bg-slate-200 print:text-slate-900'
+                      : 'bg-tactical-lightElevated text-slate-800 border-slate-900/20'
+                  }`}
+                >
                   <tr>
-                    <th className={`px-2 py-1.5 text-right font-semibold border-b ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>روز و تاریخ</th>
-                    {/* ستون هفته حذف شد */}
-                    <th className={`px-2 py-1.5 text-center font-semibold border-b ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>نوع روز</th>
-                    <th className={`px-2 py-1.5 text-center font-semibold border-b ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>وضعیت کلی</th>
-                    <th className={`px-2 py-1.5 text-center font-semibold border-b ${isDark ? 'bg-blue-900/30 border-gray-700' : 'bg-blue-50/50 border-gray-300'}`}>حضور (خروج / ورود)</th>
-                    <th className={`px-2 py-1.5 text-center font-semibold border-b ${isDark ? 'bg-orange-900/30 border-gray-700' : 'bg-orange-50/50 border-gray-300'}`}>اضافه‌کاری (تا / از)</th>
-                    <th className={`px-2 py-1.5 text-center font-semibold border-b ${isDark ? 'bg-orange-900/30 border-gray-700' : 'bg-orange-50/50 border-gray-300'}`}>مجموع تأییدشده اضافه کاری </th>
-                    <th className={`px-2 py-1.5 text-center font-semibold border-b ${isDark ? 'bg-orange-900/30 border-gray-700' : 'bg-orange-50/50 border-gray-300'}`}>مراحل تأیید اضافه‌کاری</th>
+                    <th className={`px-2.5 py-2 text-right font-bold border-e ${borderHairline}`}>
+                      روز و تاریخ
+                    </th>
+                    <th className={`px-2 py-2 text-center font-bold border-e ${borderHairline}`}>
+                      نوع روز
+                    </th>
+                    <th className={`px-2 py-2 text-center font-bold border-e ${borderHairline}`}>
+                      وضعیت
+                    </th>
+
+                    {/* ستون‌های پویای ورود و خروج */}
+                    {Array.from({ length: maxAttCount }).map((_, idx) => (
+                      <React.Fragment key={`att-h-${idx}`}>
+                        <th
+                          className={`px-2 py-2 text-center font-bold border-e ${borderHairline} ${
+                            isDark ? 'bg-emerald-500/10 text-emerald-300 print:text-slate-900' : 'bg-emerald-50/70 text-emerald-800'
+                          }`}
+                        >
+                          ورود {toPersianDigits(idx + 1)}
+                        </th>
+                        <th
+                          className={`px-2 py-2 text-center font-bold border-e ${borderHairline} ${
+                            isDark ? 'bg-red-500/10 text-red-300 print:text-slate-900' : 'bg-red-50/70 text-red-800'
+                          }`}
+                        >
+                          خروج {toPersianDigits(idx + 1)}
+                        </th>
+                      </React.Fragment>
+                    ))}
+
+                    <th className={`px-2 py-2 text-center font-bold border-e ${borderHairline}`}>
+                      کارکرد
+                    </th>
+
+                    {/* ستون‌های پویای اضافه‌کاری */}
+                    {Array.from({ length: maxOtCount }).map((_, idx) => (
+                      <React.Fragment key={`ot-h-${idx}`}>
+                        <th
+                          className={`px-2 py-2 text-center font-bold border-e ${borderHairline} ${
+                            isDark ? 'bg-amber-500/10 text-amber-300 print:text-slate-900' : 'bg-amber-50/70 text-amber-800'
+                          }`}
+                        >
+                          اضافه‌کار از {maxOtCount > 1 ? toPersianDigits(idx + 1) : ''}
+                        </th>
+                        <th
+                          className={`px-2 py-2 text-center font-bold border-e ${borderHairline} ${
+                            isDark ? 'bg-amber-500/10 text-amber-300 print:text-slate-900' : 'bg-amber-50/70 text-amber-800'
+                          }`}
+                        >
+                          اضافه‌کار تا {maxOtCount > 1 ? toPersianDigits(idx + 1) : ''}
+                        </th>
+                      </React.Fragment>
+                    ))}
+
+                    <th className={`px-2 py-2 text-center font-bold border-e ${borderHairline}`}>
+                      تاییدشده اضافه‌کار
+                    </th>
+                    <th className="px-2 py-2 text-center font-bold">مراحل تأیید اضافه‌کاری</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {days.map((day, dayIndex) => {
                     const attLogs = day.attendance_logs || [];
                     const otLogs = day.overtime_logs || [];
+                    const extraAttLogs = attLogs.slice(3);
+                    const isEven = dayIndex % 2 === 0;
 
                     const otMap = {};
                     (day.overtime_approvals || []).forEach((app) => {
                       otMap[app.overtime_id] = app.steps || [];
                     });
 
-                    const rowSpan = Math.max(attLogs.length, otLogs.length, 1);
-                    
-                    // تنظیم پس‌زمینه ردیف‌ها با پشتیبانی از دارک‌مود
-                    let rowBg = isDark ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-sky-50';
-                    if (day.is_friday) {
-                      rowBg = isDark ? 'bg-orange-900/20 hover:bg-orange-900/40' : 'bg-orange-50 hover:bg-orange-100';
-                    } else if (day.is_official_holiday) {
-                      rowBg = isDark ? 'bg-red-900/20 hover:bg-red-900/40' : 'bg-red-50 hover:bg-red-100';
+                    let rowBg = isEven
+                      ? isDark
+                        ? 'bg-tactical-surface1 hover:bg-tactical-hover border-b-2 border-tactical-canvas print:bg-white'
+                        : 'bg-white hover:bg-sky-50/45 border-b-2 border-slate-200'
+                      : isDark
+                      ? 'bg-tactical-surface2/80 hover:bg-tactical-hover border-b-2 border-tactical-canvas print:bg-slate-50'
+                      : 'bg-slate-100/75 hover:bg-sky-50/45 border-b-2 border-slate-200';
+
+                    if (day.is_official_holiday) {
+                      rowBg = isDark
+                        ? 'bg-red-950/25 hover:bg-red-950/40 border-b-2 border-tactical-canvas'
+                        : 'bg-red-50/70 hover:bg-red-50 border-b-2 border-red-200';
+                    } else if (day.is_friday) {
+                      rowBg = isDark
+                        ? 'bg-amber-950/20 hover:bg-amber-950/35 border-b-2 border-tactical-canvas'
+                        : 'bg-amber-50/60 hover:bg-amber-50 border-b-2 border-amber-200';
                     }
 
-                    return Array.from({ length: rowSpan }).map((_, i) => {
-                      const att = attLogs[i] || null;
-                      const ot = otLogs[i] || null;
-
-                      const borderColor = isDark ? 'border-gray-700' : 'border-gray-200';
-
-                      return (
-                        <tr key={`${dayIndex}-${i}`} className={`border-b transition-colors ${borderColor} ${rowBg}`}>
-                          {i === 0 && (
-                            <>
-                              <td className={`px-2 py-1 text-right border-l align-middle ${borderColor}`} rowSpan={rowSpan}>
-                                <div className={`font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{day.weekday_name}</div>
-                                <div className={`text-[10px] mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`} dir="ltr">{day.jalali_date}</div>
-                                {day.holiday_title && <div className={`text-[9px] mt-0.5 font-bold ${isDark ? 'text-red-400' : 'text-red-500'}`}>{day.holiday_title}</div>}
-                              </td>
-                              <td className={`px-2 py-1 text-center border-l align-middle ${borderColor}`} rowSpan={rowSpan}>
-                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                                  day.is_official_holiday ? (isDark ? 'bg-red-900/40 text-red-400 border-red-800' : 'bg-red-100 text-red-700 border-red-300') : 
-                                  day.is_friday ? (isDark ? 'bg-orange-900/40 text-orange-400 border-orange-800' : 'bg-orange-100 text-orange-700 border-orange-300') : 
-                                  (isDark ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-gray-100 text-gray-700 border-gray-300')
-                                }`}>{getDayType(day)}</span>
-                              </td>
-                              <td className={`px-2 py-1 text-center border-l align-middle ${borderColor}`} rowSpan={rowSpan}>
-                                <StatusBadge status={day.status} />
-                              </td>
-                            </>
+                    return (
+                      <tr
+                        key={`${w.worker_id}-${day.gregorian_date}`}
+                        className={`transition-colors duration-150 print-row-avoid-break ${rowBg}`}
+                      >
+                        <td
+                          className={`px-2.5 py-2 text-right border-e border-s-[3px] whitespace-nowrap ${borderHairline} ${
+                            day.is_official_holiday
+                              ? 'border-s-red-500/70'
+                              : day.is_friday
+                              ? 'border-s-amber-500/70'
+                              : isEven
+                              ? isDark
+                                ? 'border-s-sky-400/40'
+                                : 'border-s-sky-600/40'
+                              : isDark
+                              ? 'border-s-slate-400/35'
+                              : 'border-s-slate-500/35'
+                          }`}
+                        >
+                          <div className={`font-bold tracking-normal ${textPrimary}`}>
+                            {day.weekday_name}
+                          </div>
+                          <div className={`text-[10px] mt-0.5 tabular-nums ${textSecondary}`}>
+                            {toPersianDigits(day.jalali_date)}
+                          </div>
+                          {day.holiday_title && (
+                            <div
+                              className={`text-[9px] mt-0.5 font-semibold tracking-normal ${
+                                isDark ? 'text-red-400' : 'text-red-600'
+                              }`}
+                            >
+                              {day.holiday_title}
+                            </div>
                           )}
-                          <td className={`px-2 py-1 text-center border-l align-middle ${borderColor} ${isDark ? 'bg-blue-900/10' : 'bg-blue-50/30'}`}>
-                            {att ? (
-                              <div className="flex items-center justify-center gap-1 text-[11px]" dir="ltr">
-                                <span className={`font-mono font-bold ${isDark ? 'text-red-400' : 'text-red-600'}`}>{att.time_out || '--:--'}</span>
-                                <span className={`text-[8px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>▶</span>
-                                <span className={`font-mono font-bold ${isDark ? 'text-green-400' : 'text-green-700'}`}>{att.time_in || '--:--'}</span>
-                              </div>
-                            ) : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                          </td>
-                          <td className={`px-2 py-1 text-center border-l align-middle ${borderColor} ${isDark ? 'bg-orange-900/10' : 'bg-orange-50/30'}`}>
-                            {ot ? (
-                              <div className="flex items-center justify-center gap-1 text-[11px]" dir="ltr">
-                                <span className={`font-mono font-bold ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>{ot.time_out || '--:--'}</span>
-                                <span className={`text-[8px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>▶</span>
-                                <span className={`font-mono font-bold ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>{ot.time_in || '--:--'}</span>
-                              </div>
-                            ) : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                          </td>
-                          {i === 0 && (
-                            <td className={`px-2 py-1 text-center border-l align-middle font-bold text-sm font-mono ${borderColor} ${isDark ? 'bg-orange-900/10 text-gray-200' : 'bg-orange-50/30 text-gray-800'}`} rowSpan={rowSpan}>
-                              {decimalHoursToHHMM(day.overtime_hours)}
-                            </td>
+                        </td>
+
+                        <td className={`px-2 py-2 text-center border-e whitespace-nowrap ${borderHairline}`}>
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded-[2px] text-[10px] font-semibold border tracking-normal ${
+                              day.is_official_holiday
+                                ? isDark
+                                  ? 'bg-red-500/15 text-red-300 border-red-500/35'
+                                  : 'bg-red-50 text-red-700 border-red-600/30'
+                                : day.is_friday
+                                ? isDark
+                                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/35'
+                                  : 'bg-amber-50 text-amber-800 border-amber-600/30'
+                                : isDark
+                                ? 'bg-tactical-canvas text-slate-300 border-slate-400/20'
+                                : 'bg-slate-100 text-slate-700 border-slate-900/15'
+                            }`}
+                          >
+                            {getDayType(day)}
+                          </span>
+                        </td>
+
+                        <td className={`px-2 py-2 text-center border-e whitespace-nowrap ${borderHairline}`}>
+                          <StatusBadge status={day.status} />
+                        </td>
+
+                        {/* ستون‌های ورود ۱ / خروج ۱ / ورود ۲ / خروج ۲ ... */}
+                        {Array.from({ length: maxAttCount }).map((_, idx) => {
+                          const log = attLogs[idx];
+                          const nextDay =
+                            log?.time_in && log?.time_out && log.time_out < log.time_in;
+                          const isLastCol = idx === maxAttCount - 1;
+
+                          return (
+                            <React.Fragment key={`att-c-${idx}`}>
+                              <td
+                                dir="ltr"
+                                className={`px-2 py-2 text-center border-e tabular-nums whitespace-nowrap ${borderHairline}`}
+                              >
+                                {log?.time_in ? (
+                                  <span
+                                    className={`font-bold ${
+                                      isDark ? 'text-emerald-400 print:text-slate-900' : 'text-emerald-700'
+                                    }`}
+                                  >
+                                    {toPersianDigits(log.time_in)}
+                                  </span>
+                                ) : (
+                                  <span className="opacity-30">-</span>
+                                )}
+                                {isLastCol && extraAttLogs.length > 0 && (
+                                  <div className="text-[9px] text-sky-400 mt-0.5">
+                                    +{toPersianDigits(extraAttLogs.length)} ورود
+                                  </div>
+                                )}
+                              </td>
+
+                              <td
+                                dir="ltr"
+                                className={`px-2 py-2 text-center border-e tabular-nums whitespace-nowrap ${borderHairline}`}
+                              >
+                                {log?.time_out ? (
+                                  <span
+                                    className={`font-bold ${
+                                      isDark ? 'text-red-400 print:text-slate-900' : 'text-red-600'
+                                    }`}
+                                  >
+                                    {toPersianDigits(log.time_out)}
+                                    {nextDay && (
+                                      <span className="text-[9px] ms-0.5 text-amber-400">(+۱)</span>
+                                    )}
+                                  </span>
+                                ) : log?.time_in ? (
+                                  <span className="text-[10px] text-amber-400 font-semibold">باز</span>
+                                ) : (
+                                  <span className="opacity-30">-</span>
+                                )}
+                              </td>
+                            </React.Fragment>
+                          );
+                        })}
+
+                        <td
+                          dir="ltr"
+                          className={`px-2 py-2 text-center border-e tabular-nums font-bold whitespace-nowrap ${borderHairline} ${
+                            isDark ? 'text-sky-300 print:text-slate-900' : 'text-sky-800'
+                          }`}
+                        >
+                          {day.hours_worked > 0
+                            ? toPersianDigits(decimalHoursToHHMM(day.hours_worked))
+                            : '-'}
+                        </td>
+
+                        {/* ستون‌های اضافه‌کاری */}
+                        {Array.from({ length: maxOtCount }).map((_, idx) => {
+                          const ot = otLogs[idx];
+                          return (
+                            <React.Fragment key={`ot-c-${idx}`}>
+                              <td
+                                dir="ltr"
+                                className={`px-2 py-2 text-center border-e tabular-nums whitespace-nowrap ${borderHairline}`}
+                              >
+                                {ot?.time_in ? (
+                                  <span
+                                    className={`font-bold ${
+                                      isDark ? 'text-sky-300 print:text-slate-900' : 'text-sky-700'
+                                    }`}
+                                  >
+                                    {toPersianDigits(ot.time_in)}
+                                  </span>
+                                ) : (
+                                  <span className="opacity-30">-</span>
+                                )}
+                              </td>
+                              <td
+                                dir="ltr"
+                                className={`px-2 py-2 text-center border-e tabular-nums whitespace-nowrap ${borderHairline}`}
+                              >
+                                {ot?.time_out ? (
+                                  <span
+                                    className={`font-bold ${
+                                      isDark ? 'text-purple-300 print:text-slate-900' : 'text-purple-700'
+                                    }`}
+                                  >
+                                    {toPersianDigits(ot.time_out)}
+                                  </span>
+                                ) : (
+                                  <span className="opacity-30">-</span>
+                                )}
+                              </td>
+                            </React.Fragment>
+                          );
+                        })}
+
+                        <td
+                          dir="ltr"
+                          className={`px-2 py-2 text-center border-e tabular-nums font-bold whitespace-nowrap ${borderHairline} ${
+                            day.overtime_hours > 0
+                              ? isDark
+                                ? 'text-amber-300 print:text-slate-900'
+                                : 'text-amber-800'
+                              : 'opacity-35'
+                          }`}
+                        >
+                          {day.overtime_hours > 0
+                            ? toPersianDigits(decimalHoursToHHMM(day.overtime_hours))
+                            : '-'}
+                        </td>
+
+                        <td className="px-2 py-1.5 text-center align-middle">
+                          {otLogs.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {otLogs.map((ot) => (
+                                <ApprovalStepsMiniTable
+                                  key={ot.id}
+                                  steps={otMap[ot.id] || []}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="opacity-30">-</span>
                           )}
-                          <td className={`px-2 py-1 text-center border-l align-middle ${borderColor} ${isDark ? 'bg-orange-900/10' : 'bg-orange-50/30'}`}>
-                            {ot ? <ApprovalStepsMiniTable steps={otMap[ot.id] || []} /> : <span className={isDark ? 'text-gray-600' : 'text-gray-300'}>-</span>}
-                          </td>
-                        </tr>
-                      );
-                    });
+                        </td>
+                      </tr>
+                    );
                   })}
                 </tbody>
               </table>

@@ -38,6 +38,44 @@ import logo from '../../assets/ario.png';
 const toPersianDigits = (value) =>
     String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
 
+const buildFuzzyRegex = (query) => {
+    if (!query || !query.trim()) return null;
+    const tokens = query.replace(/\u200c/g, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 8);
+    if (tokens.length === 0) return null;
+    const patterns = tokens.map((token) => {
+        const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return escaped.replace(/[0-9۰-۹٠-٩ییککهةاأإوؤ]/g, (ch) => {
+            if (/[0-9۰-۹٠-٩]/.test(ch)) {
+                const idx = '0123456789۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩'.indexOf(ch) % 10;
+                return `[${idx}${String.fromCharCode(1776 + idx)}${String.fromCharCode(1632 + idx)}]`;
+            }
+            if (ch === 'ی' || ch === 'ي') return '[یي]';
+            if (ch === 'ک' || ch === 'ك') return '[کك]';
+            if (ch === 'ه' || ch === 'ة') return '[هة]';
+            if (ch === 'ا' || ch === 'أ' || ch === 'إ') return '[اأإ]';
+            if (ch === 'و' || ch === 'ؤ') return '[وؤ]';
+            return ch;
+        });
+    });
+    return new RegExp(`(${patterns.join('|')})`, 'gi');
+};
+
+const getPaginationItems = (current, total) => {
+    if (total <= 7) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const items = [1];
+    if (current > 3) items.push('...');
+    const start = Math.max(2, current - 1);
+    const end = Math.min(total - 1, current + 1);
+    for (let i = start; i <= end; i++) {
+        items.push(i);
+    }
+    if (current < total - 2) items.push('...');
+    items.push(total);
+    return items;
+};
+
 const CornerBrackets = ({ accent = 'cyan', isDark = true }) => {
     const accentMap = {
         cyan: isDark ? 'border-sky-400/60' : 'border-sky-600/60',
@@ -57,21 +95,16 @@ const CornerBrackets = ({ accent = 'cyan', isDark = true }) => {
     );
 };
 
-// کامپوننت هایلایت هوشمند بدون حساسیت به اعداد فارسی و انگلیسی
 const HighlightedText = ({ text, highlight }) => {
     if (!highlight || !text) return <>{text}</>;
-    const escaped = highlight.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const fuzzyStr = escaped.replace(/[0-9۰-۹]/g, (match) => {
-        const num = '0123456789۰۱۲۳۴۵۶۷۸۹'.indexOf(match) % 10;
-        return `[${num}${String.fromCharCode(1776 + num)}]`;
-    });
-    const regex = new RegExp(`(${fuzzyStr})`, 'gi');
+    const regex = buildFuzzyRegex(highlight);
+    if (!regex) return <>{text}</>;
     const parts = text.toString().split(regex);
     return (
         <span>
             {parts.map((part, i) =>
                 i % 2 === 1 ? (
-                    <mark key={i} className="bg-amber-300 text-slate-950 px-1 rounded-[1px] font-bold">
+                    <mark key={i} className="bg-amber-300 text-slate-950 px-0.5 rounded-[1px] font-bold">
                         {part}
                     </mark>
                 ) : (
@@ -102,6 +135,53 @@ const renderFormattedNumber = (numStr, customClass = 'text-[13px]', highlight = 
         <span dir="ltr" className={`font-mono font-bold tabular-nums ${customClass}`}>
             {highlight ? <HighlightedText text={str} highlight={highlight} /> : str}
         </span>
+    );
+};
+
+const SearchMatchesPreview = ({ matches, highlight, isDark }) => {
+    if (!matches || matches.length === 0 || !highlight) return null;
+    const metaMatches = matches.filter((m) => !m.is_body);
+    const bodyMatch = matches.find((m) => m.is_body);
+
+    return (
+        <div className="mt-2 space-y-1.5">
+            {metaMatches.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                    {metaMatches.map((m, idx) => (
+                        <span
+                            key={`${m.label}-${idx}`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[2px] border text-[10px] leading-4 max-w-full tracking-normal ${
+                                isDark
+                                    ? 'bg-sky-400/10 border-sky-400/30 text-slate-200'
+                                    : 'bg-sky-50 border-sky-600/25 text-slate-800'
+                            }`}
+                        >
+                            <span className={`font-bold shrink-0 ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>
+                                {m.label}:
+                            </span>
+                            <span className="truncate">
+                                <HighlightedText text={m.snippet} highlight={highlight} />
+                            </span>
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {bodyMatch && (
+                <div
+                    className={`px-2.5 py-1.5 rounded-[2px] border border-dashed text-[11px] leading-5 tracking-normal ${
+                        isDark
+                            ? 'bg-tactical-canvas/80 border-amber-400/35 text-slate-300'
+                            : 'bg-amber-50/60 border-amber-600/30 text-slate-700'
+                    }`}
+                >
+                    <span className={`font-bold me-1.5 ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>
+                        {bodyMatch.label}:
+                    </span>
+                    <HighlightedText text={bodyMatch.snippet} highlight={highlight} />
+                </div>
+            )}
+        </div>
     );
 };
 
@@ -316,19 +396,16 @@ const SecretariatListScreen = () => {
 
     const { letters: lettersData, loadingList, error, allPersonnel } = useSelector((state) => state.secretariat);
     const lettersList = Array.isArray(lettersData) ? lettersData : lettersData?.results || [];
-    const totalCount = lettersData?.count || lettersList.length || 0;
+    const totalCount = typeof lettersData?.count === 'number' ? lettersData.count : lettersList.length;
     const totalPages = Math.ceil(totalCount / 12) || 1;
 
     const [page, setPage] = useState(1);
     const [filterType, setFilterType] = useState(location.state?.filter || '');
     const [searchQuery, setSearchQuery] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedYear, setSelectedYear] = useState('');
     const [senderFilter, setSenderFilter] = useState('');
     const [ordering, setOrdering] = useState('desc');
-
-    const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const searchWrapperRef = useRef(null);
 
     const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
     const [smsActive, setSmsActive] = useState(true);
@@ -337,22 +414,37 @@ const SecretariatListScreen = () => {
     const [savingSettings, setSavingSettings] = useState(false);
     const [personnelSearch, setPersonnelSearch] = useState('');
 
-    // مقادیر ارسالی به بک‌اند دست‌نخورده می‌مانند؛ نمایش با ارقام فارسی انجام می‌شود
     const JALALI_YEARS = ['1401', '1402', '1403', '1404', '1405', '1406', '1407'];
+
+    const isSearchPending = searchQuery.trim() !== debouncedSearch;
+    const isActivelySearching = Boolean(searchQuery.trim());
+    const activeHighlight = !isSearchPending ? debouncedSearch : '';
 
     const handleFilterChange = (setter, value) => {
         setter(value);
         setPage(1);
     };
 
+    const handleClearSearch = () => {
+        setSearchQuery('');
+        setDebouncedSearch('');
+        setPage(1);
+    };
+
     useEffect(() => {
+        const trimmed = searchQuery.trim();
+        if (trimmed === debouncedSearch) return;
+        if (trimmed === '') {
+            setDebouncedSearch('');
+            setPage(1);
+            return;
+        }
         const handler = setTimeout(() => {
-            setDebouncedSearch(searchQuery);
-        }, 600);
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [searchQuery]);
+            setDebouncedSearch(trimmed);
+            setPage(1);
+        }, 350);
+        return () => clearTimeout(handler);
+    }, [searchQuery, debouncedSearch]);
 
     useEffect(() => {
         dispatch(fetchAllPersonnel());
@@ -360,42 +452,31 @@ const SecretariatListScreen = () => {
 
     useEffect(() => {
         const params = {
-            search: debouncedSearch,
-            page: page,
-            jalali_year: selectedYear || null,
-            sender: senderFilter,
-            ordering: ordering,
+            page,
+            ordering,
         };
+        if (debouncedSearch) params.search = debouncedSearch;
+        if (selectedYear) params.jalali_year = selectedYear;
+        if (senderFilter) params.sender = senderFilter;
         if (filterType === 'DELETED') {
             params.status = 'DELETED';
-        } else {
+        } else if (filterType) {
             params.type = filterType;
         }
-        dispatch(fetchLetters(params));
+        const promise = dispatch(fetchLetters(params));
+        return () => {
+            promise.abort();
+        };
     }, [dispatch, filterType, debouncedSearch, page, selectedYear, senderFilter, ordering]);
 
     useEffect(() => {
-        setIsSearchOpen(false);
-    }, [location.pathname]);
-
-    useEffect(() => {
-        const handleClickOutsideSearch = (event) => {
-            if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target)) {
-                setIsSearchOpen(false);
-            }
-        };
         const handleKeyDown = (event) => {
             if (event.key === 'Escape') {
-                setIsSearchOpen(false);
                 setIsSmsModalOpen(false);
             }
         };
-        document.addEventListener('mousedown', handleClickOutsideSearch);
         document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutsideSearch);
-            document.removeEventListener('keydown', handleKeyDown);
-        };
+        return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
     const handleOpenSmsSettings = async () => {
@@ -474,6 +555,10 @@ const SecretariatListScreen = () => {
                 return 'همه مکاتبات';
         }
     };
+
+    const selectedSenderObj = senderFilter
+        ? (allPersonnel || []).find((p) => String(p.id) === String(senderFilter))
+        : null;
 
     const renderStatusBadge = (status, letterType) => {
         const base =
@@ -641,6 +726,9 @@ const SecretariatListScreen = () => {
     const textPrimary = isDark ? 'text-slate-100' : 'text-slate-900';
     const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
 
+    const scopeLabel = getFilterName(filterType);
+    const paginationItems = getPaginationItems(page, totalPages);
+
     return (
         <div
             className={`relative min-h-screen transition-colors duration-200 ${
@@ -653,7 +741,6 @@ const SecretariatListScreen = () => {
                 <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 tactical-scanlines" />
             )}
 
-            {/* نوار مسیر و وضعیت دبیرخانه (هم‌تراز با هدر) */}
             <div
                 className={`relative z-10 border-b ${borderHairline} ${
                     isDark ? 'bg-tactical-surface1/95' : 'bg-white/95'
@@ -672,7 +759,7 @@ const SecretariatListScreen = () => {
                         <ChevronLeftIcon className="w-3 h-3 text-slate-500 shrink-0" />
                         <span className={textSecondary}>دبیرخانه کل</span>
                         <ChevronLeftIcon className="w-3 h-3 text-slate-500 shrink-0" />
-                        <span className={`font-semibold truncate ${textPrimary}`}>{getFilterName(filterType)}</span>
+                        <span className={`font-semibold truncate ${textPrimary}`}>{scopeLabel}</span>
                     </nav>
 
                     <span
@@ -692,9 +779,6 @@ const SecretariatListScreen = () => {
             </div>
 
             <div className="relative z-10 max-w-[1440px] mx-auto px-3 sm:px-5 py-4 sm:py-6 space-y-4">
-                {/* ═══════════════════════════════════════════════════════════ */}
-                {/* سرصفحه اصلی واحد دبیرخانه */}
-                {/* ═══════════════════════════════════════════════════════════ */}
                 <div
                     className={`relative border rounded-[2px] ${surfacePanel} ${
                         filterType === 'DELETED'
@@ -761,9 +845,6 @@ const SecretariatListScreen = () => {
                     </div>
                 </div>
 
-                {/* ═══════════════════════════════════════════════════════════ */}
-                {/* کنسول فیلتر، جستجوی هوشمند و مرتب‌سازی */}
-                {/* ═══════════════════════════════════════════════════════════ */}
                 <div className={`relative border rounded-[2px] ${surfacePanel} ${borderHairline}`}>
                     <CornerBrackets accent="cyan" isDark={isDark} />
 
@@ -771,11 +852,12 @@ const SecretariatListScreen = () => {
                         className={`flex items-center justify-between px-3.5 py-2 border-b ${borderHairline} ${surfaceHeader} text-[11px] tracking-normal`}
                     >
                         <span className={`font-semibold ${textPrimary}`}>فیلترها و جستجوی پیشرفته مکاتبات</span>
-                        <span className={textSecondary}>واحد جستجوی هوشمند</span>
+                        <span className={`font-medium ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>
+                            محدوده فعلی: {scopeLabel}
+                        </span>
                     </div>
 
                     <div className="p-3.5 sm:p-4 space-y-3.5">
-                        {/* ردیف اول: تب‌های نوع مکاتبه + فیلتر فرستنده + جستجوی زنده */}
                         <div className="flex flex-col xl:flex-row gap-3 justify-between items-stretch xl:items-center">
                             <div
                                 className="flex items-center gap-1.5 overflow-x-auto w-full xl:w-auto pb-1.5 xl:pb-0 touch-pan-x min-w-0 no-scrollbar"
@@ -848,197 +930,89 @@ const SecretariatListScreen = () => {
                                     isDark={isDark}
                                 />
 
-                                <div className="relative w-full sm:w-72 md:w-80" ref={searchWrapperRef}>
+                                <div className="relative w-full sm:w-80 md:w-96">
                                     <input
                                         type="text"
-                                        placeholder="جستجو (موضوع، متن، شماره)..."
+                                        placeholder={`جستجو در ${scopeLabel} (موضوع، متن، شماره، پروژه، اشخاص)...`}
                                         value={searchQuery}
-                                        onChange={(e) => {
-                                            handleFilterChange(setSearchQuery, e.target.value);
-                                            setIsSearchOpen(true);
-                                        }}
-                                        onFocus={() => setIsSearchOpen(true)}
-                                        className={`w-full h-10 pe-9 ps-3 rounded-[2px] border text-xs sm:text-sm font-medium focus:outline-none transition-colors tracking-normal ${
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className={`w-full h-10 pe-16 ps-3 rounded-[2px] border text-xs sm:text-sm font-medium focus:outline-none transition-colors tracking-normal ${
                                             isDark
                                                 ? 'bg-tactical-canvas border-slate-400/20 text-slate-100 placeholder-slate-500 focus:border-sky-400 focus:ring-1 focus:ring-sky-400/30'
                                                 : 'bg-slate-50 border-slate-900/20 text-slate-900 placeholder-slate-400 focus:border-sky-600 focus:ring-1 focus:ring-sky-600/25'
                                         }`}
                                     />
-                                    <MagnifyingGlassIcon className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-
-                                    {searchQuery && isSearchOpen && (
-                                        <div
-                                            className={`absolute top-full mt-1.5 start-0 sm:start-auto sm:end-0 w-full sm:w-[480px] max-w-[94vw] max-h-[460px] overflow-y-auto rounded-[2px] border shadow-2xl z-50 p-3 ${
-                                                isDark
-                                                    ? 'bg-tactical-surface1 border-sky-400/35'
-                                                    : 'bg-slate-100 border-slate-900/25'
-                                            }`}
-                                        >
-                                            <div
-                                                className={`flex items-center justify-between pb-2 mb-2.5 border-b text-[11px] font-semibold tracking-normal ${
-                                                    isDark ? 'border-slate-400/15 text-sky-300' : 'border-slate-900/15 text-sky-800'
+                                    <div className="absolute end-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                        {searchQuery && (
+                                            <button
+                                                type="button"
+                                                onClick={handleClearSearch}
+                                                className={`p-0.5 rounded-[2px] transition-colors ${
+                                                    isDark
+                                                        ? 'text-slate-400 hover:text-red-400 hover:bg-tactical-hover'
+                                                        : 'text-slate-400 hover:text-red-600 hover:bg-slate-200'
                                                 }`}
+                                                aria-label="پاک کردن جستجو"
                                             >
-                                                <span>نتایج جستجوی زنده</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsSearchOpen(false)}
-                                                    className="text-slate-400 hover:text-red-400"
-                                                    aria-label="بستن نتایج جستجو"
-                                                >
-                                                    <XMarkIcon className="w-4 h-4" />
-                                                </button>
-                                            </div>
-
-                                            {loadingList ? (
-                                                <div className="p-4 text-center text-xs text-slate-400 font-semibold tracking-normal">
-                                                    در حال جستجو در بایگانی...
-                                                </div>
-                                            ) : lettersList.length === 0 ? (
-                                                <div className="p-4 text-center text-xs text-slate-400 font-semibold tracking-normal">
-                                                    نتیجه‌ای یافت نشد
-                                                </div>
-                                            ) : (
-                                                lettersList.map((letter) => {
-                                                    const escaped = searchQuery
-                                                        .toString()
-                                                        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                                                    const fuzzyStr = escaped.replace(/[0-9۰-۹]/g, (match) => {
-                                                        const num = '0123456789۰۱۲۳۴۵۶۷۸۹'.indexOf(match) % 10;
-                                                        return `[${num}${String.fromCharCode(1776 + num)}]`;
-                                                    });
-                                                    const searchRegex = new RegExp(fuzzyStr, 'gi');
-
-                                                    const checkMatch = (val) => {
-                                                        if (!val) return false;
-                                                        searchRegex.lastIndex = 0;
-                                                        return searchRegex.test(val);
-                                                    };
-
-                                                    const matches = [];
-                                                    if (checkMatch(letter.subject))
-                                                        matches.push({ label: 'موضوع', text: letter.subject });
-                                                    if (checkMatch(letter.indicator_number))
-                                                        matches.push({ label: 'شماره سیستمی', text: letter.indicator_number });
-                                                    if (checkMatch(letter.original_number))
-                                                        matches.push({ label: 'شماره فیزیکی', text: letter.original_number });
-                                                    if (checkMatch(letter.contract_number))
-                                                        matches.push({ label: 'شماره قرارداد', text: letter.contract_number });
-                                                    if (checkMatch(letter.final_sender_name))
-                                                        matches.push({ label: 'فرستنده', text: letter.final_sender_name });
-                                                    if (checkMatch(letter.final_receiver_name))
-                                                        matches.push({ label: 'گیرنده', text: letter.final_receiver_name });
-                                                    if (checkMatch(letter.manual_sender_name))
-                                                        matches.push({ label: 'فرستنده دستی', text: letter.manual_sender_name });
-                                                    if (checkMatch(letter.manual_receiver_name))
-                                                        matches.push({ label: 'گیرنده دستی', text: letter.manual_receiver_name });
-
-                                                    let bodySnippet = null;
-                                                    searchRegex.lastIndex = 0;
-                                                    const bodyMatch = letter.body ? searchRegex.exec(letter.body) : null;
-
-                                                    if (bodyMatch) {
-                                                        const idx = bodyMatch.index;
-                                                        const matchLen = bodyMatch[0].length;
-                                                        const start = Math.max(0, idx - 40);
-                                                        const end = Math.min(letter.body.length, idx + matchLen + 40);
-
-                                                        const originalMatch = letter.body.substring(idx, idx + matchLen);
-                                                        const pre = letter.body.substring(start, idx);
-                                                        const post = letter.body.substring(idx + matchLen, end);
-
-                                                        bodySnippet = (
-                                                            <span>
-                                                                {start > 0 && '... '}
-                                                                {pre}
-                                                                <mark className="bg-amber-300 text-slate-950 px-1 mx-1 font-bold rounded-[1px]">
-                                                                    ---------- {originalMatch} ----------
-                                                                </mark>
-                                                                {post}
-                                                                {end < letter.body.length && ' ...'}
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    if (matches.length === 0 && !bodySnippet) return null;
-
-                                                    return (
-                                                        <div
-                                                            key={letter.id}
-                                                            onClick={() => {
-                                                                setIsSearchOpen(false);
-                                                                navigate(`/secretariat/${letter.id}`);
-                                                            }}
-                                                            className="relative bg-white text-slate-900 p-3.5 mb-2.5 last:mb-0 rounded-[2px] border border-slate-300 hover:border-sky-600 cursor-pointer transition-colors duration-150"
-                                                            style={{
-                                                                minHeight: '150px',
-                                                                backgroundImage: 'linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%)',
-                                                            }}
-                                                        >
-                                                            <div className="flex justify-between items-start border-b border-slate-300 pb-2 mb-2.5">
-                                                                <div className="w-1/4 flex flex-col items-center justify-center opacity-25">
-                                                                    <InboxIcon className="w-5 h-5" />
-                                                                </div>
-                                                                <div className="w-2/4 text-center font-bold text-xs sm:text-sm pt-0.5 tracking-normal">
-                                                                    بسمه تعالی
-                                                                </div>
-                                                                <div className="w-1/4 text-left text-[10px] font-bold leading-relaxed">
-                                                                    <div className="whitespace-nowrap flex items-center justify-end gap-1">
-                                                                        <span className="opacity-70">ش:</span>
-                                                                        {renderFormattedNumber(
-                                                                            letter.indicator_number,
-                                                                            'text-[10px]',
-                                                                            searchQuery
-                                                                        )}
-                                                                    </div>
-                                                                    {letter.original_number && (
-                                                                        <div className="whitespace-nowrap flex items-center justify-end gap-1">
-                                                                            <span className="opacity-70">ف:</span>
-                                                                            {renderFormattedNumber(
-                                                                                letter.original_number,
-                                                                                'text-[10px]',
-                                                                                searchQuery
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="tabular-nums">
-                                                                        ت: {new Date(letter.created_at).toLocaleDateString('fa-IR')}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="text-[11px] space-y-1.5 font-semibold mb-2 tracking-normal">
-                                                                {matches.map((m, idx) => (
-                                                                    <div key={idx} className="flex gap-1.5 border-b border-slate-100 pb-1">
-                                                                        <span className="opacity-65 min-w-[74px] shrink-0">{m.label}:</span>
-                                                                        <span className="flex-1 leading-tight">
-                                                                            {['شماره سیستمی', 'شماره فیزیکی', 'شماره قرارداد'].includes(m.label)
-                                                                                ? renderFormattedNumber(m.text, 'text-[11px]', searchQuery)
-                                                                                : <HighlightedText text={m.text} highlight={searchQuery} />}
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-
-                                                            {bodySnippet && (
-                                                                <div className="mt-2.5 text-[10px] leading-6 text-justify text-slate-800 bg-slate-50 p-2 rounded-[2px] border border-slate-200 border-dashed relative tracking-normal">
-                                                                    <span className="absolute -top-2.5 right-2 bg-slate-50 px-1 text-[9px] font-bold text-slate-500">
-                                                                        متن نامه
-                                                                    </span>
-                                                                    {bodySnippet}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })
-                                            )}
-                                        </div>
-                                    )}
+                                                <XMarkIcon className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                        {isSearchPending || (loadingList && isActivelySearching) ? (
+                                            <span
+                                                className={`w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ${
+                                                    isDark ? 'border-sky-400' : 'border-sky-600'
+                                                }`}
+                                            />
+                                        ) : (
+                                            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400 pointer-events-none" />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* ردیف دوم: سال بایگانی و ترتیب نمایش */}
+                        {isActivelySearching && (
+                            <div
+                                className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-[2px] border text-xs tracking-normal ${
+                                    isDark
+                                        ? 'bg-sky-400/10 border-sky-400/30 text-sky-200'
+                                        : 'bg-sky-50 border-sky-600/30 text-sky-900'
+                                }`}
+                            >
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <MagnifyingGlassIcon className={`w-4 h-4 shrink-0 ${isDark ? 'text-sky-400' : 'text-sky-700'}`} />
+                                    {isSearchPending || loadingList ? (
+                                        <span>
+                                            در حال جستجو در کل آرشیو <strong>{scopeLabel}</strong> برای «{searchQuery.trim()}»...
+                                        </span>
+                                    ) : (
+                                        <span className="tabular-nums">
+                                            نتیجه جستجو در <strong>{scopeLabel}</strong>
+                                            {selectedYear ? ` (سال ${toPersianDigits(selectedYear)})` : ''}
+                                            {selectedSenderObj ? ` (فرستنده: ${selectedSenderObj.name})` : ''} برای «
+                                            <strong>{debouncedSearch}</strong>»:{' '}
+                                            <strong className={isDark ? 'text-amber-300' : 'text-sky-700'}>
+                                                {toPersianDigits(totalCount)} مورد
+                                            </strong>
+                                        </span>
+                                    )}
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleClearSearch}
+                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-[2px] border text-[11px] font-semibold transition-colors shrink-0 ${
+                                        isDark
+                                            ? 'border-sky-400/35 bg-tactical-surface1 text-sky-300 hover:bg-tactical-hover'
+                                            : 'border-sky-600/30 bg-white text-sky-800 hover:bg-sky-100'
+                                    }`}
+                                >
+                                    <XMarkIcon className="w-3.5 h-3.5" />
+                                    <span>پاک کردن جستجو</span>
+                                </button>
+                            </div>
+                        )}
+
                         <div className={`pt-3 border-t ${borderHairline}`}>
                             <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between w-full min-w-0">
                                 <div className="flex items-center gap-2 min-w-0 w-full md:w-auto">
@@ -1126,9 +1100,6 @@ const SecretariatListScreen = () => {
                     </div>
                 </div>
 
-                {/* ═══════════════════════════════════════════════════════════ */}
-                {/* وضعیت بارگذاری، خطا، خالی یا جدول پرونده‌های مکاتبات */}
-                {/* ═══════════════════════════════════════════════════════════ */}
                 {loadingList ? (
                     <div className={`relative border rounded-[2px] overflow-hidden ${surfacePanel} ${borderHairline}`}>
                         <div className={`h-0.5 w-full ${isDark ? 'bg-sky-400/20' : 'bg-sky-600/20'} overflow-hidden`}>
@@ -1172,17 +1143,37 @@ const SecretariatListScreen = () => {
                         <CornerBrackets accent="cyan" isDark={isDark} />
                         <InboxIcon className="w-12 h-12 mx-auto mb-3 opacity-25" />
                         <h3 className={`text-base font-bold mb-1 tracking-normal ${textPrimary}`}>
-                            {filterType === 'DELETED' ? 'زباله‌دان خالی است' : 'هیچ مکاتبه‌ای یافت نشد'}
+                            {debouncedSearch
+                                ? `نتیجه‌ای در ${scopeLabel} برای «${debouncedSearch}» یافت نشد`
+                                : filterType === 'DELETED'
+                                ? 'زباله‌دان خالی است'
+                                : 'هیچ مکاتبه‌ای یافت نشد'}
                         </h3>
                         <p className={`text-xs tracking-normal ${textSecondary}`}>
                             با تغییر فیلترها یا عبارات جستجو مجدداً بررسی نمایید.
                         </p>
                     </div>
                 ) : (
-                    <div className={`relative rounded-[2px] border overflow-hidden ${surfacePanel} ${borderHairline}`}>
+                    <div
+                        className={`relative rounded-[2px] border overflow-hidden transition-opacity duration-150 ${surfacePanel} ${borderHairline} ${
+                            isSearchPending ? 'opacity-60' : 'opacity-100'
+                        }`}
+                    >
                         <CornerBrackets accent={filterType === 'DELETED' ? 'danger' : 'cyan'} isDark={isDark} />
 
-                        {/* نمای موبایل (کارت‌های مستقل و یکی‌درمیان) */}
+                        {isSearchPending && (
+                            <div className={`h-0.5 w-full ${isDark ? 'bg-sky-400/20' : 'bg-sky-600/20'} overflow-hidden`}>
+                                <div
+                                    className={`h-full w-1/2 animate-shimmer ${
+                                        isDark
+                                            ? 'bg-gradient-to-r from-transparent via-sky-400 to-transparent'
+                                            : 'bg-gradient-to-r from-transparent via-sky-600 to-transparent'
+                                    }`}
+                                    style={{ backgroundSize: '200% 100%' }}
+                                />
+                            </div>
+                        )}
+
                         <div
                             className={`md:hidden p-2.5 space-y-2.5 ${
                                 isDark ? 'bg-tactical-canvas/60' : 'bg-slate-200/50'
@@ -1195,6 +1186,7 @@ const SecretariatListScreen = () => {
                                 const showDivider = currentMonth !== previousMonth;
                                 const isDeletedLetter = letter.status === 'DELETED';
                                 const isEven = index % 2 === 0;
+                                const hasAttachments = letter.has_attachments ?? (letter.attachments?.length > 0);
 
                                 const mobileCardBg = isDeletedLetter
                                     ? isDark
@@ -1246,7 +1238,11 @@ const SecretariatListScreen = () => {
                                                                     : 'text-sky-700'
                                                             }`}
                                                         >
-                                                            {renderFormattedNumber(letter.indicator_number, 'text-xs sm:text-sm')}
+                                                            {renderFormattedNumber(
+                                                                letter.indicator_number,
+                                                                'text-xs sm:text-sm',
+                                                                activeHighlight
+                                                            )}
                                                         </div>
                                                         <span className={`text-[10px] font-medium tabular-nums tracking-normal ${textSecondary}`}>
                                                             ردیف {toPersianDigits((page - 1) * 12 + index + 1)}
@@ -1267,12 +1263,18 @@ const SecretariatListScreen = () => {
                                                             isDeletedLetter ? 'line-through opacity-70' : ''
                                                         } ${textPrimary}`}
                                                     >
-                                                        {letter.subject}
+                                                        <HighlightedText text={letter.subject} highlight={activeHighlight} />
                                                     </span>
-                                                    {letter.attachments?.length > 0 && (
+                                                    {hasAttachments && (
                                                         <PaperClipIcon className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-1" />
                                                     )}
                                                 </div>
+
+                                                <SearchMatchesPreview
+                                                    matches={letter.search_matches}
+                                                    highlight={activeHighlight}
+                                                    isDark={isDark}
+                                                />
 
                                                 {(letter.urgency !== 'NORMAL' || letter.confidentiality !== 'NORMAL') && (
                                                     <div className="flex gap-1.5 mt-2">
@@ -1310,7 +1312,7 @@ const SecretariatListScreen = () => {
                                                         فرستنده:
                                                     </span>
                                                     <span className={`text-[11px] font-semibold truncate tracking-normal ${textPrimary}`}>
-                                                        {letter.final_sender_name || '-'}
+                                                        <HighlightedText text={letter.final_sender_name || '-'} highlight={activeHighlight} />
                                                     </span>
                                                 </div>
                                                 <div className="flex flex-col min-w-0">
@@ -1318,12 +1320,11 @@ const SecretariatListScreen = () => {
                                                         گیرنده:
                                                     </span>
                                                     <span className={`text-[11px] font-semibold truncate tracking-normal ${textPrimary}`}>
-                                                        {letter.final_receiver_name || '-'}
+                                                        <HighlightedText text={letter.final_receiver_name || '-'} highlight={activeHighlight} />
                                                     </span>
                                                 </div>
                                             </div>
 
-                                            {/* کادر منظم شماره‌ها و تاریخ‌های این نامه در موبایل */}
                                             <div
                                                 className={`p-2 rounded-[2px] border space-y-1 text-[10px] tracking-normal ${
                                                     isDark
@@ -1360,7 +1361,7 @@ const SecretariatListScreen = () => {
                                                         <span className={textSecondary}>
                                                             {letter.letter_type === 'INCOMING' ? 'شماره نامه:' : 'شماره فیزیکی:'}
                                                         </span>
-                                                        {renderFormattedNumber(letter.original_number, 'text-[10px]')}
+                                                        {renderFormattedNumber(letter.original_number, 'text-[10px]', activeHighlight)}
                                                     </div>
                                                 )}
 
@@ -1377,7 +1378,8 @@ const SecretariatListScreen = () => {
                                                         </span>
                                                         {renderFormattedNumber(
                                                             letter.destination_indicator,
-                                                            `text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`
+                                                            `text-[10px] ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`,
+                                                            activeHighlight
                                                         )}
                                                     </div>
                                                 )}
@@ -1388,7 +1390,6 @@ const SecretariatListScreen = () => {
                             })}
                         </div>
 
-                        {/* نمای جدول دسکتاپ (ردیف‌های یکی‌درمیان + کادر مستقل تاریخ هر نامه) */}
                         <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-right text-sm border-collapse">
                                 <thead
@@ -1415,6 +1416,7 @@ const SecretariatListScreen = () => {
                                         const showDivider = currentMonth !== previousMonth;
                                         const isDeletedLetter = letter.status === 'DELETED';
                                         const isEven = index % 2 === 0;
+                                        const hasAttachments = letter.has_attachments ?? (letter.attachments?.length > 0);
 
                                         const rowClass = isDeletedLetter
                                             ? isDark
@@ -1519,7 +1521,11 @@ const SecretariatListScreen = () => {
                                                                             : 'text-sky-700'
                                                                     }`}
                                                                 >
-                                                                    {renderFormattedNumber(letter.indicator_number, 'text-[13px]')}
+                                                                    {renderFormattedNumber(
+                                                                        letter.indicator_number,
+                                                                        'text-[13px]',
+                                                                        activeHighlight
+                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -1529,7 +1535,11 @@ const SecretariatListScreen = () => {
                                                                         شماره نامه:
                                                                     </span>
                                                                     <div className={`text-right ${textPrimary}`}>
-                                                                        {renderFormattedNumber(letter.original_number, 'text-[11px]')}
+                                                                        {renderFormattedNumber(
+                                                                            letter.original_number,
+                                                                            'text-[11px]',
+                                                                            activeHighlight
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -1554,7 +1564,8 @@ const SecretariatListScreen = () => {
                                                                             letter.destination_indicator,
                                                                             `text-[11px] ${
                                                                                 isDark ? 'text-emerald-400' : 'text-emerald-700'
-                                                                            }`
+                                                                            }`,
+                                                                            activeHighlight
                                                                         )}
                                                                     </div>
                                                                 </div>
@@ -1577,41 +1588,50 @@ const SecretariatListScreen = () => {
                                                                 } ${textPrimary}`}
                                                                 title={letter.subject}
                                                             >
-                                                                {letter.subject}
+                                                                <HighlightedText text={letter.subject} highlight={activeHighlight} />
                                                             </span>
-                                                            {letter.attachments?.length > 0 && (
+                                                            {hasAttachments && (
                                                                 <PaperClipIcon
                                                                     className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-1"
                                                                     title="دارای پیوست"
                                                                 />
                                                             )}
                                                         </div>
-                                                        <div className="flex gap-1.5 mt-2">
-                                                            {letter.urgency !== 'NORMAL' && (
-                                                                <span
-                                                                    className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] border tracking-normal ${
-                                                                        isDark
-                                                                            ? 'bg-red-500/15 text-red-300 border-red-500/35'
-                                                                            : 'bg-red-50 text-red-700 border-red-600/30'
-                                                                    }`}
-                                                                >
-                                                                    <ExclamationTriangleIcon className="w-3 h-3" />
-                                                                    {letter.urgency === 'URGENT' ? 'فوری' : 'خیلی فوری'}
-                                                                </span>
-                                                            )}
-                                                            {letter.confidentiality !== 'NORMAL' && (
-                                                                <span
-                                                                    className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] border tracking-normal ${
-                                                                        isDark
-                                                                            ? 'bg-amber-500/15 text-amber-300 border-amber-500/35'
-                                                                            : 'bg-amber-50 text-amber-800 border-amber-600/30'
-                                                                    }`}
-                                                                >
-                                                                    <ShieldExclamationIcon className="w-3 h-3" />
-                                                                    {letter.confidentiality === 'CONFIDENTIAL' ? 'محرمانه' : 'سری'}
-                                                                </span>
-                                                            )}
-                                                        </div>
+
+                                                        <SearchMatchesPreview
+                                                            matches={letter.search_matches}
+                                                            highlight={activeHighlight}
+                                                            isDark={isDark}
+                                                        />
+
+                                                        {(letter.urgency !== 'NORMAL' || letter.confidentiality !== 'NORMAL') && (
+                                                            <div className="flex gap-1.5 mt-2">
+                                                                {letter.urgency !== 'NORMAL' && (
+                                                                    <span
+                                                                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] border tracking-normal ${
+                                                                            isDark
+                                                                                ? 'bg-red-500/15 text-red-300 border-red-500/35'
+                                                                                : 'bg-red-50 text-red-700 border-red-600/30'
+                                                                        }`}
+                                                                    >
+                                                                        <ExclamationTriangleIcon className="w-3 h-3" />
+                                                                        {letter.urgency === 'URGENT' ? 'فوری' : 'خیلی فوری'}
+                                                                    </span>
+                                                                )}
+                                                                {letter.confidentiality !== 'NORMAL' && (
+                                                                    <span
+                                                                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-[2px] border tracking-normal ${
+                                                                            isDark
+                                                                                ? 'bg-amber-500/15 text-amber-300 border-amber-500/35'
+                                                                                : 'bg-amber-50 text-amber-800 border-amber-600/30'
+                                                                        }`}
+                                                                    >
+                                                                        <ShieldExclamationIcon className="w-3 h-3" />
+                                                                        {letter.confidentiality === 'CONFIDENTIAL' ? 'محرمانه' : 'سری'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </td>
 
                                                     <td className="px-4 py-3.5 align-top">
@@ -1625,7 +1645,7 @@ const SecretariatListScreen = () => {
                                                                     از (فرستنده):
                                                                 </span>
                                                                 <span className={`text-xs font-semibold truncate tracking-normal ${textPrimary}`}>
-                                                                    {letter.final_sender_name}
+                                                                    <HighlightedText text={letter.final_sender_name} highlight={activeHighlight} />
                                                                 </span>
                                                             </div>
                                                             <div className="flex flex-col pt-0.5">
@@ -1637,13 +1657,12 @@ const SecretariatListScreen = () => {
                                                                     به (گیرنده):
                                                                 </span>
                                                                 <span className={`text-xs font-semibold truncate tracking-normal ${textPrimary}`}>
-                                                                    {letter.final_receiver_name}
+                                                                    <HighlightedText text={letter.final_receiver_name} highlight={activeHighlight} />
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </td>
 
-                                                    {/* کادر مستقل و تک‌خطی تاریخ‌های همین نامه */}
                                                     <td className="px-4 py-3 align-top whitespace-nowrap">
                                                         <div
                                                             className={`rounded-[2px] border px-2.5 py-1.5 divide-y ${dateBoxClass} ${
@@ -1731,7 +1750,6 @@ const SecretariatListScreen = () => {
                             </table>
                         </div>
 
-                        {/* صفحه‌بندی */}
                         {totalPages > 1 && (
                             <div
                                 className={`px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t ${borderHairline} ${surfaceHeader}`}
@@ -1741,31 +1759,57 @@ const SecretariatListScreen = () => {
                                     <strong className={textPrimary}>{toPersianDigits(totalPages)}</strong> (مجموع:{' '}
                                     {toPersianDigits(totalCount)} مورد)
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center flex-wrap justify-center gap-1.5">
                                     <button
                                         type="button"
                                         disabled={page === 1}
                                         onClick={() => setPage(page - 1)}
-                                        className={`h-8 px-3 rounded-[2px] border inline-flex items-center gap-1 text-xs font-semibold transition-colors disabled:opacity-35 tracking-normal ${
+                                        className={`h-8 px-2.5 rounded-[2px] border inline-flex items-center gap-1 text-xs font-semibold transition-colors disabled:opacity-35 tracking-normal ${
                                             isDark
                                                 ? 'bg-tactical-surface1 border-slate-400/20 text-slate-200 hover:border-sky-400/50 hover:bg-tactical-hover'
                                                 : 'bg-white border-slate-900/20 text-slate-700 hover:border-sky-600/50 hover:bg-slate-50'
                                         }`}
                                     >
                                         <ChevronRightIcon className="w-3.5 h-3.5" />
-                                        <span>صفحه قبل</span>
+                                        <span>قبلی</span>
                                     </button>
+
+                                    {paginationItems.map((item, idx) =>
+                                        item === '...' ? (
+                                            <span key={`dots-${idx}`} className={`px-1.5 text-xs ${textSecondary}`}>
+                                                ...
+                                            </span>
+                                        ) : (
+                                            <button
+                                                key={item}
+                                                type="button"
+                                                onClick={() => setPage(item)}
+                                                className={`h-8 min-w-[32px] px-2 rounded-[2px] border text-xs font-semibold tabular-nums transition-colors ${
+                                                    page === item
+                                                        ? isDark
+                                                            ? 'bg-sky-400/20 border-sky-400/60 text-sky-300'
+                                                            : 'bg-sky-600 border-sky-700 text-white'
+                                                        : isDark
+                                                        ? 'bg-tactical-surface1 border-slate-400/20 text-slate-300 hover:bg-tactical-hover'
+                                                        : 'bg-white border-slate-900/20 text-slate-700 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {toPersianDigits(item)}
+                                            </button>
+                                        )
+                                    )}
+
                                     <button
                                         type="button"
                                         disabled={page === totalPages}
                                         onClick={() => setPage(page + 1)}
-                                        className={`h-8 px-3 rounded-[2px] border inline-flex items-center gap-1 text-xs font-semibold transition-colors disabled:opacity-35 tracking-normal ${
+                                        className={`h-8 px-2.5 rounded-[2px] border inline-flex items-center gap-1 text-xs font-semibold transition-colors disabled:opacity-35 tracking-normal ${
                                             isDark
                                                 ? 'bg-tactical-surface1 border-slate-400/20 text-slate-200 hover:border-sky-400/50 hover:bg-tactical-hover'
                                                 : 'bg-white border-slate-900/20 text-slate-700 hover:border-sky-600/50 hover:bg-slate-50'
                                         }`}
                                     >
-                                        <span>صفحه بعد</span>
+                                        <span>بعدی</span>
                                         <ChevronLeftIcon className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
@@ -1774,9 +1818,6 @@ const SecretariatListScreen = () => {
                     </div>
                 )}
 
-                {/* ═══════════════════════════════════════════════════════════ */}
-                {/* پنجره تنظیمات پیامک اطلاع‌رسانی */}
-                {/* ═══════════════════════════════════════════════════════════ */}
                 {isSmsModalOpen && (
                     <div className="fixed inset-0 z-[1050] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm">
                         <div
@@ -1800,7 +1841,7 @@ const SecretariatListScreen = () => {
                                         className={`w-5 h-5 shrink-0 ${isDark ? 'text-amber-400' : 'text-amber-600'}`}
                                     />
                                     <h3 className="font-bold text-xs sm:text-sm tracking-normal">
-                                        تنظیمات پیامک اطلاع‌رسانی ({getFilterName(filterType)})
+                                        تنظیمات پیامک اطلاع‌رسانی ({scopeLabel})
                                     </h3>
                                 </div>
                                 <button
