@@ -1,7 +1,20 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { FaSearch, FaTimes, FaCheck, FaGripVertical, FaUserCheck, FaFileAlt, FaUserFriends } from 'react-icons/fa';
-import { fetchProjects } from '../../features/projects/projectSlice'; 
+import {
+    FaSearch, FaTimes, FaCheck, FaGripVertical,
+    FaUserFriends, FaCalendarTimes
+} from 'react-icons/fa';
+import { fetchProjects } from '../../features/projects/projectSlice';
+import moment from 'moment-jalaali';
+
+const toPersianDigits = (val) =>
+    String(val ?? '').replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+
+const formatJalaliShort = (dateStr) => {
+    if (!dateStr) return '';
+    const m = moment(dateStr, 'YYYY-MM-DD');
+    return m.isValid() ? toPersianDigits(m.format('jYYYY/jMM/jDD')) : dateStr;
+};
 
 const getInitials = (name = '') => {
     const parts = name.trim().split(' ');
@@ -42,14 +55,27 @@ export const AssigneeChip = ({ emp, onRemove }) => {
     const mode = useSelector((s) => s.theme?.mode || 'dark');
     const isDark = mode === 'dark';
 
+    const hasLeave = Boolean(emp?.active_leave);
+    const leaveTitle = hasLeave
+        ? `${emp.has_pending_leave ? 'درخواست مرخصی' : 'در مرخصی'} از ${formatJalaliShort(emp.active_leave.start_date)} تا ${formatJalaliShort(emp.active_leave.end_date)}`
+        : undefined;
+
     return (
-        <div className={`flex items-center gap-1 border rounded-lg pl-1.5 pr-1 py-0.5 max-w-[140px] shadow-sm transition-all ${
-            isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-100 border-gray-300'
-        }`}>
+        <div
+            title={leaveTitle}
+            className={`flex items-center gap-1 border rounded-lg pl-1.5 pr-1 py-0.5 max-w-[150px] shadow-sm transition-all ${
+                hasLeave
+                    ? isDark ? 'bg-amber-950/40 border-amber-500/50' : 'bg-amber-50 border-amber-400'
+                    : isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-100 border-gray-300'
+            }`}
+        >
             <Avatar emp={emp} size="sm" />
             <span className={`text-[11px] font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {emp.name?.split(' ')[0]}
             </span>
+            {hasLeave && (
+                <FaCalendarTimes size={9} className={emp.has_pending_leave ? 'text-sky-400 shrink-0' : 'text-amber-500 shrink-0'} />
+            )}
             {onRemove && (
                 <button
                     type="button"
@@ -65,11 +91,11 @@ export const AssigneeChip = ({ emp, onRemove }) => {
     );
 };
 
-const AssigneePickerPanel = ({ 
-    subordinates = [], 
-    loading = false, 
-    selectedIds = [], 
-    onChange, 
+const AssigneePickerPanel = ({
+    subordinates = [],
+    loading = false,
+    selectedIds = [],
+    onChange,
     activeStageName,
     activeStageDescription,
     onClose,
@@ -78,7 +104,7 @@ const AssigneePickerPanel = ({
     const dispatch = useDispatch();
     const mode = useSelector((s) => s.theme?.mode || 'dark');
     const isDark = mode === 'dark';
-    
+
     const userInfo = useSelector((state) => state.userLogin?.userInfo);
     const currentUserId = userInfo?.id;
     const projectsList = useSelector((state) => state.projects?.list || []);
@@ -87,17 +113,17 @@ const AssigneePickerPanel = ({
     const [selectedProject, setSelectedProject] = useState('');
     const [selectedPosition, setSelectedPosition] = useState('');
     const [onlySelectedFilter, setOnlySelectedFilter] = useState(false);
+    const [leaveAlertEmp, setLeaveAlertEmp] = useState(null);
 
     const firstSelectedRef = useRef(null);
     const scrollContainerRef = useRef(null);
-   
+
     useEffect(() => {
         if (projectsList.length === 0) {
             dispatch(fetchProjects());
         }
     }, [dispatch, projectsList.length]);
 
-    // 🌟 اسکرول خودکار به محل اولین فرد انتخاب‌شده به‌محض باز شدن پنل
     useEffect(() => {
         const timer = setTimeout(() => {
             if (firstSelectedRef.current) {
@@ -118,12 +144,12 @@ const AssigneePickerPanel = ({
                 return false;
             }
             const q = search.trim().toLowerCase();
-            const matchesSearch = !q || 
-                emp.name?.toLowerCase().includes(q) || 
+            const matchesSearch = !q ||
+                emp.name?.toLowerCase().includes(q) ||
                 (emp.position_title || '').toLowerCase().includes(q);
-            
+
             const matchesPosition = !selectedPosition || emp.position_title === selectedPosition;
-            const matchesProject = !selectedProject || 
+            const matchesProject = !selectedProject ||
                 (emp.active_project && emp.active_project.id === parseInt(selectedProject));
 
             return matchesSearch && matchesPosition && matchesProject;
@@ -137,12 +163,22 @@ const AssigneePickerPanel = ({
         return acc;
     }, {}), [filtered]);
 
-    const toggle = (userId) => {
-        onChange(
-            selectedIds.includes(userId)
-                ? selectedIds.filter(id => id !== userId)
-                : [...selectedIds, userId]
-        );
+    const toggle = (userId, bypassLeaveCheck = false) => {
+        const isAlreadySelected = selectedIds.includes(userId);
+        if (isAlreadySelected) {
+            onChange(selectedIds.filter(id => id !== userId));
+            return;
+        }
+
+        if (!bypassLeaveCheck) {
+            const emp = subordinates.find(e => e.user_id === userId);
+            if (emp?.active_leave) {
+                setLeaveAlertEmp(emp);
+                return;
+            }
+        }
+
+        onChange([...selectedIds, userId]);
     };
 
     const handleDragStart = (e, userId) => {
@@ -153,7 +189,7 @@ const AssigneePickerPanel = ({
 
     return (
         <div className={`h-full flex flex-col ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
-            {/* هدر جمع‌وجور و تک‌خطی بدون فضای هدررفته */}
+            {/* هدر */}
             <div className={`p-2.5 sm:p-3 border-b shrink-0 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
                 <div className="flex justify-between items-center mb-1.5">
                     <div className="flex items-center gap-1.5">
@@ -178,9 +214,9 @@ const AssigneePickerPanel = ({
                             </button>
                         )}
                         {onClose && (
-                            <button 
-                                type="button" 
-                                onClick={onClose} 
+                            <button
+                                type="button"
+                                onClick={onClose}
                                 className={`p-1.5 rounded-lg text-gray-400 hover:text-red-400 transition-colors md:hidden ${isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-100'}`}
                                 title="بستن"
                             >
@@ -189,8 +225,7 @@ const AssigneePickerPanel = ({
                         )}
                     </div>
                 </div>
-                
-                {/* 🌟 نوار فشرده مرحله جاری */}
+
                 {activeStageName && (
                     <div className="bg-purple-500/10 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-[10px] sm:text-[11px] font-medium px-2 py-1 rounded-lg mb-1.5 flex items-center justify-between gap-1">
                         <span className="truncate">
@@ -202,7 +237,6 @@ const AssigneePickerPanel = ({
                     </div>
                 )}
 
-                {/* ابزارهای جستجو و فیلترها در یک نگاه */}
                 <div className="flex flex-col gap-1.5">
                     <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border w-full transition-all ${
                         isDark ? 'bg-slate-800/90 border-slate-700 focus-within:border-blue-500' : 'bg-gray-50 border-gray-300 focus-within:border-blue-500'
@@ -225,8 +259,8 @@ const AssigneePickerPanel = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-1.5">
-                        <select 
-                            value={selectedProject} 
+                        <select
+                            value={selectedProject}
                             onChange={e => setSelectedProject(e.target.value)}
                             className={`w-full rounded-lg px-2 py-1 text-[10px] font-medium border outline-none truncate ${
                                 isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 text-gray-900 border-gray-300'
@@ -237,8 +271,8 @@ const AssigneePickerPanel = ({
                                 <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                         </select>
-                        <select 
-                            value={selectedPosition} 
+                        <select
+                            value={selectedPosition}
                             onChange={e => setSelectedPosition(e.target.value)}
                             className={`w-full rounded-lg px-2 py-1 text-[10px] font-medium border outline-none truncate ${
                                 isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-gray-50 text-gray-900 border-gray-300'
@@ -253,12 +287,11 @@ const AssigneePickerPanel = ({
                 </div>
             </div>
 
-            {/* لیست اسکرول‌پذیر با نمایش پرسنل انتخاب‌شده در بالاترین بخش */}
-            <div 
+            {/* لیست پرسنل */}
+            <div
                 ref={scrollContainerRef}
                 className="flex-1 overflow-y-auto p-2 sm:p-2.5 space-y-2.5 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-600"
             >
-                {/* 🌟 بخش اول: افراد انتخاب‌شده در بالاترین قسمت قرار دارند */}
                 {selectedIds.length > 0 && !onlySelectedFilter && (
                     <div className={`p-2 rounded-xl border ${isDark ? 'bg-purple-950/25 border-purple-500/30' : 'bg-purple-50 border-purple-200'}`}>
                         <div className="flex items-center justify-between mb-1.5">
@@ -297,8 +330,8 @@ const AssigneePickerPanel = ({
                     <div className={`flex flex-col justify-center items-center h-40 text-xs font-medium gap-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                         <span>پرسنلی با این مشخصات یافت نشد</span>
                         {onlySelectedFilter && (
-                            <button 
-                                onClick={() => setOnlySelectedFilter(false)} 
+                            <button
+                                onClick={() => setOnlySelectedFilter(false)}
                                 className="text-[11px] text-purple-400 underline font-bold"
                             >
                                 نمایش همه پرسنل
@@ -318,8 +351,11 @@ const AssigneePickerPanel = ({
                                 <div className="flex flex-col gap-1">
                                     {emps.map(emp => {
                                         const selected = selectedIds.includes(emp.user_id);
-                                        const isMe = emp.user_id === currentUserId; 
-                                        
+                                        const isMe = emp.user_id === currentUserId;
+                                        const isOnLeave = Boolean(emp.is_on_leave && emp.active_leave);
+                                        const hasPendingLeave = Boolean(emp.has_pending_leave && emp.active_leave);
+                                        const hasAnyLeave = isOnLeave || hasPendingLeave;
+
                                         let itemRef = null;
                                         if (selected && !firstSelectedAssigned) {
                                             itemRef = firstSelectedRef;
@@ -334,12 +370,16 @@ const AssigneePickerPanel = ({
                                                 onDragStart={(e) => handleDragStart(e, emp.user_id)}
                                                 onClick={() => toggle(emp.user_id)}
                                                 className={`flex items-center gap-2 p-1.5 sm:p-2 w-full rounded-xl cursor-pointer active:scale-[0.99] transition-all border select-none ${
-                                                    selected 
+                                                    selected
                                                         ? isDark ? 'bg-purple-900/40 border-purple-500 shadow-sm' : 'bg-purple-50 border-purple-500 shadow-sm'
+                                                        : isOnLeave
+                                                        ? isDark ? 'border-amber-500/40 bg-amber-950/20 hover:bg-amber-950/35' : 'border-amber-300 bg-amber-50/60 hover:bg-amber-50'
+                                                        : hasPendingLeave
+                                                        ? isDark ? 'border-sky-500/40 bg-sky-950/20 hover:bg-sky-950/35' : 'border-sky-300 bg-sky-50/60 hover:bg-sky-50'
                                                         : isDark ? 'border-slate-800/80 hover:bg-slate-800/80 bg-slate-900/40' : 'border-gray-200 hover:bg-gray-50 bg-white'
                                                 }`}
                                             >
-                                                <FaGripVertical className={`hidden sm:block shrink-0 ${isDark ? 'text-slate-600' : 'text-gray-400'}`} size={10}/>
+                                                <FaGripVertical className={`hidden sm:block shrink-0 ${isDark ? 'text-slate-600' : 'text-gray-400'}`} size={10} />
                                                 <div className="relative shrink-0">
                                                     <Avatar emp={emp} size="md" />
                                                     {selected && (
@@ -349,12 +389,45 @@ const AssigneePickerPanel = ({
                                                     )}
                                                 </div>
                                                 <div className="flex flex-col flex-1 min-w-0">
-                                                    <div className="flex items-center gap-1">
-                                                        <span className={`text-[11px] sm:text-xs font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>{emp.name}</span>
-                                                        {isMe && <span className="bg-green-500/10 text-green-600 dark:text-green-400 text-[8px] font-bold px-1 py-0.2 rounded border border-green-500/20">شما</span>}
+                                                    <div className="flex items-center gap-1 flex-wrap">
+                                                        <span className={`text-[11px] sm:text-xs font-bold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                            {emp.name}
+                                                        </span>
+                                                        {isMe && (
+                                                            <span className="bg-green-500/10 text-green-600 dark:text-green-400 text-[8px] font-bold px-1 py-0.2 rounded border border-green-500/20">
+                                                                شما
+                                                            </span>
+                                                        )}
+                                                        {isOnLeave && (
+                                                            <span className="inline-flex items-center gap-0.5 bg-amber-500/15 text-amber-600 dark:text-amber-300 text-[8px] font-bold px-1.5 py-0.5 rounded border border-amber-500/35">
+                                                                <FaCalendarTimes size={8} />
+                                                                در مرخصی
+                                                            </span>
+                                                        )}
+                                                        {hasPendingLeave && (
+                                                            <span className="inline-flex items-center gap-0.5 bg-sky-500/15 text-sky-600 dark:text-sky-300 text-[8px] font-bold px-1.5 py-0.5 rounded border border-sky-500/35">
+                                                                <FaCalendarTimes size={8} />
+                                                                درخواست مرخصی
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     {emp.position_title && (
-                                                        <span className={`text-[9px] sm:text-[10px] font-medium truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{emp.position_title}</span>
+                                                        <span className={`text-[9px] sm:text-[10px] font-medium truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                            {emp.position_title}
+                                                        </span>
+                                                    )}
+                                                    {hasAnyLeave && (
+                                                        <span className={`text-[9px] font-semibold mt-0.5 truncate ${
+                                                            isOnLeave
+                                                                ? (isDark ? 'text-amber-300/90' : 'text-amber-700')
+                                                                : (isDark ? 'text-sky-300/90' : 'text-sky-700')
+                                                        }`}>
+                                                            {emp.active_leave.leave_type ? `${emp.active_leave.leave_type}: ` : ''}
+                                                            {emp.active_leave.start_date === emp.active_leave.end_date
+                                                                ? `امروز (${formatJalaliShort(emp.active_leave.start_date)})`
+                                                                : `از ${formatJalaliShort(emp.active_leave.start_date)} تا ${formatJalaliShort(emp.active_leave.end_date)}`}
+                                                            {hasPendingLeave ? ' (منتظر تایید)' : ''}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </div>
@@ -366,7 +439,7 @@ const AssigneePickerPanel = ({
                 )}
             </div>
 
-            {/* دکمه جمع‌وجور تک‌خطی برای تأیید در موبایل */}
+            {/* دکمه تأیید موبایل */}
             {(onConfirm || onClose) && (
                 <div className={`p-2.5 border-t shrink-0 md:hidden ${isDark ? 'border-slate-800 bg-slate-900' : 'border-gray-200 bg-white'}`}>
                     <button
@@ -377,6 +450,101 @@ const AssigneePickerPanel = ({
                         <FaCheck size={12} />
                         <span>تأیید و ذخیره ({selectedIds.length} نفر)</span>
                     </button>
+                </div>
+            )}
+
+            {/* دیالوگ اطلاع‌رسانی مرخصی هنگام انتخاب پرسنل */}
+            {leaveAlertEmp && (
+                <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs"
+                    dir="rtl"
+                    onClick={() => setLeaveAlertEmp(null)}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className={`w-full max-w-sm rounded-2xl border p-4 shadow-2xl space-y-3 ${
+                            isDark
+                                ? 'bg-slate-900 border-amber-500/40 text-white'
+                                : 'bg-white border-amber-400 text-gray-900'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-amber-500/20">
+                            <div className="flex items-center gap-2 text-amber-500 font-bold text-xs sm:text-sm">
+                                <FaCalendarTimes size={16} />
+                                <span>
+                                    {leaveAlertEmp.has_pending_leave
+                                        ? 'درخواست مرخصی در انتظار تایید'
+                                        : 'هشدار: پرسنل در مرخصی است'}
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setLeaveAlertEmp(null)}
+                                className="text-gray-400 hover:text-red-400 p-1"
+                            >
+                                <FaTimes size={12} />
+                            </button>
+                        </div>
+
+                        <div className={`text-xs leading-6 space-y-1.5 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                            <p>
+                                <strong className={isDark ? 'text-white' : 'text-gray-900'}>{leaveAlertEmp.name}</strong>{' '}
+                                {leaveAlertEmp.has_pending_leave
+                                    ? 'درخواست مرخصی ثبت کرده است که هنوز نهایی نشده:'
+                                    : 'در حال حاضر در مرخصی تاییدشده است:'}
+                            </p>
+                            <div className={`p-2.5 rounded-xl border text-[11px] space-y-1 ${
+                                isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-amber-50/70 border-amber-200'
+                            }`}>
+                                <div>نوع مرخصی: <strong>{leaveAlertEmp.active_leave?.leave_type || '---'}</strong></div>
+                                <div>
+                                    بازه زمانی:{' '}
+                                    <strong>
+                                        از {formatJalaliShort(leaveAlertEmp.active_leave?.start_date)} تا{' '}
+                                        {formatJalaliShort(leaveAlertEmp.active_leave?.end_date)}
+                                    </strong>
+                                </div>
+                                <div>وضعیت: <strong className="text-amber-500">{leaveAlertEmp.active_leave?.status_display}</strong></div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const uid = leaveAlertEmp.user_id;
+                                    setLeaveAlertEmp(null);
+                                    toggle(uid, true);
+                                }}
+                                className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs transition-colors"
+                            >
+                                با این حال انتخاب شود
+                            </button>
+
+                            {leaveAlertEmp.has_pending_leave && (
+                                <a
+                                    href={`/admin/requests?tab=leave&requestId=${leaveAlertEmp.active_leave?.id || ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs text-center transition-colors"
+                                >
+                                    بررسی و تایید مرخصی
+                                </a>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={() => setLeaveAlertEmp(null)}
+                                className={`py-2 px-3 rounded-xl border text-xs font-semibold transition-colors ${
+                                    isDark
+                                        ? 'border-slate-700 bg-slate-800 text-gray-300 hover:bg-slate-700'
+                                        : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                انصراف
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

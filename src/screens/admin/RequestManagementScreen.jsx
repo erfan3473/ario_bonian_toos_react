@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import {
@@ -40,6 +39,9 @@ import {
   FaPhoneAlt,
 } from 'react-icons/fa';
 import { formatJalaliDate } from '../../utils/dateUtils';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+
 
 const TAB_FILTERS = {
   financial: [
@@ -94,8 +96,16 @@ const RequestManagementScreen = () => {
   const mode = useSelector((state) => state.theme?.mode || 'dark');
   const isDark = mode === 'dark';
 
-  const [activeTab, setActiveTab] = useState('financial');
-  const [filterStatus, setFilterStatus] = useState('IN_PROGRESS');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = ['financial', 'equipment', 'leave'].includes(searchParams.get('tab'))
+    ? searchParams.get('tab')
+    : 'financial';
+  const targetRequestId = searchParams.get('requestId') ? Number(searchParams.get('requestId')) : null;
+
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [filterStatus, setFilterStatus] = useState(targetRequestId ? 'ALL' : 'IN_PROGRESS');
+  const [highlightedId, setHighlightedId] = useState(null);
+  const handledDeepLinkRef = useRef(false);
   const [selectedLeaveType, setSelectedLeaveType] = useState('');
   const [selectedFinancialType, setSelectedFinancialType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -170,7 +180,28 @@ const RequestManagementScreen = () => {
     if (activeTab === 'equipment') return equipment;
     return leave;
   }, [activeTab, financial, equipment, leave]);
+  useEffect(() => {
+    if (!targetRequestId || handledDeepLinkRef.current || currentData.loading) return;
 
+    const found = currentData.data.find((item) => Number(item.id) === targetRequestId);
+    if (!found) return;
+
+    handledDeepLinkRef.current = true;
+    setHighlightedId(found.id);
+    handleOpenModal(found);
+    setTimeout(() => {
+      const el = document.getElementById(`request-card-${found.id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+
+    const clearTimer = setTimeout(() => {
+      setHighlightedId(null);
+    }, 4500);
+
+    return () => clearTimeout(clearTimer);
+  }, [targetRequestId, currentData.loading, currentData.data]);
   const selectedRequest = useMemo(() => {
     if (!selectedRequestId) return null;
     return currentData.data.find((item) => item.id === selectedRequestId) || null;
@@ -527,6 +558,7 @@ const RequestManagementScreen = () => {
                 key={request.id}
                 request={request}
                 type={activeTab}
+                isHighlighted={highlightedId === request.id}
                 onAction={() => handleOpenModal(request)}
                 formatNumber={formatNumber}
                 formatDateTime={formatDateTime}
@@ -766,6 +798,7 @@ const WorkflowStepper = ({ type, status, isDark }) => {
 const RequestCard = ({
   request,
   type,
+  isHighlighted = false,
   onAction,
   formatNumber,
   formatDateTime,
@@ -937,8 +970,13 @@ const RequestCard = ({
 
   return (
     <div
-      className={`rounded-2xl p-5 transition-all border flex flex-col justify-between ${
-        isDark
+      id={`request-card-${request.id}`}
+      className={`rounded-2xl p-5 transition-all duration-300 border flex flex-col justify-between ${
+        isHighlighted
+          ? isDark
+            ? 'bg-amber-950/30 border-amber-400 ring-2 ring-amber-400/70 shadow-xl shadow-amber-500/20 scale-[1.01]'
+            : 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-400/80 shadow-xl shadow-amber-500/20 scale-[1.01]'
+          : isDark
           ? 'bg-slate-800/80 border-slate-700/80 hover:border-blue-500/50'
           : 'bg-white border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-md'
       }`}
