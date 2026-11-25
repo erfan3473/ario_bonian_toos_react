@@ -682,7 +682,7 @@ const AdminTimesheetScreen = () => {
                     }`}
                   >
                     <SignalIcon className="w-4 h-4 shrink-0" />
-                    <span>محاسبه آمار مکانی همه روزها (بسته‌های ۵ روزه)</span>
+                    <span>محاسبه تردد مکانی همه روزها </span>
                   </button>
                 ) : (
                   <button
