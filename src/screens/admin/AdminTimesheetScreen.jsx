@@ -40,6 +40,12 @@ const GPS_CHUNK_DAYS = 5;
 const toPersianDigits = (value) =>
   String(value ?? '').replace(/\d/g, (digit) => '۰۱۲۳۴۵۶۷۸۹'[Number(digit)]);
 
+const formatJalaliNumeric = (gDateStr, sep = '/') => {
+  if (!gDateStr) return '';
+  const m = moment(gDateStr, 'YYYY-MM-DD');
+  return m.isValid() ? m.format(`jYYYY${sep}jMM${sep}jDD`) : gDateStr;
+};
+
 const readSavedState = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -123,17 +129,22 @@ const AdminTimesheetScreen = () => {
     projects.find((p) => String(p.id) === String(projectId))?.name ||
     'همه پروژه‌ها';
 
+  const jalaliStartTitle = formatJalaliNumeric(startDate, '-');
+  const jalaliEndTitle = formatJalaliNumeric(endDate, '-');
+
   const handlePrint = useReactToPrint({
     contentRef: printRef,
-    documentTitle: `تایم‌شیت-${startDate}-تا-${endDate}`,
+    documentTitle: `تایم‌شیت-${jalaliStartTitle}-تا-${jalaliEndTitle}`,
     pageStyle: `
-      @page { size: A3 landscape; margin: 8mm; }
+      @page { size: A4 landscape; margin: 5mm; }
       html, body {
         direction: rtl !important;
         text-align: right !important;
         background: #ffffff !important;
         color: #0f172a !important;
         font-family: 'Vazirmatn', 'Tahoma', sans-serif !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
       * {
         direction: rtl !important;
@@ -141,10 +152,48 @@ const AdminTimesheetScreen = () => {
         print-color-adjust: exact !important;
       }
       @media print {
-        table { font-size: 8.5px !important; width: 100% !important; border-collapse: collapse !important; }
-        th, td { border-color: #94a3b8 !important; }
         .no-print { display: none !important; }
         .print-row-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+
+        table.print-compact-table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          font-size: 7.5px !important;
+          line-height: 1.15 !important;
+        }
+        table.print-compact-table thead {
+          display: table-header-group !important;
+        }
+        table.print-compact-table th {
+          padding: 2px 2.5px !important;
+          font-size: 7px !important;
+          line-height: 1.15 !important;
+          border: 0.5pt solid #94a3b8 !important;
+        }
+        table.print-compact-table td {
+          padding: 1.5px 2.5px !important;
+          border: 0.5pt solid #cbd5e1 !important;
+          vertical-align: middle !important;
+        }
+        table.print-compact-table tr {
+          border-bottom: 0.5pt solid #cbd5e1 !important;
+        }
+        table.print-compact-table tr.print-day-header td {
+          padding: 2px 5px !important;
+          font-size: 8px !important;
+          background-color: #e2e8f0 !important;
+          border-top: 1pt solid #64748b !important;
+          border-bottom: 0.75pt solid #64748b !important;
+        }
+        table.print-mini-table {
+          font-size: 6.5px !important;
+          line-height: 1.1 !important;
+        }
+        table.print-mini-table th,
+        table.print-mini-table td {
+          padding: 0.5px 2px !important;
+          border: 0.5pt solid #cbd5e1 !important;
+        }
       }
     `,
   });
@@ -221,7 +270,6 @@ const AdminTimesheetScreen = () => {
       return;
     }
 
-    // توقف هر محاسبه مکانی نیمه‌تمام قبلی
     cancelGpsRef.current = true;
     setIsBulkGpsRunning(false);
     setGpsProgress({ doneDays: 0, totalDays: 0 });
@@ -317,7 +365,6 @@ const AdminTimesheetScreen = () => {
     setIsBulkGpsRunning(false);
   };
 
-  // محاسبه آمار مکانی فقط برای یک روز خاص
   const handleFetchDayGps = async (dateStr) => {
     if (!workers?.length) return;
     const workerIds = workers.map((w) => w.worker_id);
@@ -338,7 +385,6 @@ const AdminTimesheetScreen = () => {
     }
   };
 
-  // محاسبه آمار مکانی فقط برای یک فرد در یک روز خاص
   const handleFetchSingleWorkerDayGps = async (workerId, dateStr) => {
     setLoadingGpsKey(`row:${workerId}:${dateStr}`);
     try {
@@ -365,8 +411,8 @@ const AdminTimesheetScreen = () => {
       byDay,
       dailyLocationStats,
       locationStatsByWorker,
-      startDate,
-      endDate,
+      startDate: jalaliStartTitle,
+      endDate: jalaliEndTitle,
       projectName: selectedProjectName,
     });
   };
@@ -431,7 +477,7 @@ const AdminTimesheetScreen = () => {
           </nav>
 
           <span className={`hidden sm:inline tabular-nums font-medium ${textSecondary}`}>
-            امروز: <strong className={textPrimary}>{formatJalaliDateLong(todayGregorian)}</strong>
+            امروز: <strong className={textPrimary}>{toPersianDigits(formatJalaliDateLong(todayGregorian))}</strong>
           </span>
         </div>
       </div>
@@ -456,7 +502,7 @@ const AdminTimesheetScreen = () => {
                 </h1>
               </div>
               <span className={`text-[11px] font-medium tracking-normal ${textSecondary}`}>
-                ذخیره خودکار فیلترها | چاپ رسمی A3 | خروجی اکسل
+                ذخیره خودکار فیلترها | چاپ فشرده A4 | خروجی اکسل
               </span>
             </div>
 
@@ -590,7 +636,8 @@ const AdminTimesheetScreen = () => {
                       <span>
                         بازه:{' '}
                         <strong className={textPrimary}>
-                          {formatJalaliDateLong(startDate)} تا {formatJalaliDateLong(endDate)}
+                          {toPersianDigits(formatJalaliDateLong(startDate))} تا{' '}
+                          {toPersianDigits(formatJalaliDateLong(endDate))}
                         </strong>
                       </span>
                       <span className="opacity-40">|</span>
@@ -663,13 +710,12 @@ const AdminTimesheetScreen = () => {
           </div>
         )}
 
-        {/* نوار ابزار گزارش: محاسبه مکانی تکه‌ای (۵ روزه) + اکسل + چاپ رسمی */}
+        {/* نوار ابزار گزارش: محاسبه مکانی تکه‌ای (۵ روزه) + اکسل + چاپ فشرده A4 */}
         {!loading && meta && (
           <div
             className={`p-3 rounded-[2px] border space-y-2.5 no-print ${surfacePanel} ${borderHairline}`}
           >
             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
-              {/* کنترل محاسبه مکانی تکه‌ای */}
               <div className="flex flex-wrap items-center gap-2">
                 {!isBulkGpsRunning ? (
                   <button
@@ -682,7 +728,7 @@ const AdminTimesheetScreen = () => {
                     }`}
                   >
                     <SignalIcon className="w-4 h-4 shrink-0" />
-                    <span>محاسبه تردد مکانی همه روزها </span>
+                    <span>محاسبه تردد مکانی همه روزها</span>
                   </button>
                 ) : (
                   <button
@@ -710,7 +756,6 @@ const AdminTimesheetScreen = () => {
                 )}
               </div>
 
-              {/* اکسل و چاپ */}
               <div className="flex items-center gap-2 justify-end">
                 <button
                   type="button"
@@ -735,12 +780,11 @@ const AdminTimesheetScreen = () => {
                   }`}
                 >
                   <PrinterIcon className="w-4 h-4 shrink-0" />
-                  <span>چاپ رسمی (A3)</span>
+                  <span>چاپ فشرده (A4)</span>
                 </button>
               </div>
             </div>
 
-            {/* نوار پیشرفت باریک در حین پردازش تکه‌ای */}
             {gpsProgress.totalDays > 0 && (
               <div
                 className={`h-1.5 w-full rounded-[1px] overflow-hidden ${
@@ -759,30 +803,25 @@ const AdminTimesheetScreen = () => {
         {/* محتوای یکپارچه: جدول روزانه در بالا + خلاصه کارنامه همیشه در پایین */}
         {!loading && meta && (
           <div ref={printRef} dir="rtl" lang="fa" className="pb-10 print:pb-0">
-            {/* سربرگ رسمی صرفاً در حالت چاپ */}
-            <div className="hidden print:block mb-4 pb-3 border-b-2 border-slate-800">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <img src={logo} alt="آریو بنیان توس" className="h-12 w-auto object-contain" />
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">
-                      شرکت آریو بنیان توس — گزارش رسمی و یکپارچه حضور و غیاب پرسنل
-                    </h2>
-                    <p className="text-xs text-slate-700 mt-0.5">
-                      پروژه: {selectedProjectName} | شامل جدول تفکیکی روزانه و کارنامه خلاصه
-                    </p>
-                  </div>
+            {/* سربرگ رسمی فشرده و تماماً شمسی صرفاً در حالت چاپ */}
+            <div className="hidden print:flex items-center justify-between gap-3 mb-1.5 pb-1 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <img src={logo} alt="آریو بنیان توس" className="h-7 w-auto object-contain" />
+                <div className="leading-tight">
+                  <h2 className="text-[11px] font-bold text-slate-900">
+                    شرکت آریو بنیان توس — گزارش رسمی حضور و غیاب پرسنل
+                  </h2>
+                  <p className="text-[8.5px] text-slate-700">
+                    پروژه: {selectedProjectName} | پرسنل: {toPersianDigits(workers.length)} نفر | شب‌کاری: {toPersianDigits(nightStart)} تا {toPersianDigits(nightEnd)}
+                  </p>
                 </div>
-                <div className="text-left text-[11px] text-slate-800 space-y-0.5 tabular-nums">
-                  <div>
-                    بازه گزارش: {formatJalaliDateLong(startDate)} تا {formatJalaliDateLong(endDate)} (
-                    {toPersianDigits(daysCount)} روز)
-                  </div>
-                  <div>
-                    بازه شب‌کاری: {toPersianDigits(nightStart)} تا {toPersianDigits(nightEnd)} | تعداد
-                    پرسنل: {toPersianDigits(workers.length)} نفر
-                  </div>
-                  <div>تاریخ چاپ: {formatJalaliDateLong(todayGregorian)}</div>
+              </div>
+              <div className="text-left text-[8.5px] text-slate-800 leading-tight tabular-nums">
+                <div>
+                  بازه: {toPersianDigits(formatJalaliDateLong(startDate))} ({toPersianDigits(formatJalaliNumeric(startDate))}) تا {toPersianDigits(formatJalaliDateLong(endDate))} ({toPersianDigits(formatJalaliNumeric(endDate))}) — {toPersianDigits(daysCount)} روز
+                </div>
+                <div>
+                  تاریخ چاپ: {toPersianDigits(formatJalaliDateLong(todayGregorian))} ({toPersianDigits(formatJalaliNumeric(todayGregorian))})
                 </div>
               </div>
             </div>
@@ -805,29 +844,29 @@ const AdminTimesheetScreen = () => {
               loading={loading}
             />
 
-            {/* کادر امضا صرفاً در حالت چاپ */}
-            <div className="hidden print:grid grid-cols-4 gap-6 mt-8 pt-4 border-t border-slate-400 text-center text-xs text-slate-800 print-row-avoid-break">
-              <div className="space-y-8">
+            {/* کادر امضا فشرده صرفاً در حالت چاپ */}
+            <div className="hidden print:grid grid-cols-4 gap-4 mt-3 pt-2 border-t border-slate-400 text-center text-[8.5px] text-slate-800 print-row-avoid-break">
+              <div className="space-y-4">
                 <div className="font-bold">تنظیم‌کننده گزارش</div>
-                <div className="border-t border-dashed border-slate-400 pt-1 text-[10px]">
+                <div className="border-t border-dashed border-slate-400 pt-0.5 text-[7.5px]">
                   نام و امضا
                 </div>
               </div>
-              <div className="space-y-8">
+              <div className="space-y-4">
                 <div className="font-bold">سرپرست کارگاه / پروژه</div>
-                <div className="border-t border-dashed border-slate-400 pt-1 text-[10px]">
+                <div className="border-t border-dashed border-slate-400 pt-0.5 text-[7.5px]">
                   نام و امضا
                 </div>
               </div>
-              <div className="space-y-8">
+              <div className="space-y-4">
                 <div className="font-bold">امور اداری و منابع انسانی</div>
-                <div className="border-t border-dashed border-slate-400 pt-1 text-[10px]">
+                <div className="border-t border-dashed border-slate-400 pt-0.5 text-[7.5px]">
                   نام و امضا
                 </div>
               </div>
-              <div className="space-y-8">
+              <div className="space-y-4">
                 <div className="font-bold">تایید مدیریت عامل</div>
-                <div className="border-t border-dashed border-slate-400 pt-1 text-[10px]">
+                <div className="border-t border-dashed border-slate-400 pt-0.5 text-[7.5px]">
                   مهر و امضا
                 </div>
               </div>
