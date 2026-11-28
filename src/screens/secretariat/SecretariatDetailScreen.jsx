@@ -26,6 +26,7 @@ import LetterInfoBanner from '../../components/LetterInfoBanner';
 import QRCode from 'react-qr-code';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import { createPortal } from 'react-dom';
 // تبدیل اعداد انگلیسی به فارسی
 const toPersianDigits = (str) => {
     if (!str && str !== 0) return '';
@@ -52,13 +53,29 @@ const SharinganIncomingLogo = ({ isA5 = false }) => (
 );
 
 // المان درگ‌شدنی مهندسی‌شده بدون پرش و با کادر داخلی امن
-const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onStyleChange, children, className, label }) => {
+// المان درگ‌شدنی مهندسی‌شده بدون پرش، با منوی کلیک راست پورتال‌شده و کنترل فاصله خطوط و عرض بدنه
+const DraggableElement = ({
+    id,
+    isEditMode,
+    position,
+    styleData,
+    onDragEnd,
+    onStyleChange,
+    children,
+    className,
+    label,
+    showBodyControls = false,
+    defaultFontSize = 16,
+    defaultLineHeight = 2,
+}) => {
     const [localPos, setLocalPos] = useState(position || { x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
+    const [menuCoords, setMenuCoords] = useState({ x: 0, y: 0 });
 
     const startPos = useRef({ x: 0, y: 0 });
     const posRef = useRef(position || { x: 0, y: 0 });
+    const menuRef = useRef(null);
     const currentStyle = styleData || {};
 
     useEffect(() => {
@@ -67,8 +84,13 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
         setLocalPos(p);
     }, [position]);
 
+    useEffect(() => {
+        if (!isEditMode) setShowMenu(false);
+    }, [isEditMode]);
+
     const handleMouseDown = (e) => {
         if (!isEditMode) return;
+        if (menuRef.current && menuRef.current.contains(e.target)) return;
         if (e.target.closest('button') || e.target.closest('input') || e.target.closest('select')) return;
         e.stopPropagation();
         setIsDragging(true);
@@ -112,33 +134,91 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
         if (!isEditMode) return;
         e.preventDefault();
         e.stopPropagation();
-        setShowMenu(prev => !prev);
+
+        window.dispatchEvent(new CustomEvent('draggable-context-open', { detail: { id } }));
+
+        const menuWidth = showBodyControls ? 256 : 196;
+        const menuHeight = showBodyControls ? 210 : 48;
+        const pad = 12;
+
+        const x = Math.min(Math.max(pad, e.clientX), window.innerWidth - menuWidth - pad);
+        const y = Math.min(Math.max(pad, e.clientY), window.innerHeight - menuHeight - pad);
+
+        setMenuCoords({ x, y });
+        setShowMenu(true);
     };
 
     useEffect(() => {
-        const handleClickOutside = () => setShowMenu(false);
-        if (showMenu) document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
-    }, [showMenu]);
+        if (!showMenu) return;
+
+        const handleOutsideMouseDown = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setShowMenu(false);
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setShowMenu(false);
+        };
+        const handleOtherMenuOpen = (e) => {
+            if (e.detail?.id !== id) setShowMenu(false);
+        };
+
+        document.addEventListener('mousedown', handleOutsideMouseDown);
+        document.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('draggable-context-open', handleOtherMenuOpen);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideMouseDown);
+            document.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('draggable-context-open', handleOtherMenuOpen);
+        };
+    }, [showMenu, id]);
 
     const handleFormat = (type, e) => {
-        e.stopPropagation(); 
+        if (e) e.stopPropagation();
         let newStyle = { ...currentStyle };
+
         if (type === 'increase') {
-            newStyle.fontSize = (newStyle.fontSize || 16) + 1;
+            newStyle.fontSize = (newStyle.fontSize || defaultFontSize) + 1;
             newStyle.scale = Math.round(((newStyle.scale || 1) + 0.1) * 100) / 100;
         }
         if (type === 'decrease') {
-            newStyle.fontSize = Math.max(8, (newStyle.fontSize || 16) - 1);
+            newStyle.fontSize = Math.max(8, (newStyle.fontSize || defaultFontSize) - 1);
             newStyle.scale = Math.max(0.3, Math.round(((newStyle.scale || 1) - 0.1) * 100) / 100);
+        }
+        if (type === 'lineHeightUp') {
+            const cur = newStyle.lineHeight ?? defaultLineHeight;
+            newStyle.lineHeight = Math.min(3.5, Math.round((cur + 0.1) * 10) / 10);
+        }
+        if (type === 'lineHeightDown') {
+            const cur = newStyle.lineHeight ?? defaultLineHeight;
+            newStyle.lineHeight = Math.max(1.0, Math.round((cur - 0.1) * 10) / 10);
+        }
+        if (type === 'lineHeightReset') {
+            delete newStyle.lineHeight;
+        }
+        if (type === 'widthUp') {
+            const cur = newStyle.widthPercent ?? 100;
+            newStyle.widthPercent = Math.min(100, cur + 2);
+        }
+        if (type === 'widthDown') {
+            const cur = newStyle.widthPercent ?? 100;
+            newStyle.widthPercent = Math.max(40, cur - 2);
+        }
+        if (type === 'widthReset') {
+            delete newStyle.widthPercent;
         }
         if (type === 'bold') newStyle.fontWeight = newStyle.fontWeight === 'bold' ? 'normal' : 'bold';
         if (type === 'underline') newStyle.textDecoration = newStyle.textDecoration === 'underline' ? 'none' : 'underline';
         if (type === 'visibility') newStyle.hidden = !newStyle.hidden;
+
         if (onStyleChange) onStyleChange(id, newStyle);
     };
 
     if (currentStyle.hidden && !isEditMode) return null;
+
+    const currentFontSize = currentStyle.fontSize || defaultFontSize;
+    const currentLineHeight = currentStyle.lineHeight ?? defaultLineHeight;
+    const currentWidthPercent = currentStyle.widthPercent ?? 100;
 
     return (
         <div
@@ -154,31 +234,105 @@ const DraggableElement = ({ id, isEditMode, position, styleData, onDragEnd, onSt
             style={{ 
                 transform: `translate3d(${localPos.x}px, ${localPos.y}px, 0)`,
                 width: currentStyle.widthPercent ? `${currentStyle.widthPercent}%` : undefined,
-                margin: currentStyle.widthPercent && currentStyle.widthPercent < 100 ? '0 auto' : undefined,
+                marginLeft: currentStyle.widthPercent && currentStyle.widthPercent < 100 ? 'auto' : undefined,
+                marginRight: currentStyle.widthPercent && currentStyle.widthPercent < 100 ? 'auto' : undefined,
                 outlineOffset: isDragging ? '-2px' : '-1px',
                 boxSizing: 'border-box'
             }}
         >
             {isEditMode && (
-                <span className="absolute -top-3.5 right-0 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded shadow pointer-events-none z-30 opacity-80 group-hover:opacity-100 whitespace-nowrap">
+                <span className="absolute -top-3.5 right-0 bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded shadow pointer-events-none z-30 opacity-80 group-hover:opacity-100 whitespace-nowrap print:hidden">
                     {label || id}
                 </span>
             )}
 
-            {isEditMode && showMenu && (
-                <div className="absolute -top-10 right-0 flex gap-1 bg-gray-900 text-white p-1.5 rounded-lg shadow-2xl z-[100] border border-gray-700 animate-fadeIn">
-                    <button type="button" onClick={(e) => handleFormat('increase', e)} className="p-1.5 hover:bg-gray-700 rounded text-xs transition" title="بزرگ‌نمایی"><FaPlus/></button>
-                    <button type="button" onClick={(e) => handleFormat('decrease', e)} className="p-1.5 hover:bg-gray-700 rounded text-xs transition" title="کوچک‌نمایی"><FaMinus/></button>
-                    <button type="button" onClick={(e) => handleFormat('bold', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.fontWeight === 'bold' ? 'bg-blue-600' : ''}`} title="ضخیم"><FaBold/></button>
-                    <button type="button" onClick={(e) => handleFormat('underline', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.textDecoration === 'underline' ? 'bg-blue-600' : ''}`} title="خط‌کشی"><FaUnderline/></button>
-                    <button type="button" onClick={(e) => handleFormat('visibility', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.hidden ? 'text-red-400' : 'text-emerald-400'}`} title={currentStyle.hidden ? 'بازگردانی به چاپ' : 'حذف از چاپ'}>
-                        {currentStyle.hidden ? <FaEyeSlash /> : <FaEye />}
-                    </button>
-                </div>
+            {isEditMode && showMenu && createPortal(
+                <div
+                    ref={menuRef}
+                    dir="rtl"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ top: `${menuCoords.y}px`, left: `${menuCoords.x}px` }}
+                    className={`fixed z-[9999] bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-700 animate-fadeIn print:hidden ${
+                        showBodyControls ? 'w-64 p-2.5 space-y-2' : 'p-1.5 flex items-center gap-1'
+                    }`}
+                >
+                    {showBodyControls ? (
+                        <>
+                            <div className="flex items-center justify-between border-b border-gray-700 pb-1.5 text-[11px] font-bold text-blue-300">
+                                <span>تنظیمات {label || id}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMenu(false)}
+                                    className="text-gray-400 hover:text-white px-1 transition"
+                                    title="بستن"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* ردیف ۱: سایز فونت (مجزا از عرض) */}
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-gray-300 font-bold">سایز فونت:</span>
+                                <div className="flex items-center gap-1">
+                                    <button type="button" onClick={(e) => handleFormat('decrease', e)} className="p-1.5 bg-gray-800 hover:bg-gray-700 rounded transition" title="کوچک کردن فونت"><FaMinus size={10} /></button>
+                                    <span className="w-11 text-center font-mono font-bold text-[11px]">{toPersianDigits(currentFontSize)}px</span>
+                                    <button type="button" onClick={(e) => handleFormat('increase', e)} className="p-1.5 bg-gray-800 hover:bg-gray-700 rounded transition" title="بزرگ کردن فونت"><FaPlus size={10} /></button>
+                                </div>
+                            </div>
+
+                            {/* ردیف ۲: فاصله بین خطوط (Line Spacing) */}
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-amber-300 font-bold">فاصله خطوط:</span>
+                                <div className="flex items-center gap-1">
+                                    <button type="button" onClick={(e) => handleFormat('lineHeightDown', e)} className="p-1.5 bg-gray-800 hover:bg-amber-600 rounded transition" title="کم کردن فاصله بین خطوط"><FaMinus size={10} /></button>
+                                    <span className="w-11 text-center font-mono font-bold text-[11px]">{toPersianDigits(Number(currentLineHeight).toFixed(1))}</span>
+                                    <button type="button" onClick={(e) => handleFormat('lineHeightUp', e)} className="p-1.5 bg-gray-800 hover:bg-amber-600 rounded transition" title="زیاد کردن فاصله بین خطوط"><FaPlus size={10} /></button>
+                                    <button type="button" onClick={(e) => handleFormat('lineHeightReset', e)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition" title="بازنشانی فاصله خطوط"><FaUndo size={9} /></button>
+                                </div>
+                            </div>
+
+                            {/* ردیف ۳: عرض بدنه (کاملاً جدا از سایز فونت) */}
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-emerald-300 font-bold">عرض بدنه:</span>
+                                <div className="flex items-center gap-1">
+                                    <button type="button" onClick={(e) => handleFormat('widthDown', e)} className="p-1.5 bg-gray-800 hover:bg-emerald-600 rounded transition" title="کم کردن عرض بدنه"><FaMinus size={10} /></button>
+                                    <span className="w-11 text-center font-mono font-bold text-[11px]">{toPersianDigits(currentWidthPercent)}٪</span>
+                                    <button type="button" onClick={(e) => handleFormat('widthUp', e)} className="p-1.5 bg-gray-800 hover:bg-emerald-600 rounded transition" title="زیاد کردن عرض بدنه"><FaPlus size={10} /></button>
+                                    <button type="button" onClick={(e) => handleFormat('widthReset', e)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded transition" title="بازنشانی عرض به ۱۰۰٪"><FaUndo size={9} /></button>
+                                </div>
+                            </div>
+
+                            {/* ردیف ۴: ضخیم، خط‌کشی و نمایش/مخفی */}
+                            <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-gray-700">
+                                <div className="flex items-center gap-1">
+                                    <button type="button" onClick={(e) => handleFormat('bold', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.fontWeight === 'bold' ? 'bg-blue-600' : 'bg-gray-800'}`} title="ضخیم"><FaBold /></button>
+                                    <button type="button" onClick={(e) => handleFormat('underline', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.textDecoration === 'underline' ? 'bg-blue-600' : 'bg-gray-800'}`} title="خط‌کشی"><FaUnderline /></button>
+                                </div>
+                                <button type="button" onClick={(e) => handleFormat('visibility', e)} className={`px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-[11px] font-bold flex items-center gap-1 transition ${currentStyle.hidden ? 'text-red-400' : 'text-emerald-400'}`} title={currentStyle.hidden ? 'بازگردانی به چاپ' : 'حذف از چاپ'}>
+                                    {currentStyle.hidden ? <><FaEyeSlash /> مخفی</> : <><FaEye /> نمایش</>}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <button type="button" onClick={(e) => handleFormat('increase', e)} className="p-1.5 hover:bg-gray-700 rounded text-xs transition" title="بزرگ‌نمایی"><FaPlus /></button>
+                            <button type="button" onClick={(e) => handleFormat('decrease', e)} className="p-1.5 hover:bg-gray-700 rounded text-xs transition" title="کوچک‌نمایی"><FaMinus /></button>
+                            <button type="button" onClick={(e) => handleFormat('bold', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.fontWeight === 'bold' ? 'bg-blue-600' : ''}`} title="ضخیم"><FaBold /></button>
+                            <button type="button" onClick={(e) => handleFormat('underline', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.textDecoration === 'underline' ? 'bg-blue-600' : ''}`} title="خط‌کشی"><FaUnderline /></button>
+                            <button type="button" onClick={(e) => handleFormat('visibility', e)} className={`p-1.5 hover:bg-gray-700 rounded text-xs transition ${currentStyle.hidden ? 'text-red-400' : 'text-emerald-400'}`} title={currentStyle.hidden ? 'بازگردانی به چاپ' : 'حذف از چاپ'}>
+                                {currentStyle.hidden ? <FaEyeSlash /> : <FaEye />}
+                            </button>
+                        </>
+                    )}
+                </div>,
+                document.body
             )}
 
             <div style={{ 
                 fontSize: currentStyle.fontSize ? `${currentStyle.fontSize}px` : undefined,
+                lineHeight: currentStyle.lineHeight || undefined,
                 fontWeight: currentStyle.fontWeight || undefined,
                 textDecoration: currentStyle.textDecoration || undefined
             }} className="w-full h-full draggable-content">
@@ -1448,6 +1602,9 @@ const SecretariatDetailScreen = () => {
                 }
                 .draggable-content[style*="font-size"] * {
                     font-size: inherit !important;
+                }
+                .draggable-content[style*="line-height"] * {
+                    line-height: inherit !important;
                 }
             `}
             </style>
@@ -2904,8 +3061,11 @@ const SecretariatDetailScreen = () => {
                                                 position={layoutPositions[isFirstPage ? "body-content" : `body-content-p${pageNum}`] || layoutPositions['body-content']} 
                                                 styleData={layoutStyles[isFirstPage ? "body-content" : `body-content-p${pageNum}`] || layoutStyles['body-content']} 
                                                 onStyleChange={handleUpdateStyle} 
-                                                onDragEnd={handleUpdatePosition} 
-                                                className={`text-justify flex-1 min-h-0 overflow-hidden whitespace-pre-wrap font-medium text-black ${isA5 ? 'text-xs leading-relaxed' : 'text-sm md:text-base print:text-base leading-loose'} ${!isFirstPage ? 'pt-1' : ''}`}
+                                                onDragEnd={handleUpdatePosition}
+                                                showBodyControls={true}
+                                                defaultFontSize={isA5 ? 12 : 16}
+                                                defaultLineHeight={isA5 ? 1.6 : 2}
+                                                className={`text-justify flex-1 min-h-0 whitespace-pre-wrap font-medium text-black ${isA5 ? 'text-xs leading-relaxed' : 'text-sm md:text-base print:text-base leading-loose'} ${!isFirstPage ? 'pt-1' : ''}`}
                                             >
                                                 <div
                                                     ref={(el) => { bodyTextRefs.current[pIndex] = el; }}
