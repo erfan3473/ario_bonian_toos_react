@@ -322,39 +322,97 @@ const SearchablePersonnelSelect = ({ personnel, value, onChange, placeholder, is
     );
 };
 
-// تجزیه‌کننده متن به واحدهای سطری/جمله‌ای مستقل جهت کنترل دقیق شکست صفحات
-const parseTextToAtomicUnits = (text) => {
-    if (!text) return [];
-    const paragraphs = text.split('\n');
-    const units = [];
-    
-    paragraphs.forEach((para, pIdx) => {
-        const isLastPara = pIdx === paragraphs.length - 1;
-        if (!para.trim()) {
-            if (units.length > 0) {
-                units[units.length - 1].trailingNewline += '\n';
-            }
-            return;
+// تجزیه دقیق متن به سطرها، کلمات و نقاط امن شکست (بدون جدا کردن سرشماره‌ها و اعداد اعشاری)
+const parseBodyStructure = (text) => {
+    if (!text) return { lines: [], words: [], lineOffsets: [], sentenceOffsets: [] };
+
+    const lines = [];
+    const words = [];
+    const lineOffsets = [];
+    const sentenceOffsets = [];
+
+    const lineRegex = /[^\n]+/g;
+    let lineMatch;
+
+    while ((lineMatch = lineRegex.exec(text)) !== null) {
+        const rawLine = lineMatch[0];
+        const leadingSpaces = rawLine.length - rawLine.trimStart().length;
+        const trimmed = rawLine.trim();
+        if (!trimmed) continue;
+
+        const lineStart = lineMatch.index + leadingSpaces;
+        const lineEnd = lineStart + trimmed.length;
+        const lineWords = [];
+
+        const wordRegex = /\S+/g;
+        let wordMatch;
+        while ((wordMatch = wordRegex.exec(trimmed)) !== null) {
+            const wStart = lineStart + wordMatch.index;
+            const wEnd = wStart + wordMatch[0].length;
+            const wordObj = {
+                index: words.length,
+                text: wordMatch[0],
+                start: wStart,
+                end: wEnd,
+                lineIndex: lines.length,
+            };
+            words.push(wordObj);
+            lineWords.push(wordObj);
         }
-        
-        const sentenceRegex = /[^.!?؟؛\n]+[.!?؟؛]+|\S[^.!?؟؛\n]+$/g;
-        const sentences = para.match(sentenceRegex) || [para];
-        
-        sentences.forEach((sent, sIdx) => {
-            const isLastSent = sIdx === sentences.length - 1;
-            units.push({
-                id: units.length,
-                text: sent.trim(),
-                trailingNewline: isLastSent && !isLastPara ? '\n' : (isLastSent ? '' : ' ')
-            });
+
+        if (lineStart > 0) {
+            lineOffsets.push(lineStart);
+            sentenceOffsets.push(lineStart);
+        }
+
+        // تشخیص پایان جمله واقعی (بدون شکست روی سرشماره‌هایی مثل ۱.، 2.، الف. یا اعداد اعشاری/تاریخ)
+        const punctRegex = /[.!?؟؛]+\s+/g;
+        let pMatch;
+        while ((pMatch = punctRegex.exec(trimmed)) !== null) {
+            const beforePunct = trimmed.slice(0, pMatch.index);
+            const afterStart = lineStart + pMatch.index + pMatch[0].length;
+            if (afterStart >= lineEnd) continue;
+
+            const isListNumber = /^\s*(?:[0-9۰-۹٠-٩]{1,3}|الف|[اآبپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی])\s*$/.test(beforePunct);
+            const lastCharBefore = beforePunct.slice(-1);
+            const firstCharAfter = trimmed.slice(pMatch.index + pMatch[0].length, pMatch.index + pMatch[0].length + 1);
+            const isDecimalOrDate = /[0-9۰-۹٠-٩]/.test(lastCharBefore) && /[0-9۰-۹٠-٩]/.test(firstCharAfter);
+            const isShortPrefix = beforePunct.trim().length < 15;
+
+            if (!isListNumber && !isDecimalOrDate && !isShortPrefix) {
+                sentenceOffsets.push(afterStart);
+            }
+        }
+
+        const isHeadingLike =
+            trimmed.length <= 75 &&
+            (
+                /[:：]$/.test(trimmed) ||
+                /^\s*(?:[0-9۰-۹٠-٩]{1,3}\s*[.\-–)ـ:]|(?:الف|[ا-ی])\s*[.\-)]|(?:بند|ماده|تبصره|فصل|بخش)\s+[0-9۰-۹٠-٩ا-ی]+)/.test(trimmed)
+            );
+
+        lines.push({
+            index: lines.length,
+            text: trimmed,
+            start: lineStart,
+            end: lineEnd,
+            words: lineWords,
+            isHeadingLike,
         });
-    });
-    return units;
+    }
+
+    const uniqueSentenceOffsets = Array.from(new Set(sentenceOffsets)).sort((a, b) => a - b);
+    return { lines, words, lineOffsets, sentenceOffsets: uniqueSentenceOffsets };
 };
 
-// محاسبه خودکار نقاط شکست هنگام افزایش صفحات توسط کاربر
-const computeAutoSplitIndices = (units, numPages) => {
-    if (!units || units.length <= 1 || numPages <= 1) return [];
+// محاسبه خودکار نقاط شکست صفحات با جلوگیری از جا ماندن تیتر یا سرشماره در انتهای برگه
+const computeAutoSplitOffsets = (bodyStructure, textLength, numPages) => {
+    const { lines, words, sentenceOffsets } = bodyStructure;
+    if (!words || words.length <= 1 || numPages <= 1) return [];
+
+    const wordStarts = words.slice(1).map((w) => w.start);
+    const maxPossibleBreaks = Math.min(numPages - 1, wordStarts.length);
+    if (maxPossibleBreaks <= 0) return [];
 
     const weights = [];
     for (let i = 0; i < numPages; i++) {
@@ -364,17 +422,61 @@ const computeAutoSplitIndices = (units, numPages) => {
     }
     const totalWeight = weights.reduce((a, b) => a + b, 0);
 
+    const lineByStart = new Map();
+    lines.forEach((line, idx) => lineByStart.set(line.start, idx));
+
+    const candidates = sentenceOffsets.length >= maxPossibleBreaks ? sentenceOffsets : wordStarts;
     const splits = [];
     let cumulative = 0;
-    for (let i = 0; i < numPages - 1; i++) {
+
+    for (let i = 0; i < maxPossibleBreaks; i++) {
         cumulative += weights[i];
-        const target = Math.round((cumulative / totalWeight) * units.length);
-        const minVal = i === 0 ? 1 : splits[i - 1] + 1;
-        const maxVal = units.length - (numPages - 1 - i);
-        splits.push(Math.max(minVal, Math.min(maxVal, target)));
+        const targetChar = Math.round((cumulative / totalWeight) * textLength);
+
+        const prevSplit = i === 0 ? 0 : splits[i - 1];
+        const remainingNeeded = maxPossibleBreaks - 1 - i;
+        const maxAllowedOffset = wordStarts[wordStarts.length - 1 - remainingNeeded];
+
+        const validCandidates = candidates.filter((pos) => pos > prevSplit && pos <= maxAllowedOffset);
+        const pool = validCandidates.length > 0
+            ? validCandidates
+            : wordStarts.filter((pos) => pos > prevSplit && pos <= maxAllowedOffset);
+
+        if (pool.length === 0) break;
+
+        let chosen = pool.reduce(
+            (best, curr) => (Math.abs(curr - targetChar) < Math.abs(best - targetChar) ? curr : best),
+            pool[0]
+        );
+
+        // اگر درست بعد از یک سرتیتر یا خط شماره‌دار برش خورده، نقطه شکست را قبل از سرتیتر بیاور
+        let lineIdx = lineByStart.get(chosen);
+        let guardSteps = 0;
+        while (lineIdx !== undefined && lineIdx > 0 && guardSteps < 2) {
+            const prevLine = lines[lineIdx - 1];
+            if (prevLine.isHeadingLike && prevLine.start > prevSplit) {
+                chosen = prevLine.start;
+                lineIdx -= 1;
+                guardSteps += 1;
+            } else {
+                break;
+            }
+        }
+
+        splits.push(chosen);
     }
+
     return splits;
 };
+
+const getPageForOffset = (offset, splitOffsets) => {
+    let page = 1;
+    for (let i = 0; i < splitOffsets.length; i++) {
+        if (offset >= splitOffsets[i]) page = i + 2;
+    }
+    return page;
+};
+
 
 const SecretariatDetailScreen = () => {
     const renderFormattedNumber = (numStr) => {
@@ -468,8 +570,18 @@ const SecretariatDetailScreen = () => {
         return saved ? Math.max(1, parseInt(saved, 10) || 1) : 1;
     });
 
-    const [customSplitIndices, setCustomSplitIndices] = useState(null);
+    const [customSplitOffsets, setCustomSplitOffsets] = useState(null);
     const [showSplitModal, setShowSplitModal] = useState(false);
+    const [splitSelectMode, setSplitSelectMode] = useState('line'); // 'line' | 'word'
+    const [activeBoundaryIndex, setActiveBoundaryIndex] = useState(0);
+
+    // همگام‌سازی تعداد برگه و برش‌ها هنگام جابجایی بین نامه‌ها (مثلاً کلیک روی نامه عطف/پاسخ)
+    useEffect(() => {
+        const saved = localStorage.getItem(`letterPageCount_${id}`);
+        setPageCount(saved ? Math.max(1, parseInt(saved, 10) || 1) : 1);
+        setCustomSplitOffsets(null);
+        setActiveBoundaryIndex(0);
+    }, [id]);
 
     const [editingRefId, setEditingRefId] = useState(null);
     const [editRefText, setEditRefText] = useState("");
@@ -485,48 +597,60 @@ const SecretariatDetailScreen = () => {
         return 'معمولی A4';
     };
 
-    // واحدهای تجزیه‌شده متن بدنه نامه
-    const atomicUnits = useMemo(() => parseTextToAtomicUnits(letter?.body), [letter?.body]);
+    // ساختار سطری و کلمه‌ای متن بدنه نامه با آفست کاراکتری دقیق
+    const bodyStructure = useMemo(() => parseBodyStructure(letter?.body || ''), [letter?.body]);
 
-    // محاسبه یا بازیابی نقاط شکست صفحات
-    const currentSplitIndices = useMemo(() => {
-        if (totalPages <= 1 || atomicUnits.length <= 1) return [];
+    // محاسبه یا بازیابی آفست‌های شکست صفحات
+    const currentSplitOffsets = useMemo(() => {
+        const rawBody = letter?.body || '';
+        if (totalPages <= 1 || bodyStructure.words.length <= 1) return [];
 
-        if (customSplitIndices && customSplitIndices.length === totalPages - 1) {
-            return customSplitIndices;
+        const minValid = bodyStructure.words[1].start;
+        const maxValid = bodyStructure.words[bodyStructure.words.length - 1].start;
+
+        const isValidOffsets = (arr) =>
+            Array.isArray(arr) &&
+            arr.length === totalPages - 1 &&
+            arr.every(
+                (val, idx) =>
+                    Number.isInteger(val) &&
+                    val >= minValid &&
+                    val <= maxValid &&
+                    (idx === 0 || val > arr[idx - 1])
+            );
+
+        if (isValidOffsets(customSplitOffsets)) {
+            return customSplitOffsets;
         }
 
-        const saved = localStorage.getItem(`letterSplits_${id}_${totalPages}`);
+        const saved = localStorage.getItem(`letterCharSplits_${id}_${totalPages}`);
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length === totalPages - 1) {
+                if (isValidOffsets(parsed)) {
                     return parsed;
                 }
             } catch (e) {}
         }
 
-        return computeAutoSplitIndices(atomicUnits, totalPages);
-    }, [totalPages, atomicUnits, customSplitIndices, id]);
+        return computeAutoSplitOffsets(bodyStructure, rawBody.length, totalPages);
+    }, [totalPages, bodyStructure, customSplitOffsets, id, letter?.body]);
 
-    // تولید متن هر برگه با در نظر گرفتن نقاط شکست
+    // تولید متن هر برگه دقیقاً از روی آفست‌های شکست
     const pagesText = useMemo(() => {
-        if (totalPages <= 1 || atomicUnits.length === 0) {
-            return [letter?.body || ''];
+        const rawBody = letter?.body || '';
+        if (totalPages <= 1 || !rawBody.trim() || currentSplitOffsets.length === 0) {
+            return [rawBody];
         }
         const chunks = [];
         let start = 0;
         for (let i = 0; i < totalPages; i++) {
-            const end = i === totalPages - 1 ? atomicUnits.length : (currentSplitIndices[i] || atomicUnits.length);
-            let text = '';
-            for (let j = start; j < end; j++) {
-                if (atomicUnits[j]) text += atomicUnits[j].text + atomicUnits[j].trailingNewline;
-            }
-            chunks.push(text.trim());
+            const end = i === totalPages - 1 ? rawBody.length : (currentSplitOffsets[i] ?? rawBody.length);
+            chunks.push(rawBody.slice(start, end).trim());
             start = end;
         }
         return chunks;
-    }, [totalPages, atomicUnits, currentSplitIndices, letter?.body]);
+    }, [totalPages, currentSplitOffsets, letter?.body]);
 
     // تشخیص خودکار سرریز متن به صفحه بعدی (بیرون از برگه نمایش داده می‌شود)
     useEffect(() => {
@@ -567,39 +691,134 @@ const SecretariatDetailScreen = () => {
         return () => clearTimeout(timer);
     }, [letter, pagesText, totalPages, printMode, printFont, layoutStyles, layoutPositions]);
 
-    // انتقال سریع سطر/جمله بین برگه‌ها
-    const handleShiftLine = (boundaryIndex, direction) => {
-        if (totalPages <= 1 || currentSplitIndices.length === 0) return;
-        const newSplits = [...currentSplitIndices];
-        const minVal = boundaryIndex === 0 ? 1 : newSplits[boundaryIndex - 1] + 1;
-        const maxVal = boundaryIndex === totalPages - 2 ? atomicUnits.length - 1 : (newSplits[boundaryIndex + 1] ? newSplits[boundaryIndex + 1] - 1 : atomicUnits.length - 1);
+    // جابجایی دقیق مرز صفحه بر اساس سطر/جمله یا تک‌کلمه
+    const handleShiftBreak = (boundaryIndex, direction, unitMode = 'sentence') => {
+        if (totalPages <= 1 || currentSplitOffsets.length === 0) return;
 
-        const newVal = newSplits[boundaryIndex] + direction;
-        if (newVal >= minVal && newVal <= maxVal) {
-            newSplits[boundaryIndex] = newVal;
-            setCustomSplitIndices(newSplits);
-            localStorage.setItem(`letterSplits_${id}_${totalPages}`, JSON.stringify(newSplits));
-            toast.success(direction === 1 ? 'یک سطر به این برگه اضافه شد' : 'یک سطر به برگه بعد منتقل شد', { duration: 1100 });
+        const currentOffset = currentSplitOffsets[boundaryIndex];
+        const minOffset = boundaryIndex === 0
+            ? bodyStructure.words[1]?.start
+            : currentSplitOffsets[boundaryIndex - 1] + 1;
+        const maxOffset = boundaryIndex === currentSplitOffsets.length - 1
+            ? bodyStructure.words[bodyStructure.words.length - 1]?.start
+            : currentSplitOffsets[boundaryIndex + 1] - 1;
+
+        if (minOffset === undefined || maxOffset === undefined || minOffset > maxOffset) {
+            toast('امکان جابجایی بیشتر برای این مرز وجود ندارد', { duration: 1100 });
+            return;
+        }
+
+        const rawPoints = unitMode === 'word'
+            ? bodyStructure.words.slice(1).map((w) => w.start)
+            : (bodyStructure.sentenceOffsets.length > 0
+                ? bodyStructure.sentenceOffsets
+                : bodyStructure.words.slice(1).map((w) => w.start));
+
+        let nextOffset = null;
+        if (direction < 0) {
+            for (let i = rawPoints.length - 1; i >= 0; i--) {
+                if (rawPoints[i] < currentOffset && rawPoints[i] >= minOffset) {
+                    nextOffset = rawPoints[i];
+                    break;
+                }
+            }
+        } else {
+            for (let i = 0; i < rawPoints.length; i++) {
+                if (rawPoints[i] > currentOffset && rawPoints[i] <= maxOffset) {
+                    nextOffset = rawPoints[i];
+                    break;
+                }
+            }
+        }
+
+        if (nextOffset !== null) {
+            const newOffsets = [...currentSplitOffsets];
+            newOffsets[boundaryIndex] = nextOffset;
+            setCustomSplitOffsets(newOffsets);
+            localStorage.setItem(`letterCharSplits_${id}_${totalPages}`, JSON.stringify(newOffsets));
+            const unitLabel = unitMode === 'word' ? 'یک کلمه' : 'یک سطر';
+            toast.success(
+                direction > 0 ? `${unitLabel} به برگه قبل بازگردانده شد` : `${unitLabel} به برگه بعد منتقل شد`,
+                { duration: 1100 }
+            );
         } else {
             toast('امکان جابجایی بیشتر برای این مرز وجود ندارد', { duration: 1100 });
         }
     };
 
+    // تنظیم مستقیم نقطه برش روی هر سطر یا هر کلمه دلخواه
+    const handleApplySplitAtOffset = (targetOffset, label = '') => {
+        if (!bodyStructure.words || bodyStructure.words.length <= 1) return;
+        const minValid = bodyStructure.words[1].start;
+        const maxValid = bodyStructure.words[bodyStructure.words.length - 1].start;
+        if (targetOffset < minValid || targetOffset > maxValid) {
+            toast('امکان برش در ابتدای اولین کلمه وجود ندارد', { duration: 1200 });
+            return;
+        }
+
+        // اگر نامه فعلاً ۱ برگه باشد، با کلیک روی سطر یا کلمه، خودکار برگه دوم از همان‌جا ایجاد می‌شود
+        if (totalPages === 1) {
+            const newOffsets = [targetOffset];
+            setPageCount(2);
+            setCustomSplitOffsets(newOffsets);
+            setActiveBoundaryIndex(0);
+            localStorage.setItem(`letterPageCount_${id}`, 2);
+            localStorage.setItem(`letterCharSplits_${id}_2`, JSON.stringify(newOffsets));
+            toast.success(`برگه ۲ از ${label || 'نقطه انتخاب‌شده'} ایجاد شد`);
+            return;
+        }
+
+        const safeBoundaryIdx = Math.max(0, Math.min(activeBoundaryIndex, currentSplitOffsets.length - 1));
+        if (currentSplitOffsets.some((off, idx) => off === targetOffset && idx !== safeBoundaryIdx)) {
+            toast('این نقطه هم‌اکنون مرز برگه دیگری است', { duration: 1200 });
+            return;
+        }
+
+        const newOffsets = [...currentSplitOffsets];
+        newOffsets[safeBoundaryIdx] = targetOffset;
+        newOffsets.sort((a, b) => a - b);
+
+        const newActiveIdx = newOffsets.indexOf(targetOffset);
+        setActiveBoundaryIndex(newActiveIdx >= 0 ? newActiveIdx : safeBoundaryIdx);
+        setCustomSplitOffsets(newOffsets);
+        localStorage.setItem(`letterCharSplits_${id}_${totalPages}`, JSON.stringify(newOffsets));
+        toast.success(`شروع برگه ${toPersianDigits(newActiveIdx + 2)} از ${label || 'نقطه انتخاب‌شده'} تنظیم شد`);
+    };
+
+    // حذف یک مرز مشخص (کاهش یک برگه بدون بهم ریختن بقیه مرزها)
+    const handleRemoveBoundary = (boundaryIndex) => {
+        if (totalPages <= 1) return;
+        const nextCount = totalPages - 1;
+        const remaining = currentSplitOffsets.filter((_, idx) => idx !== boundaryIndex);
+        setPageCount(nextCount);
+        setCustomSplitOffsets(nextCount > 1 ? remaining : null);
+        setActiveBoundaryIndex((prev) => Math.max(0, Math.min(prev, nextCount - 2)));
+        localStorage.setItem(`letterPageCount_${id}`, nextCount);
+        if (nextCount > 1) {
+            localStorage.setItem(`letterCharSplits_${id}_${nextCount}`, JSON.stringify(remaining));
+        } else {
+            localStorage.removeItem(`letterCharSplits_${id}_1`);
+        }
+        toast.success(`مرز برگه حذف شد (مجموع: ${toPersianDigits(nextCount)} برگه)`);
+    };
+
     const handleSetPageCount = (targetCount) => {
         const validCount = Math.max(1, targetCount);
         setPageCount(validCount);
-        setCustomSplitIndices(null);
+        setCustomSplitOffsets(null);
+        setActiveBoundaryIndex(Math.max(0, validCount - 2));
         localStorage.setItem(`letterPageCount_${id}`, validCount);
-        localStorage.removeItem(`letterSplits_${id}_${validCount}`);
+        localStorage.removeItem(`letterCharSplits_${id}_${validCount}`);
         toast.success(`تعداد برگه‌ها روی ${toPersianDigits(validCount)} برگه تنظیم شد`);
     };
 
     const handleAddPage = () => {
         const next = totalPages + 1;
         setPageCount(next);
-        setCustomSplitIndices(null);
+        setCustomSplitOffsets(null);
+        setActiveBoundaryIndex(next - 2);
         localStorage.setItem(`letterPageCount_${id}`, next);
-        localStorage.removeItem(`letterSplits_${id}_${next}`);
+        localStorage.removeItem(`letterCharSplits_${id}_${next}`);
         toast.success(`یک برگه اضافه شد (مجموع: ${toPersianDigits(next)} برگه)`);
     };
 
@@ -607,16 +826,17 @@ const SecretariatDetailScreen = () => {
         if (totalPages <= 1) return toast.error('حداقل ۱ برگه مورد نیاز است');
         const prev = totalPages - 1;
         setPageCount(prev);
-        setCustomSplitIndices(null);
+        setCustomSplitOffsets(null);
+        setActiveBoundaryIndex(Math.max(0, prev - 2));
         localStorage.setItem(`letterPageCount_${id}`, prev);
-        localStorage.removeItem(`letterSplits_${id}_${prev}`);
+        localStorage.removeItem(`letterCharSplits_${id}_${prev}`);
         toast.success(`یک برگه کسر شد (مجموع: ${toPersianDigits(prev)} برگه)`);
     };
 
     const handleResetSplitsToAuto = () => {
-        setCustomSplitIndices(null);
-        localStorage.removeItem(`letterSplits_${id}_${totalPages}`);
-        toast.success('تقسیم متن به حالت متوازن بازنشانی شد');
+        setCustomSplitOffsets(null);
+        localStorage.removeItem(`letterCharSplits_${id}_${totalPages}`);
+        toast.success('تقسیم متن به حالت هوشمند (بدون شکست سرشماره‌ها) بازنشانی شد');
     };
 
     // تفکیک پیوست‌های تصویری و PDF برای نمایش در نامه وارده
@@ -1402,90 +1622,288 @@ const SecretariatDetailScreen = () => {
                 </div>
             )}
 
-            {/* پنجره تنظیم نقطه شکست خطوط بین صفحات */}
+            {/* پنجره تنظیم نقطه شکست صفحات (سطری و کلمه‌ای) */}
             {showSplitModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 print:hidden animate-fadeIn">
-                    <div className={`w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-gray-800 border-gray-200'}`}>
-                        <div className="flex items-center justify-between border-b px-4 sm:px-6 py-3.5 border-gray-200 dark:border-slate-700">
+                    <div className={`w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl shadow-2xl border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-gray-800 border-gray-200'}`}>
+                        {/* هدر مودال */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 sm:px-6 py-3.5 border-gray-200 dark:border-slate-700">
                             <h3 className="font-black text-sm sm:text-base flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                                <FaCut /> تنظیم نقطه شکست خطوط بین صفحات ({toPersianDigits(totalPages)} برگه)
+                                <FaCut /> تنظیم نقطه شکست صفحات ({toPersianDigits(totalPages)} برگه)
                             </h3>
-                            <button onClick={() => setShowSplitModal(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded-lg border border-gray-200 dark:border-slate-700 text-xs font-bold">
+                                    <button
+                                        type="button"
+                                        onClick={handleRemovePage}
+                                        disabled={totalPages <= 1}
+                                        className="p-1 hover:text-red-500 disabled:opacity-30 transition"
+                                        title="کاهش تعداد برگه"
+                                    >
+                                        <FaMinus size={9} />
+                                    </button>
+                                    <span className="px-1.5 font-mono text-blue-600 dark:text-blue-400">
+                                        {toPersianDigits(totalPages)} برگه
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddPage}
+                                        className="p-1 hover:text-emerald-500 transition"
+                                        title="افزودن برگه جدید"
+                                    >
+                                        <FaPlus size={9} />
+                                    </button>
+                                </div>
+                                <button onClick={() => setShowSplitModal(false)} className="text-gray-400 hover:text-gray-600 text-lg px-1">✕</button>
+                            </div>
                         </div>
 
-                        <div className="p-3 sm:p-4 bg-blue-50/50 dark:bg-blue-950/20 border-b border-blue-100 dark:border-blue-900/30 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
-                            سطر یا پاراگرافی که می‌خواهید آغازگر برگه بعدی باشد را انتخاب کنید. با کلیک بر روی دکمه برش در هر سطر، نقطه شکست فوراً تغییر می‌کند.
+                        {/* نوار انتخاب حالت (سطری / کلمه‌ای) و انتخاب مرز فعال */}
+                        <div className={`p-3 sm:px-6 border-b space-y-2.5 ${isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-blue-50/50 border-blue-100'}`}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="inline-flex rounded-xl p-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 shadow-xs text-xs font-bold">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSplitSelectMode('line')}
+                                        className={`px-3 py-1.5 rounded-lg transition ${
+                                            splitSelectMode === 'line'
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        📄 برش بر اساس سطر
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSplitSelectMode('word')}
+                                        className={`px-3 py-1.5 rounded-lg transition ${
+                                            splitSelectMode === 'word'
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        🔤 برش دقیق روی هر کلمه
+                                    </button>
+                                </div>
+
+                                {totalPages > 1 && (
+                                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+                                        <span className="opacity-70">مرز در حال تنظیم:</span>
+                                        {currentSplitOffsets.map((_, bIdx) => (
+                                            <div key={bIdx} className="inline-flex items-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActiveBoundaryIndex(bIdx)}
+                                                    className={`px-2.5 py-1 rounded-r-lg border transition ${
+                                                        activeBoundaryIndex === bIdx
+                                                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                                            : 'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:border-emerald-500'
+                                                    }`}
+                                                >
+                                                    برگه {toPersianDigits(bIdx + 1)} ← {toPersianDigits(bIdx + 2)}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveBoundary(bIdx)}
+                                                    className="px-1.5 py-1 rounded-l-lg border border-r-0 border-gray-300 dark:border-slate-600 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 transition"
+                                                    title={`حذف مرز برگه ${toPersianDigits(bIdx + 2)}`}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <p className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                                {totalPages === 1
+                                    ? splitSelectMode === 'word'
+                                        ? 'روی هر کلمه‌ای کلیک کنید تا برگه ۲ دقیقاً از ابتدای همان کلمه ساخته شود.'
+                                        : 'روی دکمه «برش از اینجا» در هر سطر کلیک کنید تا برگه ۲ از ابتدای آن سطر شروع شود.'
+                                    : splitSelectMode === 'word'
+                                        ? `روی هر کلمه‌ای کلیک کنید تا «برگه ${toPersianDigits(Math.min(activeBoundaryIndex, totalPages - 2) + 2)}» دقیقاً از ابتدای همان کلمه شروع شود.`
+                                        : `سطری که می‌خواهید آغازگر «برگه ${toPersianDigits(Math.min(activeBoundaryIndex, totalPages - 2) + 2)}» باشد را انتخاب کنید.`}
+                            </p>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                            {atomicUnits.map((unit, uIdx) => {
-                                let pageOfUnit = 1;
-                                for (let s = 0; s < currentSplitIndices.length; s++) {
-                                    if (uIdx >= currentSplitIndices[s]) pageOfUnit = s + 2;
-                                }
+                        {/* بدنه مودال */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+                            {bodyStructure.lines.length === 0 ? (
+                                <div className="text-center py-10 text-xs opacity-60">متنی برای تقسیم وجود ندارد.</div>
+                            ) : splitSelectMode === 'line' ? (
+                                /* حالت سطری */
+                                bodyStructure.lines.map((line) => {
+                                    const pageOfLineStart = getPageForOffset(line.start, currentSplitOffsets);
+                                    const splitAtLineStartIdx = currentSplitOffsets.indexOf(line.start);
+                                    const isSplitAtStart = splitAtLineStartIdx !== -1;
 
-                                const isSplitBoundary = currentSplitIndices.includes(uIdx);
+                                    // اگر قبلاً وسط این سطر برش کلمه‌ای خورده باشد، همان را وسط سطر نمایش می‌دهیم
+                                    const inlineSplits = currentSplitOffsets.filter((off) => off > line.start && off < line.end);
 
-                                return (
-                                    <React.Fragment key={unit.id}>
-                                        {isSplitBoundary && (
-                                            <div className="flex items-center gap-2 my-2 py-1.5 px-3 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-400 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-sm">
-                                                <FaCut className="rotate-180" />
-                                                <span>✂️ شروع برگه {toPersianDigits(pageOfUnit)} از این خط</span>
-                                            </div>
-                                        )}
-
-                                        <div className={`p-2.5 rounded-xl border flex items-start justify-between gap-3 transition text-xs ${
-                                            isSplitBoundary 
-                                                ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800' 
-                                                : isDark ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500' : 'bg-gray-50 border-gray-200 hover:border-blue-400'
-                                        }`}>
-                                            <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                                                <span className="font-mono font-bold text-[10px] text-gray-400 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded shrink-0">
-                                                    #{toPersianDigits(uIdx + 1)}
+                                    const renderLineContent = () => {
+                                        if (inlineSplits.length === 0) return line.text;
+                                        const rawBody = letter?.body || '';
+                                        const segments = [];
+                                        let cursor = line.start;
+                                        inlineSplits.forEach((off, idx) => {
+                                            const bIdx = currentSplitOffsets.indexOf(off);
+                                            segments.push(
+                                                <span key={`seg-${idx}`}>{rawBody.slice(cursor, off)}</span>
+                                            );
+                                            segments.push(
+                                                <span
+                                                    key={`cut-${idx}`}
+                                                    className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-black align-middle"
+                                                >
+                                                    ✂️ برگه {toPersianDigits(bIdx + 2)}
                                                 </span>
-                                                <span className="leading-relaxed whitespace-pre-wrap font-medium">
-                                                    {unit.text}
-                                                </span>
-                                            </div>
+                                            );
+                                            cursor = off;
+                                        });
+                                        segments.push(<span key="seg-end">{rawBody.slice(cursor, line.end)}</span>);
+                                        return segments;
+                                    };
 
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                                                    برگه {toPersianDigits(pageOfUnit)}
-                                                </span>
+                                    return (
+                                        <React.Fragment key={line.index}>
+                                            {isSplitAtStart && (
+                                                <div
+                                                    onClick={() => setActiveBoundaryIndex(splitAtLineStartIdx)}
+                                                    className={`cursor-pointer flex items-center justify-between gap-2 my-2 py-1.5 px-3 rounded-lg border text-xs font-black shadow-sm transition ${
+                                                        activeBoundaryIndex === splitAtLineStartIdx
+                                                            ? 'bg-emerald-100 dark:bg-emerald-950/70 border-emerald-500 text-emerald-800 dark:text-emerald-300'
+                                                            : 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400'
+                                                    }`}
+                                                >
+                                                    <span className="flex items-center gap-2">
+                                                        <FaCut className="rotate-180" />
+                                                        <span>✂️ شروع برگه {toPersianDigits(splitAtLineStartIdx + 2)} از ابتدای این سطر</span>
+                                                    </span>
+                                                    <span className="text-[10px] opacity-75">
+                                                        {activeBoundaryIndex === splitAtLineStartIdx ? 'مرز فعال' : 'کلیک برای انتخاب مرز'}
+                                                    </span>
+                                                </div>
+                                            )}
 
-                                                {uIdx > 0 && totalPages > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const boundaryToMove = Math.min(pageOfUnit - 1, totalPages - 2);
-                                                            const newSplits = [...currentSplitIndices];
-                                                            newSplits[boundaryToMove] = uIdx;
-                                                            newSplits.sort((a, b) => a - b);
-                                                            setCustomSplitIndices(newSplits);
-                                                            localStorage.setItem(`letterSplits_${id}_${totalPages}`, JSON.stringify(newSplits));
-                                                            toast.success(`شروع برگه از سطر #${toPersianDigits(uIdx + 1)} تنظیم شد`);
-                                                        }}
-                                                        className="px-2 py-1 rounded bg-white dark:bg-slate-700 border hover:bg-gray-100 text-[10px] font-bold text-gray-700 dark:text-gray-200 transition"
-                                                        title="برش صفحه از ابتدای این سطر"
-                                                    >
-                                                        ✂️ برش از اینجا
-                                                    </button>
-                                                )}
+                                            <div
+                                                className={`p-2.5 rounded-xl border flex items-start justify-between gap-3 transition text-xs ${
+                                                    isSplitAtStart || inlineSplits.length > 0
+                                                        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800'
+                                                        : isDark
+                                                            ? 'bg-slate-800/80 border-slate-700 hover:border-blue-500'
+                                                            : 'bg-gray-50 border-gray-200 hover:border-blue-400'
+                                                }`}
+                                            >
+                                                <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                                    <span className="font-mono font-bold text-[10px] text-gray-400 bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded shrink-0">
+                                                        #{toPersianDigits(line.index + 1)}
+                                                    </span>
+                                                    <span className="leading-relaxed whitespace-pre-wrap font-medium break-words">
+                                                        {renderLineContent()}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                                        برگه {toPersianDigits(pageOfLineStart)}
+                                                    </span>
+
+                                                    {line.index > 0 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleApplySplitAtOffset(line.start, `سطر #${toPersianDigits(line.index + 1)}`)}
+                                                            className="px-2 py-1 rounded-lg bg-white dark:bg-slate-700 border border-gray-300 dark:border-slate-600 hover:bg-blue-600 hover:text-white hover:border-blue-600 text-[10px] font-bold text-gray-700 dark:text-gray-200 transition"
+                                                            title="شروع برگه بعدی از ابتدای این سطر"
+                                                        >
+                                                            ✂️ برش از اینجا
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
+                                        </React.Fragment>
+                                    );
+                                })
+                            ) : (
+                                /* حالت کلمه‌به‌کلمه */
+                                bodyStructure.lines.map((line) => (
+                                    <div
+                                        key={line.index}
+                                        className={`p-3 rounded-xl border text-xs leading-8 ${
+                                            isDark ? 'bg-slate-800/70 border-slate-700' : 'bg-gray-50/90 border-gray-200'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-gray-200/60 dark:border-slate-700/70">
+                                            <span className="font-mono font-bold text-[10px] text-gray-400">
+                                                سطر #{toPersianDigits(line.index + 1)}
+                                            </span>
+                                            <span className="text-[10px] opacity-60">
+                                                روی کلمه دلخواه کلیک کنید تا صفحه از ابتدای آن کلمه بشکند
+                                            </span>
                                         </div>
-                                    </React.Fragment>
-                                );
-                            })}
+
+                                        <div className="flex flex-wrap items-center gap-y-1.5">
+                                            {line.words.map((word) => {
+                                                const splitIdx = currentSplitOffsets.indexOf(word.start);
+                                                const isSplitWord = splitIdx !== -1;
+                                                const pageOfWord = getPageForOffset(word.start, currentSplitOffsets);
+                                                const isFirstWordOverall = word.index === 0;
+
+                                                return (
+                                                    <React.Fragment key={word.index}>
+                                                        {isSplitWord && (
+                                                            <span
+                                                                onClick={() => setActiveBoundaryIndex(splitIdx)}
+                                                                className={`cursor-pointer inline-flex items-center gap-1 mx-1.5 px-2 py-0.5 rounded-md text-[10px] font-black shadow-sm ${
+                                                                    activeBoundaryIndex === splitIdx
+                                                                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                                                                        : 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 border border-emerald-400'
+                                                                }`}
+                                                                title="کلیک برای فعال کردن این مرز"
+                                                            >
+                                                                ✂️ شروع برگه {toPersianDigits(splitIdx + 2)}
+                                                            </span>
+                                                        )}
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isFirstWordOverall}
+                                                            onClick={() => handleApplySplitAtOffset(word.start, `کلمه «${word.text}»`)}
+                                                            className={`px-1 py-0.5 mx-0.5 rounded transition border text-xs font-medium ${
+                                                                isFirstWordOverall
+                                                                    ? 'border-transparent opacity-60 cursor-default'
+                                                                    : isSplitWord
+                                                                        ? 'bg-emerald-100/80 dark:bg-emerald-950/60 border-emerald-400 text-emerald-900 dark:text-emerald-200 font-bold'
+                                                                        : pageOfWord % 2 === 1
+                                                                            ? 'border-transparent hover:border-r-2 hover:border-r-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-gray-800 dark:text-gray-100'
+                                                                            : 'border-transparent bg-amber-50/70 dark:bg-amber-950/25 hover:border-r-2 hover:border-r-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-gray-800 dark:text-gray-100'
+                                                            }`}
+                                                            title={
+                                                                isFirstWordOverall
+                                                                    ? 'ابتدای نامه'
+                                                                    : `برگه ${toPersianDigits(pageOfWord)} — کلیک برای شروع برگه بعدی از «${word.text}»`
+                                                            }
+                                                        >
+                                                            {word.text}
+                                                        </button>
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
 
+                        {/* فوتر مودال */}
                         <div className="flex items-center justify-between border-t px-4 sm:px-6 py-3 bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-slate-700">
                             <button
                                 type="button"
                                 onClick={handleResetSplitsToAuto}
                                 className="px-3 py-1.5 rounded-lg border text-xs font-bold bg-white dark:bg-slate-800 hover:bg-gray-100 text-gray-700 dark:text-gray-300 transition"
                             >
-                                🔄 بازنشانی به تقسیم خودکار
+                                🔄 بازنشانی به تقسیم هوشمند
                             </button>
                             <button
                                 type="button"
@@ -1665,6 +2083,18 @@ const SecretariatDetailScreen = () => {
                                                     <FaPlus size={8} /> <span>افزودن برگه</span>
                                                 </button>
                                             </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowPrintMenu(false);
+                                                    setActiveBoundaryIndex(Math.max(0, totalPages - 2));
+                                                    setShowSplitModal(true);
+                                                }}
+                                                className="w-full mt-2 py-1.5 text-[11px] font-bold rounded border border-blue-200 dark:border-blue-800 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 transition flex items-center justify-center gap-1.5"
+                                            >
+                                                <FaCut size={10} /> <span>انتخاب دستی سطر / کلمه شکست صفحه</span>
+                                            </button>
                                         </div>
 
                                         <button onClick={() => handlePrintAction('BLANK')} className={`w-full text-right px-4 py-2 text-xs sm:text-sm font-bold border-b transition hover:bg-gray-50 dark:hover:bg-slate-700 ${isDark ? 'border-slate-700 text-gray-200' : 'border-gray-100 text-gray-800'}`}>
@@ -1811,12 +2241,24 @@ const SecretariatDetailScreen = () => {
                             </button>
                         </div>
 
-                        {/* افزودن / کاهش سریع برگه */}
+                        {/* افزودن / کاهش سریع برگه و برش دستی */}
                         <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-amber-300 shadow-sm">
                             <span className="text-[11px] font-black">برگه‌ها:</span>
                             <button type="button" onClick={handleRemovePage} disabled={totalPages <= 1} className="p-1 hover:text-red-600 disabled:opacity-40" title="کاهش برگه"><FaMinus size={8} /></button>
                             <span className="font-mono text-[11px] font-black text-blue-700 px-1">{toPersianDigits(totalPages)}</span>
                             <button type="button" onClick={handleAddPage} className="p-1 hover:text-emerald-600" title="افزودن برگه"><FaPlus size={8} /></button>
+                            <span className="h-4 w-px bg-amber-200 mx-0.5" />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveBoundaryIndex(Math.max(0, totalPages - 2));
+                                    setShowSplitModal(true);
+                                }}
+                                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-black transition"
+                                title="انتخاب سطر یا کلمه شروع صفحه بعد"
+                            >
+                                <FaCut size={9} /> <span>برش صفحه</span>
+                            </button>
                         </div>
 
                         {/* کنترلر حاشیه‌های کل برگه */}
@@ -2113,8 +2555,8 @@ const SecretariatDetailScreen = () => {
                                     {pIndex > 0 && (
                                         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 my-5 print:hidden select-none">
                                             <div className="h-px bg-gray-300 dark:bg-slate-700 flex-1 min-w-[20px]"></div>
-                                            
-                                            <div className="flex flex-wrap items-center gap-2 bg-white dark:bg-slate-800 p-1.5 px-3 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">
+
+                                            <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 bg-white dark:bg-slate-800 p-1.5 px-3 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-md">
                                                 <span className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-2.5 py-1 rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5">
                                                     <FaCopy size={11} />
                                                     <span>پایان برگه {toPersianDigits(pIndex)} — شروع برگه {toPersianDigits(pageNum)}</span>
@@ -2122,14 +2564,15 @@ const SecretariatDetailScreen = () => {
 
                                                 <div className="h-4 w-px bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
 
+                                                {/* جابجایی سطری */}
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleShiftLine(pIndex - 1, -1);
+                                                        handleShiftBreak(pIndex - 1, -1, 'sentence');
                                                     }}
-                                                    className="cursor-pointer flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-blue-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-200 text-[10px] font-bold transition shadow-xs active:scale-95"
-                                                    title="انتقال آخرین سطر برگه قبل به این برگه"
+                                                    className="cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-blue-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-200 text-[10px] font-bold transition active:scale-95"
+                                                    title="انتقال آخرین سطر/جمله برگه قبل به این برگه"
                                                 >
                                                     <FaMinus size={8} /> سطر به برگه {toPersianDigits(pageNum)}
                                                 </button>
@@ -2138,24 +2581,52 @@ const SecretariatDetailScreen = () => {
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleShiftLine(pIndex - 1, 1);
+                                                        handleShiftBreak(pIndex - 1, 1, 'sentence');
                                                     }}
-                                                    className="cursor-pointer flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-blue-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-200 text-[10px] font-bold transition shadow-xs active:scale-95"
-                                                    title="بازگرداندن سطر اول این برگه به برگه قبل"
+                                                    className="cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 hover:bg-blue-100 dark:bg-slate-700 dark:hover:bg-slate-600 border border-gray-300 dark:border-slate-600 text-gray-800 dark:text-gray-200 text-[10px] font-bold transition active:scale-95"
+                                                    title="بازگرداندن سطر/جمله اول این برگه به برگه قبل"
                                                 >
                                                     <FaPlus size={8} /> سطر به برگه {toPersianDigits(pIndex)}
+                                                </button>
+
+                                                <div className="h-4 w-px bg-gray-300 dark:bg-slate-600 hidden sm:block"></div>
+
+                                                {/* جابجایی تک‌کلمه‌ای */}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleShiftBreak(pIndex - 1, -1, 'word');
+                                                    }}
+                                                    className="cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-[10px] font-bold transition active:scale-95"
+                                                    title="انتقال آخرین کلمه برگه قبل به این برگه"
+                                                >
+                                                    <FaMinus size={8} /> کلمه
                                                 </button>
 
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        handleShiftBreak(pIndex - 1, 1, 'word');
+                                                    }}
+                                                    className="cursor-pointer flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-[10px] font-bold transition active:scale-95"
+                                                    title="بازگرداندن اولین کلمه این برگه به برگه قبل"
+                                                >
+                                                    <FaPlus size={8} /> کلمه
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveBoundaryIndex(pIndex - 1);
                                                         setShowSplitModal(true);
                                                     }}
                                                     className="cursor-pointer px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold transition shadow-xs active:scale-95 flex items-center gap-1"
-                                                    title="مشاهده تمام خطوط و انتخاب دستی شکست"
+                                                    title="انتخاب دستی سطر یا کلمه شروع برگه"
                                                 >
-                                                    <FaCut size={9} /> <span>انتخاب دقیق خط...</span>
+                                                    <FaCut size={9} /> <span>انتخاب سطر / کلمه...</span>
                                                 </button>
                                             </div>
 
